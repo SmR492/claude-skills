@@ -1,0 +1,25 @@
+{
+  "name": "claude-skills",
+  "owner": {
+    "name": "SmR492",
+    "url": "https://github.com/SmR492"
+  },
+  "metadata": {
+    "description": "Deterministische CDP5-T1-Skills (read-only Detektoren/Reports) als Claude-Code-Marketplace.",
+    "version": "0.1.0"
+  },
+  "plugins": [
+    {
+      "name": "cdp5-gates",
+      "source": "./plugins/cdp5-gates",
+      "description": "Read-only deterministische T1-Skills nach CDP5 §32.9: konzept-mapper, wiki-lint, konzept-model-api, test-gap, roadmap-drift, retro-memory-loop-check, mcp-config-lint, secrets-scan. Reproduzierbar (Programm, kein LLM); Output ist der Beleg.",
+      "version": "0.1.0"
+    },
+    {
+      "name": "cdp5-agents",
+      "source": "./plugins/cdp5-agents",
+      "description": "Projektunabhängige CDP5-Methodik-Agents (Judgment, read-only): konzept-reviewer, review-verify, adversarial-auditor, threat-modeler, mcp-security-reviewer.",
+      "version": "0.1.0"
+    }
+  ]
+}
