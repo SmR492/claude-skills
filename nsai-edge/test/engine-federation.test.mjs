@@ -233,6 +233,22 @@ test('SEC-8: untrusted/limited Re-Assert inflationiert die Live-Konfidenz eines 
   assert.equal(c._getEdge(hash).confidence, before); // limited hebt nicht an
 });
 
+test('SEC-9: limited-Origin kapert kein belief-relevantes Feld eines höher-vertrauten gleich-Tier-Edges (Recency/Provenienz)', () => {
+  const c = fresh();
+  c.peerAdd('peer:good', fresh().identity.publicKeyPem); c.peerTrust('peer:good', 'full');
+  c.peerAdd('peer:lim', fresh().identity.publicKeyPem); c.peerTrust('peer:lim', 'limited');
+  const hash = tripleHash('Thema', 'ist', 'Alpha');
+  c.mergeIncoming(makeWire('Thema', 'ist', 'Alpha', 600, { 'peer:good': 1 }, 'peer:good', 'web'), { peerTrust: 'full' });
+  const before = c._getEdge(hash);
+  // limited re-assertet denselben Hash: altes Datum + höhere asserted_confidence → darf NICHT kapern
+  const w = makeWire('Thema', 'ist', 'Alpha', 900, { 'peer:lim': 1 }, 'peer:lim', 'web'); w.asserted_at = '2010-01-01T00:00:00Z';
+  c.mergeIncoming(w, { peerTrust: 'limited' });
+  const after = c._getEdge(hash);
+  assert.equal(after.origin_peer_id, 'peer:good'); // Provenienz nicht gekapert
+  assert.equal(after.asserted_at, before.asserted_at); // Recency nicht kollabiert
+  assert.equal(after.source_type, before.source_type);
+});
+
 test('🟡-2: Belief-Auflösung ist ingest-reihenfolge-unabhängig (Föderations-Determinismus)', () => {
   const mk = () => { const e = fresh(); return e; };
   const a = mk(); const b = mk();

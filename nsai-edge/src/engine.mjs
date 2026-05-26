@@ -348,14 +348,18 @@ export class Engine {
       // Provenienz folgt der höheren AUTORITÄT, nicht der höheren Konfidenz (Fix 🟡4) —
       // sonst könnte eine niedrig-autoritative aber hoch-konfidente Quelle den source_type kapern.
       // Live-Konfidenz bleibt CRDT-max. Gespeicherte Aussage bleibt eine kohärente, signierte Origin-Aussage.
-      // EFFEKTIVE Tier (trust-gekappt) entscheidet über die Provenienz — sonst könnte ein
-      // limited-Origin mit gefälschtem source_type='gesetz' die Provenienz eines höher-vertrauten
-      // Edges kapern und (über Export) downstream Spoofing verbreiten (Fix 🔴-1, Review 0004).
+      // Provenienz-Übernahme ist TRUST-ASYMMETRISCH: ein niedriger-vertrautes Incoming darf ein
+      // höher-vertrautes Edge in KEINEM belief-relevanten Feld (source_type/asserted_at/origin)
+      // kapern. Präzedenz lexikografisch: (effektive Stufe, Origin-Trust-Rang, asserted_confidence,
+      // origin_id). Schließt die Fehlerklasse generell — nicht nur eine Achse (Reviews 0004/0005/0006).
+      const trustRank = (t) => ({ untrusted: 0, limited: 1, full: 2, authoritative: 3 }[t] ?? 0);
       const incTier = Math.min(this._sourceTier(sourceType), this._trustTierCap(peerTrust));
       const exTier = Math.min(this._sourceTier(existing.source_type), this._trustTierCap(this._originTrust(existing.origin_peer_id)));
+      const incR = trustRank(peerTrust); const exR = trustRank(this._originTrust(existing.origin_peer_id));
       const incWins = incTier > exTier
-        || (incTier === exTier && asserted > existing.asserted_confidence)
-        || (incTier === exTier && asserted === existing.asserted_confidence && wire.origin_peer_id < existing.origin_peer_id);
+        || (incTier === exTier && incR > exR)
+        || (incTier === exTier && incR === exR && asserted > existing.asserted_confidence)
+        || (incTier === exTier && incR === exR && asserted === existing.asserted_confidence && wire.origin_peer_id < existing.origin_peer_id);
       if (incWins) {
         this.db.prepare("UPDATE knowledge_edges SET confidence=?, asserted_confidence=?, source_type=?, asserted_at=?, origin_peer_id=?, relayed_by=?, signature=?, vector_clock=?, updated_at=datetime('now') WHERE triple_hash=?")
           .run(liveConf, asserted, sourceType, assertedAt, wire.origin_peer_id, wire.relayed_by ?? null, wire.signature, JSON.stringify(vc), wire.triple_hash);
