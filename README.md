@@ -22,6 +22,9 @@ Ein **Claude-Code-Plugin-Marketplace** mit projektunabhängigen, deterministisch
 | **mcp-config-lint** | MCP-Config-Risiken (Tool-Poisoning, Rug-Pull, Cleartext-Secrets) | `--config=…` |
 | **secrets-scan** | Klartext-Secrets im Repo (Keys/Tokens/Private-Keys/.env) | `--repo=…` |
 | **cdp5-reference** | CDP5-Doktrin abfragbar nach §-Nummer oder Schlagwort (just-in-time, statt 2000 Zeilen) | `--section=… \| --keyword=… \| --list` |
+| **konzept-lint** | Konzept-Struktur + AC-Tabellen + binär/verifizierbare AC + bedingt LLM-/RAG-Felder + deterministischer Teil-Score (konfig. Rubrik) | `--konzept=… [--rubric=…]` |
+| **ac-to-test-scaffold** | failing Test-Skelette AUS den Konzept-AC (TDD-First, druckt read-only) | `--konzept=… [--lang=php\|js]` |
+| **pii-scan** | Klartext-PII (E-Mail/IBAN/Telefon/Kreditkarte+Luhn), redacted, Hybrid | `--repo=…` |
 
 Alle Skills sind **read-only**, **parametrisiert** (kein projektspezifischer Pfad/Code eingebacken) und **dependency-frei** (nur `node:`-Builtins). Jeder liefert einen Report; der Main-Agent handelt darauf.
 
