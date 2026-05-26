@@ -356,10 +356,15 @@ export class Engine {
       const incTier = Math.min(this._sourceTier(sourceType), this._trustTierCap(peerTrust));
       const exTier = Math.min(this._sourceTier(existing.source_type), this._trustTierCap(this._originTrust(existing.origin_peer_id)));
       const incR = trustRank(peerTrust); const exR = trustRank(this._originTrust(existing.origin_peer_id));
-      const incWins = incTier > exTier
-        || (incTier === exTier && incR > exR)
-        || (incTier === exTier && incR === exR && asserted > existing.asserted_confidence)
-        || (incTier === exTier && incR === exR && asserted === existing.asserted_confidence && wire.origin_peer_id < existing.origin_peer_id);
+      // PROVENIENZ-Übernahme (gleicher Hash, wessen signierter Record bleibt): Origin-Trust ist
+      // PRIMÄR — ein niedriger-vertrauter Peer übernimmt NIE den Record eines höher-vertrauten,
+      // egal welche Autoritäts-Stufe sein source_type-Anspruch erreicht. Schließt die Fehlerklasse
+      // endgültig (auch der effTier-Sprung durch niedrigeren Trust greift nicht). Hinweis: die
+      // BELIEF-Auflösung zwischen VERSCHIEDENEN Objekten bleibt autoritäts-primär (andere Operation).
+      const incWins = incR > exR
+        || (incR === exR && incTier > exTier)
+        || (incR === exR && incTier === exTier && asserted > existing.asserted_confidence)
+        || (incR === exR && incTier === exTier && asserted === existing.asserted_confidence && wire.origin_peer_id < existing.origin_peer_id);
       if (incWins) {
         this.db.prepare("UPDATE knowledge_edges SET confidence=?, asserted_confidence=?, source_type=?, asserted_at=?, origin_peer_id=?, relayed_by=?, signature=?, vector_clock=?, updated_at=datetime('now') WHERE triple_hash=?")
           .run(liveConf, asserted, sourceType, assertedAt, wire.origin_peer_id, wire.relayed_by ?? null, wire.signature, JSON.stringify(vc), wire.triple_hash);

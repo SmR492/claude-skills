@@ -249,6 +249,20 @@ test('SEC-9: limited-Origin kapert kein belief-relevantes Feld eines höher-vert
   assert.equal(after.source_type, before.source_type);
 });
 
+test('SEC-10: niedriger-vertrauter Peer kapert auch per effTier-Sprung keine höher-vertraute Provenienz', () => {
+  const c = fresh();
+  c.peerAdd('peer:good', fresh().identity.publicKeyPem); c.peerTrust('peer:good', 'full');
+  c.peerAdd('peer:lim', fresh().identity.publicKeyPem); c.peerTrust('peer:lim', 'limited');
+  const hash = tripleHash('Aussage', 'ist', 'Falsch');
+  // full-Origin behauptet als llm (effTier 0):
+  c.mergeIncoming(makeWire('Aussage', 'ist', 'Falsch', 600, { 'peer:good': 1 }, 'peer:good', 'llm'), { peerTrust: 'full' });
+  // limited-Origin re-assertet als web (effTier 1 > 0) — darf NICHT übernehmen (Trust primär):
+  c.mergeIncoming(makeWire('Aussage', 'ist', 'Falsch', 900, { 'peer:lim': 1 }, 'peer:lim', 'web'), { peerTrust: 'limited' });
+  const e = c._getEdge(hash);
+  assert.equal(e.origin_peer_id, 'peer:good');
+  assert.equal(e.source_type, 'llm'); // effTier-Sprung durch niedrigeren Trust blockiert
+});
+
 test('🟡-2: Belief-Auflösung ist ingest-reihenfolge-unabhängig (Föderations-Determinismus)', () => {
   const mk = () => { const e = fresh(); return e; };
   const a = mk(); const b = mk();
