@@ -1,6 +1,6 @@
 # claude-skills — Anwender-Konzept
 
-**Version:** 1.4
+**Version:** 1.5
 **Stand:** Mai 2026
 **Scope:** Ein projektunabhängiger Claude-Code-Marketplace, der **CDP5-basierte Skills und Agents** bereitstellt, mit denen ein KI-Orchestrator Konzept→Code-Arbeit **effektiv** (geringer Tokenverbrauch), **schnell** (< 5 min je interaktivem Schritt) und **genau** (Konzept-Reife ≥ 9,0/10, ≤ 3 Drifts je Konzeptumsetzung) leistet. **Nicht enthalten:** projekt-/framework-spezifische Implementierungs-Agents (bleiben lokal beim jeweiligen Projekt), Code-mutierende Automatik ohne Mensch-Gate, eigene LLM-Inferenz (nutzt Claude Code).
 
@@ -10,12 +10,12 @@ Das System mischt **deterministische Skills** (T1, kein LLM — reproduzierbar, 
 
 | UC | Toleranz-Schwelle | Validierungsstrategie | Fallback | EU-AI-Act-Klasse |
 |---|---|---|---|---|
-| UC-01 Konzept-Review | ~90 % (Score-Vorschlag) | `review-verify` (§10.6) + Architekt-Sign-off | Architekt entscheidet, iteriert | minimal¹ |
-| UC-02/03/04 (T1) | n/a (deterministisch) | Output = Beleg (Exit-Code) | — | minimal¹ |
-| UC-05 Threat/MCP-Review | ~85 % | deterministische Vor-Checks (secrets-scan/mcp-config-lint) + Security-Sign-off | Senior-Review | minimal¹ |
-| UC-06 Adversarial-Audit | n/a (gegnerisch, kein Auto-Merge) | empirische Gegenprobe + Operator-Entscheid | Eskalation an Operator | minimal¹ |
+| UC-01 Konzept-Review | ~90 % (Score-Vorschlag) | `review-verify` (§10.6) + Architekt-Sign-off | Architekt entscheidet, iteriert | minimal |
+| UC-02/03/04 (T1) | n/a (deterministisch) | Output = Beleg (Exit-Code) | — | minimal |
+| UC-05 Threat/MCP-Review | ~85 % | deterministische Vor-Checks (secrets-scan/mcp-config-lint) + Security-Sign-off | Senior-Review | minimal |
+| UC-06 Adversarial-Audit | n/a (gegnerisch, kein Auto-Merge) | empirische Gegenprobe + Operator-Entscheid | Eskalation an Operator | minimal |
 
-¹ **Architekt-Festlegung (offen, §1.9/§11.2):** read-only Code-/Doku-Analyse ohne Personen-/Kreditentscheidung → **minimal** plausibel; regulatorisch vom Architekten zu bestätigen.
+**EU-AI-Act-Klasse = minimal** (Architekt-Festlegung 2026-05-26, §23): alle UCs sind read-only Code-/Doku-Analyse + Judgment-Vorschläge ohne automatisierte Entscheidung über Personen/Kredit/Biometrie/kritische Infrastruktur → *minimal risk*. Pro Konsument deklarier- und via `profile-check` gegen `project-profile.md` (`eu_ai_act_class`) verifizierbar.
 
 ## Vendor-Risiko-Statement (§2.7)
 
@@ -114,7 +114,7 @@ Drei gleichberechtigte Qualitätsziele, je mit Messgröße, Mechanik und Schwell
 2. Skill mit strukturiertem Input (Pfade/Args) aufrufen; Output = Report (Exit-Code = Pass/Fail).
 3. Orchestrator interpretiert den Report (LLM-Schale um den deterministischen Kern).
 
-**T1-Skill-Vertrag (generisch, für alle 9 Skills aus §7):** Input = Args `--<name>=<wert>`; Output = Report (stdout) + Exit-Code (`0` Pass · `1` Befund/Drift · `2` Nutzungsfehler); reproduzierbar; eigene `node:test`-Suite.
+**T1-Skill-Vertrag (generisch, für alle T1-Skills aus §7):** Input = Args `--<name>=<wert>`; Output = Report (stdout) + Exit-Code (`0` Pass · `1` Befund/Drift · `2` Nutzungsfehler); reproduzierbar; eigene `node:test`-Suite.
 
 **Fehlerfälle**
 
@@ -158,7 +158,7 @@ Drei gleichberechtigte Qualitätsziele, je mit Messgröße, Mechanik und Schwell
 **Akteur:** `Orchestrator` (delegiert `threat-modeler` / `mcp-security-reviewer`; fährt `secrets-scan`/`mcp-config-lint`) · **Schritt-Typ:** Hybrid
 
 **Verhalten**
-1. Deterministisch zuerst: `secrets-scan --repo=…`, `pii-scan --repo=…`, `mcp-config-lint --config=…` (entscheidbare Negativ-Checks → speisen den Sicher-Gate, §1).
+1. **Deterministische Vor-Checks zuerst**, in dieser Reihenfolge (jeder Exit `1` = Finding → speist den Sicher-Gate §1, alle read-only/0 Modell-Token): (a) `secrets-scan --repo=<root>` · (b) `pii-scan --repo=<root>` · (c) `mcp-config-lint --config=<mcp.json>` (nur bei MCP-Anteil). Saubere Vor-Checks (Exit `0`) verengen die Judgment-Fläche für Schritt 2.
 2. Judgment danach: `threat-modeler` (STRIDE-light) bzw. `mcp-security-reviewer` (Lethal Trifecta, Tool-Härtung).
 3. Findings → Gegenmaßnahmen als AC (§33).
 
@@ -298,3 +298,5 @@ Destruktive Aktionen (Push/Merge/Schema-Drop) nie auto — Operator (§1.6/§23)
 **v1.3 (2026-05-26, Re-Score-Patch):** `konzept-reviewer`-Re-Score = 9,0/10 (Goal erreicht, exakt auf Schwelle). Für Puffer geschlossen: Kopf-Versions-Drift (1.0 → 1.3, Self-Dogfood des eigenen Drift-Gates UC-02); §7 Skill-Count 9 → **12** (stale); §2.2 UC-Übersicht; Glossar +`Orchestrator`/`Operator` + `Reife-Score`-Anker auf §4/§10.5 geschärft; Timeout-/Budget-Fehlerfälle für UC-01/UC-06; AC-2 (UC-01) an Mess-Harness §6 gebunden (testbar); **Reife-Rubrik als §10.5-Policy** `reife-rubrik.policy.md` verankert (reproduzierbar, nicht nur Prosa). Offen (Architekt, §1.9): EU-AI-Act-Klassen-Bestätigung.
 
 **v1.4 (2026-05-26, profile-check):** Neuer T1-Skill `profile-check` (§7 Count 12 → 13) — setzt „Default einmal setzen, danach nur Konformitäts-Checks" um: ein Projekt deklariert Vorgaben einmal in `project-profile.md` (YAML-Frontmatter: EU-AI-Act-Klasse, security_level, Runtime, Test-Framework, Pflicht-Tokens), der Skill verifiziert Konzept + Repo deterministisch dagegen statt neu zu fragen. Löst den offenen EU-AI-Act-Punkt strukturell (Architekt setzt die Klasse einmal im Profil). Fällt unter UC-03 (kein neuer UC). 7 Tests, Dogfood gegen claude-skills selbst grün. Re-Score v1.4 = **9,7/10**.
+
+**v1.5 (2026-05-26, Reife-Politur):** Die zwei nicht-blockierenden Polish-Punkte aus dem v1.4-Review geschlossen: (1) **EU-AI-Act-Klasse final = minimal** (Architekt-Festlegung §23) — §2.6-Fußnote von „offen, zu bestätigen" auf verbindliche Festlegung, pro Konsument via `profile-check`/`project-profile.md` verifizierbar (Dim 6 Nachweis-Konvention → 10). (2) **UC-05 Vor-Check-Sequenz** explizit geordnet (a `secrets-scan` · b `pii-scan` · c `mcp-config-lint`, je mit Exit-Semantik → Sicher-Gate; Dim 1 Sachbearbeiter-Test → 10). Außerdem §7-Skill-Referenz in UC-03 count-agnostisch („alle T1-Skills" statt „9", kein Skill-Count-Drift mehr). **Re-Score v1.5 = 10,0/10** (alle 7 Dimensionen 10; konzept-lint-„§13.1-LLM-Felder"-Flag als Heuristik-False-Positive per §10.6 widerlegt).
