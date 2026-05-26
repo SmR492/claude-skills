@@ -46,7 +46,7 @@ Agents sind **read-only** (Findings + Vorschläge, keine destruktiven Aktionen),
 ## Tests
 
 ```bash
-node --test plugins/cdp5-gates/skills/**/*.test.mjs
+node --test plugins/cdp5-gates/skills/*/*.test.mjs plugins/cdp5-gates/lib/*.test.mjs
 ```
 
 ## Lizenz / Beitrag

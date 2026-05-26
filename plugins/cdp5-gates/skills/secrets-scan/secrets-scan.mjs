@@ -2,7 +2,9 @@
 // CDP5 §32.9 / §33.5 T1-Skill — Secrets-Scan (read-only, dependency-frei): findet Klartext-
 // Secrets im Repo (Keys, Tokens, Private Keys, .env-Leaks). Exit: 0 = sauber · 1 = Funde · 2 = Nutzungsfehler.
 
-import { readFileSync, readdirSync, statSync } from 'node:fs';
+import { readFileSync, readdirSync, lstatSync } from 'node:fs';
+
+const MAX_LINE = 4000;   // ReDoS-Schutz: überlange Einzelzeilen vor dem Regex-Matching kappen (s. scanText)
 import { join, relative, extname, basename } from 'node:path';
 
 const SKIP_DIRS = new Set(['.git', 'node_modules', 'vendor', 'var', 'cache', '.idea', 'dist', 'build', '.tmp']);
@@ -28,7 +30,8 @@ function collect(root) {
     let e; try { e = readdirSync(d); } catch { return; }
     for (const n of e) {
       if (SKIP_DIRS.has(n)) continue;
-      const f = join(d, n); let st; try { st = statSync(f); } catch { continue; }
+      const f = join(d, n); let st; try { st = lstatSync(f); } catch { continue; }
+      if (st.isSymbolicLink()) continue;            // keine Symlinks verfolgen (Out-of-tree-Read / Loop)
       if (st.isDirectory()) walk(f);
       else if (st.size < 1_000_000 && (SCAN_EXT.has(extname(n)) || isEnvFile(n))) out.push(f);
     }
@@ -42,6 +45,7 @@ const redact = (s) => (s.length <= 8 ? s[0] + '…' : s.slice(0, 4) + '…' + s.
 export function scanText(text, file) {
   const findings = [];
   text.split('\n').forEach((line, i) => {
+    if (line.length > MAX_LINE) line = line.slice(0, MAX_LINE);   // ReDoS-Schutz: überlange Zeile kappen
     for (const p of PATTERNS) {
       const m = line.match(p.re);
       if (!m) continue;

@@ -1,6 +1,22 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { parseUCs, lintKonzept } from './konzept-lint.mjs';
+import { execFileSync } from 'node:child_process';
+import { mkdtempSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+test('malformed --rubric JSON → Exit 2 (kein Crash mit exit 0)', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'kl-'));
+  writeFileSync(join(dir, 'k.md'), '**Version:** 1\n**Scope:** x\n## UC-01: X\n### Fehlerfälle\n|a|b|\n### Akzeptanzkriterien\n| AC-1 | x | Unit | T::t | rot |\n## Glossar\n|a|b|c|\n');
+  writeFileSync(join(dir, 'bad.json'), '{ kaputt ');
+  const script = join(dirname(fileURLToPath(import.meta.url)), 'konzept-lint.mjs');
+  let code = 0;
+  try { execFileSync('node', [script, `--konzept=${join(dir, 'k.md')}`, `--rubric=${join(dir, 'bad.json')}`], { stdio: 'pipe' }); }
+  catch (e) { code = e.status; }
+  assert.equal(code, 2);
+});
 
 const KOPF = '**Version:** 1.0\n**Scope:** x\n';
 const GLOSSAR = '\n## Glossar\n| a | b | c |\n';

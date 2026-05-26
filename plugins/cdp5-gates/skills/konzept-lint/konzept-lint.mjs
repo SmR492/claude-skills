@@ -72,8 +72,11 @@ export function lintKonzept(md, weights = DEFAULT_WEIGHTS) {
 function main(argv) {
   const a = Object.fromEntries(argv.slice(2).map((x) => { const [k, ...r] = x.split('='); return [k.replace(/^--/, ''), r.length ? r.join('=') : true]; }));
   if (!a.konzept) { console.error('Usage: konzept-lint.mjs --konzept=<konzept.md> [--rubric=<rubric.json>] [--json]'); process.exit(2); }
-  const weights = typeof a.rubric === 'string' && existsSync(a.rubric)
-    ? JSON.parse(readFileSync(a.rubric, 'utf8')).weights ?? DEFAULT_WEIGHTS : DEFAULT_WEIGHTS;
+  let weights = DEFAULT_WEIGHTS;
+  if (typeof a.rubric === 'string' && existsSync(a.rubric)) {
+    try { weights = JSON.parse(readFileSync(a.rubric, 'utf8')).weights ?? DEFAULT_WEIGHTS; }
+    catch (e) { console.error(`Rubrik nicht parsebar (${a.rubric}): ${e.message}`); process.exit(2); }
+  }
   const r = lintKonzept(readFileSync(a.konzept, 'utf8'), weights);
   if (a.json) { console.log(JSON.stringify(r, null, 2)); process.exit(r.strukturGap ? 1 : 0); }
   console.log(`konzept-lint — ${r.perUC.length} UCs · LLM=${r.global.llm} RAG=${r.global.rag}\n`);

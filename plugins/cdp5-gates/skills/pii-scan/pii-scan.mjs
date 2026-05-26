@@ -13,11 +13,13 @@ const EXT = new Set(['.php', '.js', '.mjs', '.ts', '.py', '.rb', '.go', '.java',
 // PLACEHOLDER wird gegen den GEMATCHTEN Wert geprüft (nicht die ganze Zeile), damit echte PII
 // neben einem Platzhalter nicht verloren geht. 0{12,} = all-zero-Testkarten (engt IBANs mit Nullen NICHT aus).
 const PLACEHOLDER = /\byour[_-]|example\.(com|org)|@example\.|\bxxx+\b|0{12,}|changeme|<[^>]+>/i;
+const MAX_LINE = 4000;   // PII liegt nie in überlangen Einzeltoken — Cap gegen quadratisches Regex-Backtracking (ReDoS)
 
+// Quantoren bewusst beschränkt (RFC-nah) → kein O(n²)-Backtracking bei langen Nicht-Treffer-Zeilen.
 const PATTERNS = [
-  { type: 'E-Mail', re: /[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g },
+  { type: 'E-Mail', re: /[A-Za-z0-9._%+-]{1,64}@[A-Za-z0-9.-]{1,255}\.[A-Za-z]{2,24}/g },
   { type: 'IBAN', re: /\b[A-Z]{2}\d{2}[A-Z0-9]{11,30}\b/g },
-  { type: 'Telefon', re: /\+\d{2,3}[\s\-/]?\d[\d\s\-/]{7,}\d/g },
+  { type: 'Telefon', re: /\+\d{2,3}[\s\-/]?\d[\d\s\-/]{7,40}\d/g },
   { type: 'Kreditkarte', re: /\b(?:\d[ -]?){13,16}\b/g, luhn: true },
 ];
 
@@ -34,6 +36,7 @@ const redact = (m) => m.length <= 4 ? '…' : m.slice(0, 2) + '…' + m.slice(-2
 export function scanText(text, file) {
   const out = [];
   text.split('\n').forEach((line, i) => {
+    if (line.length > MAX_LINE) line = line.slice(0, MAX_LINE);   // ReDoS-Schutz: überlange Zeile kappen
     for (const p of PATTERNS) {
       for (const m of line.matchAll(p.re)) {
         if (PLACEHOLDER.test(m[0])) continue;        // pro Match, nicht pro Zeile

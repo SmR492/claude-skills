@@ -4,14 +4,14 @@
 // Pointer im Memory-Index haben — sonst verdampft die Lehre (CDP5 §32.6).
 // Exit: 0 = Loop dicht · 1 = ≥1 zitierter Slug fehlt/ohne Pointer · 2 = Nutzungsfehler.
 
-import { readFileSync, existsSync, readdirSync, statSync } from 'node:fs';
+import { readFileSync, existsSync, readdirSync, lstatSync } from 'node:fs';
 import { join, relative } from 'node:path';
 
 const SLUG_RE = /(?:\[\[([a-z0-9][a-z0-9_-]+)\]\]|\b((?:feedback|project|reference)_[a-z0-9_]+)\b|\(((?:feedback|project|reference)_[a-z0-9_]+)\.md\))/g;
 
 function mdFiles(dir) {
   const out = [];
-  const walk = (d) => { for (const n of readdirSync(d)) { const f = join(d, n); const st = statSync(f); if (st.isDirectory()) { if (n !== '.git') walk(f); } else if (n.endsWith('.md')) out.push(f); } };
+  const walk = (d) => { for (const n of readdirSync(d)) { const f = join(d, n); let st; try { st = lstatSync(f); } catch { continue; } if (st.isSymbolicLink()) continue; if (st.isDirectory()) { if (n !== '.git') walk(f); } else if (n.endsWith('.md')) out.push(f); } };
   if (existsSync(dir)) walk(dir);
   return out;
 }

@@ -1,7 +1,7 @@
 // Geteilte, dependency-freie Scan-Helfer für die cdp5-gates-Skills.
 // Nur node:-Builtins — läuft host-seitig (CDP5 §32.9 Runtime-Regel).
 
-import { readFileSync, readdirSync, statSync, existsSync } from 'node:fs';
+import { readFileSync, readdirSync, lstatSync, existsSync } from 'node:fs';
 import { join, relative, extname, basename } from 'node:path';
 
 export const SKIP_DIRS = new Set(['.git', 'node_modules', 'vendor', 'var', 'cache', '.idea', 'dist', 'build', '.tmp']);
@@ -17,7 +17,8 @@ export function collectFiles(root, exts) {
       if (SKIP_DIRS.has(name)) continue;
       const full = join(dir, name);
       let st;
-      try { st = statSync(full); } catch { continue; }
+      try { st = lstatSync(full); } catch { continue; }
+      if (st.isSymbolicLink()) continue;            // keine Symlinks verfolgen (Out-of-tree-Read / Loop-Schutz)
       if (st.isDirectory()) walk(full);
       else if (allow.has(extname(name))) out.push(full);
     }
