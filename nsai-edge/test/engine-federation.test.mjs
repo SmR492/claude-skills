@@ -206,6 +206,30 @@ test('Belief: 20 Jahre altes gültiges Gesetz schlägt frisches Web (harte Autor
   assert.equal(r.candidates.find((c) => c.object === 'Geruecht').belief, 0); // niedrigere Stufe → belief 0
 });
 
+test('SEC-7: limited-Origin kann die Provenienz eines höher-vertrauten Edges nicht kapern (Merge-Schreibpfad gekappt)', () => {
+  const c = fresh();
+  c.peerAdd('peer:good', fresh().identity.publicKeyPem); c.peerTrust('peer:good', 'full');
+  c.peerAdd('peer:evil', fresh().identity.publicKeyPem); c.peerTrust('peer:evil', 'limited');
+  const hash = tripleHash('Faktum', 'ist', 'Wahr');
+  c.mergeIncoming({ ...makeWire('Faktum', 'ist', 'Wahr', 800, { 'peer:good': 1 }, 'peer:good', 'manual') }, { peerTrust: 'full' });
+  // evil (limited) versucht mit gefälschtem gesetz + höherer Konfidenz zu überschreiben:
+  c.mergeIncoming({ ...makeWire('Faktum', 'ist', 'Wahr', 950, { 'peer:evil': 1 }, 'peer:evil', 'gesetz') }, { peerTrust: 'limited' });
+  const e = c._getEdge(hash);
+  assert.equal(e.origin_peer_id, 'peer:good'); // Provenienz NICHT gekapert
+  assert.equal(e.source_type, 'manual');
+});
+
+test('🟡-2: Belief-Auflösung ist ingest-reihenfolge-unabhängig (Föderations-Determinismus)', () => {
+  const mk = () => { const e = fresh(); return e; };
+  const a = mk(); const b = mk();
+  // gleicher Bestand, andere Reihenfolge, gleiche Stufe (web), gleiche conf/recency:
+  a.storeTriple({ subject: 'Sub', predicate: 'ist', object: 'Alpha', confidence: 800, source_type: 'web' });
+  a.storeTriple({ subject: 'Sub', predicate: 'ist', object: 'Beta', confidence: 800, source_type: 'web' });
+  b.storeTriple({ subject: 'Sub', predicate: 'ist', object: 'Beta', confidence: 800, source_type: 'web' });
+  b.storeTriple({ subject: 'Sub', predicate: 'ist', object: 'Alpha', confidence: 800, source_type: 'web' });
+  assert.equal(a.resolveBelief('Sub', 'ist').winner, b.resolveBelief('Sub', 'ist').winner);
+});
+
 test('SEC-6: clone lehnt Zukunfts-asserted_at ab (origin-signiert, aber implausibel)', () => {
   const origin = fresh(); const c = fresh();
   c.peerAdd(origin.peerId, origin.identity.publicKeyPem); c.peerTrust(origin.peerId, 'full');

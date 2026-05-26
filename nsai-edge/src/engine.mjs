@@ -162,15 +162,23 @@ export class Engine {
     // HARTE Autoritäts-Dominanz: nur die höchste Tier-Stufe konkurriert um den Belief;
     // niedrigere Stufen → belief 0 (sichtbar als disputed). Innerhalb der Top-Stufe:
     // Potenz-Normalisierung über within-weight (Aktualität × Konfidenz × Liefer-Trust).
-    const maxTier = Math.max(...cands.map((c) => c.tier));
-    const top = cands.filter((c) => c.tier === maxTier && c.tier >= 0);
     const p = this.spec.beliefSharpness;
-    let sum = 0;
-    for (const c of top) { c._w = Math.pow(Math.max(c.weight, 0), p); sum += c._w; }
+    const W = (c) => Math.pow(Math.max(c.weight, 0), p);
+    // Höchste Tier-Stufe MIT nicht-leerem Gewicht wählen (Fallback, falls die oberste Stufe
+    // komplett auf 0 decayed ist → 🟡-4); nur diese Stufe konkurriert um Belief.
+    const tiers = [...new Set(cands.map((c) => c.tier))].filter((t) => t >= 0).sort((a, b) => b - a);
+    let top = [], sum = 0;
+    for (const t of tiers) {
+      const group = cands.filter((c) => c.tier === t);
+      const s = group.reduce((a, c) => a + W(c), 0);
+      if (s > 0) { top = group; sum = s; break; }
+    }
     const allZero = !(sum > 0);
-    for (const c of cands) { c.belief = (top.includes(c) && !allZero) ? Math.round((c._w / sum) * 1000) : 0; delete c._w; c.weight = Math.round(c.weight); }
-    cands.sort((a, b) => (b.tier - a.tier) || (b.belief - a.belief));
-    const winner = (top.length && !allZero) ? cands[0].object : null;
+    for (const c of cands) { c.belief = (top.includes(c) && !allZero) ? Math.round((W(c) / sum) * 1000) : 0; c.weight = Math.round(c.weight); }
+    // Deterministischer Tiebreak: belief desc, tier desc, dann lexikografisch nach object
+    // (Föderations-Determinismus — gleicher Bestand → gleicher Gewinner, 🟡-2).
+    cands.sort((a, b) => (b.belief - a.belief) || (b.tier - a.tier) || (a.object < b.object ? -1 : a.object > b.object ? 1 : 0));
+    const winner = allZero ? null : cands[0].object;
     const contested = cands.length > 1 && cands[1].belief >= this.spec.contestedThreshold;
     return { subject, predicate, winner, contested, candidates: cands };
   }
@@ -207,8 +215,9 @@ export class Engine {
       const out = {
         subject, predicate: e.predicate, object,
         confidence: e.confidence, effective_confidence: this._effectiveConfidence(e),
-        belief: cand?.belief ?? 1000, source_type: e.source_type, asserted_at: e.asserted_at,
-        origin_peer_id: e.origin_peer_id,
+        belief: cand?.belief ?? 1000, source_type: e.source_type,
+        effective_tier: cand?.tier ?? this._effTier(e), // trust-gekappte Autoritäts-Stufe (nicht der rohe source_type-Anspruch, 🟡-3)
+        asserted_at: e.asserted_at, origin_peer_id: e.origin_peer_id,
       };
       if (res && res.candidates.length > 1 && res.winner !== object) { out.disputed = true; out.dominant = res.winner; }
       if (e.relayed_by && e.relayed_by !== e.origin_peer_id) out.relayed_by = e.relayed_by;
@@ -335,7 +344,11 @@ export class Engine {
       // Provenienz folgt der höheren AUTORITÄT, nicht der höheren Konfidenz (Fix 🟡4) —
       // sonst könnte eine niedrig-autoritative aber hoch-konfidente Quelle den source_type kapern.
       // Live-Konfidenz bleibt CRDT-max. Gespeicherte Aussage bleibt eine kohärente, signierte Origin-Aussage.
-      const incTier = this._sourceTier(sourceType); const exTier = this._sourceTier(existing.source_type);
+      // EFFEKTIVE Tier (trust-gekappt) entscheidet über die Provenienz — sonst könnte ein
+      // limited-Origin mit gefälschtem source_type='gesetz' die Provenienz eines höher-vertrauten
+      // Edges kapern und (über Export) downstream Spoofing verbreiten (Fix 🔴-1, Review 0004).
+      const incTier = Math.min(this._sourceTier(sourceType), this._trustTierCap(peerTrust));
+      const exTier = Math.min(this._sourceTier(existing.source_type), this._trustTierCap(this._originTrust(existing.origin_peer_id)));
       const incWins = incTier > exTier
         || (incTier === exTier && asserted > existing.asserted_confidence)
         || (incTier === exTier && asserted === existing.asserted_confidence && wire.origin_peer_id < existing.origin_peer_id);

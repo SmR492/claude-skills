@@ -36,6 +36,8 @@ belief(obj)      = withinWeight(obj)^beliefSharpness / Σ_top withinWeight(j)^be
 - **Trust-Deckel** (`trustTierCap`): ein Origin kann keine höhere Stufe behaupten, als sein Trust erlaubt (`limited` → max. Web-Stufe, `untrusted` → ausgeschlossen). So kann sich ein limited-Peer kein `gesetz` erschleichen (kein source_type-Spoofing).
 - **Aktualität entscheidet nur INNERHALB derselben Stufe** (Recency-Decay, temporalitäts-gekoppelt) — Aktualität kann Autorität nie überstimmen.
 - **Zukunfts-`asserted_at`** wird lokal geklemmt und föderiert (pull/clone) abgelehnt — keine Recency-Manipulation.
+- **Auch der Merge-Schreibpfad** kappt die Provenienz-Übernahme an der effektiven (trust-gekappten) Stufe — ein limited-Origin kann die Provenienz eines höher-vertrauten Edges nicht kapern (sonst exportierbares Spoofing).
+- **Determinismus:** bei Belief-Gleichstand entscheidet ein wertbasierter Tiebreak (lexikografisch nach object) → föderationsweit gleicher Gewinner, unabhängig von der Ingest-Reihenfolge. Fällt die oberste Stufe komplett auf Gewicht 0 (z.B. ausgezehrt), greift die nächste nicht-leere Stufe.
 - **Veraltetes/falsches Wissen** sinkt im Belief gegen 0, bleibt aber gespeichert (auditierbar, revidierbar — non-monoton, BEWA-Stil). Decay senkt zusätzlich den Live-Wert.
 - Query markiert überstimmte Aussagen als `disputed` + nennt das `dominant`-Objekt; eine Gruppe ist `contested`, wenn der Zweitplatzierte ≥ `contestedThreshold` Belief hält.
 - **Float-Hinweis:** Scoring/Belief sind eine **lokale** Float-Lese-Linse — nicht föderiert, nicht conformance-relevant; die signierten/föderierten Werte bleiben Integer-exakt.
