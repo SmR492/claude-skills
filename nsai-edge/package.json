@@ -1,0 +1,10 @@
+{
+  "name": "nsai-edge",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Föderierter neuro-symbolischer Wissensgraph-Knoten (Node.js-MCP-Server) für Claude Code — P2P-Peer des PHP-NeuroSymbolicAiBundle",
+  "scripts": {
+    "test": "node --test"
+  }
+}
