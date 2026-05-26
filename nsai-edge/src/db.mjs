@@ -4,6 +4,7 @@ import { DatabaseSync } from 'node:sqlite';
 const SCHEMA = `
 PRAGMA foreign_keys = ON;
 PRAGMA journal_mode = WAL;
+PRAGMA busy_timeout = 5000;
 
 CREATE TABLE IF NOT EXISTS knowledge_nodes (
   id TEXT PRIMARY KEY NOT NULL,
@@ -16,11 +17,13 @@ CREATE TABLE IF NOT EXISTS knowledge_edges (
   subject_id TEXT NOT NULL,
   predicate TEXT NOT NULL CHECK(length(predicate) BETWEEN 2 AND 50),
   object_id TEXT NOT NULL,
-  confidence INTEGER NOT NULL CHECK(confidence BETWEEN 0 AND 1000),
+  confidence INTEGER NOT NULL CHECK(confidence BETWEEN 0 AND 1000),            -- lokaler Live-Wert (Decay/Reinforcement)
+  asserted_confidence INTEGER NOT NULL CHECK(asserted_confidence BETWEEN 0 AND 1000), -- signierter Origin-Wert (unveränderlich)
   temporality TEXT NOT NULL CHECK(temporality IN ('eternal','stable','temporal','ephemeral')),
   local_status TEXT NOT NULL DEFAULT 'active' CHECK(local_status IN ('active','quarantined','superseded')),
-  origin_peer_id TEXT NOT NULL,
-  signature TEXT NOT NULL,
+  origin_peer_id TEXT NOT NULL,                -- Erstbehaupter (signiert)
+  relayed_by TEXT,                             -- letzter Hop (unsigniert, Transport-Metadatum)
+  signature TEXT NOT NULL,                     -- Origin-Signatur über die unveränderliche Aussage
   vector_clock TEXT NOT NULL,
   derived_from TEXT,
   context_slug TEXT,

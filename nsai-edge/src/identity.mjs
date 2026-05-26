@@ -21,7 +21,10 @@ export function fingerprint(publicKeyPem) {
   return createHash('sha256').update(der).digest('hex');
 }
 
-// Deterministische Signier-Repräsentation eines Tripels (stabile Feldordnung).
+// Deterministische Signier-Repräsentation der UNVERÄNDERLICHEN Origin-Aussage
+// (stabile Feldordnung). Bewusst NICHT signiert: vector_clock + relayed_by
+// (Kausalitäts-/Transport-Metadaten) und der lokale Live-confidence-Wert
+// (Decay/Reinforcement sind lokal). Signiert wird asserted_confidence.
 export function signingString(t) {
   return JSON.stringify([
     t.wire_version,
@@ -29,10 +32,9 @@ export function signingString(t) {
     t.subject,
     t.predicate,
     t.object,
-    t.confidence,
+    t.asserted_confidence,
     t.temporality,
     t.origin_peer_id,
-    t.vector_clock,
     t.derived_from ?? null,
   ]);
 }
