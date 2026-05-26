@@ -19,8 +19,10 @@ export const DEFAULT_SPEC = {
   // Epistemische Autorität je source_type (Promille 0–1000) — inhaltsgebunden, NICHT Peer-Trust.
   // Konflikt-Gewichtung: Gesetz schlägt Web, egal wie viele Web-Quellen (BEWA-Quellen-Tupel-Äquivalent).
   authorityWeight: { gesetz: 1000, behoerde: 880, sensor: 820, fachquelle: 760, manual: 700, web: 450, llm: 300, default: 300 },
-  // Recency: Halbwertszeit der Belief-Gewichtung in Tagen (neuer gewinnt; exponentiell).
-  recencyHalflifeDays: 540,
+  // Recency-Halbwertszeit je Temporalität (Tage). Autorität bleibt dominant: stabile/ewige
+  // Fakten (z.B. geltende Gesetze) zerfallen kaum → ein altes gültiges Gesetz gilt NICHT als
+  // "veraltet"; nur temporäre/flüchtige Aussagen verlieren schnell an Recency-Gewicht.
+  recencyHalflifeDays: { eternal: Infinity, stable: 3650, temporal: 180, ephemeral: 30, default: 3650 },
   // Belief-Schärfe (Potenz-Normalisierung, ratio-basiert): belief ∝ score^sharpness.
   // Größer = schärfer (klarer Gewinner). Robust über stark unterschiedliche Score-Größen.
   beliefSharpness: 3,

@@ -19,10 +19,10 @@ function pair(trust = 'full') {
   return { A, B };
 }
 // Hand-Wire für reine Merge-Algebra-Tests (mergeIncoming verifiziert keine Signatur).
-function makeWire(s, p, o, confidence, vc, origin = 'peer:ext') {
+function makeWire(s, p, o, confidence, vc, origin = 'peer:ext', sourceType = 'manual') {
   return {
     wire_version: 1, triple_hash: tripleHash(s, p, o), subject: s, predicate: p, object: o,
-    confidence, asserted_confidence: confidence, source_type: 'manual', asserted_at: '2025-01-01T00:00:00Z',
+    confidence, asserted_confidence: confidence, source_type: sourceType, asserted_at: '2025-01-01T00:00:00Z',
     temporality: 'stable', origin_peer_id: origin, relayed_by: origin, vector_clock: vc, derived_from: null, signature: 'ed25519:x',
   };
 }
@@ -174,6 +174,33 @@ test('Query markiert überstimmte Aussagen (disputed + dominant)', () => {
   const a14 = e.query('Frist', { maxDepth: 1 }).edges.find((x) => x.object === 'A14');
   assert.equal(a14.disputed, true);
   assert.equal(a14.dominant, 'A30');
+});
+
+// ---- Adversariale Belief-Fälle (Fixe aus Review 0002) ----------------
+test('SEC-4: limited-Peer kann sich keine hohe Autorität erschleichen (source_type an Trust gekoppelt)', () => {
+  const c = fresh();
+  c.peerAdd('peer:evil', fresh().identity.publicKeyPem); c.peerTrust('peer:evil', 'limited');
+  c.peerAdd('peer:good', fresh().identity.publicKeyPem); c.peerTrust('peer:good', 'full');
+  c.mergeIncoming(makeWire('Frage', 'ist', 'EvilAntwort', 800, { 'peer:evil': 1 }, 'peer:evil', 'gesetz'), { peerTrust: 'limited' });
+  c.mergeIncoming(makeWire('Frage', 'ist', 'GoodAntwort', 800, { 'peer:good': 1 }, 'peer:good', 'behoerde'), { peerTrust: 'full' });
+  assert.equal(c.resolveBelief('Frage', 'ist').winner, 'GoodAntwort'); // ehrliche behoerde@full schlägt gefälschtes gesetz@limited
+});
+
+test('SEC-5: Zukunfts-asserted_at wird geklemmt (lokal) bzw. abgelehnt (Föderation)', () => {
+  const e = fresh();
+  const r = e.storeTriple({ subject: 'Fakt', predicate: 'ist', object: 'Real', confidence: 800, asserted_at: '3000-01-01T00:00:00Z' });
+  assert.ok(Date.parse(e._getEdge(r.triple_hash).asserted_at) <= e._now() + 1000); // geklemmt, kein Jahr 3000
+  const wire = makeWire('Xx', 'ist', 'Future', 800, { 'peer:ext': 1 }, 'peer:ext', 'web');
+  wire.asserted_at = '3000-01-01T00:00:00Z';
+  assert.equal(e.mergeIncoming(wire, { peerTrust: 'full' }), 'rejected');
+});
+
+test('Belief: gültiges altes Gesetz schlägt frisches Web (Autorität dominiert, Recency temporalitäts-gekoppelt)', () => {
+  const e = fresh();
+  const threeYearsAgo = new Date(e._now() - 3 * 365 * 86400000).toISOString();
+  e.storeTriple({ subject: 'Regel', predicate: 'ist', object: 'Gesetzlich', confidence: 800, source_type: 'gesetz', temporality: 'stable', asserted_at: threeYearsAgo });
+  e.storeTriple({ subject: 'Regel', predicate: 'ist', object: 'Geruecht', confidence: 800, source_type: 'web', temporality: 'temporal' });
+  assert.equal(e.resolveBelief('Regel', 'ist').winner, 'Gesetzlich');
 });
 
 test('mergeIncoming validiert Input (1-Zeichen-Subjekt → Fehler, kein DB-Crash)', () => {

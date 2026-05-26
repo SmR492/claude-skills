@@ -92,7 +92,8 @@ export class Engine {
     if (!Number.isInteger(confidence) || confidence < 0 || confidence > 1000) throw new EngineError('INVALID_PARAMETER_FORMAT', 'confidence außerhalb 0–1000');
     if (!TEMPORALITIES.has(temporality)) throw new EngineError('INVALID_PARAMETER_FORMAT', 'temporality ungültig');
     if (!this.identity) throw new EngineError('NO_PEER_IDENTITY', 'keine lokale Identität');
-    const ts = asserted_at ?? new Date(this._now()).toISOString();
+    let ts = asserted_at ?? new Date(this._now()).toISOString();
+    if (Date.parse(ts) > this._now()) ts = new Date(this._now()).toISOString(); // kein Zukunftsdatum (Fix 🔴2)
     const hash = tripleHash(subject, predicate, object);
     return this._tx(() => {
       const existing = this._getEdge(hash);
@@ -117,15 +118,20 @@ export class Engine {
 
   // ---- Belief-Scoring (neuro-symbolische Lese-Linse) -----------------
   _authority(sourceType) { return this.spec.authorityWeight[sourceType] ?? this.spec.authorityWeight.default ?? 300; }
-  _recencyFactor(assertedAt) {
+  _recencyFactor(assertedAt, temporality = 'stable') {
+    const half = this.spec.recencyHalflifeDays[temporality] ?? this.spec.recencyHalflifeDays.default ?? 3650;
+    if (!Number.isFinite(half)) return 1; // eternal → kein Recency-Decay
     const t = Date.parse(assertedAt);
     if (Number.isNaN(t)) return 1;
-    const ageDays = Math.max(0, (this._now() - t) / 86400000);
-    return Math.pow(2, -ageDays / this.spec.recencyHalflifeDays); // ∈ (0,1]
+    const ageDays = Math.max(0, (this._now() - t) / 86400000); // Zukunft → wie age 0 (Faktor 1, nie >1)
+    return Math.pow(2, -ageDays / half); // ∈ (0,1]
   }
   // Evidenz-Score 0..1000 (Float, rein lokal — nicht föderiert/conformance-relevant).
+  // Autorität ist an den ORIGIN-Trust gekoppelt: ein limited/untrusted-Origin kann sich
+  // keinen hohen source_type "erschleichen" (Fix 🔴1). untrusted→0 (ohnehin quarantänisiert).
   _score(edge) {
-    return (this._authority(edge.source_type) / 1000) * this._recencyFactor(edge.asserted_at) * edge.confidence;
+    const auth = (this._authority(edge.source_type) / 1000) * (trustFactor(this.spec, this._originTrust(edge.origin_peer_id)) / 1000);
+    return auth * this._recencyFactor(edge.asserted_at, edge.temporality) * edge.confidence;
   }
 
   // Löst konkurrierende Aussagen (gleiches subject+predicate) zu einer gewichteten
@@ -149,10 +155,11 @@ export class Engine {
     const p = this.spec.beliefSharpness;
     let sum = 0;
     for (const c of cands) { c._w = Math.pow(Math.max(c.score, 0), p); sum += c._w; }
-    for (const c of cands) { c.belief = sum > 0 ? Math.round((c._w / sum) * 1000) : 0; delete c._w; c.score = Math.round(c.score); }
+    const allZero = !(sum > 0); // alle Scores 0 (z.B. decayed/untrusted) → kein klarer Gewinner
+    for (const c of cands) { c.belief = allZero ? 0 : Math.round((c._w / sum) * 1000); delete c._w; c.score = Math.round(c.score); }
     cands.sort((a, b) => b.belief - a.belief);
-    const contested = cands.length > 1 && cands[1].belief >= this.spec.contestedThreshold;
-    return { subject, predicate, winner: cands[0].object, contested, candidates: cands };
+    const contested = cands.length > 1 && (allZero || cands[1].belief >= this.spec.contestedThreshold);
+    return { subject, predicate, winner: allZero ? null : cands[0].object, contested, candidates: cands };
   }
 
   // ---- UC-02: Abfragen (Subgraph + Belief-Anreicherung) --------------
@@ -302,19 +309,29 @@ export class Engine {
     if (wire.wire_version !== WIRE_VERSION) return 'rejected';
     validateTriple(wire.subject, wire.predicate, wire.object);
     const asserted = wire.asserted_confidence ?? wire.confidence;
+    const incLive = wire.confidence ?? asserted;
     const sourceType = wire.source_type ?? 'llm';
     const assertedAt = wire.asserted_at ?? EPOCH;
+    const SKEW = 86400000; // 1 Tag Clock-Skew-Toleranz
+    if (Date.parse(assertedAt) > this._now() + SKEW) return 'rejected'; // kein Zukunftsdatum (Fix 🔴2)
     const existing = this._getEdge(wire.triple_hash);
     if (existing && existing.local_status === 'superseded' && clockLEQ(wire.vector_clock, JSON.parse(existing.vector_clock))) return 'ignored';
     if (existing) {
-      const newAsserted = Math.max(existing.asserted_confidence, asserted);
+      const liveConf = Math.max(existing.confidence, incLive);
       const vc = clockMax(JSON.parse(existing.vector_clock), wire.vector_clock);
-      if (asserted > existing.asserted_confidence) {
+      // Provenienz folgt der höheren AUTORITÄT, nicht der höheren Konfidenz (Fix 🟡4) —
+      // sonst könnte eine niedrig-autoritative aber hoch-konfidente Quelle den source_type kapern.
+      // Live-Konfidenz bleibt CRDT-max. Gespeicherte Aussage bleibt eine kohärente, signierte Origin-Aussage.
+      const incAuth = this._authority(sourceType); const exAuth = this._authority(existing.source_type);
+      const incWins = incAuth > exAuth
+        || (incAuth === exAuth && asserted > existing.asserted_confidence)
+        || (incAuth === exAuth && asserted === existing.asserted_confidence && wire.origin_peer_id < existing.origin_peer_id);
+      if (incWins) {
         this.db.prepare("UPDATE knowledge_edges SET confidence=?, asserted_confidence=?, source_type=?, asserted_at=?, origin_peer_id=?, relayed_by=?, signature=?, vector_clock=?, updated_at=datetime('now') WHERE triple_hash=?")
-          .run(Math.max(existing.confidence, asserted), newAsserted, sourceType, assertedAt, wire.origin_peer_id, wire.relayed_by ?? null, wire.signature, JSON.stringify(vc), wire.triple_hash);
+          .run(liveConf, asserted, sourceType, assertedAt, wire.origin_peer_id, wire.relayed_by ?? null, wire.signature, JSON.stringify(vc), wire.triple_hash);
       } else {
         this.db.prepare("UPDATE knowledge_edges SET confidence=?, vector_clock=?, updated_at=datetime('now') WHERE triple_hash=?")
-          .run(Math.max(existing.confidence, asserted), JSON.stringify(vc), wire.triple_hash);
+          .run(liveConf, JSON.stringify(vc), wire.triple_hash);
       }
       return 'accepted';
     }
