@@ -263,6 +263,26 @@ test('SEC-10: niedriger-vertrauter Peer kapert auch per effTier-Sprung keine hö
   assert.equal(e.source_type, 'llm'); // effTier-Sprung durch niedrigeren Trust blockiert
 });
 
+test('SEC-11: limited-Peer überstimmt im Belief kein höher-vertrautes Wissen per effTier-Sprung', () => {
+  const c = fresh();
+  c.peerAdd('peer:good', fresh().identity.publicKeyPem); c.peerTrust('peer:good', 'full');
+  c.peerAdd('peer:evil', fresh().identity.publicKeyPem); c.peerTrust('peer:evil', 'limited');
+  // full-Peer: 'Sicher' als llm (tier 0); limited-Peer: 'Gefaehrlich' als web (tier 1)
+  c.mergeIncoming(makeWire('Dosis', 'ist', 'Sicher', 900, { 'peer:good': 1 }, 'peer:good', 'llm'), { peerTrust: 'full' });
+  c.mergeIncoming(makeWire('Dosis', 'ist', 'Gefaehrlich', 500, { 'peer:evil': 1 }, 'peer:evil', 'web'), { peerTrust: 'limited' });
+  const r = c.resolveBelief('Dosis', 'ist');
+  assert.equal(r.winner, 'Sicher'); // höherer Origin-Trust gewinnt trotz niedrigerer Stufe
+  assert.equal(r.candidates.find((x) => x.object === 'Gefaehrlich').belief, 0);
+});
+
+test('SEC-11b: eigene Inferenz (self=full) wird von einem limited-web-Claim nicht überstimmt', () => {
+  const c = fresh();
+  c.peerAdd('peer:evil', fresh().identity.publicKeyPem); c.peerTrust('peer:evil', 'limited');
+  c.storeTriple({ subject: 'Lage', predicate: 'ist', object: 'OK', confidence: 810, source_type: 'inference' });
+  c.mergeIncoming(makeWire('Lage', 'ist', 'Kritisch', 500, { 'peer:evil': 1 }, 'peer:evil', 'web'), { peerTrust: 'limited' });
+  assert.equal(c.resolveBelief('Lage', 'ist').winner, 'OK');
+});
+
 test('🟡-2: Belief-Auflösung ist ingest-reihenfolge-unabhängig (Föderations-Determinismus)', () => {
   const mk = () => { const e = fresh(); return e; };
   const a = mk(); const b = mk();

@@ -142,16 +142,17 @@ export class Engine {
     if (!sNode) return null;
     const edges = this.db.prepare("SELECT * FROM knowledge_edges WHERE subject_id=? AND predicate=? AND local_status='active'").all(sNode.id, predicate);
     if (edges.length === 0) return null;
-    // Pro Objekt beste Repräsentanz: höchste Autoritäts-Stufe (tier), dann höchstes within-weight.
+    // Pro Objekt beste Repräsentanz nach Präzedenz (Origin-Trust, effektive Stufe, within-weight) —
+    // konsistent zur trust-primären Provenienz im Schreibpfad.
+    const RANK = { untrusted: 0, limited: 1, full: 2, authoritative: 3 };
+    const rankOf = (o) => RANK[this._originTrust(o)] ?? 0;
+    const better = (a, b) => a.trustRank > b.trustRank || (a.trustRank === b.trustRank && (a.tier > b.tier || (a.tier === b.tier && a.weight > b.weight)));
     const byObject = new Map();
     for (const e of edges) {
       const obj = this._nodeName(e.object_id);
-      const tier = this._effTier(e);
-      const weight = this._withinWeight(e);
+      const cand = { object: obj, trustRank: rankOf(e.origin_peer_id), tier: this._effTier(e), weight: this._withinWeight(e), source_type: e.source_type, asserted_at: e.asserted_at, confidence: e.confidence, origin_peer_id: e.origin_peer_id };
       const cur = byObject.get(obj);
-      if (!cur || tier > cur.tier || (tier === cur.tier && weight > cur.weight)) {
-        byObject.set(obj, { object: obj, tier, weight, source_type: e.source_type, asserted_at: e.asserted_at, confidence: e.confidence, origin_peer_id: e.origin_peer_id });
-      }
+      if (!cur || better(cand, cur)) byObject.set(obj, cand);
     }
     const cands = [...byObject.values()];
     // Einzelne Aussage ohne Konkurrenz → Gewinner per Default (auch bei niedrigem Tier).
@@ -164,14 +165,20 @@ export class Engine {
     // Potenz-Normalisierung über within-weight (Aktualität × Konfidenz × Liefer-Trust).
     const p = this.spec.beliefSharpness;
     const W = (c) => Math.pow(Math.max(c.weight, 0), p);
-    // Höchste Tier-Stufe MIT nicht-leerem Gewicht wählen (Fallback, falls die oberste Stufe
-    // komplett auf 0 decayed ist → 🟡-4); nur diese Stufe konkurriert um Belief.
-    const tiers = [...new Set(cands.map((c) => c.tier))].filter((t) => t >= 0).sort((a, b) => b - a);
+    // HARTE Präzedenz: höchster Origin-Trust zuerst, dann höchste Autoritäts-Stufe (mit nicht-leerem
+    // Gewicht). Ein niedriger-vertrauter Kandidat drückt einen höher-vertrauten NIE auf belief 0 —
+    // auch nicht per effTier-Sprung; eigene Inferenz (self=full) bleibt geschützt.
     let top = [], sum = 0;
-    for (const t of tiers) {
-      const group = cands.filter((c) => c.tier === t);
-      const s = group.reduce((a, c) => a + W(c), 0);
-      if (s > 0) { top = group; sum = s; break; }
+    const valid = cands.filter((c) => c.tier >= 0 && c.trustRank > 0);
+    if (valid.length) {
+      const maxTrust = Math.max(...valid.map((c) => c.trustRank));
+      const trustPool = valid.filter((c) => c.trustRank === maxTrust);
+      const tiers = [...new Set(trustPool.map((c) => c.tier))].sort((a, b) => b - a);
+      for (const t of tiers) {
+        const group = trustPool.filter((c) => c.tier === t);
+        const s = group.reduce((a, c) => a + W(c), 0);
+        if (s > 0) { top = group; sum = s; break; }
+      }
     }
     const allZero = !(sum > 0);
     for (const c of cands) { c.belief = (top.includes(c) && !allZero) ? Math.round((W(c) / sum) * 1000) : 0; c.weight = Math.round(c.weight); }
