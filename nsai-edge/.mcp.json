@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "nsai-edge": {
+      "command": "node",
+      "args": ["${CLAUDE_PLUGIN_ROOT}/bin/nsai-edge-mcp.mjs"]
+    }
+  }
+}

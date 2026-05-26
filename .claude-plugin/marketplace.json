@@ -20,6 +20,12 @@
       "source": "./plugins/cdp5-agents",
       "description": "Projektunabhängige CDP5-Methodik-Agents (Judgment, read-only): konzept-reviewer, review-verify, adversarial-auditor, threat-modeler, mcp-security-reviewer.",
       "version": "0.1.0"
+    },
+    {
+      "name": "nsai-edge",
+      "source": "./nsai-edge",
+      "description": "Föderierter neuro-symbolischer Wissensgraph als MCP-Server: persistentes strukturiertes Wissen (Tripel mit Konfidenz, Forward-Chaining-Inferenz, Decay, Quarantäne) + P2P-Sync (CRDT/Ed25519) mit dem NeuroSymbolicAiBundle. Tools: graph__store_triple/query_knowledge/infer/decay_pass/quarantine_review. Benötigt Node ≥ 22.5.",
+      "version": "0.1.0"
     }
   ]
 }

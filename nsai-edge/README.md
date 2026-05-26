@@ -2,6 +2,17 @@
 
 Föderierter neuro-symbolischer Wissensgraph-Knoten (Node.js) für Claude Code. Liefert Claude in-session strukturiertes Wissen (statt lange Dateien zu lesen) und synchronisiert sich bidirektional + dezentral (git-artig P2P) mit anderen Knoten — insbesondere dem PHP-`NeuroSymbolicAiBundle` (`SmR492/ai-bundle`) als autoritativem Peer.
 
+## Installation über den Marketplace
+
+```
+/plugin marketplace add SmR492/claude-skills
+/plugin install nsai-edge@claude-skills
+```
+
+Das Plugin deklariert seinen MCP-Server selbst (`.mcp.json` mit `${CLAUDE_PLUGIN_ROOT}`) — nach Installation + Reload registriert Claude Code die Tools `mcp__nsai-edge__graph__*` automatisch. **Voraussetzung:** Node ≥ 22.5 (für `node:sqlite`). DB + Identität liegen unter `~/.claude/nsai-edge/` und sind damit unabhängig vom Installationspfad persistent.
+
+> Wer den Server lokal aus dem Checkout testet, kann ihn alternativ direkt per `.mcp.json` (absoluter Pfad zu `bin/nsai-edge-mcp.mjs`) oder `claude mcp add` einbinden. Nicht beides gleichzeitig mit gleichem Servernamen `nsai-edge` (Namenskonflikt).
+
 ## Status
 
 - **Konzept:** [`KONZEPT.md`](./KONZEPT.md) — v2.2, Reife 9,3/10, konzept-lint 10/10.
