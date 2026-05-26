@@ -619,6 +619,12 @@ Conformance-Vektor erzwingt identischen Hash für dasselbe Tripel in beiden Spra
 | Conformance-Vektor | Gemeinsamer Input→Output-Testfall für beide Engines | Golden-Test, §19 |
 | Lethal Trifecta | sensible-Daten + untrusted-Content + Egress zugleich | §33.1 |
 | Context-Rot | Präzisionsverlust durch überfüllten, veralteten Kontext | Token Exhaustion |
+| sourceTier | Autoritäts-Stufe je source_type (gesetz 6 … llm 0); harte Dominanz höherer Stufen | Authority tier |
+| trustTierCap | Trust-Deckel: maximale Stufe, die ein Origin gemäß seinem Trust behaupten darf | Privilege ceiling |
+| effTier | effektive Stufe = min(sourceTier, trustTierCap) — trust-gekappte Autorität | — |
+| beliefSharpness | Exponent der Potenz-Normalisierung der Belief-Verteilung (Schärfe) | Softmax temperature |
+| contestedThreshold | Belief-Schwelle, ab der eine Aussage als „umstritten" gilt | — |
+| disputed / dominant | Markierung überstimmter Aussagen + Verweis auf den Belief-Gewinner | Non-monotonic belief |
 
 ## 10. Probabilistik-Statement (§2.6)
 

@@ -19,7 +19,7 @@ export function runVector(vector, { spec } = {}) {
   return out;
 }
 
-export function checkConformance(vectors, { spec, phpRunner = null } = {}) {
+export function checkConformance(vectors, { spec, phpRunner = null, requiredOps = ['decay', 'infer'] } = {}) {
   const results = vectors.map((v) => {
     const actual = runVector(v, { spec });
     const pass = v.expected.every((ex) => {
@@ -28,9 +28,14 @@ export function checkConformance(vectors, { spec, phpRunner = null } = {}) {
     });
     return { name: v.name, pass };
   });
+  // Coverage-Gate (AC-10.3): die Vektor-Suite muss die geforderten Grenzfall-Operationen abdecken,
+  // sonst ist das Gate nicht aussagekräftig → allPass=false (entkoppelt vom PHP-Runner).
+  const coveredOps = new Set(vectors.map((v) => v.op));
+  const coverageMet = requiredOps.every((op) => coveredOps.has(op));
   return {
     results,
-    allPass: results.every((r) => r.pass),
+    coverageMet,
+    allPass: coverageMet && results.every((r) => r.pass),
     phpVerified: typeof phpRunner === 'function', // ohne PHP-Runner: false (kein grünes Cross-Lang-Gate)
   };
 }

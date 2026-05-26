@@ -419,3 +419,10 @@ test('AC-10.4: Conformance ist Node-seitig reproduzierbar/deterministisch (Anti-
   assert.equal(r1.allPass, true);
   assert.deepEqual(r1.results, r2.results); // identisch über frische Engines/Läufe → kein Node-interner Drift
 });
+
+test('AC-10.3: unterschrittene Vektor-Coverage blockt das Gate (Node-seitig)', () => {
+  const onlyDecay = [{ name: 'decay', input: [{ subject: 'Wetter', predicate: 'ist', object: 'Regen', confidence: 800, temporality: 'temporal' }], op: 'decay', expected: [{ subject: 'Wetter', predicate: 'ist', object: 'Regen', confidence: 750 }] }];
+  const r = checkConformance(onlyDecay); // 'infer' fehlt → Coverage nicht erfüllt
+  assert.equal(r.coverageMet, false);
+  assert.equal(r.allPass, false); // trotz korrektem Decay-Vektor: Gate blockt mangels Coverage
+});
