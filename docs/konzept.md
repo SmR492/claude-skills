@@ -227,7 +227,7 @@ Pro UC-Schritt erfasst: **Token** (`gen_ai.usage.total_tokens`, Sampling aus §1
 
 | Artefakt | Typ | Tabelle/Ort |
 |---|---|---|
-| `cdp5-gates` | Plugin (13 T1-Skills) | `plugins/cdp5-gates/` |
+| `cdp5-gates` | Plugin (14 T1-Skills) | `plugins/cdp5-gates/` |
 | `cdp5-agents` | Plugin (5 Judgment-Agents) | `plugins/cdp5-agents/` |
 | `cdp5-reference` | T1-Skill (Doktrin + Query) | `…/skills/cdp5-reference/` |
 | Marketplace-Manifest | Config | `.claude-plugin/marketplace.json` (+ je Plugin `.claude-plugin/plugin.json`) |

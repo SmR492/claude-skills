@@ -26,6 +26,7 @@ Ein **Claude-Code-Plugin-Marketplace** mit projektunabhängigen, deterministisch
 | **ac-to-test-scaffold** | failing Test-Skelette AUS den Konzept-AC (TDD-First, druckt read-only) | `--konzept=… [--lang=php\|js]` |
 | **pii-scan** | Klartext-PII (E-Mail/IBAN/Telefon/Kreditkarte+Luhn), redacted, Hybrid | `--repo=…` |
 | **profile-check** | Konzept + Repo gegen einmal deklariertes `project-profile.md` (EU-AI-Act/Security/Runtime/Test-Framework/Pflicht-Tokens) | `--profile=… [--konzept=… --repo=…]` |
+| **cdp5-init** | bindet eine Konsumenten-CLAUDE.md an den Marketplace an (idempotenter Marker-Block: CDP5-Verweis + cdp5-reference-Gate + Trigger-Map + Skills/Agents); Hybrid, schreibt nur mit `--write` | `--target=… [--write] [--block=…]` |
 
 Alle Skills sind **read-only**, **parametrisiert** (kein projektspezifischer Pfad/Code eingebacken) und **dependency-frei** (nur `node:`-Builtins). Jeder liefert einen Report; der Main-Agent handelt darauf.
 
