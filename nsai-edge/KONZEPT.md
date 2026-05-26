@@ -439,9 +439,10 @@ Gegen echten Quellcode geprüft (frischer Checkout, Mai 2026):
 
 | # | Kriterium | Test-Typ | Test-Klasse | Status |
 | --- | --- | --- | --- | --- |
-| AC-10.1 | Abweichung zwischen Engines blockt das Gate (Exit 1) | Integration | ConformanceTest::testDriftBlocks | grün |
-| AC-10.2 | Integer-identische Outputs beider Engines → Exit 0 | Integration | ConformanceTest::testParityPasses | grün |
-| AC-10.3 | Unterschrittene Vektor-Coverage blockt das Gate | Unit | ConformanceTest::testCoverageEnforced | grün |
+| AC-10.2 | Node-seitige Vektoren bestehen Integer-exakt; ohne PHP-Runner `phpVerified=false` (ehrlich) | Integration | conformance AC-10.2 | grün |
+| AC-10.4 | Conformance Node-seitig reproduzierbar/deterministisch (kein interner Drift über Läufe) | Unit | conformance AC-10.4 | grün |
+| AC-10.1 | Abweichung Node↔PHP blockt Gate (Exit 1) | Integration | — | Phase 2 (braucht PHP-Runner) |
+| AC-10.3 | Unterschrittene Vektor-Coverage blockt Gate | Unit | — | Phase 2 |
 
 ### UC-11: Initialer Clone des Bundle-Bestands (Bootstrap)
 
@@ -476,6 +477,31 @@ Gegen echten Quellcode geprüft (frischer Checkout, Mai 2026):
 | AC-11.1 | Voll-Clone landet vollständig in Quarantäne (Default) | Integration | CloneTest::testCloneAllQuarantined | grün |
 | AC-11.2 | `bulk_promote` hebt ganzen Peer-Bestand auf active | Integration | CloneTest::testBulkPromote | grün |
 | AC-11.3 | Erneuter Clone wirkt als idempotentes Pull-Delta (keine Dubletten) | Integration | CloneTest::testReCloneIsDelta | grün |
+
+### UC-12: Belief-Auflösung konkurrierender Aussagen (`resolveBelief`)
+
+**Akteur:** `System`/`Developer` · **Route/MCP-Tool:** `graph__resolve_belief` · **Kein LLM** (deterministische Lese-Linse, §B)
+
+#### Verhalten
+1. Sammelt aktive Edges zu `subject`+`predicate`, gruppiert nach distinktem Objekt (max je Objekt → anzahl-unabhängig).
+2. Präzedenz `(Origin-Trust-Rang, effektive Stufe, within-weight)`; nur die höchste Trust/Stufe-Gruppe konkurriert, niedrigere → belief 0 (sichtbar `disputed`).
+3. Innerhalb der Gruppe Potenz-Normalisierung über within-weight (Recency×Konfidenz); deterministischer Tiebreak (object lexikografisch).
+4. Liefert Gewinner + Kandidaten mit `belief` (0–1000) + `contested`.
+
+#### Fehlerfälle
+| Fall | Verhalten |
+|---|---|
+| Kein Treffer | `null` (ehrliches „weiß nicht", kein Halluzinieren). |
+| Alle Kandidaten Gewicht 0 | `winner=null`, `contested=true` (unentscheidbar). |
+
+#### Akzeptanzkriterien (Test-First)
+| # | Kriterium | Test-Typ | Test-Klasse | Status |
+|---|---|---|---|---|
+| AC-12.1 | Höhere Autoritäts-Stufe gewinnt bei gleichem Trust, anzahl-unabhängig (Gesetz schlägt N×Web) | Unit | resolveBelief::gesetzSchlaegtWeb | grün |
+| AC-12.2 | Bei gleicher Stufe gewinnt der neuere (Recency), veraltetes → belief→0, bleibt gespeichert | Unit | resolveBelief::recency+veraltet | grün |
+| AC-12.3 | Höherer Origin-Trust gewinnt; limited kann per effTier-Sprung nichts überstimmen; eigene Inferenz geschützt | Integration | SEC-11/11b | grün |
+| AC-12.4 | Auflösung ist ingest-reihenfolge-unabhängig (deterministischer Tiebreak) | Unit | resolveBelief::determinismus | grün |
+| AC-12.5 | Überstimmte Aussage als `disputed`+`dominant` markiert | Unit | query::disputed | grün |
 
 ## 7. Sicherheit & Bedrohungsanalyse (§33)
 

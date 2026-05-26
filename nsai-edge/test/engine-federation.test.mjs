@@ -409,3 +409,13 @@ test('AC-10.2: Conformance-Vektoren bestehen Node-seitig; PHP unverified ohne Ru
   assert.equal(r.allPass, true);
   assert.equal(r.phpVerified, false);
 });
+
+test('AC-10.4: Conformance ist Node-seitig reproduzierbar/deterministisch (Anti-Drift-Garantie)', () => {
+  const vectors = [
+    { name: 'decay', input: [{ subject: 'Wetter', predicate: 'ist', object: 'Regen', confidence: 800, temporality: 'temporal' }], op: 'decay', expected: [{ subject: 'Wetter', predicate: 'ist', object: 'Regen', confidence: 750, status: 'active' }] },
+    { name: 'infer', input: [{ subject: 'Glatteis', predicate: 'ist_ein', object: 'Strassengefahr', confidence: 900 }, { subject: 'Temperatur', predicate: 'zustand', object: 'unter_null', confidence: 900 }], op: 'infer', expected: [{ subject: 'Fahrbahn', predicate: 'zustand', object: 'gefaehrlich', confidence: 810, status: 'active' }] },
+  ];
+  const r1 = checkConformance(vectors); const r2 = checkConformance(vectors);
+  assert.equal(r1.allPass, true);
+  assert.deepEqual(r1.results, r2.results); // identisch über frische Engines/Läufe → kein Node-interner Drift
+});
