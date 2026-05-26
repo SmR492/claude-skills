@@ -16,9 +16,12 @@ export const DEFAULT_SPEC = {
   quarantineThreshold: 300,
   // Lokale Lese-Linse (UC-02/09): effektive Konfidenz = trunc(conf * factor / 1000).
   trustFactor: { untrusted: 0, limited: 500, full: 1000, authoritative: 1000 },
-  // Epistemische Autorität je source_type (Promille 0–1000) — inhaltsgebunden, NICHT Peer-Trust.
-  // Konflikt-Gewichtung: Gesetz schlägt Web, egal wie viele Web-Quellen (BEWA-Quellen-Tupel-Äquivalent).
-  authorityWeight: { gesetz: 1000, behoerde: 880, sensor: 820, fachquelle: 760, manual: 700, web: 450, llm: 300, default: 300 },
+  // Autoritäts-STUFE je source_type (höher = dominanter). Tiers sind HART: eine höhere Stufe
+  // schlägt eine niedrigere unabhängig von Anzahl, Aktualität oder Konfidenz. Gesetz dominiert.
+  sourceTier: { gesetz: 6, behoerde: 5, sensor: 4, fachquelle: 3, manual: 2, web: 1, llm: 0, inference: 0, default: 0 },
+  // Trust-Deckel: ein Origin kann keine höhere Autoritäts-Stufe behaupten als sein Trust erlaubt
+  // (limited kann sich kein gesetz erschleichen → max. Web-Stufe). untrusted → ausgeschlossen.
+  trustTierCap: { untrusted: -1, limited: 1, full: 6, authoritative: 6 },
   // Recency-Halbwertszeit je Temporalität (Tage). Autorität bleibt dominant: stabile/ewige
   // Fakten (z.B. geltende Gesetze) zerfallen kaum → ein altes gültiges Gesetz gilt NICHT als
   // "veraltet"; nur temporäre/flüchtige Aussagen verlieren schnell an Recency-Gewicht.

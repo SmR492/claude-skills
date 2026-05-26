@@ -22,16 +22,20 @@ Diese Section hält den realen Code-Stand fest (Konzept↔Code-Alignment, Lehre 
 
 ### B. Evidenz-Gewichtung (neuro-symbolisch, Lese-Linse)
 
-Konkurrierende Aussagen (gleiches Subjekt+Prädikat, verschiedenes Objekt) werden **nicht** hart quarantänisiert, sondern zur Lesezeit gewichtet (UC-12 `resolveBelief`):
+Konkurrierende Aussagen (gleiches Subjekt+Prädikat, verschiedenes Objekt) werden **nicht** hart quarantänisiert, sondern zur Lesezeit **tier-basiert** gewichtet (UC-12 `resolveBelief`):
 
 ```
-score(claim) = authority(source_type)/1000 × recency(asserted_at) × confidence
-recency(t)   = 2^(−Alter_in_Tagen / recencyHalflifeDays)        # exponentiell, neuer = höher
-belief(obj)  = score(obj)^beliefSharpness / Σ score(j)^beliefSharpness   # über DISTINKTE Objekte (max je Objekt)
+effTier(claim)   = min( sourceTier(source_type), trustTierCap(originTrust) )   # HARTE Autoritäts-Stufe
+withinWeight     = recency(asserted_at, temporality) × confidence × trustFactor(originTrust)/1000
+recency(t, temp) = 2^(−Alter_in_Tagen / halflife[temp])   # eternal=∞ (kein Decay); stable lang; temporal/ephemeral kurz
+# Nur die HÖCHSTE Tier-Stufe konkurriert um Belief; niedrigere Stufen → belief 0 (sichtbar als disputed).
+belief(obj)      = withinWeight(obj)^beliefSharpness / Σ_top withinWeight(j)^beliefSharpness
 ```
 
-- **`source_type`-Autorität** (signiert, inhaltsgebunden): `gesetz` 1000 > `behoerde` 880 > `sensor` 820 > `fachquelle` 760 > `manual` 700 > `web` 450 > `llm`/`inference` 300. Ein Gesetzestext dominiert mehrere Web-Quellen — **Anzahl zählt nie** (max je Objekt, nicht Summe).
-- **Aktualität** schlägt bei gleicher Autorität (Recency-Decay).
+- **Autorität ist eine HARTE Stufe** (`sourceTier`): `gesetz` 6 > `behoerde` 5 > `sensor` 4 > `fachquelle` 3 > `manual` 2 > `web` 1 > `llm`/`inference` 0. Eine höhere Stufe schlägt eine niedrigere **unabhängig von Anzahl, Alter oder Konfidenz** — ein gültiges altes Gesetz schlägt frisches Web. **Anzahl zählt nie** (max je Objekt, nicht Summe).
+- **Trust-Deckel** (`trustTierCap`): ein Origin kann keine höhere Stufe behaupten, als sein Trust erlaubt (`limited` → max. Web-Stufe, `untrusted` → ausgeschlossen). So kann sich ein limited-Peer kein `gesetz` erschleichen (kein source_type-Spoofing).
+- **Aktualität entscheidet nur INNERHALB derselben Stufe** (Recency-Decay, temporalitäts-gekoppelt) — Aktualität kann Autorität nie überstimmen.
+- **Zukunfts-`asserted_at`** wird lokal geklemmt und föderiert (pull/clone) abgelehnt — keine Recency-Manipulation.
 - **Veraltetes/falsches Wissen** sinkt im Belief gegen 0, bleibt aber gespeichert (auditierbar, revidierbar — non-monoton, BEWA-Stil). Decay senkt zusätzlich den Live-Wert.
 - Query markiert überstimmte Aussagen als `disputed` + nennt das `dominant`-Objekt; eine Gruppe ist `contested`, wenn der Zweitplatzierte ≥ `contestedThreshold` Belief hält.
 - **Float-Hinweis:** Scoring/Belief sind eine **lokale** Float-Lese-Linse — nicht föderiert, nicht conformance-relevant; die signierten/föderierten Werte bleiben Integer-exakt.

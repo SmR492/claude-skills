@@ -181,9 +181,10 @@ test('SEC-4: limited-Peer kann sich keine hohe Autorität erschleichen (source_t
   const c = fresh();
   c.peerAdd('peer:evil', fresh().identity.publicKeyPem); c.peerTrust('peer:evil', 'limited');
   c.peerAdd('peer:good', fresh().identity.publicKeyPem); c.peerTrust('peer:good', 'full');
-  c.mergeIncoming(makeWire('Frage', 'ist', 'EvilAntwort', 800, { 'peer:evil': 1 }, 'peer:evil', 'gesetz'), { peerTrust: 'limited' });
-  c.mergeIncoming(makeWire('Frage', 'ist', 'GoodAntwort', 800, { 'peer:good': 1 }, 'peer:good', 'behoerde'), { peerTrust: 'full' });
-  assert.equal(c.resolveBelief('Frage', 'ist').winner, 'GoodAntwort'); // ehrliche behoerde@full schlägt gefälschtes gesetz@limited
+  c.mergeIncoming(makeWire('Frage', 'ist', 'EvilAntwort', 900, { 'peer:evil': 1 }, 'peer:evil', 'gesetz'), { peerTrust: 'limited' });
+  c.mergeIncoming(makeWire('Frage', 'ist', 'GoodAntwort', 900, { 'peer:good': 1 }, 'peer:good', 'web'), { peerTrust: 'full' });
+  // limited@gesetz wird auf Web-Tier gedeckelt → ehrliche web@full gewinnt (gleiche Stufe, höherer Liefer-Trust)
+  assert.equal(c.resolveBelief('Frage', 'ist').winner, 'GoodAntwort');
 });
 
 test('SEC-5: Zukunfts-asserted_at wird geklemmt (lokal) bzw. abgelehnt (Föderation)', () => {
@@ -195,12 +196,25 @@ test('SEC-5: Zukunfts-asserted_at wird geklemmt (lokal) bzw. abgelehnt (Föderat
   assert.equal(e.mergeIncoming(wire, { peerTrust: 'full' }), 'rejected');
 });
 
-test('Belief: gültiges altes Gesetz schlägt frisches Web (Autorität dominiert, Recency temporalitäts-gekoppelt)', () => {
+test('Belief: 20 Jahre altes gültiges Gesetz schlägt frisches Web (harte Autoritäts-Dominanz, altersunabhängig)', () => {
   const e = fresh();
-  const threeYearsAgo = new Date(e._now() - 3 * 365 * 86400000).toISOString();
-  e.storeTriple({ subject: 'Regel', predicate: 'ist', object: 'Gesetzlich', confidence: 800, source_type: 'gesetz', temporality: 'stable', asserted_at: threeYearsAgo });
-  e.storeTriple({ subject: 'Regel', predicate: 'ist', object: 'Geruecht', confidence: 800, source_type: 'web', temporality: 'temporal' });
-  assert.equal(e.resolveBelief('Regel', 'ist').winner, 'Gesetzlich');
+  const twentyYearsAgo = new Date(e._now() - 20 * 365 * 86400000).toISOString();
+  e.storeTriple({ subject: 'Regel', predicate: 'ist', object: 'Gesetzlich', confidence: 700, source_type: 'gesetz', temporality: 'stable', asserted_at: twentyYearsAgo });
+  e.storeTriple({ subject: 'Regel', predicate: 'ist', object: 'Geruecht', confidence: 950, source_type: 'web', temporality: 'temporal' });
+  const r = e.resolveBelief('Regel', 'ist');
+  assert.equal(r.winner, 'Gesetzlich'); // höhere Tier-Stufe gewinnt trotz Alter UND niedrigerer Konfidenz
+  assert.equal(r.candidates.find((c) => c.object === 'Geruecht').belief, 0); // niedrigere Stufe → belief 0
+});
+
+test('SEC-6: clone lehnt Zukunfts-asserted_at ab (origin-signiert, aber implausibel)', () => {
+  const origin = fresh(); const c = fresh();
+  c.peerAdd(origin.peerId, origin.identity.publicKeyPem); c.peerTrust(origin.peerId, 'full');
+  const payload = { wire_version: 1, triple_hash: tripleHash('Zz', 'ist', 'Zukunft'), subject: 'Zz', predicate: 'ist', object: 'Zukunft', asserted_confidence: 900, temporality: 'stable', source_type: 'web', asserted_at: '2999-01-01T00:00:00Z', origin_peer_id: origin.peerId, derived_from: null };
+  const wire = { ...payload, confidence: 900, vector_clock: { [origin.peerId]: 1 }, relayed_by: origin.peerId, signature: signTriple(origin.identity.privateKeyPem, payload) };
+  const transport = { exportSince: () => [wire], receiveIngest: () => [] };
+  const r = c.clone(transport, origin.peerId, { bulkPromote: true });
+  assert.equal(r.rejected, 1);
+  assert.equal(c._getEdge(payload.triple_hash), undefined);
 });
 
 test('mergeIncoming validiert Input (1-Zeichen-Subjekt → Fehler, kein DB-Crash)', () => {

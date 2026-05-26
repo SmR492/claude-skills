@@ -116,8 +116,11 @@ export class Engine {
     });
   }
 
-  // ---- Belief-Scoring (neuro-symbolische Lese-Linse) -----------------
-  _authority(sourceType) { return this.spec.authorityWeight[sourceType] ?? this.spec.authorityWeight.default ?? 300; }
+  // ---- Belief-Scoring (neuro-symbolische Lese-Linse, Tier-basiert) ---
+  _sourceTier(st) { return this.spec.sourceTier[st] ?? this.spec.sourceTier.default ?? 0; }
+  _trustTierCap(trust) { return this.spec.trustTierCap[trust] ?? -1; }
+  // Effektive Autoritäts-Stufe: source_type-Tier, gekappt durch Origin-Trust (Fix 🔴1).
+  _effTier(edge) { return Math.min(this._sourceTier(edge.source_type), this._trustTierCap(this._originTrust(edge.origin_peer_id))); }
   _recencyFactor(assertedAt, temporality = 'stable') {
     const half = this.spec.recencyHalflifeDays[temporality] ?? this.spec.recencyHalflifeDays.default ?? 3650;
     if (!Number.isFinite(half)) return 1; // eternal → kein Recency-Decay
@@ -126,12 +129,9 @@ export class Engine {
     const ageDays = Math.max(0, (this._now() - t) / 86400000); // Zukunft → wie age 0 (Faktor 1, nie >1)
     return Math.pow(2, -ageDays / half); // ∈ (0,1]
   }
-  // Evidenz-Score 0..1000 (Float, rein lokal — nicht föderiert/conformance-relevant).
-  // Autorität ist an den ORIGIN-Trust gekoppelt: ein limited/untrusted-Origin kann sich
-  // keinen hohen source_type "erschleichen" (Fix 🔴1). untrusted→0 (ohnehin quarantänisiert).
-  _score(edge) {
-    const auth = (this._authority(edge.source_type) / 1000) * (trustFactor(this.spec, this._originTrust(edge.origin_peer_id)) / 1000);
-    return auth * this._recencyFactor(edge.asserted_at, edge.temporality) * edge.confidence;
+  // Innerhalb derselben Tier-Stufe: Aktualität × Konfidenz × Liefer-Trust (Float, rein lokal).
+  _withinWeight(edge) {
+    return this._recencyFactor(edge.asserted_at, edge.temporality) * edge.confidence * (trustFactor(this.spec, this._originTrust(edge.origin_peer_id)) / 1000);
   }
 
   // Löst konkurrierende Aussagen (gleiches subject+predicate) zu einer gewichteten
@@ -142,24 +142,37 @@ export class Engine {
     if (!sNode) return null;
     const edges = this.db.prepare("SELECT * FROM knowledge_edges WHERE subject_id=? AND predicate=? AND local_status='active'").all(sNode.id, predicate);
     if (edges.length === 0) return null;
+    // Pro Objekt beste Repräsentanz: höchste Autoritäts-Stufe (tier), dann höchstes within-weight.
     const byObject = new Map();
     for (const e of edges) {
       const obj = this._nodeName(e.object_id);
-      const sc = this._score(e);
+      const tier = this._effTier(e);
+      const weight = this._withinWeight(e);
       const cur = byObject.get(obj);
-      if (!cur || sc > cur.score) byObject.set(obj, { object: obj, score: sc, source_type: e.source_type, asserted_at: e.asserted_at, confidence: e.confidence, origin_peer_id: e.origin_peer_id });
+      if (!cur || tier > cur.tier || (tier === cur.tier && weight > cur.weight)) {
+        byObject.set(obj, { object: obj, tier, weight, source_type: e.source_type, asserted_at: e.asserted_at, confidence: e.confidence, origin_peer_id: e.origin_peer_id });
+      }
     }
     const cands = [...byObject.values()];
-    // Ratio-basierte Potenz-Normalisierung: belief ∝ score^sharpness. Robust auch bei
-    // stark unterschiedlichen Score-Größen (großer Ratio → klarer Gewinner).
+    // Einzelne Aussage ohne Konkurrenz → Gewinner per Default (auch bei niedrigem Tier).
+    if (cands.length === 1) {
+      const c = cands[0]; c.belief = 1000; c.weight = Math.round(c.weight);
+      return { subject, predicate, winner: c.object, contested: false, candidates: [c] };
+    }
+    // HARTE Autoritäts-Dominanz: nur die höchste Tier-Stufe konkurriert um den Belief;
+    // niedrigere Stufen → belief 0 (sichtbar als disputed). Innerhalb der Top-Stufe:
+    // Potenz-Normalisierung über within-weight (Aktualität × Konfidenz × Liefer-Trust).
+    const maxTier = Math.max(...cands.map((c) => c.tier));
+    const top = cands.filter((c) => c.tier === maxTier && c.tier >= 0);
     const p = this.spec.beliefSharpness;
     let sum = 0;
-    for (const c of cands) { c._w = Math.pow(Math.max(c.score, 0), p); sum += c._w; }
-    const allZero = !(sum > 0); // alle Scores 0 (z.B. decayed/untrusted) → kein klarer Gewinner
-    for (const c of cands) { c.belief = allZero ? 0 : Math.round((c._w / sum) * 1000); delete c._w; c.score = Math.round(c.score); }
-    cands.sort((a, b) => b.belief - a.belief);
-    const contested = cands.length > 1 && (allZero || cands[1].belief >= this.spec.contestedThreshold);
-    return { subject, predicate, winner: allZero ? null : cands[0].object, contested, candidates: cands };
+    for (const c of top) { c._w = Math.pow(Math.max(c.weight, 0), p); sum += c._w; }
+    const allZero = !(sum > 0);
+    for (const c of cands) { c.belief = (top.includes(c) && !allZero) ? Math.round((c._w / sum) * 1000) : 0; delete c._w; c.weight = Math.round(c.weight); }
+    cands.sort((a, b) => (b.tier - a.tier) || (b.belief - a.belief));
+    const winner = (top.length && !allZero) ? cands[0].object : null;
+    const contested = cands.length > 1 && cands[1].belief >= this.spec.contestedThreshold;
+    return { subject, predicate, winner, contested, candidates: cands };
   }
 
   // ---- UC-02: Abfragen (Subgraph + Belief-Anreicherung) --------------
@@ -322,10 +335,10 @@ export class Engine {
       // Provenienz folgt der höheren AUTORITÄT, nicht der höheren Konfidenz (Fix 🟡4) —
       // sonst könnte eine niedrig-autoritative aber hoch-konfidente Quelle den source_type kapern.
       // Live-Konfidenz bleibt CRDT-max. Gespeicherte Aussage bleibt eine kohärente, signierte Origin-Aussage.
-      const incAuth = this._authority(sourceType); const exAuth = this._authority(existing.source_type);
-      const incWins = incAuth > exAuth
-        || (incAuth === exAuth && asserted > existing.asserted_confidence)
-        || (incAuth === exAuth && asserted === existing.asserted_confidence && wire.origin_peer_id < existing.origin_peer_id);
+      const incTier = this._sourceTier(sourceType); const exTier = this._sourceTier(existing.source_type);
+      const incWins = incTier > exTier
+        || (incTier === exTier && asserted > existing.asserted_confidence)
+        || (incTier === exTier && asserted === existing.asserted_confidence && wire.origin_peer_id < existing.origin_peer_id);
       if (incWins) {
         this.db.prepare("UPDATE knowledge_edges SET confidence=?, asserted_confidence=?, source_type=?, asserted_at=?, origin_peer_id=?, relayed_by=?, signature=?, vector_clock=?, updated_at=datetime('now') WHERE triple_hash=?")
           .run(liveConf, asserted, sourceType, assertedAt, wire.origin_peer_id, wire.relayed_by ?? null, wire.signature, JSON.stringify(vc), wire.triple_hash);
@@ -414,9 +427,11 @@ export class Engine {
     if (!this._peer(peerId)) throw new EngineError('PEER_UNKNOWN');
     const batch = transport.exportSince({});
     let cloned = 0, rejected = 0;
+    const SKEW = 86400000;
     for (const wire of batch) {
       if (!this._verifyAgainstOrigin(wire)) { rejected++; continue; }
       try { validateTriple(wire.subject, wire.predicate, wire.object); } catch { rejected++; continue; }
+      if (Date.parse(wire.asserted_at ?? EPOCH) > this._now() + SKEW) { rejected++; continue; } // kein Zukunftsdatum (Fix 🔴C)
       const sId = this._ensureNode(wire.subject); const oId = this._ensureNode(wire.object);
       const asserted = wire.asserted_confidence ?? wire.confidence;
       this.db.prepare(
