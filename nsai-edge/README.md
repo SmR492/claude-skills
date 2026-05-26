@@ -58,11 +58,13 @@ node bin/nsai-edge.mjs peer-trust --peer=peer:bundle --level=authoritative
 
 DB + Identität liegen unter `~/.claude/nsai-edge/` (override via `NSAI_EDGE_DB`).
 
-## Noch offen (Integration)
+## Noch offen (Phase 2 — PHP-Gegenseite, bewusst deferred)
 
-- **Netz-/`docker exec`-Peer-Transport:** aktuell ist die Föderation über einen injizierten Transport (Loopback) getestet; HTTP + der Bundle-Adapter (`nsai:graph:ingest`/`export`) fehlen — die Bundle-Commands existieren noch nicht (Symfony-seitige Arbeit).
-- **PHP-Conformance-Gegenseite (UC-10):** Node-Seite läuft; das Cross-Language-Gate bleibt `unverified`, bis die PHP-Engine dieselben Vektoren rechnet.
-- 🟢 GC-Tombstone-Default, Inferenz-Idempotenz-Schlüssel.
+Die **Node-Hälfte der Föderation ist fertig + getestet**: realer HTTP-Transport (Node↔Node) und `bundleAdapter` (docker exec via `execFile`-Argument-Array, kein Shell, Container validiert) in `src/transport.mjs`.
+
+- **PHP-Bundle-Commands `nsai:graph:ingest`/`export`** existieren noch nicht (separate Symfony-Arbeit). Sobald gebaut, läuft die Bundle-Föderation ohne Node-Änderung.
+- **PHP-Conformance-Gegenlauf (UC-10):** Node-Seite läuft; `phpVerified` bleibt `false`, bis ein `phpRunner` die Vektoren in der PHP-Engine rechnet.
+- **MCP-Föderations-Tools** (`pull`/`push`/`clone`) nur via CLI/HTTP, nicht als in-session-MCP-Tool (async). `peer_add`/`peer_trust` + alle Lese-/Schreib-Tools sind MCP-verfügbar.
 
 ## Föderations-Wire-Vertrag v1
 

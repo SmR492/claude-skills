@@ -42,6 +42,16 @@ export const TOOLS = [
   { name: 'graph__infer', description: 'Forward-Chaining: leitet neue Fakten aus den Inferenzregeln ab.', inputSchema: S({}) },
   { name: 'graph__decay_pass', description: 'Zeitbasierter Decay-Lauf (Fixed-Point). dry_run=true nur Vorschau.', inputSchema: S({ dry_run: { type: 'boolean' } }) },
   { name: 'graph__quarantine_review', description: 'Listet quarantänisierte Fakten (unsicher/widersprüchlich/Fremd-Peer).', inputSchema: S({}) },
+  {
+    name: 'graph__peer_add',
+    description: 'Registriert einen Föderations-Peer (Public Key + Endpoint), initial untrusted (TOFU — Fingerprint out-of-band bestätigen).',
+    inputSchema: S({ peer_id: { type: 'string' }, public_key: { type: 'string', description: 'PEM' }, endpoint: { type: 'string' } }, ['peer_id', 'public_key']),
+  },
+  {
+    name: 'graph__peer_trust',
+    description: 'Setzt das Trust-Level eines Peers. authoritative/full → volle Wirkung, limited → gedeckelt (max. Web-Stufe), untrusted → Quarantäne.',
+    inputSchema: S({ peer_id: { type: 'string' }, level: { type: 'string', enum: ['untrusted', 'limited', 'full', 'authoritative'] } }, ['peer_id', 'level']),
+  },
 ];
 
 export class McpServer {
@@ -100,6 +110,13 @@ export class McpServer {
           break;
         case 'graph__quarantine_review':
           result = this.engine.quarantineList();
+          break;
+        case 'graph__peer_add':
+          result = this.engine.peerAdd(args.peer_id, args.public_key, args.endpoint ?? null);
+          break;
+        case 'graph__peer_trust':
+          this.engine.peerTrust(args.peer_id, args.level);
+          result = { ok: true, peer: args.peer_id, level: args.level };
           break;
         default:
           return { content: [{ type: 'text', text: `Unknown tool: ${name}` }], isError: true };

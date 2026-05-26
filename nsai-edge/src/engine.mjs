@@ -310,6 +310,13 @@ export class Engine {
     }
     return { decayed, superseded, dryRun };
   }
+  // GC: alte superseded-Tombstones + Waisen-Knoten physisch entfernen (KONZEPT §8.4).
+  gc({ maxAgeDays = 30 } = {}) {
+    const cutoff = new Date(this._now() - maxAgeDays * 86400000).toISOString().replace('T', ' ').slice(0, 19);
+    const edges = this.db.prepare("DELETE FROM knowledge_edges WHERE local_status='superseded' AND updated_at < ?").run(cutoff);
+    const nodes = this.db.prepare('DELETE FROM knowledge_nodes WHERE id NOT IN (SELECT subject_id FROM knowledge_edges UNION SELECT object_id FROM knowledge_edges)').run();
+    return { edgesDeleted: edges.changes, nodesDeleted: nodes.changes };
+  }
   reinforce(hash) {
     const e = this._getEdge(hash);
     if (!e) return null;
@@ -428,11 +435,11 @@ export class Engine {
     }
     return result;
   }
-  pull(transport, peerId) {
+  async pull(transport, peerId) {
     const peer = this._peer(peerId);
     if (!peer) throw new EngineError('PEER_UNKNOWN');
     const since = peer.last_clock ? JSON.parse(peer.last_clock) : {};
-    const batch = transport.exportSince(since);
+    const batch = await transport.exportSince(since);
     const tally = { received: 0, accepted: 0, quarantined: 0, rejected: 0, ignored: 0 };
     let maxClock = since;
     for (const wire of batch) {
@@ -445,20 +452,20 @@ export class Engine {
     this.db.prepare('UPDATE peers SET last_clock=? WHERE peer_id=?').run(JSON.stringify(maxClock), peerId);
     return tally;
   }
-  push(transport, peerId) {
+  async push(transport, peerId) {
     const peer = this._peer(peerId);
     if (!peer) throw new EngineError('PEER_UNKNOWN');
     const since = peer.last_clock ? JSON.parse(peer.last_clock) : {};
     const batch = this.exportSince(since);
-    const statuses = transport.receiveIngest(batch);
+    const statuses = await transport.receiveIngest(batch);
     let maxClock = since;
     for (const w of batch) maxClock = clockMax(maxClock, w.vector_clock);
     this.db.prepare('UPDATE peers SET last_clock=? WHERE peer_id=?').run(JSON.stringify(maxClock), peerId);
     return statuses;
   }
-  clone(transport, peerId, { bulkPromote = false } = {}) {
+  async clone(transport, peerId, { bulkPromote = false } = {}) {
     if (!this._peer(peerId)) throw new EngineError('PEER_UNKNOWN');
-    const batch = transport.exportSince({});
+    const batch = await transport.exportSince({});
     let cloned = 0, rejected = 0;
     const SKEW = 86400000;
     for (const wire of batch) {

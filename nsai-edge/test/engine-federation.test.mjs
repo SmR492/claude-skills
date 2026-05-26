@@ -28,15 +28,15 @@ function makeWire(s, p, o, confidence, vc, origin = 'peer:ext', sourceType = 'ma
 }
 
 // ---- UC-06 Pull / UC-07 Push (echter Signaturpfad) -------------------
-test('AC-6.1: Pull mergt nur gegen Origin-Key verifizierte Tripel', () => {
+test('AC-6.1: Pull mergt nur gegen Origin-Key verifizierte Tripel', async () => {
   const { A, B } = pair('full');
   A.storeTriple({ subject: 'Sensor', predicate: 'meldet', object: 'Glatteis', confidence: 900 });
-  const tally = B.pull(link(A), A.peerId);
+  const tally = await B.pull(link(A), A.peerId);
   assert.equal(tally.accepted, 1);
   assert.equal(B._getEdge(tripleHash('Sensor', 'meldet', 'Glatteis')).local_status, 'active');
 });
 
-test('AC-6.2: an asserted_confidence manipuliertes Tripel wird verworfen', () => {
+test('AC-6.2: an asserted_confidence manipuliertes Tripel wird verworfen', async () => {
   const { A, B } = pair('full');
   A.storeTriple({ subject: 'Sensor', predicate: 'meldet', object: 'Glatteis', confidence: 900 });
   const batch = A.exportSince({});
@@ -44,22 +44,22 @@ test('AC-6.2: an asserted_confidence manipuliertes Tripel wird verworfen', () =>
   assert.equal(B.receiveIngest(batch)[0].status, 'rejected');
 });
 
-test('UC-07: Push überträgt lokale Fakten an den Peer', () => {
+test('UC-07: Push überträgt lokale Fakten an den Peer', async () => {
   const { A, B } = pair('full');
   A.storeTriple({ subject: 'Quelle', predicate: 'sagt', object: 'Wahr', confidence: 800 });
-  assert.ok(A.push(link(B), B.peerId).some((s) => s.status === 'accepted'));
+  assert.ok((await A.push(link(B), B.peerId)).some((s) => s.status === 'accepted'));
   assert.ok(B._getEdge(tripleHash('Quelle', 'sagt', 'Wahr')));
 });
 
-test('AC-7.1: Pull ist inkrementell (zweiter Pull bringt nichts Neues)', () => {
+test('AC-7.1: Pull ist inkrementell (zweiter Pull bringt nichts Neues)', async () => {
   const { A, B } = pair('full');
   A.storeTriple({ subject: 'Sensor', predicate: 'meldet', object: 'Glatteis', confidence: 900 });
-  B.pull(link(A), A.peerId);
-  assert.equal(B.pull(link(A), A.peerId).received, 0);
+  await B.pull(link(A), A.peerId);
+  assert.equal((await B.pull(link(A), A.peerId)).received, 0);
 });
 
 // ---- Sicherheit (Modell B) — über den echten Verify-Pfad -------------
-test('SEC-1: Origin-Impersonation wird abgewiesen (fremde Signatur auf fremdem Origin)', () => {
+test('SEC-1: Origin-Impersonation wird abgewiesen (fremde Signatur auf fremdem Origin)', async () => {
   const victim = fresh(); const evil = fresh(); const C = fresh();
   C.peerAdd(victim.peerId, victim.identity.publicKeyPem); C.peerTrust(victim.peerId, 'full');
   // Evil baut ein Wire mit origin=Victim, signiert aber mit EIGENEM Key.
@@ -74,31 +74,31 @@ test('SEC-1: Origin-Impersonation wird abgewiesen (fremde Signatur auf fremdem O
   assert.equal(C._getEdge(base.triple_hash), undefined);
 });
 
-test('SEC-2: unbekannter Origin (Web-of-Trust) wird abgewiesen', () => {
+test('SEC-2: unbekannter Origin (Web-of-Trust) wird abgewiesen', async () => {
   const stranger = fresh(); const C = fresh(); // C kennt stranger NICHT
   stranger.storeTriple({ subject: 'Irgend', predicate: 'sagt', object: 'Was', confidence: 900 });
   const batch = stranger.exportSince({});
   assert.equal(C.receiveIngest(batch)[0].status, 'rejected');
 });
 
-test('SEC-3: Trust-Laundering via Relay scheitert — Trust hängt am Origin', () => {
+test('SEC-3: Trust-Laundering via Relay scheitert — Trust hängt am Origin', async () => {
   const evil = fresh(); const relay = fresh(); const C = fresh();
   evil.storeTriple({ subject: 'Geruecht', predicate: 'behauptet', object: 'Unsinn', confidence: 900 });
   // Relay vertraut Evil voll → bei Relay aktiv:
   relay.peerAdd(evil.peerId, evil.identity.publicKeyPem); relay.peerTrust(evil.peerId, 'full');
-  relay.pull(link(evil), evil.peerId);
+  await relay.pull(link(evil), evil.peerId);
   assert.equal(relay._getEdge(tripleHash('Geruecht', 'behauptet', 'Unsinn')).local_status, 'active');
   // C kennt Evil als untrusted, Relay als full. C zieht von Relay:
   C.peerAdd(evil.peerId, evil.identity.publicKeyPem); // untrusted
   C.peerAdd(relay.peerId, relay.identity.publicKeyPem); C.peerTrust(relay.peerId, 'full');
-  C.pull(link(relay), relay.peerId);
+  await C.pull(link(relay), relay.peerId);
   const edge = C._getEdge(tripleHash('Geruecht', 'behauptet', 'Unsinn'));
   assert.equal(edge.local_status, 'quarantined');     // NICHT zu active gewaschen
   assert.equal(edge.origin_peer_id, evil.peerId);      // Herkunft bleibt Evil (nicht Relay)
 });
 
 // ---- UC-08 Merge (CRDT-Algebra) --------------------------------------
-test('AC-8.1/8.2: Merge ist kommutativ + idempotent (max)', () => {
+test('AC-8.1/8.2: Merge ist kommutativ + idempotent (max)', async () => {
   const x = fresh(); const y = fresh();
   const w1 = makeWire('Sx', 'pp', 'Oo', 600, { P1: 1 }); const w2 = makeWire('Sx', 'pp', 'Oo', 800, { P2: 1 });
   x.mergeIncoming(w1, { peerTrust: 'full' }); x.mergeIncoming(w2, { peerTrust: 'full' });
@@ -107,7 +107,7 @@ test('AC-8.1/8.2: Merge ist kommutativ + idempotent (max)', () => {
   assert.equal(y._getEdge(w1.triple_hash).confidence, 800);
 });
 
-test('AC-8.3: nebenläufiger gleicher Hash → keine Quarantäne', () => {
+test('AC-8.3: nebenläufiger gleicher Hash → keine Quarantäne', async () => {
   const e = fresh();
   e.mergeIncoming(makeWire('Sx', 'pp', 'Oo', 600, { P1: 1 }), { peerTrust: 'full' });
   e.mergeIncoming(makeWire('Sx', 'pp', 'Oo', 700, { P2: 1 }), { peerTrust: 'full' });
@@ -115,14 +115,14 @@ test('AC-8.3: nebenläufiger gleicher Hash → keine Quarantäne', () => {
   assert.equal(e.db.prepare('SELECT COUNT(*) c FROM knowledge_edges').get().c, 1);
 });
 
-test('AC-8.5: gemergter Föderationswert ist trust-unabhängig', () => {
+test('AC-8.5: gemergter Föderationswert ist trust-unabhängig', async () => {
   const full = fresh(); const limited = fresh();
   const w = makeWire('Sx', 'pp', 'Oo', 800, { P1: 1 });
   full.mergeIncoming(w, { peerTrust: 'full' }); limited.mergeIncoming(w, { peerTrust: 'limited' });
   assert.equal(full._getEdge(w.triple_hash).asserted_confidence, limited._getEdge(w.triple_hash).asserted_confidence);
 });
 
-test('AC-8.6: Merge ist assoziativ (drei Werte, beliebige Reihenfolge → max)', () => {
+test('AC-8.6: Merge ist assoziativ (drei Werte, beliebige Reihenfolge → max)', async () => {
   const o1 = fresh(); const o2 = fresh();
   const ws = [makeWire('Sx', 'pp', 'Oo', 300, { A: 1 }), makeWire('Sx', 'pp', 'Oo', 900, { B: 1 }), makeWire('Sx', 'pp', 'Oo', 500, { C: 1 })];
   for (const w of ws) o1.mergeIncoming(w, { peerTrust: 'full' });
@@ -131,7 +131,7 @@ test('AC-8.6: Merge ist assoziativ (drei Werte, beliebige Reihenfolge → max)',
   assert.equal(o2._getEdge(ws[0].triple_hash).confidence, 900);
 });
 
-test('AC-8.4: widersprüchliche Objekte koexistieren aktiv (Belief entscheidet, keine harte Quarantäne)', () => {
+test('AC-8.4: widersprüchliche Objekte koexistieren aktiv (Belief entscheidet, keine harte Quarantäne)', async () => {
   const e = fresh();
   e.mergeIncoming(makeWire('Strasse', 'zustand', 'frei', 800, { P1: 1 }), { peerTrust: 'full' });
   e.mergeIncoming(makeWire('Strasse', 'zustand', 'gesperrt', 800, { P2: 1 }), { peerTrust: 'full' });
@@ -140,7 +140,7 @@ test('AC-8.4: widersprüchliche Objekte koexistieren aktiv (Belief entscheidet, 
 });
 
 // ---- Evidenz-Gewichtung (Autorität × Aktualität × Konfidenz, NIE Anzahl) ----
-test('Belief: Gesetz schlägt mehrfache Web-Quellen (Autorität, nicht Anzahl)', () => {
+test('Belief: Gesetz schlägt mehrfache Web-Quellen (Autorität, nicht Anzahl)', async () => {
   const e = fresh();
   // dieselbe Web-Behauptung mehrfach erfasst = gleicher Hash = ein Edge (kein Count-Bonus):
   for (let i = 0; i < 3; i++) e.storeTriple({ subject: 'Widerrufsfrist', predicate: 'betraegt', object: 'T14', confidence: 850, source_type: 'web' });
@@ -150,14 +150,14 @@ test('Belief: Gesetz schlägt mehrfache Web-Quellen (Autorität, nicht Anzahl)',
   assert.ok(r.candidates.find((c) => c.object === 'T30').belief > r.candidates.find((c) => c.object === 'T14').belief);
 });
 
-test('Belief: bei gleicher Autorität gewinnt der neuere (Recency)', () => {
+test('Belief: bei gleicher Autorität gewinnt der neuere (Recency)', async () => {
   const e = fresh();
   e.storeTriple({ subject: 'Hauptstadt', predicate: 'ist', object: 'Bonn', confidence: 800, source_type: 'fachquelle', asserted_at: '1989-01-01T00:00:00Z' });
   e.storeTriple({ subject: 'Hauptstadt', predicate: 'ist', object: 'Berlin', confidence: 800, source_type: 'fachquelle', asserted_at: '2020-01-01T00:00:00Z' });
   assert.equal(e.resolveBelief('Hauptstadt', 'ist').winner, 'Berlin');
 });
 
-test('Belief: veraltetes Wissen sinkt gegen 0, bleibt aber gespeichert (auditierbar)', () => {
+test('Belief: veraltetes Wissen sinkt gegen 0, bleibt aber gespeichert (auditierbar)', async () => {
   const e = fresh();
   e.storeTriple({ subject: 'Standard', predicate: 'ist', object: 'Alt', confidence: 900, source_type: 'web', asserted_at: '2005-01-01T00:00:00Z' });
   e.storeTriple({ subject: 'Standard', predicate: 'ist', object: 'Neu', confidence: 700, source_type: 'web', asserted_at: '2025-06-01T00:00:00Z' });
@@ -167,7 +167,7 @@ test('Belief: veraltetes Wissen sinkt gegen 0, bleibt aber gespeichert (auditier
   assert.ok(e._getEdge(tripleHash('Standard', 'ist', 'Alt'))); // nicht gelöscht
 });
 
-test('Query markiert überstimmte Aussagen (disputed + dominant)', () => {
+test('Query markiert überstimmte Aussagen (disputed + dominant)', async () => {
   const e = fresh();
   e.storeTriple({ subject: 'Frist', predicate: 'ist', object: 'A14', confidence: 800, source_type: 'web' });
   e.storeTriple({ subject: 'Frist', predicate: 'ist', object: 'A30', confidence: 800, source_type: 'gesetz' });
@@ -177,7 +177,7 @@ test('Query markiert überstimmte Aussagen (disputed + dominant)', () => {
 });
 
 // ---- Adversariale Belief-Fälle (Fixe aus Review 0002) ----------------
-test('SEC-4: limited-Peer kann sich keine hohe Autorität erschleichen (source_type an Trust gekoppelt)', () => {
+test('SEC-4: limited-Peer kann sich keine hohe Autorität erschleichen (source_type an Trust gekoppelt)', async () => {
   const c = fresh();
   c.peerAdd('peer:evil', fresh().identity.publicKeyPem); c.peerTrust('peer:evil', 'limited');
   c.peerAdd('peer:good', fresh().identity.publicKeyPem); c.peerTrust('peer:good', 'full');
@@ -187,7 +187,7 @@ test('SEC-4: limited-Peer kann sich keine hohe Autorität erschleichen (source_t
   assert.equal(c.resolveBelief('Frage', 'ist').winner, 'GoodAntwort');
 });
 
-test('SEC-5: Zukunfts-asserted_at wird geklemmt (lokal) bzw. abgelehnt (Föderation)', () => {
+test('SEC-5: Zukunfts-asserted_at wird geklemmt (lokal) bzw. abgelehnt (Föderation)', async () => {
   const e = fresh();
   const r = e.storeTriple({ subject: 'Fakt', predicate: 'ist', object: 'Real', confidence: 800, asserted_at: '3000-01-01T00:00:00Z' });
   assert.ok(Date.parse(e._getEdge(r.triple_hash).asserted_at) <= e._now() + 1000); // geklemmt, kein Jahr 3000
@@ -196,7 +196,7 @@ test('SEC-5: Zukunfts-asserted_at wird geklemmt (lokal) bzw. abgelehnt (Föderat
   assert.equal(e.mergeIncoming(wire, { peerTrust: 'full' }), 'rejected');
 });
 
-test('Belief: 20 Jahre altes gültiges Gesetz schlägt frisches Web (harte Autoritäts-Dominanz, altersunabhängig)', () => {
+test('Belief: 20 Jahre altes gültiges Gesetz schlägt frisches Web (harte Autoritäts-Dominanz, altersunabhängig)', async () => {
   const e = fresh();
   const twentyYearsAgo = new Date(e._now() - 20 * 365 * 86400000).toISOString();
   e.storeTriple({ subject: 'Regel', predicate: 'ist', object: 'Gesetzlich', confidence: 700, source_type: 'gesetz', temporality: 'stable', asserted_at: twentyYearsAgo });
@@ -206,7 +206,7 @@ test('Belief: 20 Jahre altes gültiges Gesetz schlägt frisches Web (harte Autor
   assert.equal(r.candidates.find((c) => c.object === 'Geruecht').belief, 0); // niedrigere Stufe → belief 0
 });
 
-test('SEC-7: limited-Origin kann die Provenienz eines höher-vertrauten Edges nicht kapern (Merge-Schreibpfad gekappt)', () => {
+test('SEC-7: limited-Origin kann die Provenienz eines höher-vertrauten Edges nicht kapern (Merge-Schreibpfad gekappt)', async () => {
   const c = fresh();
   c.peerAdd('peer:good', fresh().identity.publicKeyPem); c.peerTrust('peer:good', 'full');
   c.peerAdd('peer:evil', fresh().identity.publicKeyPem); c.peerTrust('peer:evil', 'limited');
@@ -219,7 +219,7 @@ test('SEC-7: limited-Origin kann die Provenienz eines höher-vertrauten Edges ni
   assert.equal(e.source_type, 'manual');
 });
 
-test('SEC-8: untrusted/limited Re-Assert inflationiert die Live-Konfidenz eines vertrauten Edges nicht', () => {
+test('SEC-8: untrusted/limited Re-Assert inflationiert die Live-Konfidenz eines vertrauten Edges nicht', async () => {
   const c = fresh();
   c.peerAdd('peer:g1', fresh().identity.publicKeyPem); c.peerTrust('peer:g1', 'full');
   c.peerAdd('peer:evil', fresh().identity.publicKeyPem); c.peerTrust('peer:evil', 'untrusted');
@@ -233,7 +233,7 @@ test('SEC-8: untrusted/limited Re-Assert inflationiert die Live-Konfidenz eines 
   assert.equal(c._getEdge(hash).confidence, before); // limited hebt nicht an
 });
 
-test('SEC-9: limited-Origin kapert kein belief-relevantes Feld eines höher-vertrauten gleich-Tier-Edges (Recency/Provenienz)', () => {
+test('SEC-9: limited-Origin kapert kein belief-relevantes Feld eines höher-vertrauten gleich-Tier-Edges (Recency/Provenienz)', async () => {
   const c = fresh();
   c.peerAdd('peer:good', fresh().identity.publicKeyPem); c.peerTrust('peer:good', 'full');
   c.peerAdd('peer:lim', fresh().identity.publicKeyPem); c.peerTrust('peer:lim', 'limited');
@@ -249,7 +249,7 @@ test('SEC-9: limited-Origin kapert kein belief-relevantes Feld eines höher-vert
   assert.equal(after.source_type, before.source_type);
 });
 
-test('SEC-10: niedriger-vertrauter Peer kapert auch per effTier-Sprung keine höher-vertraute Provenienz', () => {
+test('SEC-10: niedriger-vertrauter Peer kapert auch per effTier-Sprung keine höher-vertraute Provenienz', async () => {
   const c = fresh();
   c.peerAdd('peer:good', fresh().identity.publicKeyPem); c.peerTrust('peer:good', 'full');
   c.peerAdd('peer:lim', fresh().identity.publicKeyPem); c.peerTrust('peer:lim', 'limited');
@@ -263,7 +263,13 @@ test('SEC-10: niedriger-vertrauter Peer kapert auch per effTier-Sprung keine hö
   assert.equal(e.source_type, 'llm'); // effTier-Sprung durch niedrigeren Trust blockiert
 });
 
-test('SEC-11: limited-Peer überstimmt im Belief kein höher-vertrautes Wissen per effTier-Sprung', () => {
+test('AC-6.6: Tripel mit abweichender wire_version wird verworfen (Versions-Gate)', async () => {
+  const e = fresh();
+  const w = makeWire('Aa', 'pp', 'Bb', 700, { P1: 1 }); w.wire_version = 2;
+  assert.equal(e.mergeIncoming(w, { peerTrust: 'full' }), 'rejected');
+});
+
+test('SEC-11: limited-Peer überstimmt im Belief kein höher-vertrautes Wissen per effTier-Sprung', async () => {
   const c = fresh();
   c.peerAdd('peer:good', fresh().identity.publicKeyPem); c.peerTrust('peer:good', 'full');
   c.peerAdd('peer:evil', fresh().identity.publicKeyPem); c.peerTrust('peer:evil', 'limited');
@@ -275,7 +281,7 @@ test('SEC-11: limited-Peer überstimmt im Belief kein höher-vertrautes Wissen p
   assert.equal(r.candidates.find((x) => x.object === 'Gefaehrlich').belief, 0);
 });
 
-test('SEC-11b: eigene Inferenz (self=full) wird von einem limited-web-Claim nicht überstimmt', () => {
+test('SEC-11b: eigene Inferenz (self=full) wird von einem limited-web-Claim nicht überstimmt', async () => {
   const c = fresh();
   c.peerAdd('peer:evil', fresh().identity.publicKeyPem); c.peerTrust('peer:evil', 'limited');
   c.storeTriple({ subject: 'Lage', predicate: 'ist', object: 'OK', confidence: 810, source_type: 'inference' });
@@ -283,7 +289,7 @@ test('SEC-11b: eigene Inferenz (self=full) wird von einem limited-web-Claim nich
   assert.equal(c.resolveBelief('Lage', 'ist').winner, 'OK');
 });
 
-test('🟡-2: Belief-Auflösung ist ingest-reihenfolge-unabhängig (Föderations-Determinismus)', () => {
+test('🟡-2: Belief-Auflösung ist ingest-reihenfolge-unabhängig (Föderations-Determinismus)', async () => {
   const mk = () => { const e = fresh(); return e; };
   const a = mk(); const b = mk();
   // gleicher Bestand, andere Reihenfolge, gleiche Stufe (web), gleiche conf/recency:
@@ -294,40 +300,40 @@ test('🟡-2: Belief-Auflösung ist ingest-reihenfolge-unabhängig (Föderations
   assert.equal(a.resolveBelief('Sub', 'ist').winner, b.resolveBelief('Sub', 'ist').winner);
 });
 
-test('SEC-6: clone lehnt Zukunfts-asserted_at ab (origin-signiert, aber implausibel)', () => {
+test('SEC-6: clone lehnt Zukunfts-asserted_at ab (origin-signiert, aber implausibel)', async () => {
   const origin = fresh(); const c = fresh();
   c.peerAdd(origin.peerId, origin.identity.publicKeyPem); c.peerTrust(origin.peerId, 'full');
   const payload = { wire_version: 1, triple_hash: tripleHash('Zz', 'ist', 'Zukunft'), subject: 'Zz', predicate: 'ist', object: 'Zukunft', asserted_confidence: 900, temporality: 'stable', source_type: 'web', asserted_at: '2999-01-01T00:00:00Z', origin_peer_id: origin.peerId, derived_from: null };
   const wire = { ...payload, confidence: 900, vector_clock: { [origin.peerId]: 1 }, relayed_by: origin.peerId, signature: signTriple(origin.identity.privateKeyPem, payload) };
   const transport = { exportSince: () => [wire], receiveIngest: () => [] };
-  const r = c.clone(transport, origin.peerId, { bulkPromote: true });
+  const r = await c.clone(transport, origin.peerId, { bulkPromote: true });
   assert.equal(r.rejected, 1);
   assert.equal(c._getEdge(payload.triple_hash), undefined);
 });
 
-test('mergeIncoming validiert Input (1-Zeichen-Subjekt → Fehler, kein DB-Crash)', () => {
+test('mergeIncoming validiert Input (1-Zeichen-Subjekt → Fehler, kein DB-Crash)', async () => {
   const e = fresh();
   assert.throws(() => e.mergeIncoming(makeWire('S', 'pp', 'Oo', 500, { P1: 1 }), { peerTrust: 'full' }), /INVALID_PARAMETER_FORMAT/);
 });
 
 // ---- UC-09 Peer-Trust -------------------------------------------------
-test('AC-9.1: untrusted-Origin → Fakten in Quarantäne', () => {
+test('AC-9.1: untrusted-Origin → Fakten in Quarantäne', async () => {
   const { A, B } = pair('untrusted');
   A.storeTriple({ subject: 'Fremd', predicate: 'sagt', object: 'Etwas', confidence: 900 });
-  B.pull(link(A), A.peerId);
+  await B.pull(link(A), A.peerId);
   assert.equal(B._getEdge(tripleHash('Fremd', 'sagt', 'Etwas')).local_status, 'quarantined');
 });
 
-test('AC-9.2: limited-Origin → Konfidenz-Abschlag in der Lese-Linse', () => {
+test('AC-9.2: limited-Origin → Konfidenz-Abschlag in der Lese-Linse', async () => {
   const { A, B } = pair('limited');
   A.storeTriple({ subject: 'Sensor', predicate: 'meldet', object: 'Wert', confidence: 800 });
-  B.pull(link(A), A.peerId);
+  await B.pull(link(A), A.peerId);
   const edge = B.query('Sensor', { maxDepth: 1 }).edges.find((x) => x.object === 'Wert');
   assert.equal(edge.confidence, 800);
   assert.equal(edge.effective_confidence, 400); // trunc(800*500/1000)
 });
 
-test('AC-9.3: Key-Rotation ersetzt Schlüssel ohne Datenverlust', () => {
+test('AC-9.3: Key-Rotation ersetzt Schlüssel ohne Datenverlust', async () => {
   const B = fresh(); const A = fresh(); const A2 = fresh();
   B.peerAdd(A.peerId, A.identity.publicKeyPem);
   const fp = B.peerRotate(A.peerId, A2.identity.publicKeyPem);
@@ -335,10 +341,10 @@ test('AC-9.3: Key-Rotation ersetzt Schlüssel ohne Datenverlust', () => {
   assert.equal(B._peer(A.peerId).fingerprint, fp);
 });
 
-test('AC-9.4: Revoke setzt gemergte Fakten des Origins auf Quarantäne', () => {
+test('AC-9.4: Revoke setzt gemergte Fakten des Origins auf Quarantäne', async () => {
   const { A, B } = pair('full');
   A.storeTriple({ subject: 'Quelle', predicate: 'sagt', object: 'Xx', confidence: 900 });
-  B.pull(link(A), A.peerId);
+  await B.pull(link(A), A.peerId);
   assert.equal(B._getEdge(tripleHash('Quelle', 'sagt', 'Xx')).local_status, 'active');
   B.peerRevoke(A.peerId);
   assert.equal(B._getEdge(tripleHash('Quelle', 'sagt', 'Xx')).local_status, 'quarantined');
@@ -346,7 +352,7 @@ test('AC-9.4: Revoke setzt gemergte Fakten des Origins auf Quarantäne', () => {
 });
 
 // ---- Clock-Persistenz (🟡 aus Review) --------------------------------
-test('Vector-Clock-Selbstzähler überlebt Neustart (kein Rückschritt)', () => {
+test('Vector-Clock-Selbstzähler überlebt Neustart (kein Rückschritt)', async () => {
   const id = new Engine().identity; const peerId = 'peer:fixed';
   const e1 = new Engine({ identity: id, peerId });
   e1.storeTriple({ subject: 'Aa', predicate: 'pp', object: 'Bb', confidence: 700 });
@@ -371,30 +377,30 @@ function seedPeerWith3() {
   A.storeTriple({ subject: 'Cc', predicate: 'qq', object: 'D1', confidence: 700 });
   return A;
 }
-test('AC-11.1: Clone landet vollständig in Quarantäne (Default)', () => {
+test('AC-11.1: Clone landet vollständig in Quarantäne (Default)', async () => {
   const A = seedPeerWith3(); const B = fresh();
   B.peerAdd(A.peerId, A.identity.publicKeyPem); B.peerTrust(A.peerId, 'full');
-  B.clone(link(A), A.peerId);
+  await B.clone(link(A), A.peerId);
   assert.equal(B.db.prepare("SELECT COUNT(*) c FROM knowledge_edges WHERE local_status='quarantined'").get().c, 3);
   assert.equal(B.db.prepare("SELECT COUNT(*) c FROM knowledge_edges WHERE local_status='active'").get().c, 0);
 });
 
-test('AC-11.2: bulk_promote hebt ganzen Bestand auf active', () => {
+test('AC-11.2: bulk_promote hebt ganzen Bestand auf active', async () => {
   const A = seedPeerWith3(); const B = fresh();
   B.peerAdd(A.peerId, A.identity.publicKeyPem); B.peerTrust(A.peerId, 'full');
-  B.clone(link(A), A.peerId, { bulkPromote: true });
+  await B.clone(link(A), A.peerId, { bulkPromote: true });
   assert.equal(B.db.prepare("SELECT COUNT(*) c FROM knowledge_edges WHERE local_status='active'").get().c, 3);
 });
 
-test('AC-11.3: erneuter Clone ist idempotent (keine Dubletten)', () => {
+test('AC-11.3: erneuter Clone ist idempotent (keine Dubletten)', async () => {
   const A = seedPeerWith3(); const B = fresh();
   B.peerAdd(A.peerId, A.identity.publicKeyPem); B.peerTrust(A.peerId, 'full');
-  B.clone(link(A), A.peerId); B.clone(link(A), A.peerId);
+  await B.clone(link(A), A.peerId); await B.clone(link(A), A.peerId);
   assert.equal(B.db.prepare('SELECT COUNT(*) c FROM knowledge_edges').get().c, 3);
 });
 
 // ---- UC-10 Conformance (Node-Seite) ----------------------------------
-test('AC-10.2: Conformance-Vektoren bestehen Node-seitig; PHP unverified ohne Runner', () => {
+test('AC-10.2: Conformance-Vektoren bestehen Node-seitig; PHP unverified ohne Runner', async () => {
   const vectors = [
     { name: 'decay-temporal', input: [{ subject: 'Wetter', predicate: 'ist', object: 'Regen', confidence: 800, temporality: 'temporal' }], op: 'decay', expected: [{ subject: 'Wetter', predicate: 'ist', object: 'Regen', confidence: 750, status: 'active' }] },
     { name: 'infer-glaette', input: [{ subject: 'Glatteis', predicate: 'ist_ein', object: 'Strassengefahr', confidence: 900 }, { subject: 'Temperatur', predicate: 'zustand', object: 'unter_null', confidence: 900 }], op: 'infer', expected: [{ subject: 'Fahrbahn', predicate: 'zustand', object: 'gefaehrlich', confidence: 810, status: 'active' }] },

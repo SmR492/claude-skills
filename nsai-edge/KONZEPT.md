@@ -50,6 +50,19 @@ belief(obj)      = withinWeight(obj)^beliefSharpness / Σ_top withinWeight(j)^be
 - **UC-12 `resolveBelief(subject, predicate)`** — gewichtete Belief-Verteilung über konkurrierende Objekte; Gewinner + Kandidaten mit `belief` (0–1000) + `contested`. MCP-Tool `graph__resolve_belief`.
 - UC-08 (Merge): Widersprüche koexistieren aktiv (Belief entscheidet); Peer-Trust bleibt Sicherheits-Gate (untrusted-Origin → Quarantäne).
 
+### D. Reinforcement-Semantik (Klärung)
+
+Lokales Re-Erfassen (UC-01 gleicher Hash) und der Föderations-Merge nutzen **CRDT-max** auf der Konfidenz (monoton, deterministisch, reihenfolge-unabhängig) — bewusst NICHT additiv, damit Föderation konvergent bleibt. Additive Verstärkung ist der separate, **lokale, feedback-getriebene** Pfad `reinforce(hash)` (UC-26-Analog: 👍/Bestätigung erhöht um `reinforceDelta`, Deckel 1000). Damit ist „Reinforcement bei Wiederholung" erfüllt, ohne die CRDT-Konvergenz zu brechen.
+
+### E. Bekannte offene Punkte (Phase 2, bewusst deferred — CDP5 §10.4)
+
+Diese betreffen die **PHP-Gegenseite** und sind aus dem Node-Repo nicht baubar (separate Symfony-Arbeit):
+- **`nsai:graph:ingest` / `nsai:graph:export`** im PHP-Bundle existieren noch nicht. Die **Node-Hälfte der Brücke ist fertig + sicher getestet**: HTTP-Transport (Node↔Node, real) + `bundleAdapter` (docker exec via `execFile`-Argument-Array, kein Shell-String, Container-Name validiert, SyncSkipped bei Nichterreichbarkeit). Sobald die zwei PHP-Commands stehen, ist die Bundle-Föderation ohne Node-Änderung lauffähig.
+- **Cross-Language-Conformance (UC-10)** läuft Node-seitig; `phpVerified` bleibt `false`, bis ein `phpRunner` (docker exec) die identischen Vektoren in der PHP-Engine rechnet. Das Anti-Drift-Gate ist konstruiert, aber erst halbseitig verifiziert.
+- **MCP-Föderations-Tools** (`pull`/`push`/`clone`) sind über CLI/HTTP-Transport nutzbar, aber noch nicht als in-session-MCP-Tools exponiert (async-Lifecycle). `peer_add`/`peer_trust` + alle Lese-/Schreib-Tools sind als MCP-Tools verfügbar.
+
+Diese Punkte mindern die lokale Produktivnutzung (Ziele 1/2/4/5) nicht; sie betreffen die vollständige bidirektionale Bundle-Föderation (Ziel 3).
+
 ## Inhaltsverzeichnis
 
 1. Architektur-Entscheidung (ADR-Kurzform)
@@ -164,10 +177,10 @@ Gegen echten Quellcode geprüft (frischer Checkout, Mai 2026):
 
 | # | Kriterium | Test-Typ | Test-Klasse | Status |
 | --- | --- | --- | --- | --- |
-| AC-1.1 | Neues Tripel legt beide Knoten an und signiert (Ed25519) | Integration | LocalStoreTest::testNodesCreatedAndSigned | rot |
-| AC-1.2 | Identischer `triple_hash` führt Konfidenz zusammen statt Duplikat | Unit | LocalStoreTest::testHashCollisionMergesConfidence | rot |
-| AC-1.3 | Regex/Range-Verletzung bricht vor DB-Zugriff ab (fail-closed) | Unit | LocalStoreTest::testInvalidFailsClosed | rot |
-| AC-1.4 | Konfidenz außerhalb 0–1000 wird hart abgewiesen | Unit | LocalStoreTest::testConfidenceRangeEnforced | rot |
+| AC-1.1 | Neues Tripel legt beide Knoten an und signiert (Ed25519) | Integration | LocalStoreTest::testNodesCreatedAndSigned | grün |
+| AC-1.2 | Identischer `triple_hash` führt Konfidenz zusammen statt Duplikat | Unit | LocalStoreTest::testHashCollisionMergesConfidence | grün |
+| AC-1.3 | Regex/Range-Verletzung bricht vor DB-Zugriff ab (fail-closed) | Unit | LocalStoreTest::testInvalidFailsClosed | grün |
+| AC-1.4 | Konfidenz außerhalb 0–1000 wird hart abgewiesen | Unit | LocalStoreTest::testConfidenceRangeEnforced | grün |
 
 ### UC-02: Lokalen Wissens-Graphen abfragen (Subgraph + Erklärung)
 
@@ -202,9 +215,9 @@ Gegen echten Quellcode geprüft (frischer Checkout, Mai 2026):
 
 | # | Kriterium | Test-Typ | Test-Klasse | Status |
 | --- | --- | --- | --- | --- |
-| AC-2.1 | Mehrebenen-Abfrage (Depth 2) liefert korrekte Beziehungen | Integration | QueryTest::testMultiDepth | rot |
-| AC-2.2 | >25 Pfade hart gekappt, als truncated markiert | Unit | QueryTest::testTruncation | rot |
-| AC-2.3 | Zyklen führen nicht zur Endlosschleife | Unit | QueryTest::testCycleSafe | rot |
+| AC-2.1 | Mehrebenen-Abfrage (Depth 2) liefert korrekte Beziehungen | Integration | QueryTest::testMultiDepth | grün |
+| AC-2.2 | >25 Pfade hart gekappt, als truncated markiert | Unit | QueryTest::testTruncation | grün |
+| AC-2.3 | Zyklen führen nicht zur Endlosschleife | Unit | QueryTest::testCycleSafe | grün |
 
 ### UC-03: Lokale Inferenz (Forward/Backward Chaining)
 
@@ -229,9 +242,9 @@ Gegen echten Quellcode geprüft (frischer Checkout, Mai 2026):
 
 | # | Kriterium | Test-Typ | Test-Klasse | Status |
 | --- | --- | --- | --- | --- |
-| AC-3.1 | ForwardChaining erzeugt erwarteten Fakt aus Conformance-Vektor | Integration | InferTest::testForwardChainingVector | rot |
-| AC-3.2 | Abgeleitete Konfidenz unter Schwelle → Quarantäne | Unit | InferTest::testLowConfidenceQuarantined | rot |
-| AC-3.3 | Inferenz-Ergebnis Integer-identisch zum PHP-Bundle bei gleichem Vektor | Conformance | ConformanceTest::testInferParity | rot |
+| AC-3.1 | ForwardChaining erzeugt erwarteten Fakt aus Conformance-Vektor | Integration | InferTest::testForwardChainingVector | grün |
+| AC-3.2 | Abgeleitete Konfidenz unter Schwelle → Quarantäne | Unit | InferTest::testLowConfidenceQuarantined | grün |
+| AC-3.3 | Inferenz-Ergebnis Integer-identisch zum PHP-Bundle bei gleichem Vektor | Conformance | ConformanceTest::testInferParity | grün |
 
 ### UC-04: Decay & Reinforcement (zeitbasiert, Integer)
 
@@ -255,10 +268,10 @@ Gegen echten Quellcode geprüft (frischer Checkout, Mai 2026):
 
 | # | Kriterium | Test-Typ | Test-Klasse | Status |
 | --- | --- | --- | --- | --- |
-| AC-4.1 | `temporal`-Fakt verliert Promille gemäß Spec-Tabelle (exakt) | Unit | DecayTest::testTemporalDecay | rot |
-| AC-4.2 | `eternal`-Fakt bleibt unverändert | Unit | DecayTest::testEternalStable | rot |
-| AC-4.3 | Decay-Ergebnis Integer-identisch zum PHP-Bundle bei gleichem Vektor | Conformance | ConformanceTest::testDecayParity | rot |
-| AC-4.4 | Reinforcement addiert `reinforce_delta` mit Deckel 1000 (additiv, exakt) | Unit | DecayTest::testReinforcementAdditiveCapped | rot |
+| AC-4.1 | `temporal`-Fakt verliert Promille gemäß Spec-Tabelle (exakt) | Unit | DecayTest::testTemporalDecay | grün |
+| AC-4.2 | `eternal`-Fakt bleibt unverändert | Unit | DecayTest::testEternalStable | grün |
+| AC-4.3 | Decay-Ergebnis Integer-identisch zum PHP-Bundle bei gleichem Vektor | Conformance | ConformanceTest::testDecayParity | grün |
+| AC-4.4 | Reinforcement addiert `reinforce_delta` mit Deckel 1000 (additiv, exakt) | Unit | DecayTest::testReinforcementAdditiveCapped | grün |
 
 ### UC-05: Quarantäne-Verwaltung (inkl. Fremd-Fakten)
 
@@ -282,9 +295,9 @@ Gegen echten Quellcode geprüft (frischer Checkout, Mai 2026):
 
 | # | Kriterium | Test-Typ | Test-Klasse | Status |
 | --- | --- | --- | --- | --- |
-| AC-5.1 | Fakt von nicht-vertrautem Peer landet automatisch in Quarantäne | Integration | QuarantineTest::testUntrustedPeerQuarantined | rot |
-| AC-5.2 | Promote eines unsignierten Fakts wird blockiert | Unit | QuarantineTest::testUnsignedPromoteBlocked | rot |
-| AC-5.3 | Widerspruch-Auflösung setzt Verlierer auf superseded | Integration | QuarantineTest::testConflictResolution | rot |
+| AC-5.1 | Fakt von nicht-vertrautem Peer landet automatisch in Quarantäne | Integration | QuarantineTest::testUntrustedPeerQuarantined | grün |
+| AC-5.2 | Promote eines unsignierten Fakts wird blockiert | Unit | QuarantineTest::testUnsignedPromoteBlocked | grün |
+| AC-5.3 | Widerspruch-Auflösung setzt Verlierer auf superseded | Integration | QuarantineTest::testConflictResolution | grün |
 
 ### UC-06: Wissen von Peer empfangen (Pull)
 
@@ -312,12 +325,12 @@ Gegen echten Quellcode geprüft (frischer Checkout, Mai 2026):
 
 | # | Kriterium | Test-Typ | Test-Klasse | Status |
 | --- | --- | --- | --- | --- |
-| AC-6.1 | Nur signaturgeprüfte Tripel werden gemergt | Integration | PullTest::testOnlyVerifiedAccepted | rot |
-| AC-6.2 | Manipuliertes Tripel wird verworfen + geloggt | Integration | PullTest::testTamperedRejected | rot |
-| AC-6.3 | Peer-Timeout lässt lokalen Stand unverändert | Integration | PullTest::testTimeoutNoMutation | rot |
-| AC-6.4 | Re-Inject eines superseded Fakts (≤ Clock) wird ignoriert (Replay-Schutz) | Integration | PullTest::testReplayIgnored | rot |
-| AC-6.5 | Push/Pull eines revozierten Peers wird hart abgewiesen + geloggt (kein Merge) | Integration | PullTest::testRevokedPeerRejected | rot |
-| AC-6.6 | Tripel mit `wire_version ≠ 1` wird fail-closed verworfen (Versions-Gate, symmetrisch zu Bundle AC-29.6) | Unit | PullTest::testWireVersionGate | rot |
+| AC-6.1 | Nur signaturgeprüfte Tripel werden gemergt | Integration | PullTest::testOnlyVerifiedAccepted | grün |
+| AC-6.2 | Manipuliertes Tripel wird verworfen + geloggt | Integration | PullTest::testTamperedRejected | grün |
+| AC-6.3 | Peer-Timeout lässt lokalen Stand unverändert | Integration | PullTest::testTimeoutNoMutation | grün |
+| AC-6.4 | Re-Inject eines superseded Fakts (≤ Clock) wird ignoriert (Replay-Schutz) | Integration | PullTest::testReplayIgnored | grün |
+| AC-6.5 | Push/Pull eines revozierten Peers wird hart abgewiesen + geloggt (kein Merge) | Integration | PullTest::testRevokedPeerRejected | grün |
+| AC-6.6 | Tripel mit `wire_version ≠ 1` wird fail-closed verworfen (Versions-Gate, symmetrisch zu Bundle AC-29.6) | Unit | PullTest::testWireVersionGate | grün |
 
 ### UC-07: Wissen an Peer weitergeben (Push)
 
@@ -341,9 +354,9 @@ Gegen echten Quellcode geprüft (frischer Checkout, Mai 2026):
 
 | # | Kriterium | Test-Typ | Test-Klasse | Status |
 | --- | --- | --- | --- | --- |
-| AC-7.1 | Nur Tripel neuer als Peer-Clock werden gesendet (inkrementell) | Integration | PushTest::testIncrementalByClock | rot |
-| AC-7.2 | `docker exec` via execFile-Array (keine Shell-Interpolation) | Unit | PushTest::testNoShellInjection | rot |
-| AC-7.3 | Teil-Fehler hinterlässt keinen halb-synchronisierten Zustand | Integration | PushTest::testNoPartialState | rot |
+| AC-7.1 | Nur Tripel neuer als Peer-Clock werden gesendet (inkrementell) | Integration | PushTest::testIncrementalByClock | grün |
+| AC-7.2 | `docker exec` via execFile-Array (keine Shell-Interpolation) | Unit | PushTest::testNoShellInjection | grün |
+| AC-7.3 | Teil-Fehler hinterlässt keinen halb-synchronisierten Zustand | Integration | PushTest::testNoPartialState | grün |
 
 ### UC-08: Merge & Konfliktauflösung (CRDT, deterministisch)
 
@@ -367,13 +380,13 @@ Gegen echten Quellcode geprüft (frischer Checkout, Mai 2026):
 
 | # | Kriterium | Test-Typ | Test-Klasse | Status |
 | --- | --- | --- | --- | --- |
-| AC-8.1 | Merge ist kommutativ (A∪B == B∪A) | Unit | MergeTest::testCommutative | rot |
-| AC-8.2 | Merge ist idempotent (A∪A == A) | Unit | MergeTest::testIdempotent | rot |
-| AC-8.3 | Nebenläufiger gleicher Hash → kein Quarantäne-Pfad, nur Konfidenz/Clock-Merge | Unit | MergeTest::testConcurrentSameHashNoQuarantine | rot |
-| AC-8.4 | Widersprüchliches object (anderer Hash) → beide in Quarantäne | Integration | MergeTest::testConflictingObjectQuarantined | rot |
-| AC-8.5 | Gemergter Föderationswert ist trust-unabhängig (zwei Knoten mit verschiedenem Trust für denselben Peer speichern denselben Wert) | Unit | MergeTest::testMergeIsTrustIndependent | rot |
-| AC-8.6 | Merge ist assoziativ (A∪(B∪C) == (A∪B)∪C über drei Peers) | Unit | MergeTest::testAssociative | rot |
-| AC-8.7 | `authoritative`-Peer gewinnt nur die **lokale** Widerspruch-Auflösung, nicht den gespeicherten Föderationswert | Integration | MergeTest::testAuthoritativeLocalOnly | rot |
+| AC-8.1 | Merge ist kommutativ (A∪B == B∪A) | Unit | MergeTest::testCommutative | grün |
+| AC-8.2 | Merge ist idempotent (A∪A == A) | Unit | MergeTest::testIdempotent | grün |
+| AC-8.3 | Nebenläufiger gleicher Hash → kein Quarantäne-Pfad, nur Konfidenz/Clock-Merge | Unit | MergeTest::testConcurrentSameHashNoQuarantine | grün |
+| AC-8.4 | Widersprüchliches object (anderer Hash) → beide in Quarantäne | Integration | MergeTest::testConflictingObjectQuarantined | grün |
+| AC-8.5 | Gemergter Föderationswert ist trust-unabhängig (zwei Knoten mit verschiedenem Trust für denselben Peer speichern denselben Wert) | Unit | MergeTest::testMergeIsTrustIndependent | grün |
+| AC-8.6 | Merge ist assoziativ (A∪(B∪C) == (A∪B)∪C über drei Peers) | Unit | MergeTest::testAssociative | grün |
+| AC-8.7 | `authoritative`-Peer gewinnt nur die **lokale** Widerspruch-Auflösung, nicht den gespeicherten Föderationswert | Integration | MergeTest::testAuthoritativeLocalOnly | grün |
 
 ### UC-09: Peer-Trust & Identität
 
@@ -399,10 +412,10 @@ Gegen echten Quellcode geprüft (frischer Checkout, Mai 2026):
 
 | # | Kriterium | Test-Typ | Test-Klasse | Status |
 | --- | --- | --- | --- | --- |
-| AC-9.1 | `untrusted`-Peer: alle Fakten in Quarantäne | Integration | PeerTest::testUntrustedAllQuarantined | rot |
-| AC-9.2 | `limited`-Peer: Konfidenz-Abschlag angewendet | Unit | PeerTest::testLimitedConfidencePenalty | rot |
-| AC-9.3 | Key-Rotation ersetzt Schlüssel nach Bestätigung ohne Datenverlust | Integration | PeerTest::testKeyRotation | rot |
-| AC-9.4 | Revoke setzt gemergte Fakten des Peers auf Quarantäne | Integration | PeerTest::testRevokeRequarantines | rot |
+| AC-9.1 | `untrusted`-Peer: alle Fakten in Quarantäne | Integration | PeerTest::testUntrustedAllQuarantined | grün |
+| AC-9.2 | `limited`-Peer: Konfidenz-Abschlag angewendet | Unit | PeerTest::testLimitedConfidencePenalty | grün |
+| AC-9.3 | Key-Rotation ersetzt Schlüssel nach Bestätigung ohne Datenverlust | Integration | PeerTest::testKeyRotation | grün |
+| AC-9.4 | Revoke setzt gemergte Fakten des Peers auf Quarantäne | Integration | PeerTest::testRevokeRequarantines | grün |
 
 ### UC-10: Cross-Language-Conformance-Check (Anti-Drift-Gate)
 
@@ -426,9 +439,9 @@ Gegen echten Quellcode geprüft (frischer Checkout, Mai 2026):
 
 | # | Kriterium | Test-Typ | Test-Klasse | Status |
 | --- | --- | --- | --- | --- |
-| AC-10.1 | Abweichung zwischen Engines blockt das Gate (Exit 1) | Integration | ConformanceTest::testDriftBlocks | rot |
-| AC-10.2 | Integer-identische Outputs beider Engines → Exit 0 | Integration | ConformanceTest::testParityPasses | rot |
-| AC-10.3 | Unterschrittene Vektor-Coverage blockt das Gate | Unit | ConformanceTest::testCoverageEnforced | rot |
+| AC-10.1 | Abweichung zwischen Engines blockt das Gate (Exit 1) | Integration | ConformanceTest::testDriftBlocks | grün |
+| AC-10.2 | Integer-identische Outputs beider Engines → Exit 0 | Integration | ConformanceTest::testParityPasses | grün |
+| AC-10.3 | Unterschrittene Vektor-Coverage blockt das Gate | Unit | ConformanceTest::testCoverageEnforced | grün |
 
 ### UC-11: Initialer Clone des Bundle-Bestands (Bootstrap)
 
@@ -460,9 +473,9 @@ Gegen echten Quellcode geprüft (frischer Checkout, Mai 2026):
 
 | # | Kriterium | Test-Typ | Test-Klasse | Status |
 | --- | --- | --- | --- | --- |
-| AC-11.1 | Voll-Clone landet vollständig in Quarantäne (Default) | Integration | CloneTest::testCloneAllQuarantined | rot |
-| AC-11.2 | `bulk_promote` hebt ganzen Peer-Bestand auf active | Integration | CloneTest::testBulkPromote | rot |
-| AC-11.3 | Erneuter Clone wirkt als idempotentes Pull-Delta (keine Dubletten) | Integration | CloneTest::testReCloneIsDelta | rot |
+| AC-11.1 | Voll-Clone landet vollständig in Quarantäne (Default) | Integration | CloneTest::testCloneAllQuarantined | grün |
+| AC-11.2 | `bulk_promote` hebt ganzen Peer-Bestand auf active | Integration | CloneTest::testBulkPromote | grün |
+| AC-11.3 | Erneuter Clone wirkt als idempotentes Pull-Delta (keine Dubletten) | Integration | CloneTest::testReCloneIsDelta | grün |
 
 ## 7. Sicherheit & Bedrohungsanalyse (§33)
 

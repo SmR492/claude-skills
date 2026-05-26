@@ -122,3 +122,14 @@ test('AC-5.2: Promote eines ungültig signierten Fakts wird blockiert', () => {
   e.db.prepare("UPDATE knowledge_edges SET local_status='quarantined', signature='ed25519:AAAA' WHERE triple_hash=?").run(r.triple_hash);
   assert.throws(() => e.promote(r.triple_hash), /UNVERIFIED_ORIGIN/);
 });
+
+// ---- GC (§8.4) -------------------------------------------------------
+test('GC entfernt alte superseded-Tombstones + Waisen-Knoten', () => {
+  const e = fresh();
+  const r = e.storeTriple({ subject: 'Alt', predicate: 'ist', object: 'Weg', confidence: 600 });
+  e.db.prepare("UPDATE knowledge_edges SET local_status='superseded', updated_at='2000-01-01 00:00:00' WHERE triple_hash=?").run(r.triple_hash);
+  const res = e.gc({ maxAgeDays: 30 });
+  assert.equal(res.edgesDeleted, 1);
+  assert.equal(e._getEdge(r.triple_hash), undefined);
+  assert.ok(res.nodesDeleted >= 2); // Alt + Weg verwaist
+});
