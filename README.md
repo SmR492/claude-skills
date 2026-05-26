@@ -25,6 +25,7 @@ Ein **Claude-Code-Plugin-Marketplace** mit projektunabhängigen, deterministisch
 | **konzept-lint** | Konzept-Struktur + AC-Tabellen + binär/verifizierbare AC + bedingt LLM-/RAG-Felder + deterministischer Teil-Score (konfig. Rubrik) | `--konzept=… [--rubric=…]` |
 | **ac-to-test-scaffold** | failing Test-Skelette AUS den Konzept-AC (TDD-First, druckt read-only) | `--konzept=… [--lang=php\|js]` |
 | **pii-scan** | Klartext-PII (E-Mail/IBAN/Telefon/Kreditkarte+Luhn), redacted, Hybrid | `--repo=…` |
+| **profile-check** | Konzept + Repo gegen einmal deklariertes `project-profile.md` (EU-AI-Act/Security/Runtime/Test-Framework/Pflicht-Tokens) | `--profile=… [--konzept=… --repo=…]` |
 
 Alle Skills sind **read-only**, **parametrisiert** (kein projektspezifischer Pfad/Code eingebacken) und **dependency-frei** (nur `node:`-Builtins). Jeder liefert einen Report; der Main-Agent handelt darauf.
 
