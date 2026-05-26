@@ -35,3 +35,10 @@ test('JS-Scaffold erzeugt failing node:test', () => {
 test('ohne AC: count 0', () => {
   assert.equal(scaffold('## UC-01: X\nkein AC', 'php').count, 0);
 });
+
+test('extractACs erkennt H3-UCs unter `## N. Use Cases` (Dogfood: nicht nur H2)', () => {
+  const md = '## 3. Use Cases\n### UC-01: Anlegen\n### Akzeptanzkriterien\n| AC-1 | x | Unit | FooTest::testX | rot |\n';
+  const acs = extractACs(md);
+  assert.equal(acs.length, 1);
+  assert.equal(acs[0].klasse, 'FooTest');
+});

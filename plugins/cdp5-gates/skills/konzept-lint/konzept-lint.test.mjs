@@ -53,3 +53,15 @@ test('konfigurierbare Rubrik wird angewandt', () => {
 test('parseUCs ignoriert Nicht-UC-Überschriften', () => {
   assert.equal(parseUCs('## UC-01: A\nx\n## Glossar\ny\n## UC-02: B\nz').length, 2);
 });
+
+test('hatGlossar erkennt nummerierte Überschrift `## 9. Glossar (§14)` (Dogfood)', () => {
+  const md = KOPF + '## UC-01: X\n### Fehlerfälle\n|a|b|\n### Akzeptanzkriterien\n| AC-1 | binär | Unit | T::t | rot |\n\n## 9. Glossar (§14)\n| a | b | c |\n';
+  assert.equal(lintKonzept(md).global.hatGlossar, true);
+});
+
+test('parseUCs erkennt H3-UCs unter `## N. Use Cases` (Dogfood: nicht nur H2)', () => {
+  const md = '## 3. Use Cases\n### UC-01: A\nx\n### Fehlerfälle\n|a|b|\n### UC-02: B\nz\n## 4. Rubrik\nkein UC';
+  const ucs = parseUCs(md);
+  assert.equal(ucs.length, 2);
+  assert.equal(ucs[0].title, 'UC-01: A');
+});

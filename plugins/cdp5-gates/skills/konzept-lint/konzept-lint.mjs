@@ -13,9 +13,9 @@ export function parseUCs(md) {
   const lines = md.split('\n');
   const ucs = []; let cur = null;
   for (const line of lines) {
-    const h = line.match(/^##\s+(UC[-\s][^\n]*)/i);
+    const h = line.match(/^#{2,3}\s+(UC[-\s][^\n]*)/i);   // H2 ODER H3 (UCs oft unter `## N. Use Cases`)
     if (h) { cur = { title: h[1].trim(), body: '' }; ucs.push(cur); continue; }
-    if (/^#{1,2}\s/.test(line) && !/^##\s+UC/i.test(line)) cur = null;
+    if (/^#{1,2}\s/.test(line) && !/^#{2,3}\s+UC/i.test(line)) cur = null;
     if (cur) cur.body += line + '\n';
   }
   return ucs;
@@ -42,7 +42,7 @@ export function lintKonzept(md, weights = DEFAULT_WEIGHTS) {
 
   const global = {
     hatUCs: ucs.length > 0,
-    hatGlossar: has(md, /^##?\s*Glossar/im),
+    hatGlossar: has(md, /^#{1,3}\s[^\n]*Glossar/im),   // auch nummeriert: `## 9. Glossar (§14)`
     hatKopf: has(md, /\*\*Version:/i) && has(md, /\*\*Scope:/i),
     llm: isLLM, rag: isRAG,
     hatProbabilistik: !isLLM || has(md, /Probabilistik-Statement/i),

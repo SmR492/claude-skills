@@ -1,0 +1,11 @@
+{
+  "_source": "reife-rubrik.policy.md — deterministische Teilmenge (konzept-lint-Dimensionen)",
+  "_note": "Judgment-Dimensionen (Sachbearbeiter-Test, Nachweis-Konvention) bewertet konzept-reviewer; hier nur der deterministisch prüfbare Teil-Score.",
+  "weights": {
+    "struktur": 0.25,
+    "ac_tabelle": 0.25,
+    "fehlerfaelle": 0.20,
+    "ac_binaer": 0.15,
+    "llm_rag": 0.15
+  }
+}

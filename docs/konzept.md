@@ -1,8 +1,8 @@
 # claude-skills — Anwender-Konzept
 
-**Version:** 1.0
+**Version:** 1.3
 **Stand:** Mai 2026
-**Scope:** Ein projektunabhängiger Claude-Code-Marketplace, der **CDP5-basierte Skills und Agents** bereitstellt, mit denen ein KI-Orchestrator Konzept→Code-Arbeit **effektiv** (geringer Tokenverbrauch), **schnell** (< 5 min je Schritt) und **genau** (Konzept-Reife ≥ 9,0/10, ≤ 3 Drifts je Konzeptumsetzung) leistet. **Nicht enthalten:** projekt-/framework-spezifische Implementierungs-Agents (bleiben lokal beim jeweiligen Projekt), Code-mutierende Automatik ohne Mensch-Gate, eigene LLM-Inferenz (nutzt Claude Code).
+**Scope:** Ein projektunabhängiger Claude-Code-Marketplace, der **CDP5-basierte Skills und Agents** bereitstellt, mit denen ein KI-Orchestrator Konzept→Code-Arbeit **effektiv** (geringer Tokenverbrauch), **schnell** (< 5 min je interaktivem Schritt) und **genau** (Konzept-Reife ≥ 9,0/10, ≤ 3 Drifts je Konzeptumsetzung) leistet. **Nicht enthalten:** projekt-/framework-spezifische Implementierungs-Agents (bleiben lokal beim jeweiligen Projekt), Code-mutierende Automatik ohne Mensch-Gate, eigene LLM-Inferenz (nutzt Claude Code).
 
 ## Probabilistik-Statement (§2.6)
 
@@ -56,6 +56,8 @@ Drei gleichberechtigte Qualitätsziele, je mit Messgröße, Mechanik und Schwell
 
 ## 3. Use Cases
 
+**UC-Übersicht (§2.2):** UC-01 Konzept-Review · UC-02 Drift-Gate · UC-03 T1-Check fahren · UC-04 CDP5-Retrieval · UC-05 Security-/Threat-Review · UC-06 Adversarial-Audit (🔴-Slice).
+
 ### UC-01: Konzept auf Implementierungsreife prüfen
 **Akteur:** `Orchestrator` (delegiert an `konzept-reviewer`, opus) · **Schritt-Typ:** Judgment
 
@@ -71,13 +73,14 @@ Drei gleichberechtigte Qualitätsziele, je mit Messgröße, Mechanik und Schwell
 |---|---|
 | Konzept-Datei fehlt/leer | Abbruch mit Hinweis, kein Score |
 | Score-Behauptung unbelegt | `review-verify` gegenprüfen (§10.6) |
+| Zeit-/Token-Budget (AC-3) überschritten | Abbruch mit Teil-Score + bisheriger Lückenliste; Orchestrator entscheidet Re-Run/Eskalation |
 
 **Akzeptanzkriterien (Test-First)**
 
 | # | Kriterium | Test-Typ | Status |
 |---|---|---|---|
 | AC-1 | Score-Ausgabe ist eine Zahl 0–10 je UC + Gesamt | Integration | rot |
-| AC-2 | Iteration bis Gesamt-Score ≥ 9,0 dokumentiert | Eval | rot |
+| AC-2 | Score je Iteration in Mess-Harness §6 protokolliert, bis Gesamt ≥ 9,0 | Eval | rot |
 | AC-3 | Schritt-Token ≤ 80k, Laufzeit < 5 min | Trace/Metrik | rot |
 
 ### UC-02: Drift-Gate nach Konzeptumsetzung
@@ -189,6 +192,7 @@ Drei gleichberechtigte Qualitätsziele, je mit Messgröße, Mechanik und Schwell
 |---|---|
 | Keine empirische Gegenprobe konstruierbar | Auditor stoppt, listet Versuchtes, eskaliert an Operator (kein Verdikt aus Bauchgefühl) |
 | Verdikt NEIN, aber Operator will mergen | Folge-Issue + Risiko-Vermerk; Merge-Verantwortung explizit beim Operator (§1.6) |
+| Zeit-Budget (AC-2, < 5 min) überschritten | Auditor liefert Zwischenstand + offene Achsen; Operator entscheidet Fortsetzung/Eskalation |
 
 **Akzeptanzkriterien**
 
@@ -201,7 +205,7 @@ Drei gleichberechtigte Qualitätsziele, je mit Messgröße, Mechanik und Schwell
 
 ## 4. Reife-Rubrik (für das „≥ 9,0/10"-Ziel)
 
-Score = gewichteter Mittelwert (0–10) über: **Sachbearbeiter-Test** (0,2) · **Pflicht-Struktur vollständig** (0,2) · **UC-Schritte nummeriert + verzweigt** (0,15) · **AC-Tabelle je UC** (0,15) · **Fehlerfälle vollständig** (0,1) · **Nachweis-Konvention** §10.7 (0,1) · **Glossar/Vokabular** (0,1). Jede „Pflicht" ohne Nachweis-Typ = automatischer Abzug. ≥ 9,0 = implementierungsreif.
+Score = gewichteter Mittelwert (0–10) über: **Sachbearbeiter-Test** (0,2) · **Pflicht-Struktur vollständig** (0,2) · **UC-Schritte nummeriert + verzweigt** (0,15) · **AC-Tabelle je UC** (0,15) · **Fehlerfälle vollständig** (0,1) · **Nachweis-Konvention** §10.7 (0,1) · **Glossar/Vokabular** (0,1). Jede „Pflicht" ohne Nachweis-Typ = automatischer Abzug. ≥ 9,0 = implementierungsreif. Als §10.5-Policy verankert (Gewichte reproduzierbar, nicht nur Prosa): [`reife-rubrik.policy.md`](reife-rubrik.policy.md).
 
 ---
 
@@ -223,11 +227,12 @@ Pro UC-Schritt erfasst: **Token** (`gen_ai.usage.total_tokens`, Sampling aus §1
 
 | Artefakt | Typ | Tabelle/Ort |
 |---|---|---|
-| `cdp5-gates` | Plugin (9 T1-Skills) | `plugins/cdp5-gates/` |
+| `cdp5-gates` | Plugin (12 T1-Skills) | `plugins/cdp5-gates/` |
 | `cdp5-agents` | Plugin (5 Judgment-Agents) | `plugins/cdp5-agents/` |
 | `cdp5-reference` | T1-Skill (Doktrin + Query) | `…/skills/cdp5-reference/` |
 | Marketplace-Manifest | Config | `.claude-plugin/marketplace.json` (+ je Plugin `.claude-plugin/plugin.json`) |
 | Skill-Struktur | Konvention | `plugins/<plugin>/skills/<name>/{SKILL.md, *.mjs, *.test.mjs}` |
+| **Reife-Rubrik (Policy)** | §10.5-Artefakt | `docs/reife-rubrik.policy.md` — 7 Gewichte für „≥ 9,0" (UC-01), reproduzierbar |
 | **CDP5-Doktrin (ausgeliefert)** | Wissensbasis | `…/cdp5-reference/konzept-design-pattern-v5.md` — **v5 (aktiv)**; v4.7 FROZEN, **nicht** gebündelt |
 
 ---
@@ -252,7 +257,9 @@ Destruktive Aktionen (Push/Merge/Schema-Drop) nie auto — Operator (§1.6/§23)
 | `T1-Skill` | Deterministisches Node-Programm, Output = Beleg, 0 Modell-Token | CDP5 §32.9 |
 | `Judgment-Agent` | LLM-Subagent für Urteils-Arbeit, Findings + Vorschläge | CDP5 §32 |
 | `Drift` | Konzept-Artefakt, das im Code abweicht/fehlt | konzept-mapper/-model-api |
-| `Reife-Score` | gewichteter 0–10-Wert der Implementierungsreife | CDP5 §10.4 / §4 |
+| `Reife-Score` | gewichteter 0–10-Wert der Implementierungsreife (7-Dim-Rubrik) | §4 (Rubrik) · `reife-rubrik.policy.md` · CDP5 §10.5 |
+| `Orchestrator` | Main-Session: wählt Modus, delegiert, fährt Skills, verifiziert, hält Mensch-Gates | CDP5 §32 |
+| `Operator` | Mensch mit Merge-/Push-Verantwortung + Final-Sign-off | CDP5 §1.6 / §23 |
 | `JIT-Retrieval` | nur den nötigen Doktrin-Ausschnitt laden | CDP5 §28.6 |
 | `Lethal Trifecta` | sensible Daten + untrusted Content + Egress | CDP5 §33.1 |
 | Drift-Detektoren | `konzept-mapper` · `konzept-model-api` · `roadmap-drift` (T1) | messen die Drift-Zahl (UC-02) |
@@ -287,3 +294,7 @@ Destruktive Aktionen (Push/Merge/Schema-Drop) nie auto — Operator (§1.6/§23)
 **v1.2 (Mai 2026, Simulations-Patch):** Aus der 5-Projekte-Simulation präzisiert: (1) „< 5 min/Schritt" gilt für **interaktive** Dev-Schritte; voller Eval-/Test-Lauf = CI-Batch (§1). (2) Neuer **Sicher-Gate**: 0 offene 🔴-Security-Findings, separat von der Drift-Zahl (§1). (3) **9,0 nach ≤ 2 Iterationen** (komplexe/LLM-Projekte knapp). (4) `pii-scan` = Hybrid (§11). (5) Scope-Ehrlichkeit: Coding-Throughput hängt am Slicing, nicht am Marketplace (§11). `pii-scan` in UC-05 als Vor-Check ergänzt.
 
 **v1.1 (Mai 2026, Dogfood-Review-Patch):** Konzept vom `konzept-reviewer` gescored (8,4 → Ziel ≥9,0). Geschlossen: §2.6 Probabilistik- + §2.7 Vendor-Risiko-Statement als Pflicht-Tabellen (je UC); Fehlerfälle-Tabellen für UC-03/04/05/06; T1-Skill-Vertrag (UC-03); Lethal-Trifecta-Achsen-Ausweis (UC-05/06, read-only → entschärft); Glossar +Drift-Detektoren/Audit-Agents; §7 Anhang +Skill-Struktur +ausgelieferte CDP5-Version (v5). Offen (Architekt, §1.9): finale EU-AI-Act-Klassen-Bestätigung.
+
+**v1.2 (Mai 2026, Simulations-Patch):** Aus 5 fiktiven Durchläufen präzisiert: §1 „Schnell" = **< 5 min je interaktivem Schritt** (voller Eval = CI-Batch, kein „Schritt"); §1 „Genau" = ≥ 9,0 **nach ≤ 2 Iterationen**; neue **4. Zeile „Sicher"** (0 offene 🔴-Security-Findings, separat von der Drift-Zahl). UC-05 + §11 `pii-scan` als Hybrid (deterministischer Regex + `review-verify`-Overlay, kein finaler Wahrheits-Gate). +Scope-Ehrlichkeit (Coding-Qualität hängt am Vertical-Slicing, nicht am Skill allein).
+
+**v1.3 (2026-05-26, Re-Score-Patch):** `konzept-reviewer`-Re-Score = 9,0/10 (Goal erreicht, exakt auf Schwelle). Für Puffer geschlossen: Kopf-Versions-Drift (1.0 → 1.3, Self-Dogfood des eigenen Drift-Gates UC-02); §7 Skill-Count 9 → **12** (stale); §2.2 UC-Übersicht; Glossar +`Orchestrator`/`Operator` + `Reife-Score`-Anker auf §4/§10.5 geschärft; Timeout-/Budget-Fehlerfälle für UC-01/UC-06; AC-2 (UC-01) an Mess-Harness §6 gebunden (testbar); **Reife-Rubrik als §10.5-Policy** `reife-rubrik.policy.md` verankert (reproduzierbar, nicht nur Prosa). Offen (Architekt, §1.9): EU-AI-Act-Klassen-Bestätigung.
