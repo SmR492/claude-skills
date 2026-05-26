@@ -1,11 +1,46 @@
 # Konzept: Föderierter neuro-symbolischer Wissensgraph für Claude Code (NSAI-Edge)
 
-**Version:** 2.2
+**Version:** 2.3
 **Stand:** Mai 2026
-**Änderung ggü. v2.1:** Trust aus dem gemergten Föderationswert herausgezogen — gemergte Konfidenz ist trust-unabhängiger CRDT-Wert (überall identisch konvergent), Trust wirkt nur als **lokale Lese-Linse** (effektive Konfidenz) und lokale Konflikt-/Quarantäne-Entscheidung (R1); Integer-Divisions-Rundung normativ als **Trunkierung gegen Null** + „Periode"-Definition + Decay-Halbwertszeit-Beispieltabelle (R2); Merge-**Assoziativität** als AC (R3); Promille↔float-Roundtrip-Invariante an der Bundle-Grenze (R4); revozierter Peer × Re-Push (R5).
+**Änderung ggü. v2.2 (Implementierungs-Stand, siehe Delta-Section direkt unten):** Provenienz-Modell B (origin=Erstbehaupter, signiert, kein Re-Sign, Web-of-Trust-Verify) nach Pre-Merge-Review; **Evidenz-Gewichtung** (source_type-Autorität × Aktualität × Konfidenz → Belief-Verteilung) für Widersprüche, veraltetes + falsches Wissen.
+**Änderung v2.2 ggü. v2.1:** Trust aus dem gemergten Föderationswert herausgezogen — gemergte Konfidenz ist trust-unabhängiger CRDT-Wert (überall identisch konvergent), Trust wirkt nur als **lokale Lese-Linse** (effektive Konfidenz) und lokale Konflikt-/Quarantäne-Entscheidung (R1); Integer-Divisions-Rundung normativ als **Trunkierung gegen Null** + „Periode"-Definition + Decay-Halbwertszeit-Beispieltabelle (R2); Merge-**Assoziativität** als AC (R3); Promille↔float-Roundtrip-Invariante an der Bundle-Grenze (R4); revozierter Peer × Re-Push (R5).
 **Änderung v2.1 ggü. v2.0:** Bundle-Schnittstelle gegen echten Quellcode verifiziert; Fixed-Point-Konfidenz; Clone-UC; Hash-Kanonisierung, Replay-Schutz, Key-Rotation.
 **Scope:** Lokal laufender, voll funktionsfähiger neuro-symbolischer Wissensgraph-Knoten (Node.js MCP-Server), der Claude Code in-session strukturiertes Wissen liefert und sich bidirektional + dezentral (git-artig P2P) mit anderen Knoten — insb. dem PHP-`NeuroSymbolicAiBundle` — synchronisiert. Funktionale Parität mit dem Bundle; Drift verhindert durch sprachneutrale Regel-Spec + Cross-Language-Conformance-Vektoren **und** Fixed-Point-Arithmetik.
 **Nicht enthalten:** Browser-GUI, eigene Benutzerverwaltung, Cloud-Hosting, Ablösung des PHP-Bundles. **Bundle-seitig neu zu bauen (separate Symfony-Arbeit):** Command `nsai:graph:ingest` (stdin-JSON → `LearningManager::ingestFact`) und `nsai:graph:export` (Graph → JSON für Clone) — existieren laut Verifikation noch nicht.
+
+## v2.3 — Delta zum Implementierungs-Stand (normativ)
+
+Diese Section hält den realen Code-Stand fest (Konzept↔Code-Alignment, Lehre aus Retro 0001).
+
+### A. Provenienz-Modell B (nach Pre-Merge-Review)
+
+- `origin_peer_id` = **Erstbehaupter** (wer den Fakt zuerst behauptet hat), nicht der letzte Hop.
+- Signiert wird die **unveränderliche Aussage**: `[wire_version, triple_hash, subject, predicate, object, asserted_confidence, temporality, source_type, asserted_at, origin_peer_id, derived_from]`. **Nicht** signiert (Transport/lokal): `vector_clock`, `relayed_by`, der lokale Live-`confidence`.
+- **Kein Re-Sign** beim Export — die Origin-Signatur bleibt erhalten. `relayed_by` = letzter Hop (unsigniert).
+- Empfang verifiziert gegen den **Origin-Key** (Web-of-Trust: unbekannter Origin → reject). **Trust hängt am Origin, nie am Relay** → kein Impersonation/Trust-Laundering.
+- `asserted_confidence` = signierter Origin-Wert (unveränderlich, föderiert). `confidence` = lokaler Live-Wert (Decay/Reinforcement, lokal).
+
+### B. Evidenz-Gewichtung (neuro-symbolisch, Lese-Linse)
+
+Konkurrierende Aussagen (gleiches Subjekt+Prädikat, verschiedenes Objekt) werden **nicht** hart quarantänisiert, sondern zur Lesezeit gewichtet (UC-12 `resolveBelief`):
+
+```
+score(claim) = authority(source_type)/1000 × recency(asserted_at) × confidence
+recency(t)   = 2^(−Alter_in_Tagen / recencyHalflifeDays)        # exponentiell, neuer = höher
+belief(obj)  = score(obj)^beliefSharpness / Σ score(j)^beliefSharpness   # über DISTINKTE Objekte (max je Objekt)
+```
+
+- **`source_type`-Autorität** (signiert, inhaltsgebunden): `gesetz` 1000 > `behoerde` 880 > `sensor` 820 > `fachquelle` 760 > `manual` 700 > `web` 450 > `llm`/`inference` 300. Ein Gesetzestext dominiert mehrere Web-Quellen — **Anzahl zählt nie** (max je Objekt, nicht Summe).
+- **Aktualität** schlägt bei gleicher Autorität (Recency-Decay).
+- **Veraltetes/falsches Wissen** sinkt im Belief gegen 0, bleibt aber gespeichert (auditierbar, revidierbar — non-monoton, BEWA-Stil). Decay senkt zusätzlich den Live-Wert.
+- Query markiert überstimmte Aussagen als `disputed` + nennt das `dominant`-Objekt; eine Gruppe ist `contested`, wenn der Zweitplatzierte ≥ `contestedThreshold` Belief hält.
+- **Float-Hinweis:** Scoring/Belief sind eine **lokale** Float-Lese-Linse — nicht föderiert, nicht conformance-relevant; die signierten/föderierten Werte bleiben Integer-exakt.
+- Vorbild: NN-Attention (Relevanz-Gewichte statt Zählen) + BEWA (Bayesian Epistemology with Weighted Authority: Autorität + temporaler Decay + revidierbare Überzeugungen).
+
+### C. Neue/erweiterte UCs
+
+- **UC-12 `resolveBelief(subject, predicate)`** — gewichtete Belief-Verteilung über konkurrierende Objekte; Gewinner + Kandidaten mit `belief` (0–1000) + `contested`. MCP-Tool `graph__resolve_belief`.
+- UC-08 (Merge): Widersprüche koexistieren aktiv (Belief entscheidet); Peer-Trust bleibt Sicherheits-Gate (untrusted-Origin → Quarantäne).
 
 ## Inhaltsverzeichnis
 

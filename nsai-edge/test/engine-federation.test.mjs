@@ -22,8 +22,8 @@ function pair(trust = 'full') {
 function makeWire(s, p, o, confidence, vc, origin = 'peer:ext') {
   return {
     wire_version: 1, triple_hash: tripleHash(s, p, o), subject: s, predicate: p, object: o,
-    confidence, asserted_confidence: confidence, temporality: 'stable',
-    origin_peer_id: origin, relayed_by: origin, vector_clock: vc, derived_from: null, signature: 'ed25519:x',
+    confidence, asserted_confidence: confidence, source_type: 'manual', asserted_at: '2025-01-01T00:00:00Z',
+    temporality: 'stable', origin_peer_id: origin, relayed_by: origin, vector_clock: vc, derived_from: null, signature: 'ed25519:x',
   };
 }
 
@@ -66,7 +66,8 @@ test('SEC-1: Origin-Impersonation wird abgewiesen (fremde Signatur auf fremdem O
   const base = {
     wire_version: 1, triple_hash: tripleHash('Fake', 'sagt', 'Luege'),
     subject: 'Fake', predicate: 'sagt', object: 'Luege', asserted_confidence: 1000,
-    temporality: 'stable', origin_peer_id: victim.peerId, derived_from: null,
+    temporality: 'stable', source_type: 'web', asserted_at: '2025-01-01T00:00:00Z',
+    origin_peer_id: victim.peerId, derived_from: null,
   };
   const forged = { ...base, confidence: 1000, vector_clock: { [evil.peerId]: 1 }, relayed_by: evil.peerId, signature: signTriple(evil.identity.privateKeyPem, base) };
   assert.equal(C.receiveIngest([forged])[0].status, 'rejected');
@@ -130,12 +131,49 @@ test('AC-8.6: Merge ist assoziativ (drei Werte, beliebige Reihenfolge → max)',
   assert.equal(o2._getEdge(ws[0].triple_hash).confidence, 900);
 });
 
-test('AC-8.4/5.3: widersprüchliches Objekt → Quarantäne; authoritative gewinnt lokal', () => {
+test('AC-8.4: widersprüchliche Objekte koexistieren aktiv (Belief entscheidet, keine harte Quarantäne)', () => {
   const e = fresh();
   e.mergeIncoming(makeWire('Strasse', 'zustand', 'frei', 800, { P1: 1 }), { peerTrust: 'full' });
-  e.mergeIncoming(makeWire('Strasse', 'zustand', 'gesperrt', 800, { P2: 1 }), { peerTrust: 'authoritative' });
-  assert.equal(e._getEdge(tripleHash('Strasse', 'zustand', 'frei')).local_status, 'superseded');
+  e.mergeIncoming(makeWire('Strasse', 'zustand', 'gesperrt', 800, { P2: 1 }), { peerTrust: 'full' });
+  assert.equal(e._getEdge(tripleHash('Strasse', 'zustand', 'frei')).local_status, 'active');
   assert.equal(e._getEdge(tripleHash('Strasse', 'zustand', 'gesperrt')).local_status, 'active');
+});
+
+// ---- Evidenz-Gewichtung (Autorität × Aktualität × Konfidenz, NIE Anzahl) ----
+test('Belief: Gesetz schlägt mehrfache Web-Quellen (Autorität, nicht Anzahl)', () => {
+  const e = fresh();
+  // dieselbe Web-Behauptung mehrfach erfasst = gleicher Hash = ein Edge (kein Count-Bonus):
+  for (let i = 0; i < 3; i++) e.storeTriple({ subject: 'Widerrufsfrist', predicate: 'betraegt', object: 'T14', confidence: 850, source_type: 'web' });
+  e.storeTriple({ subject: 'Widerrufsfrist', predicate: 'betraegt', object: 'T30', confidence: 800, source_type: 'gesetz' });
+  const r = e.resolveBelief('Widerrufsfrist', 'betraegt');
+  assert.equal(r.winner, 'T30'); // Gesetz dominiert trotz mehrfacher Web-Erfassung
+  assert.ok(r.candidates.find((c) => c.object === 'T30').belief > r.candidates.find((c) => c.object === 'T14').belief);
+});
+
+test('Belief: bei gleicher Autorität gewinnt der neuere (Recency)', () => {
+  const e = fresh();
+  e.storeTriple({ subject: 'Hauptstadt', predicate: 'ist', object: 'Bonn', confidence: 800, source_type: 'fachquelle', asserted_at: '1989-01-01T00:00:00Z' });
+  e.storeTriple({ subject: 'Hauptstadt', predicate: 'ist', object: 'Berlin', confidence: 800, source_type: 'fachquelle', asserted_at: '2020-01-01T00:00:00Z' });
+  assert.equal(e.resolveBelief('Hauptstadt', 'ist').winner, 'Berlin');
+});
+
+test('Belief: veraltetes Wissen sinkt gegen 0, bleibt aber gespeichert (auditierbar)', () => {
+  const e = fresh();
+  e.storeTriple({ subject: 'Standard', predicate: 'ist', object: 'Alt', confidence: 900, source_type: 'web', asserted_at: '2005-01-01T00:00:00Z' });
+  e.storeTriple({ subject: 'Standard', predicate: 'ist', object: 'Neu', confidence: 700, source_type: 'web', asserted_at: '2025-06-01T00:00:00Z' });
+  const r = e.resolveBelief('Standard', 'ist');
+  assert.equal(r.winner, 'Neu'); // neuer schlägt höhere alte Konfidenz
+  assert.ok(r.candidates.find((c) => c.object === 'Alt').belief < 100);
+  assert.ok(e._getEdge(tripleHash('Standard', 'ist', 'Alt'))); // nicht gelöscht
+});
+
+test('Query markiert überstimmte Aussagen (disputed + dominant)', () => {
+  const e = fresh();
+  e.storeTriple({ subject: 'Frist', predicate: 'ist', object: 'A14', confidence: 800, source_type: 'web' });
+  e.storeTriple({ subject: 'Frist', predicate: 'ist', object: 'A30', confidence: 800, source_type: 'gesetz' });
+  const a14 = e.query('Frist', { maxDepth: 1 }).edges.find((x) => x.object === 'A14');
+  assert.equal(a14.disputed, true);
+  assert.equal(a14.dominant, 'A30');
 });
 
 test('mergeIncoming validiert Input (1-Zeichen-Subjekt → Fehler, kein DB-Crash)', () => {

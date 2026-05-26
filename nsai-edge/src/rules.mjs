@@ -16,6 +16,16 @@ export const DEFAULT_SPEC = {
   quarantineThreshold: 300,
   // Lokale Lese-Linse (UC-02/09): effektive Konfidenz = trunc(conf * factor / 1000).
   trustFactor: { untrusted: 0, limited: 500, full: 1000, authoritative: 1000 },
+  // Epistemische Autorität je source_type (Promille 0–1000) — inhaltsgebunden, NICHT Peer-Trust.
+  // Konflikt-Gewichtung: Gesetz schlägt Web, egal wie viele Web-Quellen (BEWA-Quellen-Tupel-Äquivalent).
+  authorityWeight: { gesetz: 1000, behoerde: 880, sensor: 820, fachquelle: 760, manual: 700, web: 450, llm: 300, default: 300 },
+  // Recency: Halbwertszeit der Belief-Gewichtung in Tagen (neuer gewinnt; exponentiell).
+  recencyHalflifeDays: 540,
+  // Belief-Schärfe (Potenz-Normalisierung, ratio-basiert): belief ∝ score^sharpness.
+  // Größer = schärfer (klarer Gewinner). Robust über stark unterschiedliche Score-Größen.
+  beliefSharpness: 3,
+  // Zweitplatzierter ab dieser Belief-Schwelle (Promille) → Aussage gilt als "umstritten".
+  contestedThreshold: 150,
   // Forward-Chaining-Regeln. Pattern-Felder: konkreter String oder '?var'.
   inferenceRules: [
     {

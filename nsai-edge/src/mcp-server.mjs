@@ -24,12 +24,20 @@ export const TOOLS = [
   },
   {
     name: 'graph__query_knowledge',
-    description: 'Fragt den lokalen Wissensgraph ab (Subgraph-Traversierung). Liefert kompakte Tripel mit effektiver Konfidenz; bei >25 Pfaden gekappt.',
+    description: 'Fragt den lokalen Wissensgraph ab (Subgraph-Traversierung). Liefert Tripel mit Konfidenz + belief (0–1000) + source_type; überstimmte/umstrittene Aussagen sind als disputed/dominant markiert. Bei >25 Pfaden gekappt.',
     inputSchema: S({
       query_term: { type: 'string', description: 'Startknoten-Name' },
       max_depth: { type: 'integer', minimum: 1, maximum: 3, description: 'Traversierungstiefe (Default 1)' },
       explain: { type: 'boolean', description: 'Inferenz-Herkunft (derived_from) mitliefern' },
     }, ['query_term']),
+  },
+  {
+    name: 'graph__resolve_belief',
+    description: 'Löst konkurrierende Aussagen zu Subjekt+Prädikat zu einer gewichteten Belief-Verteilung auf (Autorität des source_type × Aktualität × Konfidenz, softmax — Anzahl der Quellen zählt nie). Gibt Gewinner + alle Kandidaten mit belief (0–1000) + ob umstritten. So wird veraltetes/falsches Wissen sichtbar abgewertet statt gelöscht.',
+    inputSchema: S({
+      subject: { type: 'string' },
+      predicate: { type: 'string' },
+    }, ['subject', 'predicate']),
   },
   { name: 'graph__infer', description: 'Forward-Chaining: leitet neue Fakten aus den Inferenzregeln ab.', inputSchema: S({}) },
   { name: 'graph__decay_pass', description: 'Zeitbasierter Decay-Lauf (Fixed-Point). dry_run=true nur Vorschau.', inputSchema: S({ dry_run: { type: 'boolean' } }) },
@@ -80,6 +88,9 @@ export class McpServer {
           break;
         case 'graph__query_knowledge':
           result = this.engine.query(args.query_term, { maxDepth: args.max_depth ?? 1, explain: !!args.explain });
+          break;
+        case 'graph__resolve_belief':
+          result = this.engine.resolveBelief(args.subject, args.predicate) ?? { message: 'No matching claims.' };
           break;
         case 'graph__infer':
           result = this.engine.infer();

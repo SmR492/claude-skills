@@ -1,8 +1,12 @@
 // NSAI-Edge Engine — lokaler neuro-symbolischer Wissensgraph-Knoten.
-// KONZEPT v2.2 + Provenienz-Modell B (Review 0001): origin_peer_id = Erstbehaupter,
-// signiert über die UNVERÄNDERLICHE Aussage (asserted_confidence). Kein Re-Sign beim
-// Export; relayed_by = letzter Hop (unsigniert). Trust hängt am Origin, nie am Relay.
-// Decay/Reinforcement wirken nur auf den lokalen Live-Wert `confidence`.
+// KONZEPT v2.3 + Provenienz-Modell B + Evidenz-Gewichtung.
+// - origin_peer_id = Erstbehaupter, signiert über die UNVERÄNDERLICHE Aussage
+//   (asserted_confidence, source_type, asserted_at). Kein Re-Sign; relayed_by = Hop.
+// - Trust am Origin (Web-of-Trust-Verify), nie am Relay.
+// - Konflikt-Auflösung NEURO-SYMBOLISCH zur Lesezeit: belief = softmax über distinkte
+//   Objekte mit score = authority(source_type) × recency(asserted_at) × confidence.
+//   Anzahl der Quellen zählt nie (max je Objekt). Veraltetes/Falsches sinkt im Belief
+//   gegen 0, bleibt aber auditierbar + revidierbar (non-monoton, BEWA-Stil).
 import { randomUUID } from 'node:crypto';
 import { openDb } from './db.mjs';
 import { tripleHash } from './canonical.mjs';
@@ -12,19 +16,13 @@ import { DEFAULT_SPEC, WIRE_VERSION, trunc, trustFactor } from './rules.mjs';
 const RE_SUBJECT = /^[\w\-\\.:]{2,160}$/;
 const RE_PREDICATE = /^[a-z_]{2,50}$/;
 const TEMPORALITIES = new Set(['eternal', 'stable', 'temporal', 'ephemeral']);
+const EPOCH = '1970-01-01T00:00:00Z';
 
 export class EngineError extends Error {
-  constructor(code, message) {
-    super(message ? `${code}: ${message}` : code);
-    this.code = code;
-  }
+  constructor(code, message) { super(message ? `${code}: ${message}` : code); this.code = code; }
 }
 
-const clockMax = (a, b) => {
-  const out = { ...a };
-  for (const [k, v] of Object.entries(b)) out[k] = Math.max(out[k] ?? 0, v);
-  return out;
-};
+const clockMax = (a, b) => { const o = { ...a }; for (const [k, v] of Object.entries(b)) o[k] = Math.max(o[k] ?? 0, v); return o; };
 const clockLEQ = (a, b) => Object.entries(a).every(([k, v]) => v <= (b[k] ?? 0));
 
 function validateTriple(subject, predicate, object) {
@@ -34,12 +32,12 @@ function validateTriple(subject, predicate, object) {
 }
 
 export class Engine {
-  constructor({ dbPath = ':memory:', identity, spec = DEFAULT_SPEC, peerId } = {}) {
+  constructor({ dbPath = ':memory:', identity, spec = DEFAULT_SPEC, peerId, now } = {}) {
     this.db = openDb(dbPath);
     this.identity = identity ?? createIdentity();
     this.spec = spec;
     this.peerId = peerId ?? `peer:${this.identity.fingerprint.slice(0, 12)}`;
-    // Vector-Clock-Selbstzähler aus der DB rekonstruieren (überlebt Neustart, kein Rückschritt).
+    this._now = now ?? (() => Date.now()); // injizierbar für deterministische Tests
     this._clock = this._maxSelfClock();
   }
 
@@ -63,61 +61,38 @@ export class Engine {
   _getEdge(hash) { return this.db.prepare('SELECT * FROM knowledge_edges WHERE triple_hash = ?').get(hash); }
   _peer(peerId) { return this.db.prepare('SELECT * FROM peers WHERE peer_id = ?').get(peerId); }
   _tick() { this._clock += 1; return { [this.peerId]: this._clock }; }
-  _tx(fn) {
-    this.db.exec('BEGIN IMMEDIATE');
-    try { const r = fn(); this.db.exec('COMMIT'); return r; } catch (e) { this.db.exec('ROLLBACK'); throw e; }
-  }
+  _tx(fn) { this.db.exec('BEGIN IMMEDIATE'); try { const r = fn(); this.db.exec('COMMIT'); return r; } catch (e) { this.db.exec('ROLLBACK'); throw e; } }
+  _originPubKey(o) { return o === this.peerId ? this.identity.publicKeyPem : (this._peer(o)?.public_key ?? null); }
+  _originTrust(o) { return o === this.peerId ? 'full' : (this._peer(o)?.trust_level ?? 'untrusted'); }
 
-  // Public-Key des Erstbehaupters (origin); self → eigene Identität, sonst Peer-Registry.
-  _originPubKey(originPeerId) {
-    if (originPeerId === this.peerId) return this.identity.publicKeyPem;
-    return this._peer(originPeerId)?.public_key ?? null;
-  }
-  _originTrust(originPeerId) {
-    if (originPeerId === this.peerId) return 'full';
-    return this._peer(originPeerId)?.trust_level ?? 'untrusted';
-  }
-
-  // Signierte Wire-Aussage bauen (Origin = self, asserted_confidence ist der signierte Wert).
-  _signSelf({ hash, subject, predicate, object, asserted_confidence, temporality, vector_clock, derived_from }) {
+  _signSelf({ hash, subject, predicate, object, asserted_confidence, source_type, asserted_at, temporality, vector_clock, derived_from }) {
     const t = {
       wire_version: WIRE_VERSION, triple_hash: hash, subject, predicate, object,
-      asserted_confidence, temporality, origin_peer_id: this.peerId, derived_from: derived_from ?? null,
+      asserted_confidence, temporality, source_type, asserted_at, origin_peer_id: this.peerId, derived_from: derived_from ?? null,
     };
     t.signature = signTriple(this.identity.privateKeyPem, t);
-    t.confidence = asserted_confidence;
-    t.vector_clock = vector_clock;
-    t.relayed_by = this.peerId;
+    t.confidence = asserted_confidence; t.vector_clock = vector_clock; t.relayed_by = this.peerId;
     return t;
   }
-
-  _edgeToWire(edge) {
+  _edgeToWire(e) {
     return {
-      wire_version: WIRE_VERSION,
-      triple_hash: edge.triple_hash,
-      subject: this._nodeName(edge.subject_id),
-      predicate: edge.predicate,
-      object: this._nodeName(edge.object_id),
-      confidence: edge.confidence,                       // lokaler Live-Wert
-      asserted_confidence: edge.asserted_confidence,     // signierter Origin-Wert
-      temporality: edge.temporality,
-      origin_peer_id: edge.origin_peer_id,
-      relayed_by: edge.relayed_by,
-      vector_clock: JSON.parse(edge.vector_clock),
-      derived_from: edge.derived_from ? JSON.parse(edge.derived_from) : null,
-      signature: edge.signature,
+      wire_version: WIRE_VERSION, triple_hash: e.triple_hash,
+      subject: this._nodeName(e.subject_id), predicate: e.predicate, object: this._nodeName(e.object_id),
+      confidence: e.confidence, asserted_confidence: e.asserted_confidence,
+      source_type: e.source_type, asserted_at: e.asserted_at, temporality: e.temporality,
+      origin_peer_id: e.origin_peer_id, relayed_by: e.relayed_by,
+      vector_clock: JSON.parse(e.vector_clock), derived_from: e.derived_from ? JSON.parse(e.derived_from) : null,
+      signature: e.signature,
     };
   }
 
   // ---- UC-01: Tripel lokal erfassen ----------------------------------
-  storeTriple({ subject, predicate, object, confidence = 700, temporality = 'stable', context_slug = null }) {
+  storeTriple({ subject, predicate, object, confidence = 700, temporality = 'stable', source_type = 'manual', asserted_at = null, context_slug = null }) {
     validateTriple(subject, predicate, object);
-    if (!Number.isInteger(confidence) || confidence < 0 || confidence > 1000) {
-      throw new EngineError('INVALID_PARAMETER_FORMAT', 'confidence außerhalb 0–1000');
-    }
+    if (!Number.isInteger(confidence) || confidence < 0 || confidence > 1000) throw new EngineError('INVALID_PARAMETER_FORMAT', 'confidence außerhalb 0–1000');
     if (!TEMPORALITIES.has(temporality)) throw new EngineError('INVALID_PARAMETER_FORMAT', 'temporality ungültig');
     if (!this.identity) throw new EngineError('NO_PEER_IDENTITY', 'keine lokale Identität');
-
+    const ts = asserted_at ?? new Date(this._now()).toISOString();
     const hash = tripleHash(subject, predicate, object);
     return this._tx(() => {
       const existing = this._getEdge(hash);
@@ -125,31 +100,67 @@ export class Engine {
       if (existing) {
         const asserted = Math.max(existing.asserted_confidence, confidence);
         const vc = clockMax(JSON.parse(existing.vector_clock), clock);
-        const t = this._signSelf({ hash, subject, predicate, object, asserted_confidence: asserted, temporality: existing.temporality, vector_clock: vc, derived_from: existing.derived_from ? JSON.parse(existing.derived_from) : null });
-        this.db.prepare(
-          "UPDATE knowledge_edges SET confidence=?, asserted_confidence=?, origin_peer_id=?, relayed_by=?, signature=?, vector_clock=?, updated_at=datetime('now') WHERE triple_hash=?",
-        ).run(Math.max(existing.confidence, confidence), asserted, this.peerId, this.peerId, t.signature, JSON.stringify(vc), hash);
+        const t = this._signSelf({ hash, subject, predicate, object, asserted_confidence: asserted, source_type, asserted_at: ts, temporality: existing.temporality, vector_clock: vc, derived_from: existing.derived_from ? JSON.parse(existing.derived_from) : null });
+        this.db.prepare("UPDATE knowledge_edges SET confidence=?, asserted_confidence=?, source_type=?, asserted_at=?, origin_peer_id=?, relayed_by=?, signature=?, vector_clock=?, updated_at=datetime('now') WHERE triple_hash=?")
+          .run(Math.max(existing.confidence, confidence), asserted, source_type, ts, this.peerId, this.peerId, t.signature, JSON.stringify(vc), hash);
         return { triple_hash: hash, confidence: Math.max(existing.confidence, confidence), status: existing.local_status, created: false };
       }
-      const subjectId = this._ensureNode(subject);
-      const objectId = this._ensureNode(object);
-      const t = this._signSelf({ hash, subject, predicate, object, asserted_confidence: confidence, temporality, vector_clock: clock, derived_from: null });
+      const sId = this._ensureNode(subject); const oId = this._ensureNode(object);
+      const t = this._signSelf({ hash, subject, predicate, object, asserted_confidence: confidence, source_type, asserted_at: ts, temporality, vector_clock: clock, derived_from: null });
       this.db.prepare(
-        `INSERT INTO knowledge_edges
-          (triple_hash, subject_id, predicate, object_id, confidence, asserted_confidence, temporality, local_status, origin_peer_id, relayed_by, signature, vector_clock, derived_from, context_slug)
-         VALUES (?,?,?,?,?,?,?, 'active', ?,?,?,?, NULL, ?)`,
-      ).run(hash, subjectId, predicate, objectId, confidence, confidence, temporality, this.peerId, this.peerId, t.signature, JSON.stringify(clock), context_slug);
+        `INSERT INTO knowledge_edges (triple_hash, subject_id, predicate, object_id, confidence, asserted_confidence, source_type, asserted_at, temporality, local_status, origin_peer_id, relayed_by, signature, vector_clock, derived_from, context_slug)
+         VALUES (?,?,?,?,?,?,?,?,?, 'active', ?,?,?,?, NULL, ?)`,
+      ).run(hash, sId, predicate, oId, confidence, confidence, source_type, ts, temporality, this.peerId, this.peerId, t.signature, JSON.stringify(clock), context_slug);
       return { triple_hash: hash, confidence, status: 'active', created: true };
     });
   }
 
-  // ---- UC-02: Abfragen (Subgraph + effektive Konfidenz) --------------
+  // ---- Belief-Scoring (neuro-symbolische Lese-Linse) -----------------
+  _authority(sourceType) { return this.spec.authorityWeight[sourceType] ?? this.spec.authorityWeight.default ?? 300; }
+  _recencyFactor(assertedAt) {
+    const t = Date.parse(assertedAt);
+    if (Number.isNaN(t)) return 1;
+    const ageDays = Math.max(0, (this._now() - t) / 86400000);
+    return Math.pow(2, -ageDays / this.spec.recencyHalflifeDays); // ∈ (0,1]
+  }
+  // Evidenz-Score 0..1000 (Float, rein lokal — nicht föderiert/conformance-relevant).
+  _score(edge) {
+    return (this._authority(edge.source_type) / 1000) * this._recencyFactor(edge.asserted_at) * edge.confidence;
+  }
+
+  // Löst konkurrierende Aussagen (gleiches subject+predicate) zu einer gewichteten
+  // Belief-Verteilung über die DISTINKTEN Objekte auf. Softmax über max-Score je Objekt
+  // → anzahl-unabhängig. Gibt nach Belief absteigend sortierte Kandidaten + Gewinner.
+  resolveBelief(subject, predicate) {
+    const sNode = this.db.prepare('SELECT id FROM knowledge_nodes WHERE name = ?').get(subject);
+    if (!sNode) return null;
+    const edges = this.db.prepare("SELECT * FROM knowledge_edges WHERE subject_id=? AND predicate=? AND local_status='active'").all(sNode.id, predicate);
+    if (edges.length === 0) return null;
+    const byObject = new Map();
+    for (const e of edges) {
+      const obj = this._nodeName(e.object_id);
+      const sc = this._score(e);
+      const cur = byObject.get(obj);
+      if (!cur || sc > cur.score) byObject.set(obj, { object: obj, score: sc, source_type: e.source_type, asserted_at: e.asserted_at, confidence: e.confidence, origin_peer_id: e.origin_peer_id });
+    }
+    const cands = [...byObject.values()];
+    // Ratio-basierte Potenz-Normalisierung: belief ∝ score^sharpness. Robust auch bei
+    // stark unterschiedlichen Score-Größen (großer Ratio → klarer Gewinner).
+    const p = this.spec.beliefSharpness;
+    let sum = 0;
+    for (const c of cands) { c._w = Math.pow(Math.max(c.score, 0), p); sum += c._w; }
+    for (const c of cands) { c.belief = sum > 0 ? Math.round((c._w / sum) * 1000) : 0; delete c._w; c.score = Math.round(c.score); }
+    cands.sort((a, b) => b.belief - a.belief);
+    const contested = cands.length > 1 && cands[1].belief >= this.spec.contestedThreshold;
+    return { subject, predicate, winner: cands[0].object, contested, candidates: cands };
+  }
+
+  // ---- UC-02: Abfragen (Subgraph + Belief-Anreicherung) --------------
   query(term, { maxDepth = 1, explain = false } = {}) {
     let depth = Number.isInteger(maxDepth) ? maxDepth : 1;
     depth = Math.max(1, Math.min(3, depth));
     const start = this.db.prepare('SELECT id FROM knowledge_nodes WHERE name = ?').get(term);
     if (!start) return { nodes: [], edges: [], truncated: false, message: 'No matching nodes found.' };
-
     const visited = new Set([start.id]);
     let frontier = [start.id];
     const edgeRows = new Map();
@@ -166,29 +177,37 @@ export class Engine {
     }
     const all = [...edgeRows.values()];
     const truncated = all.length > 25;
+    const beliefCache = new Map();
     const edges = all.slice(0, 25).map((e) => {
+      const subject = this._nodeName(e.subject_id); const object = this._nodeName(e.object_id);
+      const key = `${subject} ${e.predicate}`;
+      if (!beliefCache.has(key)) beliefCache.set(key, this.resolveBelief(subject, e.predicate));
+      const res = beliefCache.get(key);
+      const cand = res?.candidates.find((c) => c.object === object);
       const out = {
-        subject: this._nodeName(e.subject_id), predicate: e.predicate, object: this._nodeName(e.object_id),
+        subject, predicate: e.predicate, object,
         confidence: e.confidence, effective_confidence: this._effectiveConfidence(e),
+        belief: cand?.belief ?? 1000, source_type: e.source_type, asserted_at: e.asserted_at,
         origin_peer_id: e.origin_peer_id,
       };
+      if (res && res.candidates.length > 1 && res.winner !== object) { out.disputed = true; out.dominant = res.winner; }
       if (e.relayed_by && e.relayed_by !== e.origin_peer_id) out.relayed_by = e.relayed_by;
       if (explain && e.derived_from) out.derived_from = JSON.parse(e.derived_from);
       return out;
     });
     return { nodes: [...visited].map((id) => this._nodeName(id)), edges, truncated };
   }
-
-  // Lokale Lese-Linse: effektive Konfidenz = trunc(Live-confidence * trustFactor(ORIGIN) / 1000).
-  _effectiveConfidence(edge) {
-    if (edge.origin_peer_id === this.peerId) return edge.confidence;
-    return trunc((edge.confidence * trustFactor(this.spec, this._originTrust(edge.origin_peer_id))) / 1000);
+  // Peer-Liefer-Trust-Linse (orthogonal zur Belief-/Inhalts-Autorität).
+  _effectiveConfidence(e) {
+    if (e.origin_peer_id === this.peerId) return e.confidence;
+    return trunc((e.confidence * trustFactor(this.spec, this._originTrust(e.origin_peer_id))) / 1000);
   }
 
   // ---- UC-03: Forward-Chaining-Inferenz ------------------------------
   infer() {
     return this._tx(() => {
       let created = 0, updated = 0;
+      const nowIso = new Date(this._now()).toISOString();
       for (const rule of this.spec.inferenceRules) {
         for (const binding of this._matchPremises(rule.premises)) {
           const concl = this._bind(rule.conclusion, binding.vars);
@@ -204,13 +223,12 @@ export class Engine {
               .run(Math.max(existing.confidence, confidence), asserted, JSON.stringify(derivedObj), hash);
             updated++;
           } else {
-            const sId = this._ensureNode(concl.subject);
-            const oId = this._ensureNode(concl.object);
-            const t = this._signSelf({ hash, ...concl, asserted_confidence: confidence, temporality: 'stable', vector_clock: clock, derived_from: derivedObj });
+            const sId = this._ensureNode(concl.subject); const oId = this._ensureNode(concl.object);
+            const t = this._signSelf({ hash, ...concl, asserted_confidence: confidence, source_type: 'inference', asserted_at: nowIso, temporality: 'stable', vector_clock: clock, derived_from: derivedObj });
             this.db.prepare(
-              `INSERT INTO knowledge_edges (triple_hash, subject_id, predicate, object_id, confidence, asserted_confidence, temporality, local_status, origin_peer_id, relayed_by, signature, vector_clock, derived_from)
-               VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)`,
-            ).run(hash, sId, concl.predicate, oId, confidence, confidence, 'stable', status, this.peerId, this.peerId, t.signature, JSON.stringify(clock), JSON.stringify(derivedObj));
+              `INSERT INTO knowledge_edges (triple_hash, subject_id, predicate, object_id, confidence, asserted_confidence, source_type, asserted_at, temporality, local_status, origin_peer_id, relayed_by, signature, vector_clock, derived_from)
+               VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+            ).run(hash, sId, concl.predicate, oId, confidence, confidence, 'inference', nowIso, 'stable', status, this.peerId, this.peerId, t.signature, JSON.stringify(clock), JSON.stringify(derivedObj));
             created++;
           }
         }
@@ -218,18 +236,15 @@ export class Engine {
       return { created, updated };
     });
   }
-
   _activeEdges() { return this.db.prepare("SELECT * FROM knowledge_edges WHERE local_status='active'").all(); }
   _matchPremises(premises) {
     let states = [{ vars: {}, confidences: [], hashes: [] }];
     for (const pat of premises) {
       const next = [];
-      for (const st of states) {
-        for (const e of this._activeEdges()) {
-          const triple = { subject: this._nodeName(e.subject_id), predicate: e.predicate, object: this._nodeName(e.object_id) };
-          const m = this._unify(pat, triple, st.vars);
-          if (m) next.push({ vars: m, confidences: [...st.confidences, e.confidence], hashes: [...st.hashes, e.triple_hash] });
-        }
+      for (const st of states) for (const e of this._activeEdges()) {
+        const triple = { subject: this._nodeName(e.subject_id), predicate: e.predicate, object: this._nodeName(e.object_id) };
+        const m = this._unify(pat, triple, st.vars);
+        if (m) next.push({ vars: m, confidences: [...st.confidences, e.confidence], hashes: [...st.hashes, e.triple_hash] });
       }
       states = next;
     }
@@ -244,10 +259,7 @@ export class Engine {
     }
     return out;
   }
-  _bind(pattern, vars) {
-    const r = (v) => (v.startsWith('?') ? vars[v] : v);
-    return { subject: r(pattern.subject), predicate: r(pattern.predicate), object: r(pattern.object) };
-  }
+  _bind(pattern, vars) { const r = (v) => (v.startsWith('?') ? vars[v] : v); return { subject: r(pattern.subject), predicate: r(pattern.predicate), object: r(pattern.object) }; }
 
   // ---- UC-04: Decay & Reinforcement (nur lokaler Live-Wert) ----------
   decayPass({ dryRun = false } = {}) {
@@ -257,22 +269,17 @@ export class Engine {
       const reduction = this.spec.decayPerPeriod[e.temporality] ?? 0;
       if (reduction === 0) continue;
       const newConf = Math.max(0, e.confidence - reduction);
-      if (newConf < this.spec.deleteThreshold) {
-        superseded++;
-        if (!dryRun) this.db.prepare("UPDATE knowledge_edges SET confidence=?, local_status='superseded', updated_at=datetime('now') WHERE triple_hash=?").run(newConf, e.triple_hash);
-      } else {
-        decayed++;
-        if (!dryRun) this.db.prepare("UPDATE knowledge_edges SET confidence=?, updated_at=datetime('now') WHERE triple_hash=?").run(newConf, e.triple_hash);
-      }
+      if (newConf < this.spec.deleteThreshold) { superseded++; if (!dryRun) this.db.prepare("UPDATE knowledge_edges SET confidence=?, local_status='superseded', updated_at=datetime('now') WHERE triple_hash=?").run(newConf, e.triple_hash); }
+      else { decayed++; if (!dryRun) this.db.prepare("UPDATE knowledge_edges SET confidence=?, updated_at=datetime('now') WHERE triple_hash=?").run(newConf, e.triple_hash); }
     }
     return { decayed, superseded, dryRun };
   }
   reinforce(hash) {
     const e = this._getEdge(hash);
     if (!e) return null;
-    const newConf = Math.min(e.confidence + this.spec.reinforceDelta, 1000);
-    this.db.prepare("UPDATE knowledge_edges SET confidence=?, updated_at=datetime('now') WHERE triple_hash=?").run(newConf, hash);
-    return newConf;
+    const c = Math.min(e.confidence + this.spec.reinforceDelta, 1000);
+    this.db.prepare("UPDATE knowledge_edges SET confidence=?, updated_at=datetime('now') WHERE triple_hash=?").run(c, hash);
+    return c;
   }
 
   // ---- UC-05: Quarantäne ---------------------------------------------
@@ -281,60 +288,49 @@ export class Engine {
     const e = this._getEdge(hash);
     if (!e) return false;
     const pub = this._originPubKey(e.origin_peer_id);
-    if (!pub || !verifyTriple(pub, this._edgeToWire(e), e.signature)) {
-      throw new EngineError('UNVERIFIED_ORIGIN', 'Origin-Signatur nicht verifizierbar');
-    }
+    if (!pub || !verifyTriple(pub, this._edgeToWire(e), e.signature)) throw new EngineError('UNVERIFIED_ORIGIN', 'Origin-Signatur nicht verifizierbar');
     this.db.prepare("UPDATE knowledge_edges SET local_status='active', updated_at=datetime('now') WHERE triple_hash=?").run(hash);
     return true;
   }
   reject(hash) { this.db.prepare("UPDATE knowledge_edges SET local_status='superseded', updated_at=datetime('now') WHERE triple_hash=?").run(hash); }
 
-  // ---- UC-08: Merge eines bereits VERIFIZIERTEN Wire-Tripels ---------
-  // peerTrust = Trust des ORIGIN (Erstbehaupter), nicht des Relays.
+  // ---- UC-08: Merge eines bereits verifizierten Wire-Tripels ---------
+  // Widersprüche werden NICHT mehr hart quarantänisiert — sie koexistieren aktiv und
+  // werden zur Lesezeit per Belief gewichtet (neuro-symbolisch). Peer-Trust bleibt der
+  // Sicherheits-Gate: untrusted-Origin → Quarantäne (kein stiller Eintritt in den Belief).
   mergeIncoming(wire, { peerTrust = 'untrusted' } = {}) {
     if (wire.wire_version !== WIRE_VERSION) return 'rejected';
     validateTriple(wire.subject, wire.predicate, wire.object);
     const asserted = wire.asserted_confidence ?? wire.confidence;
+    const sourceType = wire.source_type ?? 'llm';
+    const assertedAt = wire.asserted_at ?? EPOCH;
     const existing = this._getEdge(wire.triple_hash);
-
-    if (existing && existing.local_status === 'superseded' && clockLEQ(wire.vector_clock, JSON.parse(existing.vector_clock))) {
-      return 'ignored'; // Replay-Schutz
-    }
+    if (existing && existing.local_status === 'superseded' && clockLEQ(wire.vector_clock, JSON.parse(existing.vector_clock))) return 'ignored';
     if (existing) {
       const newAsserted = Math.max(existing.asserted_confidence, asserted);
       const vc = clockMax(JSON.parse(existing.vector_clock), wire.vector_clock);
-      // Höhere Origin-Aussage gewinnt + bringt ihre Signatur/Origin mit (Zeile bleibt verifizierbar).
       if (asserted > existing.asserted_confidence) {
-        this.db.prepare("UPDATE knowledge_edges SET confidence=?, asserted_confidence=?, origin_peer_id=?, relayed_by=?, signature=?, vector_clock=?, updated_at=datetime('now') WHERE triple_hash=?")
-          .run(Math.max(existing.confidence, asserted), newAsserted, wire.origin_peer_id, wire.relayed_by ?? null, wire.signature, JSON.stringify(vc), wire.triple_hash);
+        this.db.prepare("UPDATE knowledge_edges SET confidence=?, asserted_confidence=?, source_type=?, asserted_at=?, origin_peer_id=?, relayed_by=?, signature=?, vector_clock=?, updated_at=datetime('now') WHERE triple_hash=?")
+          .run(Math.max(existing.confidence, asserted), newAsserted, sourceType, assertedAt, wire.origin_peer_id, wire.relayed_by ?? null, wire.signature, JSON.stringify(vc), wire.triple_hash);
       } else {
         this.db.prepare("UPDATE knowledge_edges SET confidence=?, vector_clock=?, updated_at=datetime('now') WHERE triple_hash=?")
           .run(Math.max(existing.confidence, asserted), JSON.stringify(vc), wire.triple_hash);
       }
       return 'accepted';
     }
-
-    const sId = this._ensureNode(wire.subject);
-    const oId = this._ensureNode(wire.object);
-    const conflict = this.db.prepare("SELECT * FROM knowledge_edges WHERE subject_id=? AND predicate=? AND object_id!=? AND local_status='active'").all(sId, wire.predicate, oId);
-    let status = peerTrust === 'untrusted' ? 'quarantined' : 'active';
-    if (conflict.length > 0) {
-      if (peerTrust === 'authoritative') { for (const c of conflict) this.reject(c.triple_hash); status = 'active'; }
-      else { status = 'quarantined'; for (const c of conflict) this.db.prepare("UPDATE knowledge_edges SET local_status='quarantined' WHERE triple_hash=?").run(c.triple_hash); }
-    }
+    const sId = this._ensureNode(wire.subject); const oId = this._ensureNode(wire.object);
+    const status = peerTrust === 'untrusted' ? 'quarantined' : 'active';
     this.db.prepare(
-      `INSERT INTO knowledge_edges (triple_hash, subject_id, predicate, object_id, confidence, asserted_confidence, temporality, local_status, origin_peer_id, relayed_by, signature, vector_clock, derived_from)
-       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)`,
-    ).run(wire.triple_hash, sId, wire.predicate, oId, asserted, asserted, wire.temporality, status, wire.origin_peer_id, wire.relayed_by ?? null, wire.signature, JSON.stringify(wire.vector_clock), wire.derived_from ? JSON.stringify(wire.derived_from) : null);
+      `INSERT INTO knowledge_edges (triple_hash, subject_id, predicate, object_id, confidence, asserted_confidence, source_type, asserted_at, temporality, local_status, origin_peer_id, relayed_by, signature, vector_clock, derived_from)
+       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+    ).run(wire.triple_hash, sId, wire.predicate, oId, asserted, asserted, sourceType, assertedAt, wire.temporality, status, wire.origin_peer_id, wire.relayed_by ?? null, wire.signature, JSON.stringify(wire.vector_clock), wire.derived_from ? JSON.stringify(wire.derived_from) : null);
     return status === 'active' ? 'accepted' : 'quarantined';
   }
 
-  // Verifiziert ein Wire gegen den ORIGIN-Key (Modell B). Unbekannter Origin → null (reject).
   _verifyAgainstOrigin(wire) {
     if (wire.wire_version !== WIRE_VERSION) return false;
     const pub = this._originPubKey(wire.origin_peer_id);
-    if (!pub) return false; // Web-of-Trust: Origin muss bekannt sein
-    return verifyTriple(pub, wire, wire.signature);
+    return pub ? verifyTriple(pub, wire, wire.signature) : false;
   }
 
   // ---- UC-09: Peer-Trust & Identität ---------------------------------
@@ -348,32 +344,23 @@ export class Engine {
     if (!['untrusted', 'limited', 'full', 'authoritative'].includes(level)) throw new EngineError('INVALID_TRUST_LEVEL');
     this.db.prepare('UPDATE peers SET trust_level=? WHERE peer_id=?').run(level, peerId);
   }
-  peerRotate(peerId, newPublicKeyPem) {
-    const fp = fingerprint(newPublicKeyPem);
-    this.db.prepare('UPDATE peers SET public_key=?, fingerprint=? WHERE peer_id=?').run(newPublicKeyPem, fp, peerId);
-    return fp;
-  }
+  peerRotate(peerId, newPublicKeyPem) { const fp = fingerprint(newPublicKeyPem); this.db.prepare('UPDATE peers SET public_key=?, fingerprint=? WHERE peer_id=?').run(newPublicKeyPem, fp, peerId); return fp; }
   peerRevoke(peerId) {
     this.db.prepare("UPDATE peers SET trust_level='untrusted' WHERE peer_id=?").run(peerId);
     this.db.prepare("UPDATE knowledge_edges SET local_status='quarantined' WHERE origin_peer_id=? AND local_status='active'").run(peerId);
   }
 
   // ---- Export / Pull / Push / Clone (UC-06/07/11) --------------------
-  // Export forwarded die UNVERÄNDERTE Origin-Signatur (kein Re-Sign), setzt nur relayed_by=self.
   exportSince(sinceClock = {}) {
     return this.db.prepare("SELECT * FROM knowledge_edges WHERE local_status='active'").all()
-      .map((e) => this._edgeToWire(e))
-      .filter((w) => !clockLEQ(w.vector_clock, sinceClock))
+      .map((e) => this._edgeToWire(e)).filter((w) => !clockLEQ(w.vector_clock, sinceClock))
       .map((w) => ({ ...w, relayed_by: this.peerId }));
   }
-  // Empfängt einen Batch: verifiziert je Tripel gegen den ORIGIN-Key, Trust = Origin-Trust.
   receiveIngest(batch) {
     const result = [];
     for (const wire of batch) {
       if (!this._verifyAgainstOrigin(wire)) { result.push({ triple_hash: wire.triple_hash, status: 'rejected' }); continue; }
-      let status;
-      try { status = this.mergeIncoming(wire, { peerTrust: this._originTrust(wire.origin_peer_id) }); }
-      catch { result.push({ triple_hash: wire.triple_hash, status: 'rejected' }); continue; }
+      let status; try { status = this.mergeIncoming(wire, { peerTrust: this._originTrust(wire.origin_peer_id) }); } catch { result.push({ triple_hash: wire.triple_hash, status: 'rejected' }); continue; }
       result.push({ triple_hash: wire.triple_hash, status });
     }
     return result;
@@ -388,9 +375,7 @@ export class Engine {
     for (const wire of batch) {
       tally.received++;
       if (!this._verifyAgainstOrigin(wire)) { tally.rejected++; continue; }
-      let status;
-      try { status = this.mergeIncoming(wire, { peerTrust: this._originTrust(wire.origin_peer_id) }); }
-      catch { tally.rejected++; continue; }
+      let status; try { status = this.mergeIncoming(wire, { peerTrust: this._originTrust(wire.origin_peer_id) }); } catch { tally.rejected++; continue; }
       tally[status] = (tally[status] ?? 0) + 1;
       maxClock = clockMax(maxClock, wire.vector_clock);
     }
@@ -415,13 +400,12 @@ export class Engine {
     for (const wire of batch) {
       if (!this._verifyAgainstOrigin(wire)) { rejected++; continue; }
       try { validateTriple(wire.subject, wire.predicate, wire.object); } catch { rejected++; continue; }
-      const sId = this._ensureNode(wire.subject);
-      const oId = this._ensureNode(wire.object);
+      const sId = this._ensureNode(wire.subject); const oId = this._ensureNode(wire.object);
       const asserted = wire.asserted_confidence ?? wire.confidence;
       this.db.prepare(
-        `INSERT OR IGNORE INTO knowledge_edges (triple_hash, subject_id, predicate, object_id, confidence, asserted_confidence, temporality, local_status, origin_peer_id, relayed_by, signature, vector_clock, derived_from)
-         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)`,
-      ).run(wire.triple_hash, sId, wire.predicate, oId, asserted, asserted, wire.temporality, bulkPromote ? 'active' : 'quarantined', wire.origin_peer_id, wire.relayed_by ?? null, wire.signature, JSON.stringify(wire.vector_clock), wire.derived_from ? JSON.stringify(wire.derived_from) : null);
+        `INSERT OR IGNORE INTO knowledge_edges (triple_hash, subject_id, predicate, object_id, confidence, asserted_confidence, source_type, asserted_at, temporality, local_status, origin_peer_id, relayed_by, signature, vector_clock, derived_from)
+         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+      ).run(wire.triple_hash, sId, wire.predicate, oId, asserted, asserted, wire.source_type ?? 'llm', wire.asserted_at ?? EPOCH, wire.temporality, bulkPromote ? 'active' : 'quarantined', wire.origin_peer_id, wire.relayed_by ?? null, wire.signature, JSON.stringify(wire.vector_clock), wire.derived_from ? JSON.stringify(wire.derived_from) : null);
       cloned++;
     }
     let maxClock = {};

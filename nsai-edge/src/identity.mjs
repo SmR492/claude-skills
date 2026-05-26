@@ -34,6 +34,8 @@ export function signingString(t) {
     t.object,
     t.asserted_confidence,
     t.temporality,
+    t.source_type ?? 'llm',
+    t.asserted_at ?? '1970-01-01T00:00:00Z',
     t.origin_peer_id,
     t.derived_from ?? null,
   ]);

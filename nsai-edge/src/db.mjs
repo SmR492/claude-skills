@@ -19,6 +19,8 @@ CREATE TABLE IF NOT EXISTS knowledge_edges (
   object_id TEXT NOT NULL,
   confidence INTEGER NOT NULL CHECK(confidence BETWEEN 0 AND 1000),            -- lokaler Live-Wert (Decay/Reinforcement)
   asserted_confidence INTEGER NOT NULL CHECK(asserted_confidence BETWEEN 0 AND 1000), -- signierter Origin-Wert (unveränderlich)
+  source_type TEXT NOT NULL DEFAULT 'llm',     -- Autoritäts-Klasse (signiert): gesetz/behoerde/fachquelle/web/llm/manual/sensor
+  asserted_at TEXT NOT NULL DEFAULT '1970-01-01T00:00:00Z', -- Behauptungs-Zeitpunkt (signiert, für Recency)
   temporality TEXT NOT NULL CHECK(temporality IN ('eternal','stable','temporal','ephemeral')),
   local_status TEXT NOT NULL DEFAULT 'active' CHECK(local_status IN ('active','quarantined','superseded')),
   origin_peer_id TEXT NOT NULL,                -- Erstbehaupter (signiert)

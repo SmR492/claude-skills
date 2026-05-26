@@ -37,9 +37,11 @@ node bin/nsai-edge.mjs whoami
 | Peer-Trust (TOFU-Fingerprint, Rotate, Revoke) | UC-09 | `src/engine.mjs` + `src/identity.mjs` |
 | Conformance-Runner (Node-Seite) | UC-10 | `src/conformance.mjs` |
 | Clone / Bootstrap (Quarantäne + Bulk-Promote) | UC-11 | `src/engine.mjs` |
+| **Evidenz-Gewichtung / Belief-Resolution** (Autorität × Aktualität × Konfidenz) | UC-12 | `src/engine.mjs` |
 | Kanonischer Hash (NFC/0x1F/sha256:) | Wire-Vertrag v1 | `src/canonical.mjs` |
+| MCP-stdio-Server (JSON-RPC 2.0) + Marketplace-Plugin | — | `src/mcp-server.mjs`, `bin/nsai-edge-mcp.mjs` |
 
-**Kern-Eigenschaften (getestet):** Fixed-Point-Konfidenz (Integer-Promille 0–1000); gemergter Föderationswert ist trust-**un**abhängig (CRDT), Trust nur als lokale Lese-Linse; Ed25519-Signaturprüfung beim Empfang, Re-Signatur beim Export (transitives Vouching); Replay-Schutz; Widerspruch → Quarantäne, authoritative gewinnt lokal.
+**Kern-Eigenschaften (getestet, 50 Tests):** Fixed-Point-Konfidenz (Integer-Promille 0–1000); Provenienz-**Modell B** (origin=Erstbehaupter, signiert, kein Re-Sign, Web-of-Trust-Verify gegen Origin-Key, Trust am Origin nie am Relay → kein Impersonation/Trust-Laundering); trust-unabhängiger CRDT-Merge; Replay-Schutz; Clock-Persistenz; **Evidenz-Gewichtung**: konkurrierende/veraltete/falsche Aussagen werden nach `source_type`-Autorität × Aktualität × Konfidenz gewichtet (Belief 0–1000, Anzahl zählt nie), Überstimmtes bleibt auditierbar (`disputed`/`dominant`).
 
 ## CLI
 
@@ -49,6 +51,7 @@ node bin/nsai-edge.mjs store --subject=Temperatur --predicate=zustand --object=u
 node bin/nsai-edge.mjs infer
 node bin/nsai-edge.mjs query --term=Fahrbahn --depth=1
 node bin/nsai-edge.mjs decay --dry=true
+# MCP-Server (stdio): node bin/nsai-edge-mcp.mjs — Tool graph__resolve_belief für gewichtete Konflikt-Auflösung
 node bin/nsai-edge.mjs peer-add --peer=peer:bundle --key=./bundle.pub --endpoint=...
 node bin/nsai-edge.mjs peer-trust --peer=peer:bundle --level=authoritative
 ```
@@ -57,7 +60,6 @@ DB + Identität liegen unter `~/.claude/nsai-edge/` (override via `NSAI_EDGE_DB`
 
 ## Noch offen (Integration)
 
-- **MCP-stdio-Transport:** Engine-Tools (`graph__store_triple` etc.) als MCP-Server framen (JSON-RPC 2.0). Die Engine-API ist dafür bereit; nur die Protokoll-Hülle fehlt.
 - **Netz-/`docker exec`-Peer-Transport:** aktuell ist die Föderation über einen injizierten Transport (Loopback) getestet; HTTP + der Bundle-Adapter (`nsai:graph:ingest`/`export`) fehlen — die Bundle-Commands existieren noch nicht (Symfony-seitige Arbeit).
 - **PHP-Conformance-Gegenseite (UC-10):** Node-Seite läuft; das Cross-Language-Gate bleibt `unverified`, bis die PHP-Engine dieselben Vektoren rechnet.
 - 🟢 GC-Tombstone-Default, Inferenz-Idempotenz-Schlüssel.
