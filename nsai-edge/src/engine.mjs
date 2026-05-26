@@ -339,7 +339,11 @@ export class Engine {
     const existing = this._getEdge(wire.triple_hash);
     if (existing && existing.local_status === 'superseded' && clockLEQ(wire.vector_clock, JSON.parse(existing.vector_clock))) return 'ignored';
     if (existing) {
-      const liveConf = Math.max(existing.confidence, incLive);
+      // Live-Konfidenz darf NUR durch full/authoritative-Beiträge per max angehoben werden —
+      // sonst inflationiert ein untrusted/limited Re-Assert desselben Hashes die Konfidenz eines
+      // vertrauten Edges und kippt den Belief-Gewinner (Fix 🔴-NEU, Review 0005). VC mergt trotzdem.
+      const trusted = peerTrust === 'full' || peerTrust === 'authoritative';
+      const liveConf = trusted ? Math.max(existing.confidence, incLive) : existing.confidence;
       const vc = clockMax(JSON.parse(existing.vector_clock), wire.vector_clock);
       // Provenienz folgt der höheren AUTORITÄT, nicht der höheren Konfidenz (Fix 🟡4) —
       // sonst könnte eine niedrig-autoritative aber hoch-konfidente Quelle den source_type kapern.

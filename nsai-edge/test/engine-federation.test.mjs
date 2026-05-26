@@ -219,6 +219,20 @@ test('SEC-7: limited-Origin kann die Provenienz eines höher-vertrauten Edges ni
   assert.equal(e.source_type, 'manual');
 });
 
+test('SEC-8: untrusted/limited Re-Assert inflationiert die Live-Konfidenz eines vertrauten Edges nicht', () => {
+  const c = fresh();
+  c.peerAdd('peer:g1', fresh().identity.publicKeyPem); c.peerTrust('peer:g1', 'full');
+  c.peerAdd('peer:evil', fresh().identity.publicKeyPem); c.peerTrust('peer:evil', 'untrusted');
+  c.peerAdd('peer:lim', fresh().identity.publicKeyPem); c.peerTrust('peer:lim', 'limited');
+  const hash = tripleHash('Sub', 'ist', 'Alpha');
+  c.mergeIncoming(makeWire('Sub', 'ist', 'Alpha', 600, { 'peer:g1': 1 }, 'peer:g1', 'web'), { peerTrust: 'full' });
+  const before = c._getEdge(hash).confidence;
+  c.mergeIncoming(makeWire('Sub', 'ist', 'Alpha', 1000, { 'peer:evil': 2 }, 'peer:evil', 'web'), { peerTrust: 'untrusted' });
+  assert.equal(c._getEdge(hash).confidence, before); // untrusted hebt nicht an
+  c.mergeIncoming(makeWire('Sub', 'ist', 'Alpha', 1000, { 'peer:lim': 3 }, 'peer:lim', 'web'), { peerTrust: 'limited' });
+  assert.equal(c._getEdge(hash).confidence, before); // limited hebt nicht an
+});
+
 test('🟡-2: Belief-Auflösung ist ingest-reihenfolge-unabhängig (Föderations-Determinismus)', () => {
   const mk = () => { const e = fresh(); return e; };
   const a = mk(); const b = mk();
