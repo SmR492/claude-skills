@@ -290,6 +290,7 @@ Destruktive Aktionen (Push/Merge/Schema-Drop) nie auto — Operator (§1.6/§23)
 ## 12. Changelog
 
 **v1.0 (Mai 2026):** Erstkonzept. Ziele effektiv/schnell/genau quantifiziert (§1), 6 UCs mit AC, Reife-Rubrik (§4), Mechanik (§5) + Mess-Harness (§6). Bezug: CDP5 v5 (§32.9 Determinismus, §28.6 Kontext-Economy, §33 Sicherheit, §10/§22 Score/PoC).
+
 **v1.1 (Mai 2026, Dogfood-Review-Patch):** Konzept vom `konzept-reviewer` gescored (8,4 → Ziel ≥9,0). Geschlossen: §2.6 Probabilistik- + §2.7 Vendor-Risiko-Statement als Pflicht-Tabellen (je UC); Fehlerfälle-Tabellen für UC-03/04/05/06; T1-Skill-Vertrag (UC-03); Lethal-Trifecta-Achsen-Ausweis (UC-05/06, read-only → entschärft); Glossar +Drift-Detektoren/Audit-Agents; §7 Anhang +Skill-Struktur +ausgelieferte CDP5-Version (v5). Offen (Architekt, §1.9): finale EU-AI-Act-Klassen-Bestätigung.
 
 **v1.2 (Mai 2026, Simulations-Patch):** Aus 5 fiktiven Durchläufen präzisiert: §1 „Schnell" = **< 5 min je interaktivem Schritt** (voller Eval = CI-Batch, kein „Schritt"); §1 „Genau" = ≥ 9,0 **nach ≤ 2 Iterationen**; neue **4. Zeile „Sicher"** (0 offene 🔴-Security-Findings, separat von der Drift-Zahl). UC-05 + §11 `pii-scan` als Hybrid (deterministischer Regex + `review-verify`-Overlay, kein finaler Wahrheits-Gate). +Scope-Ehrlichkeit (Coding-Qualität hängt am Vertical-Slicing, nicht am Skill allein).
