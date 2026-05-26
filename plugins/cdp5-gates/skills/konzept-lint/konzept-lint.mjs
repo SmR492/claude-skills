@@ -5,6 +5,7 @@
 // Exit: 0 = keine strukturelle Lücke · 1 = strukturelle Lücke · 2 = Nutzungsfehler.
 
 import { readFileSync, existsSync } from 'node:fs';
+import { guardPaths } from '../../lib/args.mjs';
 
 const VAGUE = /\b(should|ideally|sollte|idealerweise|möglichst|ungefähr|ca\.|etc\.|evtl\.|mehr oder weniger|o\.\s?ä\.)\b/i;
 const DEFAULT_WEIGHTS = { struktur: 0.25, ac_tabelle: 0.25, fehlerfaelle: 0.20, ac_binaer: 0.15, llm_rag: 0.15 };
@@ -72,6 +73,7 @@ export function lintKonzept(md, weights = DEFAULT_WEIGHTS) {
 function main(argv) {
   const a = Object.fromEntries(argv.slice(2).map((x) => { const [k, ...r] = x.split('='); return [k.replace(/^--/, ''), r.length ? r.join('=') : true]; }));
   if (!a.konzept) { console.error('Usage: konzept-lint.mjs --konzept=<konzept.md> [--rubric=<rubric.json>] [--json]'); process.exit(2); }
+  guardPaths([[a.konzept, 'file'], [a.rubric, 'file']]);
   let weights = DEFAULT_WEIGHTS;
   if (typeof a.rubric === 'string' && existsSync(a.rubric)) {
     try { weights = JSON.parse(readFileSync(a.rubric, 'utf8')).weights ?? DEFAULT_WEIGHTS; }

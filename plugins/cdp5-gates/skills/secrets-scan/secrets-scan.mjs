@@ -3,6 +3,7 @@
 // Secrets im Repo (Keys, Tokens, Private Keys, .env-Leaks). Exit: 0 = sauber · 1 = Funde · 2 = Nutzungsfehler.
 
 import { readFileSync, readdirSync, lstatSync } from 'node:fs';
+import { guardPaths } from '../../lib/args.mjs';
 
 const MAX_LINE = 4000;   // ReDoS-Schutz: überlange Einzelzeilen vor dem Regex-Matching kappen (s. scanText)
 import { join, relative, extname, basename } from 'node:path';
@@ -67,6 +68,7 @@ export function scanRepo(root) {
 function main(argv) {
   const a = Object.fromEntries(argv.slice(2).map((x) => { const [k, v] = x.split('='); return [k.replace(/^--/, ''), v ?? true]; }));
   if (!a.repo) { console.error('Usage: secrets-scan.mjs --repo=<root> [--json]'); process.exit(2); }
+  guardPaths([[a.repo, 'dir']]);
   const r = scanRepo(a.repo);
   if (a.json) { console.log(JSON.stringify(r, null, 2)); process.exit(r.hasSecrets ? 1 : 0); }
   console.log(`Secrets-Scan — ${r.scanned} Dateien, ${r.findings.length} Funde\n`);

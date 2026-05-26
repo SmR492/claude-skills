@@ -6,6 +6,7 @@
 
 import { readFileSync, existsSync, readdirSync, lstatSync } from 'node:fs';
 import { join, relative } from 'node:path';
+import { guardPaths } from '../../lib/args.mjs';
 
 const SLUG_RE = /(?:\[\[([a-z0-9][a-z0-9_-]+)\]\]|\b((?:feedback|project|reference)_[a-z0-9_]+)\b|\(((?:feedback|project|reference)_[a-z0-9_]+)\.md\))/g;
 
@@ -43,6 +44,7 @@ export function checkLoop(retroDir, memoryDir) {
 function main(argv) {
   const a = Object.fromEntries(argv.slice(2).map((x) => { const [k, v] = x.split('='); return [k.replace(/^--/, ''), v ?? true]; }));
   if (!a.retro || !a.memory) { console.error('Usage: retro-memory-loop-check.mjs --retro=<retro-dir> --memory=<memory-dir> [--json]'); process.exit(2); }
+  guardPaths([[a.retro, 'dir'], [a.memory, 'dir']]);
   const r = checkLoop(a.retro, a.memory);
   if (a.json) { console.log(JSON.stringify(r, null, 2)); process.exit(r.broken ? 1 : 0); }
   console.log(`Retro→Memory-Loop — ${r.cited} zitierte Slugs, ${r.findings.length} gebrochen\n`);

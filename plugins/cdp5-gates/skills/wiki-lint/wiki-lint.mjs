@@ -8,6 +8,7 @@
 import { readFileSync, existsSync } from 'node:fs';
 import { dirname, resolve, relative, basename } from 'node:path';
 import { collectFiles } from '../../lib/scan.mjs';
+import { guardPaths } from '../../lib/args.mjs';
 
 const ENTRY_POINTS = new Set(['index.md', 'overview.md', 'log.md', 'README.md', 'rules.md']);
 const REQUIRED_FRONTMATTER = ['title', 'type', 'updated'];
@@ -51,6 +52,7 @@ export function lintWiki(wikiRoot) {
 function main(argv) {
   const args = Object.fromEntries(argv.slice(2).map((a) => { const [k, v] = a.split('='); return [k.replace(/^--/, ''), v ?? true]; }));
   if (!args.wiki) { console.error('Usage: wiki-lint.mjs --wiki=<wiki-root> [--json]'); process.exit(2); }
+  guardPaths([[args.wiki, 'dir']]);
   const r = lintWiki(args.wiki);
   if (args.json) { console.log(JSON.stringify(r, null, 2)); process.exit(r.brokenLinks.length ? 1 : 0); }
   console.log(`Wiki-Lint — ${r.scanned} Seiten gescannt\n`);

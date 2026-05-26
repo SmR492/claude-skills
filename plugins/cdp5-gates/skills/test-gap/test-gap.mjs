@@ -7,6 +7,7 @@
 import { readFileSync } from 'node:fs';
 import { basename } from 'node:path';
 import { collectFiles, relative } from '../../lib/scan.mjs';
+import { guardPaths } from '../../lib/args.mjs';
 
 const SEC_FILE = /(Voter|StateProcessor|Authenticator)\.php$/;
 const SEC_CONTENT = /(extends\s+\w*Voter\b|implements[^\n]*\b(Authenticator|StateProcessor|ProcessorInterface|AuthenticatorInterface)\w*\b)/;
@@ -36,6 +37,7 @@ export function findTestGaps(repoRoot) {
 function main(argv) {
   const args = Object.fromEntries(argv.slice(2).map((a) => { const [k, v] = a.split('='); return [k.replace(/^--/, ''), v ?? true]; }));
   if (!args.repo) { console.error('Usage: test-gap.mjs --repo=<repo-root> [--json]'); process.exit(2); }
+  guardPaths([[args.repo, 'dir']]);
   const r = findTestGaps(args.repo);
   if (args.json) { console.log(JSON.stringify(r, null, 2)); process.exit(r.gaps.length ? 1 : 0); }
   console.log(`Test-Gap-Finder — ${r.scanned} PHP-Dateien, ${r.covered.length} sicherheitskritische getestet, ${r.gaps.length} ohne Test\n`);

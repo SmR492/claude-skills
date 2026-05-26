@@ -5,6 +5,7 @@
 
 import { readFileSync } from 'node:fs';
 import { collectFiles, classify, locate, backtickTokens } from '../../lib/scan.mjs';
+import { guardPaths } from '../../lib/args.mjs';
 
 const DONE = ['✅', 'GESCHLOSSEN', 'EXISTIERT', 'umgesetzt', 'geliefert', 'gelandet'];
 const NOT_DONE = /(❌|🔴|🟡|\bnicht\b|\bkein\b|\boffen\b|\bTODO\b|\bTBD\b|\bgeplant\b)/i;
@@ -37,6 +38,7 @@ export function checkRoadmap(roadmapPath, repoRoot) {
 function main(argv) {
   const a = Object.fromEntries(argv.slice(2).map((x) => { const [k, v] = x.split('='); return [k.replace(/^--/, ''), v ?? true]; }));
   if (!a.roadmap || !a.repo) { console.error('Usage: roadmap-drift.mjs --roadmap=<roadmap.md> --repo=<root> [--json]'); process.exit(2); }
+  guardPaths([[a.roadmap, 'file'], [a.repo, 'dir']]);
   const r = checkRoadmap(a.roadmap, a.repo);
   if (a.json) { console.log(JSON.stringify(r, null, 2)); process.exit(r.drift ? 1 : 0); }
   console.log(`Roadmap-Drift — ${r.results.length} beanspruchte Artefakte, ${r.scanned} Dateien\n`);

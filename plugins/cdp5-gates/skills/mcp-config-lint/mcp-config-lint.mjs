@@ -5,6 +5,7 @@
 // Exit: 0 = keine 🔴 · 1 = ≥1 🔴 (Injection-Signal / Cleartext-Secret) · 2 = Nutzungsfehler.
 
 import { readFileSync } from 'node:fs';
+import { guardPaths } from '../../lib/args.mjs';
 
 const INJECTION = /(ignore (the )?(previous|above|prior)|disregard .*instruction|exfiltrat|\bid_rsa\b|\.ssh\b|BEGIN [A-Z ]*PRIVATE KEY|base64 |curl\s+-|\bwget\b|process\.env|\.env\b)/i;
 const SECRET_VAL = /^[A-Za-z0-9_\-]{20,}$/; // langer Token, kein ${...}-Placeholder
@@ -37,9 +38,10 @@ export function lintMcp(configText) {
 function main(argv) {
   const a = Object.fromEntries(argv.slice(2).map((x) => { const [k, v] = x.split('='); return [k.replace(/^--/, ''), v ?? true]; }));
   if (!a.config) { console.error('Usage: mcp-config-lint.mjs --config=<.mcp.json> [--json]'); process.exit(2); }
+  guardPaths([[a.config, 'file']]);
   const r = lintMcp(readFileSync(a.config, 'utf8'));
-  if (a.json) { console.log(JSON.stringify(r, null, 2)); process.exit(r.error || r.hasCritical ? 1 : 0); }
-  if (r.error) { console.error(r.error); process.exit(1); }
+  if (r.error) { console.error(r.error); process.exit(2); }   // malformed Config = Input-Fehler → Exit 2 (nicht 1)
+  if (a.json) { console.log(JSON.stringify(r, null, 2)); process.exit(r.hasCritical ? 1 : 0); }
   console.log(`MCP-Config-Lint — ${r.servers} Server, ${r.findings.length} Befunde\n`);
   for (const f of r.findings) console.log(`  ${f.sev} [${f.server}] ${f.issue}`);
   if (!r.findings.length) console.log('  keine Risiko-Signale.');

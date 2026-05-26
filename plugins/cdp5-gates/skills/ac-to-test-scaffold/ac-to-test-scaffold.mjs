@@ -5,6 +5,7 @@
 // Exit: 0 = Skelette erzeugt · 1 = keine AC gefunden · 2 = Nutzungsfehler.
 
 import { readFileSync } from 'node:fs';
+import { guardPaths } from '../../lib/args.mjs';
 
 export function parseUCs(md) {
   const ucs = []; let cur = null;
@@ -65,6 +66,7 @@ export function scaffold(md, lang = 'php') {
 function main(argv) {
   const a = Object.fromEntries(argv.slice(2).map((x) => { const [k, ...r] = x.split('='); return [k.replace(/^--/, ''), r.length ? r.join('=') : true]; }));
   if (!a.konzept) { console.error('Usage: ac-to-test-scaffold.mjs --konzept=<konzept.md> [--lang=php|js]'); process.exit(2); }
+  guardPaths([[a.konzept, 'file']]);
   const r = scaffold(readFileSync(a.konzept, 'utf8'), a.lang === 'js' ? 'js' : 'php');
   if (!r.count) { console.error('Keine AC-Tabellen gefunden — erst `konzept-lint` (AC-Tabelle je UC Pflicht).'); process.exit(1); }
   console.error(`// ${r.count} AC → ${Object.keys(r.byClass).length} Test-Klasse(n) · read-only (kopieren/anlegen):\n`);

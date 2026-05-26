@@ -6,6 +6,7 @@
 // Exit: 0 = sauber · 1 = ≥1 Fund · 2 = Nutzungsfehler.
 
 import { readFileSync, readdirSync, lstatSync } from 'node:fs';
+import { guardPaths } from '../../lib/args.mjs';
 import { join, relative, extname, basename } from 'node:path';
 
 const SKIP = new Set(['.git', 'node_modules', 'vendor', 'var', 'cache', '.idea', 'dist', 'build', '.tmp']);
@@ -76,6 +77,7 @@ export function scanRepo(root) {
 function main(argv) {
   const a = Object.fromEntries(argv.slice(2).map((x) => { const [k, ...r] = x.split('='); return [k.replace(/^--/, ''), r.length ? r.join('=') : true]; }));
   if (!a.repo) { console.error('Usage: pii-scan.mjs --repo=<root> [--json]'); process.exit(2); }
+  guardPaths([[a.repo, 'dir']]);
   const f = scanRepo(a.repo);
   if (a.json) { console.log(JSON.stringify(f, null, 2)); process.exit(f.length ? 1 : 0); }
   console.log(`pii-scan — ${f.length} mögliche PII-Funde (redacted)\n`);

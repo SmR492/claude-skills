@@ -8,6 +8,7 @@
 
 import { readFileSync } from 'node:fs';
 import { collectFiles } from '../../lib/scan.mjs';
+import { guardPaths } from '../../lib/args.mjs';
 
 const norm = (s) => s.toLowerCase().replace(/[_\s-]/g, '');
 
@@ -91,6 +92,7 @@ export function diff(php, api) {
 function main(argv) {
   const args = Object.fromEntries(argv.slice(2).map((a) => { const [k, v] = a.split('='); return [k.replace(/^--/, ''), v ?? true]; }));
   if (!args.repo || !args.openapi) { console.error('Usage: model-api-drift.mjs --repo=<root> --openapi=<openapi.yaml> [--json]'); process.exit(2); }
+  guardPaths([[args.repo, 'dir'], [args.openapi, 'file']]);
   const php = parsePhp(collectFiles(args.repo, ['.php']));
   const api = parseOpenApi(readFileSync(args.openapi, 'utf8'));
   const d = diff(php, api);

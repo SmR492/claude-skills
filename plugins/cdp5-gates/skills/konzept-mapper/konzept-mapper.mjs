@@ -7,6 +7,7 @@
 
 import { readFileSync } from 'node:fs';
 import { collectFiles, locate, backtickTokens } from '../../lib/scan.mjs';
+import { guardPaths } from '../../lib/args.mjs';
 
 const CODE_EXT = ['.php', '.js', '.mjs', '.ts', '.twig', '.yaml', '.yml', '.sql', '.json'];
 
@@ -49,6 +50,7 @@ function main(argv) {
     console.error('Usage: konzept-mapper.mjs --konzept=<konzept.md> --repo=<repo-root> [--json]');
     process.exit(2);
   }
+  guardPaths([[args.konzept, 'file'], [args.repo, 'dir']]);
   const rows = mapKonzept(args.konzept, args.repo);
   if (args.json) { console.log(JSON.stringify(rows, null, 2)); }
   else {

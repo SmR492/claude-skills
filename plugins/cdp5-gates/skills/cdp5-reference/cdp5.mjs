@@ -9,6 +9,7 @@
 import { readFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { guardPaths } from '../../lib/args.mjs';
 
 const DEFAULT_DOCTRINE = join(dirname(fileURLToPath(import.meta.url)), 'konzept-design-pattern-v5.md');
 
@@ -54,6 +55,7 @@ export function listSections(md) {
 
 function main(argv) {
   const a = Object.fromEntries(argv.slice(2).map((x) => { const [k, ...r] = x.split('='); return [k.replace(/^--/, ''), r.length ? r.join('=') : true]; }));
+  guardPaths([[a.doctrine, 'file']]);   // optionaler --doctrine: falscher Typ/fehlend → Exit 2 statt Crash
   const md = readFileSync(typeof a.doctrine === 'string' ? a.doctrine : DEFAULT_DOCTRINE, 'utf8');
   if (a.list) { console.log(listSections(md).join('\n')); process.exit(0); }
   if (typeof a.section === 'string') {

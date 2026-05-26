@@ -7,6 +7,7 @@
 import { readFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { collectFiles } from '../../lib/scan.mjs';
+import { guardPaths } from '../../lib/args.mjs';
 
 const unquote = (s) => s.replace(/^["']|["']$/g, '').trim();
 
@@ -82,6 +83,7 @@ function main(argv) {
   const a = Object.fromEntries(argv.slice(2).map((x) => { const [k, ...v] = x.split('='); return [k.replace(/^--/, ''), v.length ? v.join('=') : true]; }));
   if (!a.profile) { console.error('Usage: profile-check.mjs --profile=<project-profile.md> [--konzept=<konzept.md>] [--repo=<root>] [--json]'); process.exit(2); }
   if (!a.konzept && !a.repo) { console.error('Mindestens --konzept oder --repo angeben (gegen welches Ziel geprüft wird).'); process.exit(2); }
+  guardPaths([[a.profile, 'file'], [a.konzept, 'file'], [a.repo, 'dir']]);
   let profile; try { profile = parseFrontmatter(readFileSync(a.profile, 'utf8')); } catch { console.error(`Profil nicht lesbar: ${a.profile}`); process.exit(2); }
   if (!Object.keys(profile).length) { console.error('Kein YAML-Frontmatter im Profil gefunden (--- … ---).'); process.exit(2); }
 
