@@ -1,0 +1,90 @@
+{
+  "scenarios": [
+    {
+      "name": "full schlägt limited (trust-primär)",
+      "existing": {
+        "subject": "Hauptstrasse",
+        "predicate": "zustand",
+        "object": "gesperrt",
+        "asserted_confidence": 900,
+        "source_type": "web",
+        "origin_peer_id": "peer:fb0f7b787319",
+        "trust": "limited"
+      },
+      "incoming": {
+        "subject": "Hauptstrasse",
+        "predicate": "zustand",
+        "object": "gesperrt",
+        "asserted_confidence": 400,
+        "source_type": "manual",
+        "origin_peer_id": "peer:ad2e0f289b53",
+        "trust": "full"
+      },
+      "expected": {
+        "owner_origin": "peer:ad2e0f289b53",
+        "live_confidence": 900,
+        "asserted_confidence": 400,
+        "source_type": "manual"
+      },
+      "note": "incoming gewinnt"
+    },
+    {
+      "name": "gleicher Trust: höhere effTier gewinnt",
+      "existing": {
+        "subject": "Hauptstrasse",
+        "predicate": "zustand",
+        "object": "gesperrt",
+        "asserted_confidence": 800,
+        "source_type": "web",
+        "origin_peer_id": "peer:82b13ae04e15",
+        "trust": "full"
+      },
+      "incoming": {
+        "subject": "Hauptstrasse",
+        "predicate": "zustand",
+        "object": "gesperrt",
+        "asserted_confidence": 800,
+        "source_type": "behoerde",
+        "origin_peer_id": "peer:bc42b7584f02",
+        "trust": "full"
+      },
+      "expected": {
+        "owner_origin": "peer:bc42b7584f02",
+        "live_confidence": 800,
+        "asserted_confidence": 800,
+        "source_type": "behoerde"
+      },
+      "note": "incoming gewinnt"
+    },
+    {
+      "name": "untrusted hebt Live-Konfidenz NICHT",
+      "existing": {
+        "subject": "Hauptstrasse",
+        "predicate": "zustand",
+        "object": "gesperrt",
+        "asserted_confidence": 600,
+        "source_type": "manual",
+        "confidence": 600,
+        "origin_peer_id": "peer:d5ea518b233c",
+        "trust": "full"
+      },
+      "incoming": {
+        "subject": "Hauptstrasse",
+        "predicate": "zustand",
+        "object": "gesperrt",
+        "asserted_confidence": 1000,
+        "source_type": "manual",
+        "confidence": 1000,
+        "origin_peer_id": "peer:b04427f57f56",
+        "trust": "untrusted"
+      },
+      "expected": {
+        "owner_origin": "peer:d5ea518b233c",
+        "live_confidence": 600,
+        "asserted_confidence": 600,
+        "source_type": "manual"
+      },
+      "note": "existing bleibt"
+    }
+  ]
+}

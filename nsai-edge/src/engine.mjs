@@ -372,17 +372,28 @@ export class Engine {
   // ---- UC-04: Decay & Reinforcement (nur lokaler Live-Wert) ----------
   decayPass({ dryRun = false } = {}) {
     const edges = this.db.prepare("SELECT * FROM knowledge_edges WHERE local_status='active'").all();
-    let decayed = 0, superseded = 0; const supersededHashes = [];
+    const plan = []; // { hash, newConf, supersede }
+    let decayed = 0, superseded = 0;
     for (const e of edges) {
       const reduction = this.spec.decayPerPeriod[e.temporality] ?? 0;
       if (reduction === 0) continue;
       const newConf = Math.max(0, e.confidence - reduction);
-      if (newConf < this.spec.deleteThreshold) { superseded++; supersededHashes.push(e.triple_hash); if (!dryRun) this.db.prepare("UPDATE knowledge_edges SET confidence=?, local_status='superseded', updated_at=datetime('now') WHERE triple_hash=?").run(newConf, e.triple_hash); }
-      else { decayed++; if (!dryRun) this.db.prepare("UPDATE knowledge_edges SET confidence=?, updated_at=datetime('now') WHERE triple_hash=?").run(newConf, e.triple_hash); }
+      const supersede = newConf < this.spec.deleteThreshold;
+      if (supersede) superseded++; else decayed++;
+      plan.push({ hash: e.triple_hash, newConf, supersede });
     }
-    // UC-TMS: verlorene Prämissen retraktieren ihre Schlussfolgerungen (eine Transaktion).
-    let retracted = 0;
-    if (!dryRun && supersededHashes.length) retracted = this._tx(() => supersededHashes.reduce((n, h) => n + this._propagateRetraction(h), 0));
+    if (dryRun) return { decayed, superseded, retracted: 0, dryRun };
+    // 🔴-2: Decay-/Supersede-Writes UND Retraktions-Propagation in EINER Transaktion (fail-closed,
+    // kein Zwischenzustand „Prämisse weg, Schlussfolgerung noch aktiv").
+    const retracted = this._tx(() => {
+      let r = 0;
+      for (const p of plan) {
+        if (p.supersede) this.db.prepare("UPDATE knowledge_edges SET confidence=?, local_status='superseded', updated_at=datetime('now') WHERE triple_hash=?").run(p.newConf, p.hash);
+        else this.db.prepare("UPDATE knowledge_edges SET confidence=?, updated_at=datetime('now') WHERE triple_hash=?").run(p.newConf, p.hash);
+      }
+      for (const p of plan) if (p.supersede) r += this._propagateRetraction(p.hash);
+      return r;
+    });
     return { decayed, superseded, retracted, dryRun };
   }
   // GC: alte superseded-Tombstones + Waisen-Knoten physisch entfernen (KONZEPT §8.4).
@@ -468,6 +479,9 @@ export class Engine {
         const newStatus = peerTrust === 'untrusted' ? 'quarantined' : existing.local_status;
         this.db.prepare("UPDATE knowledge_edges SET confidence=?, asserted_confidence=?, source_type=?, asserted_at=?, origin_peer_id=?, relayed_by=?, signature=?, vector_clock=?, local_status=?, updated_at=datetime('now') WHERE triple_hash=?")
           .run(liveConf, asserted, sourceType, assertedAt, wire.origin_peer_id, wire.relayed_by ?? null, wire.signature, JSON.stringify(vc), newStatus, wire.triple_hash);
+        // 🔴-3: kippt ein bislang aktiver Edge durch untrusted-Provenienz auf quarantined,
+        // retraktieren seine Schlussfolgerungen (verlorene Prämisse).
+        if (newStatus === 'quarantined' && existing.local_status === 'active') this._propagateRetraction(wire.triple_hash);
       } else {
         this.db.prepare("UPDATE knowledge_edges SET confidence=?, vector_clock=?, updated_at=datetime('now') WHERE triple_hash=?")
           .run(liveConf, JSON.stringify(vc), wire.triple_hash);
@@ -506,8 +520,14 @@ export class Engine {
   }
   peerRotate(peerId, newPublicKeyPem) { const fp = fingerprint(newPublicKeyPem); this.db.prepare('UPDATE peers SET public_key=?, fingerprint=? WHERE peer_id=?').run(newPublicKeyPem, fp, peerId); return fp; }
   peerRevoke(peerId) {
-    this.db.prepare("UPDATE peers SET trust_level='untrusted' WHERE peer_id=?").run(peerId);
-    this.db.prepare("UPDATE knowledge_edges SET local_status='quarantined' WHERE origin_peer_id=? AND local_status='active'").run(peerId);
+    // 🔴-3: quarantänisierte Edges sind verlorene Prämissen → ihre Schlussfolgerungen retraktieren
+    // (sonst bleiben verwaiste Fakten aktiv UND werden weiter exportiert — Halluzinationspfad). Eine Tx.
+    return this._tx(() => {
+      this.db.prepare("UPDATE peers SET trust_level='untrusted' WHERE peer_id=?").run(peerId);
+      const affected = this.db.prepare("SELECT triple_hash FROM knowledge_edges WHERE origin_peer_id=? AND local_status='active'").all(peerId).map((r) => r.triple_hash);
+      this.db.prepare("UPDATE knowledge_edges SET local_status='quarantined' WHERE origin_peer_id=? AND local_status='active'").run(peerId);
+      for (const h of affected) this._propagateRetraction(h);
+    });
   }
 
   // ---- Export / Pull / Push / Clone (UC-06/07/11) --------------------

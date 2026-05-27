@@ -105,6 +105,28 @@ test('AC-9.8: Föderations-Parität — retracted wird nicht exportiert', () => 
   assert.ok(!exported.includes(CONCL)); // retracted bleibt lokal, nicht im Wire
 });
 
+test('🔴-3: peerRevoke quarantänisiert Prämisse UND retraktiert ihre Schlussfolgerung (+ nicht mehr exportiert)', () => {
+  const e = new Engine();
+  // Prämisse stammt von einem (zunächst vertrauten) Peer; die zweite ist lokal.
+  const peer = new Engine();
+  e.peerAdd(peer.peerId, peer.identity.publicKeyPem); e.peerTrust(peer.peerId, 'full');
+  // Prämisse als Peer-Origin direkt einfügen (aktiv) + lokale Prämisse:
+  e.storeTriple({ subject: 'Glatteis', predicate: 'ist_ein', object: 'Strassengefahr', confidence: 900 });
+  e.db.prepare('UPDATE knowledge_edges SET origin_peer_id=? WHERE triple_hash=?').run(peer.peerId, PREM1);
+  e.storeTriple({ subject: 'Temperatur', predicate: 'zustand', object: 'unter_null', confidence: 900 });
+  e.infer();
+  assert.equal(e._getEdge(CONCL).local_status, 'active');
+  e.peerRevoke(peer.peerId);
+  assert.equal(e._getEdge(PREM1).local_status, 'quarantined');
+  assert.equal(e._getEdge(CONCL).local_status, 'retracted'); // verwaiste Schlussfolgerung weg
+  assert.ok(!e.exportSince({}).map((w) => w.triple_hash).includes(CONCL)); // nicht weiter verteilt
+});
+
+// Hinweis: Der mergeIncoming-Quarantäne-Flip (active→quarantined durch untrusted-Provenienz)
+// ist über die normale API unerreichbar — die trust-primäre Präzedenz lässt ein untrusted-Incoming
+// NIE einen aktiven/höher-vertrauten Record gewinnen (F1.13 „dead-but-correct"). Die dortige
+// Propagation ist defensiv (Parität); der reale 🔴-3-Pfad ist peerRevoke (oben getestet).
+
 test('decayPass retraktiert abgeleitete Fakten, deren Prämisse weg-decayed (ephemeral)', () => {
   const e = new Engine();
   // Prämisse hoch genug, dass die Schlussfolgerung aktiv entsteht (≥ quarantineThreshold),
