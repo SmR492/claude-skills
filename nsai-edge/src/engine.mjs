@@ -670,6 +670,31 @@ export class Engine {
     };
   }
 
+  // ---- UC-V: Verifikation (Slice #4) — Claim gegen den Graphen prüfen --
+  // Reine Projektion von resolveBelief (keine eigene Belief-Logik). Read-only, deterministisch.
+  // Open-World: Abwesenheit/gewichtsloses Wissen → 'unknown', NIE 'contradicted'.
+  verify({ subject, predicate, object } = {}) {
+    validateTriple(subject, predicate, object);
+    const base = { subject, predicate, object };
+    const rb = this.resolveBelief(subject, predicate);
+    if (rb === null) return { ...base, verdict: 'unknown' };                       // kein Subjekt / keine aktive Aussage
+    if (rb.multiValue) {
+      return rb.candidates.some((c) => c.object === object)
+        ? { ...base, verdict: 'supported', multiValue: true }
+        : { ...base, verdict: 'unknown', multiValue: true };                       // set-valued Abwesenheit ≠ Widerspruch
+    }
+    if (rb.winner === null) return { ...base, verdict: 'unknown' };                // allZero — kein durchsetzungsfähiger Gewinner (🔴-1)
+    if (rb.winner === object) {
+      const cand = rb.candidates.find((c) => c.object === object);
+      const edge = this._getEdge(tripleHash(subject, predicate, object));
+      const out = { ...base, verdict: 'supported', belief: cand?.belief ?? null, contested: !!rb.contested };
+      if (edge?.derived_from) { try { out.derived_from = JSON.parse(edge.derived_from); } catch { /* ignore */ } }
+      return out;
+    }
+    // winner ≠ null UND winner ≠ object → der Graph glaubt etwas anderes.
+    return { ...base, verdict: 'contradicted', dominant: rb.winner, present: rb.candidates.some((c) => c.object === object) };
+  }
+
   // ---- Export / Pull / Push / Clone (UC-06/07/11) --------------------
   exportSince(sinceClock = {}) {
     return this.db.prepare("SELECT * FROM knowledge_edges WHERE local_status='active'").all()

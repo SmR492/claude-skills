@@ -88,3 +88,11 @@ test('graph__search liefert Hybrid-Retrieval (UC-HR)', () => {
   assert.ok(r.results.some((x) => x.object === 'Gamma')); // Multi-Hop
   assert.equal(typeof r.converged, 'boolean');
 });
+
+test('graph__verify liefert ein Verdikt (UC-V)', () => {
+  const s = server();
+  const call = (name, args) => JSON.parse(s.handle({ jsonrpc: '2.0', id: 1, method: 'tools/call', params: { name, arguments: args } }).result.content[0].text);
+  call('graph__store_triple', { subject: 'Glatteis', predicate: 'verursacht', object: 'Unfall', confidence: 900 });
+  assert.equal(call('graph__verify', { subject: 'Glatteis', predicate: 'verursacht', object: 'Unfall' }).verdict, 'supported');
+  assert.equal(call('graph__verify', { subject: 'Unbekannt', predicate: 'ist', object: 'Ding' }).verdict, 'unknown');
+});

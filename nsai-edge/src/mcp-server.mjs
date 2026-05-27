@@ -54,6 +54,11 @@ export const TOOLS = [
     inputSchema: S({ peer_id: { type: 'string' }, level: { type: 'string', enum: ['untrusted', 'limited', 'full', 'authoritative'] } }, ['peer_id', 'level']),
   },
   {
+    name: 'graph__verify',
+    description: 'Prüft eine Aussage (Subjekt-Prädikat-Objekt) deterministisch gegen das Gedächtnis → supported / contradicted / unknown (open-world: Abwesenheit = unknown, nie contradicted). Für halluzinationsfreies Reasoning vor dem Antworten.',
+    inputSchema: S({ subject: { type: 'string' }, predicate: { type: 'string' }, object: { type: 'string' } }, ['subject', 'predicate', 'object']),
+  },
+  {
     name: 'graph__search',
     description: 'Hybrid-Retrieval (deterministisch): lexikalische Seed-Suche + belief-gewichtete Personalized PageRank über die k-Hop-Nachbarschaft + Episoden-Recall. „Antwort oder Weg dahin" auch ohne exakten Knotennamen.',
     inputSchema: S({ term: { type: 'string' }, limit: { type: 'integer', minimum: 1, maximum: 50 }, max_hops: { type: 'integer', minimum: 1, maximum: 5 } }, ['term']),
@@ -134,6 +139,9 @@ export class McpServer {
         case 'graph__peer_trust':
           this.engine.peerTrust(args.peer_id, args.level);
           result = { ok: true, peer: args.peer_id, level: args.level };
+          break;
+        case 'graph__verify':
+          result = this.engine.verify({ subject: args.subject, predicate: args.predicate, object: args.object });
           break;
         case 'graph__search':
           result = this.engine.search({ term: args.term, limit: args.limit ?? 10, max_hops: args.max_hops ?? 3 });
