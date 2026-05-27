@@ -1,7 +1,8 @@
 # Konzept: Föderierter neuro-symbolischer Wissensgraph für Claude Code (NSAI-Edge)
 
-**Version:** 2.3
+**Version:** 2.4
 **Stand:** Mai 2026
+**Änderung ggü. v2.3 (siehe §F):** NSAI-Edge als **persistentes Gedächtnis** (Standard-Wissensablage statt Wiki/Traces) — Wissens-Ingestion (Struktur + tiefe Extraktion aus Tabellen/Key-Value), mehrwertige Prädikate von der Belief-Konkurrenz ausgenommen, query-first-Betriebsmodell.
 **Änderung ggü. v2.2 (Implementierungs-Stand, siehe Delta-Section direkt unten):** Provenienz-Modell B (origin=Erstbehaupter, signiert, kein Re-Sign, Web-of-Trust-Verify) nach Pre-Merge-Review; **Evidenz-Gewichtung** (source_type-Autorität × Aktualität × Konfidenz → Belief-Verteilung) für Widersprüche, veraltetes + falsches Wissen.
 **Änderung v2.2 ggü. v2.1:** Trust aus dem gemergten Föderationswert herausgezogen — gemergte Konfidenz ist trust-unabhängiger CRDT-Wert (überall identisch konvergent), Trust wirkt nur als **lokale Lese-Linse** (effektive Konfidenz) und lokale Konflikt-/Quarantäne-Entscheidung (R1); Integer-Divisions-Rundung normativ als **Trunkierung gegen Null** + „Periode"-Definition + Decay-Halbwertszeit-Beispieltabelle (R2); Merge-**Assoziativität** als AC (R3); Promille↔float-Roundtrip-Invariante an der Bundle-Grenze (R4); revozierter Peer × Re-Push (R5).
 **Änderung v2.1 ggü. v2.0:** Bundle-Schnittstelle gegen echten Quellcode verifiziert; Fixed-Point-Konfidenz; Clone-UC; Hash-Kanonisierung, Replay-Schutz, Key-Rotation.
@@ -62,6 +63,27 @@ Diese betreffen die **PHP-Gegenseite** und sind aus dem Node-Repo nicht baubar (
 - **MCP-Föderations-Tools** (`pull`/`push`/`clone`) sind über CLI/HTTP-Transport nutzbar, aber noch nicht als in-session-MCP-Tools exponiert (async-Lifecycle). `peer_add`/`peer_trust` + alle Lese-/Schreib-Tools sind als MCP-Tools verfügbar.
 
 Diese Punkte mindern die lokale Produktivnutzung (Ziele 1/2/4/5) nicht; sie betreffen die vollständige bidirektionale Bundle-Föderation (Ziel 3).
+
+### F. NSAI-Edge als Gedächtnis — Wissens-Ingestion & Betriebsmodell (v2.4)
+
+**Betriebsmodell:** NSAI-Edge ist die **primäre, persistente Wissensablage** ("Gedächtnis") für Claude Code — nicht mehr Wiki/Traces. Alles Besprochene/Programmierte/Entschiedene wird als Tripel eingepflegt; vor dem Antworten wird der Graph abgefragt (query-first), statt Dateien zu lesen. Über Sessions hinweg persistent (`~/.claude/nsai-edge/graph.db`).
+
+**Wissens-Ingestion (UC-13):** Markdown-Wissen (Wiki + Brain-Backup `raw/` + Traces) wird in den Graphen migriert. Zwei Ebenen:
+1. **Struktur** je Seite: `kategorie`, `gehoert_zu`, `ist_ein` (frontmatter type), `hat_tag`, `quelle`, `aktualisiert_am`, `verweist_auf` (Links), `hat_abschnitt` (Überschriften).
+2. **Tiefe Domänen-Fakten:** aus **Markdown-Tabellen** (`Zeilen-Subjekt → Spalten-Header-Prädikat → Zellwert`) und **Key-Value-Zeilen** (`**Label:** kurzer Wert`, ≤80 Zeichen). So beantwortet das Gedächtnis inhaltliche Fragen (z.B. Package, Status, Entity-Felder, Config-Werte), nicht nur Struktur.
+
+**Slug-Konvention:** Knoten = slugifizierter Titel/Wert (Umlaute transliteriert äöü→ae/oe/ue, Sonderzeichen→`_`, ≤160). Prädikate lowercase_underscore, `^[a-z_]{2,50}$` (keine Ziffern/Bindestriche). `source_type` der Ingestion: `wiki` / `backup` (Brain) / `trace` / `project` (Projekt-Selbstwissen).
+
+**Mehrwertige Prädikate (set-valued):** `hat_tag`, `hat_abschnitt`, `verweist_auf`, `quelle`, `gehoert_zu`, `hat_wert`, `enthaelt`, `beispiel` sind **von der Belief-Konkurrenz ausgenommen** — mehrere Objekte sind gleichzeitig gültig (jedes belief 1000, kein `disputed`). Nur ein-wertige Relationen (z.B. `ist`, `betraegt`, `geregelt_in`) durchlaufen die Belief-/Widerspruchs-Auflösung.
+
+**Recall vs. Precision:** die Tabellen-Extraktion ist bewusst recall-orientiert (lieber ein Fakt zu viel) — Rauschen wird über Konfidenz/Decay/Belief mit der Zeit abgewertet, nicht hart gefiltert.
+
+#### Akzeptanzkriterien (UC-13)
+| # | Kriterium | Test-Typ | Test-Klasse | Status |
+|---|---|---|---|---|
+| AC-13.1 | Jede Quelldatei (Wiki+Backup+Traces) ist als Knoten mit ≥1 Kante vertreten (Coverage 1:1) | Integration | ingest::coverage | grün |
+| AC-13.2 | Mehrwertiges Prädikat (hat_tag) erzeugt kein `disputed`; alle Objekte belief 1000 | Unit | engine-local::multiValue | grün |
+| AC-13.3 | Tabellen + Key-Value liefern abfragbare Domänen-Fakten (Package/Status/Entity-Felder) | Integration | ingest::deep | grün |
 
 ## Inhaltsverzeichnis
 
