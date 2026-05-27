@@ -30,6 +30,7 @@ export const TOOLS = [
       query_term: { type: 'string', description: 'Startknoten-Name' },
       max_depth: { type: 'integer', minimum: 1, maximum: 3, description: 'Traversierungstiefe (Default 1)' },
       explain: { type: 'boolean', description: 'Inferenz-Herkunft (derived_from) mitliefern' },
+      as_of: { type: 'string', description: 'ISO-Zeitpunkt T (UC-BT): nur zu T gültige Fakten (bi-temporal). Ohne = jetzt.' },
     }, ['query_term']),
   },
   {
@@ -52,6 +53,16 @@ export const TOOLS = [
     name: 'graph__peer_trust',
     description: 'Setzt das Trust-Level eines Peers. authoritative/full → volle Wirkung, limited → gedeckelt (max. Web-Stufe), untrusted → Quarantäne.',
     inputSchema: S({ peer_id: { type: 'string' }, level: { type: 'string', enum: ['untrusted', 'limited', 'full', 'authoritative'] } }, ['peer_id', 'level']),
+  },
+  {
+    name: 'graph__set_validity',
+    description: 'UC-BT: setzt das lokale Gültigkeits-Intervall (valid_from/valid_to, ISO) eines Tripels (bi-temporal, nicht föderiert). valid_to=null = offen.',
+    inputSchema: S({ triple_hash: { type: 'string' }, valid_from: { type: 'string' }, valid_to: { type: 'string' } }, ['triple_hash']),
+  },
+  {
+    name: 'graph__supersede_temporally',
+    description: 'UC-BT: nicht-destruktive temporale Ablösung (single-value) — schließt offene Vorgänger (valid_to=as_of) + legt den neuen Fakt (valid_from=as_of) an. Alte bleiben historisch abfragbar.',
+    inputSchema: S({ subject: { type: 'string' }, predicate: { type: 'string' }, object: { type: 'string' }, as_of: { type: 'string' }, confidence: { type: 'integer', minimum: 0, maximum: 1000 } }, ['subject', 'predicate', 'object']),
   },
   {
     name: 'graph__verify',
@@ -119,7 +130,7 @@ export class McpServer {
           });
           break;
         case 'graph__query_knowledge':
-          result = this.engine.query(args.query_term, { maxDepth: args.max_depth ?? 1, explain: !!args.explain });
+          result = this.engine.query(args.query_term, { maxDepth: args.max_depth ?? 1, explain: !!args.explain, as_of: args.as_of ?? null });
           break;
         case 'graph__resolve_belief':
           result = this.engine.resolveBelief(args.subject, args.predicate) ?? { message: 'No matching claims.' };
@@ -139,6 +150,12 @@ export class McpServer {
         case 'graph__peer_trust':
           this.engine.peerTrust(args.peer_id, args.level);
           result = { ok: true, peer: args.peer_id, level: args.level };
+          break;
+        case 'graph__set_validity':
+          result = this.engine.setValidity(args.triple_hash, { valid_from: args.valid_from, valid_to: args.valid_to }) ?? { message: 'Unknown triple_hash.' };
+          break;
+        case 'graph__supersede_temporally':
+          result = this.engine.supersedeTemporally({ subject: args.subject, predicate: args.predicate, object: args.object, as_of: args.as_of ?? null, confidence: args.confidence ?? 700 });
           break;
         case 'graph__verify':
           result = this.engine.verify({ subject: args.subject, predicate: args.predicate, object: args.object });

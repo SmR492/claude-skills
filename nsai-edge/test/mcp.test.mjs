@@ -96,3 +96,15 @@ test('graph__verify liefert ein Verdikt (UC-V)', () => {
   assert.equal(call('graph__verify', { subject: 'Glatteis', predicate: 'verursacht', object: 'Unfall' }).verdict, 'supported');
   assert.equal(call('graph__verify', { subject: 'Unbekannt', predicate: 'ist', object: 'Ding' }).verdict, 'unknown');
 });
+
+test('graph__supersede_temporally + query as_of (UC-BT)', () => {
+  const s = server();
+  const call = (name, args) => JSON.parse(s.handle({ jsonrpc: '2.0', id: 1, method: 'tools/call', params: { name, arguments: args } }).result.content[0].text);
+  const st = call('graph__store_triple', { subject: 'Firma', predicate: 'ceo', object: 'Alice', confidence: 900 });
+  call('graph__set_validity', { triple_hash: st.triple_hash, valid_from: '2019-01-01T00:00:00Z' }); // rückdatiert
+  call('graph__supersede_temporally', { subject: 'Firma', predicate: 'ceo', object: 'Bob', as_of: '2023-01-01T00:00:00Z' });
+  const now = call('graph__query_knowledge', { query_term: 'Firma' }).edges.map((x) => x.object);
+  assert.ok(now.includes('Bob') && !now.includes('Alice')); // jetzt nur Bob
+  const past = call('graph__query_knowledge', { query_term: 'Firma', as_of: '2021-01-01T00:00:00Z' }).edges.map((x) => x.object);
+  assert.ok(past.includes('Alice')); // historisch Alice
+});
