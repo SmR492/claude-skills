@@ -195,10 +195,16 @@ export class Engine {
       if (!cur || better(cand, cur)) byObject.set(obj, cand);
     }
     const cands = [...byObject.values()];
-    // Einzelne Aussage ohne Konkurrenz → Gewinner per Default (auch bei niedrigem Tier).
+    // Einzelne Aussage ohne Konkurrenz → Gewinner per Default — ABER nur wenn durchsetzungsfähig
+    // (gleicher Gültigkeits-Test wie im Multi-Pfad: tier ≥ 0 UND trustRank > 0). Eine einzelne
+    // untrusted/gewichtslose Aussage (z.B. via clone bulkPromote aktiv) ist KEIN Belief-Gewinner →
+    // winner=null/belief 0 (allZero-Semantik). Sonst würde verify daraus fälschlich
+    // contradicted/supported ableiten (Adversarial 🔴-1, Open-World-Verletzung).
     if (cands.length === 1) {
-      const c = cands[0]; c.belief = 1000; c.weight = Math.round(c.weight);
-      return { subject, predicate, winner: c.object, contested: false, candidates: [c] };
+      const c = cands[0]; c.weight = Math.round(c.weight);
+      const enforceable = c.tier >= 0 && c.trustRank > 0;
+      c.belief = enforceable ? 1000 : 0;
+      return { subject, predicate, winner: enforceable ? c.object : null, contested: false, candidates: [c] };
     }
     // HARTE Autoritäts-Dominanz: nur die höchste Tier-Stufe konkurriert um den Belief;
     // niedrigere Stufen → belief 0 (sichtbar als disputed). Innerhalb der Top-Stufe:

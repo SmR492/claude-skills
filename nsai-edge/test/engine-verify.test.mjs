@@ -79,6 +79,15 @@ test('AC-12.9: Open-World (allZero) — nur untrusted-Kandidaten → unknown, ni
   assert.equal(v.verdict, 'unknown');
 });
 
+test('AC-12.9b: EINZELNE untrusted/gewichtslose Aussage → winner=null → verify unknown (🔴-1)', () => {
+  const e = new Engine();
+  const h = e.storeTriple({ subject: 'Geruecht', predicate: 'ist', object: 'Wahr', confidence: 800 }).triple_hash;
+  e.db.prepare("UPDATE knowledge_edges SET origin_peer_id='peer:u1' WHERE triple_hash=?").run(h); // untrusted, einziger Kandidat
+  assert.equal(e.resolveBelief('Geruecht', 'ist').winner, null);                 // kein durchsetzungsfähiger Gewinner
+  assert.equal(e.verify({ subject: 'Geruecht', predicate: 'ist', object: 'Wahr' }).verdict, 'unknown');  // NICHT supported/belief 1000
+  assert.equal(e.verify({ subject: 'Geruecht', predicate: 'ist', object: 'Falsch' }).verdict, 'unknown'); // NICHT contradicted
+});
+
 test('AC-12.10: knapper Belief → supported MIT contested-Flag', () => {
   const e = new Engine();
   // gleiche Autorität/Tier, ähnliche Konfidenz → contested
