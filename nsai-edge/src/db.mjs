@@ -22,7 +22,7 @@ CREATE TABLE IF NOT EXISTS knowledge_edges (
   source_type TEXT NOT NULL DEFAULT 'llm',     -- Autoritäts-Klasse (signiert): gesetz/behoerde/fachquelle/web/llm/manual/sensor
   asserted_at TEXT NOT NULL DEFAULT '1970-01-01T00:00:00Z', -- Behauptungs-Zeitpunkt (signiert, für Recency)
   temporality TEXT NOT NULL CHECK(temporality IN ('eternal','stable','temporal','ephemeral')),
-  local_status TEXT NOT NULL DEFAULT 'active' CHECK(local_status IN ('active','quarantined','superseded')),
+  local_status TEXT NOT NULL DEFAULT 'active' CHECK(local_status IN ('active','quarantined','superseded','retracted')),
   origin_peer_id TEXT NOT NULL,                -- Erstbehaupter (signiert)
   relayed_by TEXT,                             -- letzter Hop (unsigniert, Transport-Metadatum)
   signature TEXT NOT NULL,                     -- Origin-Signatur über die unveränderliche Aussage
@@ -53,5 +53,33 @@ CREATE INDEX IF NOT EXISTS idx_edges_object ON knowledge_edges(object_id);
 export function openDb(path = ':memory:') {
   const db = new DatabaseSync(path);
   db.exec(SCHEMA);
+  migrateRetractedStatus(db);
   return db;
+}
+
+// Idempotente Migration: ältere persistente DBs haben die CHECK-Constraint ohne 'retracted'
+// (UC-TMS Slice #1). SQLite kann CHECK nicht per ALTER ändern → Tabelle einmalig neu aufbauen.
+function migrateRetractedStatus(db) {
+  const row = db.prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name='knowledge_edges'").get();
+  if (!row || String(row.sql).includes("'retracted'")) return; // schon aktuell
+  db.exec('PRAGMA foreign_keys=OFF');
+  db.exec('ALTER TABLE knowledge_edges RENAME TO knowledge_edges_old');
+  db.exec('DROP INDEX IF EXISTS idx_edges_status');
+  db.exec('DROP INDEX IF EXISTS idx_edges_subject');
+  db.exec('DROP INDEX IF EXISTS idx_edges_object');
+  db.exec(SCHEMA); // legt knowledge_edges mit neuer CHECK + Indizes neu an (nodes/peers IF NOT EXISTS)
+  // Namensbasiert kopieren (Spaltenreihenfolge kann durch frühere ALTER ADD COLUMN abweichen →
+  // SELECT * würde positionsbasiert falsch mappen). COALESCE für nachgerüstete NOT-NULL-Felder.
+  const newCols = db.prepare("PRAGMA table_info('knowledge_edges')").all().map((r) => r.name);
+  const oldCols = new Set(db.prepare("PRAGMA table_info('knowledge_edges_old')").all().map((r) => r.name));
+  const backfill = {
+    asserted_confidence: 'COALESCE(asserted_confidence, confidence)',
+    source_type: "COALESCE(source_type, 'llm')",
+    asserted_at: "COALESCE(asserted_at, '1970-01-01T00:00:00Z')",
+  };
+  const cols = newCols.filter((c) => oldCols.has(c));
+  const selects = cols.map((c) => backfill[c] ?? c);
+  db.exec(`INSERT INTO knowledge_edges (${cols.join(',')}) SELECT ${selects.join(',')} FROM knowledge_edges_old`);
+  db.exec('DROP TABLE knowledge_edges_old');
+  db.exec('PRAGMA foreign_keys=ON');
 }

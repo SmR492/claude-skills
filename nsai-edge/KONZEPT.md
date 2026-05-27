@@ -649,6 +649,13 @@ Conformance-Vektor erzwingt identischen Hash für dasselbe Tripel in beiden Spra
 | beliefSharpness | Exponent der Potenz-Normalisierung der Belief-Verteilung (Schärfe) | Softmax temperature |
 | contestedThreshold | Belief-Schwelle, ab der eine Aussage als „umstritten" gilt | — |
 | disputed / dominant | Markierung überstimmter Aussagen + Verweis auf den Belief-Gewinner | Non-monotonic belief |
+| Justification / Begründung | Prämissen + Regel, aus denen ein Fakt abgeleitet wurde (`derived_from`) | JTMS, Doyle 1979 |
+| IN / OUT (Belief-Label) | geglaubt (begründet) vs. zurückgenommen (Begründung tot) | JTMS |
+| retracted | TMS-OUT-Status — durch Undercutting zurückgenommen, getrennt von `superseded` (Decay) | §H, Reason Maintenance |
+| Foundations vs. Coherence | Glaube nur mit lebender Begründung (foundations) vs. nur global konsistent (coherence) | Belief-Revision-Theorie |
+| Rebutting vs. Undercutting | Defeater gegen das Objekt vs. gegen die Inferenz-Verknüpfung | Pollock, Defeasible Reasoning |
+| Epistemische Entrenchment | Resistenz eines Glaubens gegen Rücknahme = Retraktions-Priorität | AGM (Gärdenfors/Makinson) |
+| strikt vs. defeasible | nicht-relabelbar (`eternal`) vs. revidierbar | Defeasible Logic |
 
 ## 10. Probabilistik-Statement (§2.6)
 
@@ -694,3 +701,62 @@ Aus dem Threat-Model + Adversarial-Review der PHP-Gegenseite (ai-bundle, `docs/K
 - **F1.15 — Live-Konfidenz-Deckel.** `incLive = min(wire.confidence, asserted_confidence)` — das unsignierte Live-Feld hebt den Belief nie über die signierte Origin-Aussage.
 
 Nachweis: eigener Test-Block in `test/engine-federation.test.mjs`; alle Bestands-Tests bleiben grün (Bindung greift nur am echten Verify-Pfad, Live-Deckel ist No-op solange `confidence==asserted`).
+
+## §H — Forschungs-fundierte Verfeinerungen (Roadmap)
+
+Aus einem Quellenvergleich (Neuro-symbolische KI / Kautz-Taxonomie; Truth-Maintenance Doyle JTMS + de Kleer ATMS; AGM-Belief-Revision + epistemische Entrenchment; Defeasible Reasoning / Pollock-Defeater; MYCIN-Certainty-Factor-Kritik; NS-Mem 3-Schichten-Gedächtnis; GraphRAG hybrid retrieval) abgeleitet. Ziel-Anker: das ai-bundle-Goal **„erklärbares, halluzinationsfreies Reasoning"** + NSAI-Edge als revidierbares Gedächtnis.
+
+### H.1 Hervorstechende Annahmen (quellenübergreifend)
+
+- **A1 — Foundations statt Coherence (JTMS + NS-Mem-Regelschicht + Defeasible konvergieren):** Ein abgeleiteter Fakt wird nur geglaubt, solange seine **Begründung lebt**. Verliert eine Prämisse den Glauben (superseded/Decay < Schwelle/Quarantäne), MUSS der abgeleitete Fakt automatisch relabelt (OUT) werden. Verwaiste Schlussfolgerungen = Halluzinationsquelle → direkt gegen das ai-bundle-Goal. **→ Slice #1 (UC-TMS).** *Scope-Einschränkung Slice #1: genau EINE Begründung je Edge (`derived_from`); echtes Mehrfach-Support (Fakt bleibt IN solange irgendeine Begründung lebt) ist Slice #1b.*
+- **A2 — Trust/Authority IST eine epistemische Entrenchment-Ordnung (AGM):** Unsere trust-primäre Präzedenz (sourceTier × trustTierCap) ist formal die Retraktions-Prioritäts-Ordnung der AGM-Revision. Konsequenz: **Minimal Change** — bei Konflikt nur den weniger entrenchten Glauben (+ dessen unbegründete Folgen) zurücknehmen, nicht den Teilgraphen.
+- **A3 — Zwei Defeater-Typen trennen (Pollock):** *Rebutting* (widerspricht dem Objekt, gleiches s/p, anderes o) → bereits durch Belief-Softmax/`disputed` behandelt. *Undercutting* (greift die Inferenz-Verknüpfung an, Prämisse gilt nicht mehr) → **bislang nicht** behandelt; genau das leistet die TMS-Retraktion (Slice #1).
+- **A4 — Konfidenz ist Evidenz-Gewicht, keine Wahrscheinlichkeit (MYCIN-Kritik):** Certainty-Factors scheiterten an Unabhängigkeits-Annahme/Paradoxa und wurden durch Bayes abgelöst. Konsequenz für uns: Belief bleibt **tier-primär** (Autorität), Konfidenz nur Within-Tier-Modulator (BEWA). Inferenz-Konfidenz **konservativ**: `trunc(min(Prämissen-Konfidenz) × Regel-Faktor / 1000)` — **kein** naives Produkt über die Begründungskette (keine Scheinpräzision).
+- **A5 — Strikte vs. defeasible Fakten (Defeasible-Logik):** **`temporality='eternal'`** definiert die strikte Achse (kein Decay — bereits im Code so; nicht defeasible, nicht TMS-relabelbar). Temporality und sourceTier sind orthogonal (ein `gesetz`-Fakt kann temporal sein); Strikt-heit hängt allein an `eternal`. Der Rest ist defeasible — nur dort greifen Decay und TMS-Retraktion.
+
+### H.2 Roadmap (priorisierte Slices)
+
+1. **Justification-TMS (Slice #1, UC-TMS unten):** `derived_from` → vollwertiger Justification-Graph mit IN/OUT-Status + Retraktions-Propagation. Stärkt Belief-Revision, Erklärbarkeit (BackwardChaining = Proof-Tree) und das Föderations-Merge zugleich.
+2. **3-Schichten-Gedächtnis (NS-Mem):** explizite episodische Schicht (Roh-Interaktionen + Zeit) + Konsolidierung episodisch→semantisch.
+3. **Hybrid-Retrieval (GraphRAG):** `query_knowledge` um Vektor-Ähnlichkeit + Personalized-PageRank-Ranking ergänzen (Operator schlägt Struktur).
+4. **Gelernte Gewichtung (LTN/DeepProbLog/Scallop):** Belief-Spec-Konstanten aus Daten lernen statt setzen — erst nach 1–3, Determinismus-Gate beachten.
+
+### UC-TMS — Justification-basierte Belief-Revision (Slice #1)
+
+**Akteur:** System (deterministisch, Tier 1, **kein LLM**) · **Route:** intern, getriggert durch Status-Änderungen · **Scope-Schnitt (Review-Runde 1):** nur die **Retraktions-Richtung** (IN→OUT); Re-Aktivierung (OUT→IN) und Multi-Justification sind **Slice #1b** (H.2). Single-Justification (eine `derived_from`-Liste je Edge) ist akzeptiert.
+
+**Ziel:** Verliert eine Prämisse den Glauben, wird die Schlussfolgerung **deterministisch** zurückgenommen und transitiv propagiert — non-monoton, zyklenfrei (DAG-Invariante), minimal, reihenfolge-unabhängig.
+
+**Datenmodell:**
+- `derived_from` (bestehend): JSON-Array der Prämissen-`triple_hash` + Regel-Id (Single-Justification).
+- **Neuer `local_status`-Wert `retracted`** (TMS-OUT) — getrennt von `superseded` (Decay/GC) und `quarantined` (🔴-1): so bleibt unterscheidbar, **warum** ein Edge inaktiv ist, und der Replay-/Revival-Schutz in `mergeIncoming` (keyt auf `superseded`+Clock-LEQ) wird **nicht** ausgelöst.
+- **DAG-Invariante (🟡-5/🟢-9):** `infer()` legt eine Justification nur an, wenn die Prämissen den Konklusions-Hash nicht (transitiv) enthalten → deterministischer Fixpunkt, BFS-reihenfolge-unabhängig.
+- **Status-only (🟡-3):** Propagation schreibt ausschließlich `local_status`; sie verändert **nicht** die Live-`confidence` (im Wire + CRDT-max → Absenkung wäre nicht monoton) und tickt **nicht** den `vector_clock`.
+
+**IN/OUT-Ableitung:** Edge ist **IN** gdw. `local_status='active'`; ein abgeleiteter Edge bleibt IN, solange **alle** Prämissen IN sind. Verliert eine Prämisse IN (→ `superseded`/`retracted`/`quarantined`) oder existiert sie nicht (mehr), gilt der abgeleitete Edge als **undercut** → `retracted`.
+
+**Ablauf (nummeriert, verzweigt) — `_propagateRetraction(changedHash)`:**
+1. Sammle **Dependents**: aktive Edges, deren `derived_from` `changedHash` enthält.
+2. BFS mit `visited`-Set (Terminierung garantiert; DAG-Invariante ⇒ kein Oszillieren):
+   1. Strikt? `temporality='eternal'` → nie relabeln (A5), überspringen.
+   2. Mind. eine Prämisse nicht IN → **undercutting** (A3): `local_status='retracted'`; Dependent in die Queue (transitiv; A2-minimal: nur tatsächlich unbegründete).
+3. Alles in **einer** Transaktion (Rollback bei Fehler — kein Teil-Relabel).
+
+**Trigger:** am Ende von `decayPass` (Edge → `superseded`), `reject`, `quarantine`, sowie im `mergeIncoming`/supersede-Pfad: `_propagateRetraction(hash)` für den geänderten Hash.
+
+**Erklärbarkeit:** `query(explain=true)` liefert die `derived_from`-Kette eines IN-Fakts als Proof-Tree (BackwardChaining-Parität) — vorhandenes `explain`, hier nur verankert.
+
+| AC | Kriterium | Test-Typ | Status |
+|---|---|---|---|
+| AC-9.1 | Inferierter Fakt mit Prämissen p1,p2: wird p1 `superseded` → Fakt wird `retracted` (OUT), in einer Transaktion. | unit | offen (Slice #1) |
+| AC-9.2 | Transitive Kette A→B→C: Retraktion der Prämisse von A propagiert bis C. | unit | offen |
+| AC-9.3 | `infer()` verbietet zyklus-bildende Justification (DAG-Invariante); Propagation terminiert per `visited`. | unit | offen |
+| AC-9.4 | Strikter Fakt (`temporality='eternal'`) wird durch Prämissen-Verlust NICHT relabelt (A5). | unit | offen |
+| AC-9.5 | Propagation schreibt nur `local_status`; Live-`confidence` und `vector_clock` bleiben unverändert (🟡-3). | unit | offen |
+| AC-9.6 | Minimalität (A2): ein selbst-behaupteter Edge (kein `derived_from`) wird durch Propagation NIE retracted. | unit | offen |
+| AC-9.7 | Determinismus: Endstatus aller Edges ist unabhängig von der Trigger-/BFS-Reihenfolge. | unit | offen |
+| AC-9.8 | Föderations-Parität: signierte Origin-Aussage/`asserted_confidence`/Wire-Vertrag unberührt; `retracted` wird NICHT exportiert (nur `active`). | unit | offen |
+
+**Fehlerfälle (UC-TMS):** zyklus-bildende `derived_from` → von `infer()` abgewiesen (AC-9.3), Propagation terminiert per `visited`-Set; fehlende Prämisse (Hash nicht (mehr) vorhanden, z.B. GC) → wie nicht-IN behandelt (undercutting, `retracted`); Propagation während Föderations-Merge → dieselbe Transaktion, sonst Rollback.
+
+> **Verschoben auf Slice #1b (Review-Runde 1, dokumentiert):** Re-Aktivierung OUT→IN bei Prämissen-Rückkehr (braucht Trigger im re-assert-Pfad + binäre „kein offenes Rebutting"-Bedingung via `resolveBelief`); Multi-Justification (mehrere `derived_from` je Edge). Beides ist für die Halluzinations-Prävention (Retraktions-Richtung) nicht erforderlich.

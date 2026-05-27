@@ -275,6 +275,10 @@ export class Engine {
           const concl = this._bind(rule.conclusion, binding.vars);
           const confidence = trunc((Math.min(...binding.confidences) * rule.factor) / 1000);
           const hash = tripleHash(concl.subject, concl.predicate, concl.object);
+          // DAG-Invariante (UC-TMS, AC-9.3): keine zyklus-bildende Justification — eine Prämisse
+          // darf den Konklusions-Hash nicht (transitiv) selbst ableiten, sonst oszilliert die
+          // Retraktions-Propagation. Solche Bindungen werden übersprungen.
+          if (binding.hashes.includes(hash) || binding.hashes.some((h) => this._dependsOn(h, hash))) continue;
           const existing = this._getEdge(hash);
           const status = confidence < this.spec.quarantineThreshold ? 'quarantined' : 'active';
           const derivedObj = { from: binding.hashes, rule_id: rule.id };
@@ -323,18 +327,63 @@ export class Engine {
   }
   _bind(pattern, vars) { const r = (v) => (v.startsWith('?') ? vars[v] : v); return { subject: r(pattern.subject), predicate: r(pattern.predicate), object: r(pattern.object) }; }
 
+  // ---- UC-TMS: Justification-basierte Belief-Revision (Slice #1) ------
+  // Premissen-Hashes eines Edges (Single-Justification: derived_from = {from:[…], rule_id}).
+  _premises(hash) {
+    const e = this._getEdge(hash);
+    if (!e || !e.derived_from) return [];
+    try { return JSON.parse(e.derived_from).from ?? []; } catch { return []; }
+  }
+  // Leitet `hash` (transitiv) aus `target` ab? (Zyklus-Schutz für die DAG-Invariante.)
+  _dependsOn(hash, target, visited = new Set()) {
+    if (visited.has(hash)) return false;
+    visited.add(hash);
+    for (const p of this._premises(hash)) {
+      if (p === target || this._dependsOn(p, target, visited)) return true;
+    }
+    return false;
+  }
+  // Retraktions-Propagation (AC-9.1/9.2/9.4/9.6/9.7): verliert eine Prämisse den IN-Status,
+  // werden alle (transitiv) darauf gegründeten, defeasiblen Edges auf `retracted` gesetzt.
+  // Status-only: keine Live-Konfidenz-/Vector-Clock-Änderung (AC-9.5). Caller stellt die
+  // Transaktion (vermeidet verschachtelte BEGIN). visited-Set garantiert Terminierung.
+  _propagateRetraction(changedHash) {
+    const queue = [changedHash];
+    const visited = new Set();
+    let retracted = 0;
+    while (queue.length) {
+      const h = queue.shift();
+      if (visited.has(h)) continue;
+      visited.add(h);
+      // Dependents = aktive Edges, deren derived_from.from `h` enthält.
+      for (const e of this.db.prepare("SELECT triple_hash, temporality, derived_from FROM knowledge_edges WHERE local_status='active'").all()) {
+        if (!e.derived_from) continue;
+        let from; try { from = JSON.parse(e.derived_from).from ?? []; } catch { from = []; }
+        if (!from.includes(h)) continue;
+        if (e.temporality === 'eternal') continue; // strikt (A5/AC-9.4)
+        this.db.prepare("UPDATE knowledge_edges SET local_status='retracted', updated_at=datetime('now') WHERE triple_hash=?").run(e.triple_hash);
+        retracted++;
+        queue.push(e.triple_hash); // transitiv (AC-9.2)
+      }
+    }
+    return retracted;
+  }
+
   // ---- UC-04: Decay & Reinforcement (nur lokaler Live-Wert) ----------
   decayPass({ dryRun = false } = {}) {
     const edges = this.db.prepare("SELECT * FROM knowledge_edges WHERE local_status='active'").all();
-    let decayed = 0, superseded = 0;
+    let decayed = 0, superseded = 0; const supersededHashes = [];
     for (const e of edges) {
       const reduction = this.spec.decayPerPeriod[e.temporality] ?? 0;
       if (reduction === 0) continue;
       const newConf = Math.max(0, e.confidence - reduction);
-      if (newConf < this.spec.deleteThreshold) { superseded++; if (!dryRun) this.db.prepare("UPDATE knowledge_edges SET confidence=?, local_status='superseded', updated_at=datetime('now') WHERE triple_hash=?").run(newConf, e.triple_hash); }
+      if (newConf < this.spec.deleteThreshold) { superseded++; supersededHashes.push(e.triple_hash); if (!dryRun) this.db.prepare("UPDATE knowledge_edges SET confidence=?, local_status='superseded', updated_at=datetime('now') WHERE triple_hash=?").run(newConf, e.triple_hash); }
       else { decayed++; if (!dryRun) this.db.prepare("UPDATE knowledge_edges SET confidence=?, updated_at=datetime('now') WHERE triple_hash=?").run(newConf, e.triple_hash); }
     }
-    return { decayed, superseded, dryRun };
+    // UC-TMS: verlorene Prämissen retraktieren ihre Schlussfolgerungen (eine Transaktion).
+    let retracted = 0;
+    if (!dryRun && supersededHashes.length) retracted = this._tx(() => supersededHashes.reduce((n, h) => n + this._propagateRetraction(h), 0));
+    return { decayed, superseded, retracted, dryRun };
   }
   // GC: alte superseded-Tombstones + Waisen-Knoten physisch entfernen (KONZEPT §8.4).
   gc({ maxAgeDays = 30 } = {}) {
@@ -361,7 +410,13 @@ export class Engine {
     this.db.prepare("UPDATE knowledge_edges SET local_status='active', updated_at=datetime('now') WHERE triple_hash=?").run(hash);
     return true;
   }
-  reject(hash) { this.db.prepare("UPDATE knowledge_edges SET local_status='superseded', updated_at=datetime('now') WHERE triple_hash=?").run(hash); }
+  reject(hash) {
+    // UC-TMS: Reject einer Prämisse propagiert auf abgeleitete Fakten (eine Transaktion).
+    return this._tx(() => {
+      this.db.prepare("UPDATE knowledge_edges SET local_status='superseded', updated_at=datetime('now') WHERE triple_hash=?").run(hash);
+      this._propagateRetraction(hash);
+    });
+  }
 
   // ---- UC-08: Merge eines bereits verifizierten Wire-Tripels ---------
   // Widersprüche werden NICHT mehr hart quarantänisiert — sie koexistieren aktiv und
