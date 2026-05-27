@@ -659,6 +659,9 @@ Conformance-Vektor erzwingt identischen Hash für dasselbe Tripel in beiden Spra
 | Episode | Roh-Erlebnis mit Zeit/Kontext (episodische Schicht), lokal/peer-privat | NS-Mem, Tulving (episodisch vs. semantisch) |
 | Konsolidierung | Verknüpfung Episode→Fakt (Audit/Erklärbarkeit) + Recency-Refresh, kein Count-Boost | NS-Mem, Memory consolidation |
 | episodisch vs. semantisch | Roh-Erlebnis (wann/woher) vs. verdichtetes Wissen (Tripel) | NS-Mem 3-Schichten |
+| Personalized PageRank (PPR) | belief-gewichtete Random-Walk-Relevanz mit Teleport auf Seed-Knoten — deterministische Multi-Hop-Suche | HippoRAG, Power-Iteration |
+| Hub-Dilution | hochgradige Knoten verteilen PPR-Masse uniform → Präzisionsverlust; via k-Hop-Schranke + Konfidenz gedämpft | HippoRAG-2 |
+| Teleport / Damping | Random-Walk-Neustart-Vektor (`p`, hier Seeds) bzw. Fortsetz-Wahrscheinlichkeit (`d=0.85`) | PageRank |
 
 ## 10. Probabilistik-Statement (§2.6)
 
@@ -808,3 +811,47 @@ Aus einem Quellenvergleich (Neuro-symbolische KI / Kautz-Taxonomie; Truth-Mainte
 > - **Memory-Poisoning** (reales, dokumentiertes Risiko): Roh-`content` aus `recallEpisodes` ist **untrusted Data** — ein vergifteter Episode-Text ist ein persistenter Injection-Vektor, wenn der Konsument ihn als Instruktion behandelt. Schutz: (a) Episoden sind lokal/peer-privat (kein Fremd-Poisoning über Föderation), (b) Episoden treiben **nie** direkt den Belief — nur die vom Agenten extrahierten **Tripel** (die durch Trust/Belief/TMS laufen). Konsument MUSS recall-`content` als Daten, nicht als Anweisung behandeln (Threat-Model-Vermerk für den Adversarial-Review).
 
 > **Slice #2b (deferred):** automatische Tripel-Extraktion aus `content` (Agenten-Aufgabe, nicht deterministisch); unscharfe (ähnlichkeitsbasierte) Episoden-Suche ist Teil von Slice #3; zugriffs-frequenz-bewusste GC-Retention (belief-neutral).
+
+### UC-HR — Hybrid-Retrieval: lexikalische Seeds + Personalized PageRank (Slice #3)
+
+**Akteur:** System (deterministisch, Tier 1, **kein LLM**) · **Route:** intern + MCP-Tool `graph__search` · **Roadmap:** §H.2 Punkt 3 (GraphRAG-artig, aber **rein deterministisch** — Nutzer-Entscheidung).
+
+**Ziel (query-first memory):** Auf eine Frage „die richtige Antwort ODER den Weg dahin" liefern — auch ohne exakten Knotennamen. Kombiniert **lexikalische Seed-Suche** (Einstieg) mit **belief-gewichteter Personalized PageRank** (Multi-Hop-Relevanz) + optionalem **Episoden-Recall** (Slice #2). Operator schlägt Struktur (Forschung: PPR > naive Nähe für Multi-Hop).
+
+**Web-validierte Designentscheidung (mehrere Optionen, kritisch geprüft):**
+- **Gewählt:** lexikalisch + Personalized PageRank (deterministisch, kein externer Dep). Vorbild HippoRAG.
+- **Verworfen:** Vektor-Embeddings (extern/LLM → bricht Determinismus + Dep-Freiheit) → Slice #3b/Agentenseite.
+- **Gefahr/Einschränkung (Meta-Analyse 2025/26):** GraphRAG-Gewinne werden leicht überschätzt; bei *einfachen* Lookups ist exakte Suche besser. Konsequenz: exakter/lexikalischer Treffer bleibt **primär**, PPR ist **Anreicherung** für Multi-Hop/thematische Fragen — kein Allheilmittel, keine Überverkaufs-Claims.
+- **Hub-Dilution (2026-Befund, HippoRAG-2):** hochgradige Knoten (hunderte Kanten) verteilen PPR-Masse uniform und verwässern die Präzision. Mitigation: belief-Gewichtung (schwache Kanten zählen weniger) dämpft das bereits; Grad-Normalisierung/Hub-Cap als optionale Verfeinerung **deferred** (#3b).
+
+**§20.3-RAG-Einordnung (deterministisch, kein Embedding-RAG):** Dies ist **graph-natives** Retrieval, kein Chunk/Embedding-RAG. Felder: **Chunking** = n/a (keine Dokumente, atomare Tripel); **Embedding** = bewusst keine Vektor-Embeddings (Determinismus) — Ersatz: lexikalische Seeds + PPR; **Retrieval** = lexikalische Seed-Suche + belief-gewichtete Personalized PageRank; **Caching** = keiner, Re-Compute je Query (read-only, immer aktueller Graph-Stand); **Invalidierung** = entfällt mangels Cache (kein veralteter Index möglich).
+
+**Determinismus-Einordnung:** `search` ist eine **lokale Lese-Linse** (wie `resolveBelief`) — Float-PPR ist erlaubt, weil lokal + nicht föderiert (kein Wire, keine Cross-Language-Bit-Identität nötig). Reproduzierbarkeit **innerhalb** einer Engine via fixe Iterationszahl + feste Knotenordnung (sortiert) + Konvergenz-Toleranz.
+
+**Parameter:** `term` (String, Pflicht, ≥2 Zeichen) · `limit` (Int 1–50, Default 10) · `max_hops` (Int 1–5, Default 3) · `max_iter` (Int 1–200, Default 100) · `tol` (Float, Default 1e-6) · Damping `d=0.85` (fix). Hinweis: bei `d=0.85` ist die Konvergenzrate ~0.85/Iteration → `tol=1e-6` wird um ~Iteration 85 erreicht; für Ranking genügt das (relative Ordnung stabilisiert früher). `converged=false` (Cap erreicht) ist kein Fehler, nur Information — das Ranking bleibt deterministisch.
+
+**Ablauf (nummeriert, verzweigt) — `search({term, limit, max_hops, max_iter, tol})`:**
+1. **Seed-Suche (lexikalisch):** Knoten, deren Name `term` enthält (LIKE mit `ESCAPE`, Sonderzeichen literal). Keine Seeds → Frühausstieg mit leerem Ergebnis (kein globaler PageRank-Fallback — vermeidet Hub-Rauschen).
+2. **Subgraph (k-Hop, 🟡-Perf/Hub):** von den Seeds aus BFS bis `max_hops` über `local_status='active'`-Kanten → begrenzter, fokussierter Subgraph (statt Vollgraph; dämpft Hub-Dilution + begrenzt Laufzeit). Knoten- und **Kantenordnung deterministisch nach `triple_hash`/Name sortiert** (🔴-1: fixiert die Float-Summationsreihenfolge — IEEE-754-Addition ist nicht assoziativ).
+3. **Personalized PageRank:** Power-Iteration `r = (1−d)·p + d·(Wᵀr + dangling·p)`, Teleport `p` uniform auf den Seeds, Kanten-Gewicht = **trust-diskontierte Konfidenz** `confidence/1000 × trustFactor(originTrust)/1000` (🟡-3: ein `limited`/niedrig-vertrauter Origin rankt nicht allein wegen hoher gespeicherter confidence oben); **Dangling-Knoten** verteilen ihre Masse über `p` (kein Rank-Leck); Abbruch bei L1-Delta < `tol` ODER `max_iter` (dann `converged=false`). Parameter werden geklemmt (Ranges oben).
+
+**Relevanz ≠ Glaubwürdigkeit (Klarstellung, Adversarial 🟡-3):** `search` ist eine **Relevanz-Linse** (trust-diskontierte Konfidenz × Graph-Zentralität), **nicht** die volle Belief-Auflösung. Die autoritäts-/recency-/widerspruchs-gewichtete Glaubwürdigkeit pro Aussage liefert weiterhin `resolveBelief` (Softmax über distinkte Objekte). Konsument: `search` für „was ist relevant/wo ist die Antwort", `resolveBelief` für „was gilt".
+4. **Ranking (🔴-2 eindeutig):** Tripel-Score = `(r_subject + r_object) × confidence/1000`; absteigend, **stabiler Tie-Break** lexikografisch nach `triple_hash` (wie `resolveBelief`). Top-`limit` (hart bei 50 gekappt + `truncated`).
+5. **Hybrid-Ausgabe:** exakte lexikalische Tripel-Treffer (**primär**) + PPR-gerankte Nachbarschaft + (optional) `recallEpisodes(term)`; je Treffer die Herkunft (`lexical`/`graph`/`episodic`).
+
+| AC | Kriterium | Test-Typ | Status |
+|---|---|---|---|
+| AC-11.1 | `search` findet ein relevantes Tripel über einen Multi-Hop-Pfad (innerhalb `max_hops`), das eine Tiefe-1-`query` nicht liefert. | unit | offen (Slice #3) |
+| AC-11.2 | Seeds rein lexikalisch (LIKE+ESCAPE, Sonderzeichen literal); kein Treffer → leeres Ergebnis (kein Crash, kein globaler Fallback). | unit | offen |
+| AC-11.3 | Konfidenz-Gewichtung: bei sonst gleicher Topologie rankt das höher-konfidente Nachbar-Tripel vor dem schwächeren. | unit | offen |
+| AC-11.4 | **Determinismus:** identische Tripel in **umgekehrter Insert-Reihenfolge** → identisches Ranking (fixe Knoten-+Kanten-Summationsordnung + stabiler Tie-Break). | unit | offen |
+| AC-11.5 | Konvergenz/Terminierung: Abbruch bei `tol` ODER `max_iter`; Dangling lecken keine Masse: `|Σr − 1| < 1e-9`. | unit | offen |
+| AC-11.6 | Nur `active`-Tripel: `retracted`/`superseded`/`quarantined` sind weder Seed noch im Subgraph/PPR. | unit | offen |
+| AC-11.7 | `limit` hart bei 50 gekappt + `truncated`-Flag. | unit | offen |
+| AC-11.8 | read-only: keine Schreibwirkung, kein Wire, kein `vector_clock`-Tick, keine Konfidenz-/Status-Änderung. | unit | offen |
+| AC-11.9 | k-Hop-Begrenzung: ein Tripel jenseits `max_hops` von jedem Seed ist NICHT im Ergebnis (Perf-/Hub-Schranke). | unit | offen |
+| AC-11.10 | erreicht PPR `max_iter` ohne Konvergenz → Ergebnis wird trotzdem geliefert mit `converged=false`. | unit | offen |
+
+**Fehlerfälle (UC-HR):** leerer/<2-Zeichen-`term` → leeres Ergebnis (kein Crash); Graph ohne aktive Kanten / keine Seeds → leeres Ergebnis; `term` mit LIKE-Sonderzeichen → literal (ESCAPE, vgl. UC-EP 🟡-1); großer Graph → `max_hops`+`max_iter`-Cap begrenzen die Laufzeit (read-only, keine Sperre).
+
+> **Slice #3b (deferred):** echte semantische Ähnlichkeit via Vektor-Embeddings (extern/LLM, nicht deterministisch — Agentenseite); Re-Ranking-Verfeinerungen.

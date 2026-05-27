@@ -587,6 +587,89 @@ export class Engine {
     });
   }
 
+  // ---- UC-HR: Hybrid-Retrieval (Slice #3) — lexikalische Seeds + PPR --
+  // Lokale, read-only Lese-Linse (Float wie resolveBelief; nicht föderiert, kein Wire).
+  // Deterministisch durch feste Knoten-/Kanten-Summationsordnung (triple_hash) + stabilen Tie-Break.
+  search({ term, limit = 10, max_hops = 3, max_iter = 100, tol = 1e-6 } = {}) {
+    const cap = Math.min(Number.isInteger(limit) && limit > 0 ? limit : 10, 50);
+    // Parameter klemmen (Adversarial 🟡-1/2: ungeklemmt → CPU-DoS / still-leeres Ergebnis).
+    max_hops = Math.min(Math.max(Number.isInteger(max_hops) ? max_hops : 3, 1), 5);
+    max_iter = Math.min(Math.max(Number.isInteger(max_iter) ? max_iter : 100, 1), 200);
+    tol = (Number.isFinite(tol) && tol > 0) ? tol : 1e-6;
+    if (typeof term !== 'string' || term.trim().length < 2) return { seeds: [], results: [], episodes: [], converged: true, truncated: false };
+    const like = `%${term.replace(/[\\%_]/g, (m) => `\\${m}`)}%`;
+    const seeds = this.db.prepare("SELECT id, name FROM knowledge_nodes WHERE name LIKE ? ESCAPE '\\' ORDER BY name").all(like);
+    if (!seeds.length) return { seeds: [], results: [], episodes: this.recallEpisodes({ term }).episodes, converged: true, truncated: false };
+
+    // 1) k-Hop-Subgraph (ungerichtet für Mitgliedschaft) über aktive Kanten.
+    const edges = this.db.prepare("SELECT triple_hash, subject_id, predicate, object_id, confidence, origin_peer_id FROM knowledge_edges WHERE local_status='active'").all();
+    // Relevanz-Gewicht = trust-diskontierte Konfidenz (Adversarial 🟡-3): ein limited/niedrig-
+    // vertrauter Origin soll nicht allein wegen hoher gespeicherter confidence oben ranken.
+    // Das ist eine RELEVANZ-Linse, NICHT die volle Belief-Auflösung (resolveBelief bleibt zuständig).
+    const edgeWeight = (e) => (e.confidence / 1000) * (trustFactor(this.spec, this._originTrust(e.origin_peer_id)) / 1000);
+    const adjAll = new Map(); // node -> [{other, dir, e}]
+    for (const e of edges) {
+      (adjAll.get(e.subject_id) ?? adjAll.set(e.subject_id, []).get(e.subject_id)).push(e);
+      (adjAll.get(e.object_id) ?? adjAll.set(e.object_id, []).get(e.object_id)).push(e);
+    }
+    const inSub = new Set(seeds.map((s) => s.id));
+    let frontier = [...inSub];
+    for (let hop = 0; hop < max_hops && frontier.length; hop++) {
+      const next = [];
+      for (const n of frontier) for (const e of adjAll.get(n) ?? []) {
+        for (const o of [e.subject_id, e.object_id]) if (!inSub.has(o)) { inSub.add(o); next.push(o); }
+      }
+      frontier = next;
+    }
+    // 2) gerichtete Subgraph-Kanten, deterministisch nach triple_hash sortiert (Summationsordnung).
+    const subEdges = edges.filter((e) => inSub.has(e.subject_id) && inSub.has(e.object_id))
+      .sort((a, b) => (a.triple_hash < b.triple_hash ? -1 : a.triple_hash > b.triple_hash ? 1 : 0));
+    const nodes = [...inSub].sort();
+    const outW = new Map(); // summe der Out-Gewichte je Knoten (trust-diskontiert)
+    for (const e of subEdges) outW.set(e.subject_id, (outW.get(e.subject_id) ?? 0) + edgeWeight(e));
+
+    // 3) Personalized PageRank (Power-Iteration, deterministische Ordnung).
+    const N = nodes.length;
+    const p = new Map(); for (const s of seeds) if (inSub.has(s.id)) p.set(s.id, 0);
+    const seedIds = [...p.keys()]; for (const id of seedIds) p.set(id, 1 / seedIds.length);
+    let r = new Map(nodes.map((n) => [n, p.get(n) ?? 0]));
+    const d = 0.85;
+    let converged = false;
+    for (let it = 0; it < max_iter; it++) {
+      const nr = new Map(nodes.map((n) => [n, 0]));
+      let dangling = 0;
+      for (const n of nodes) if (!outW.get(n)) dangling += r.get(n); // Sinks: Masse → Teleport
+      for (const e of subEdges) { // sortiert → feste Summationsreihenfolge
+        const ow = outW.get(e.subject_id);
+        if (!ow) continue; // dangling (kein effektives Out-Gewicht) → Masse via Teleport
+        nr.set(e.object_id, nr.get(e.object_id) + d * (edgeWeight(e) / ow) * r.get(e.subject_id));
+      }
+      let delta = 0;
+      for (const n of nodes) {
+        const teleport = (1 - d) * (p.get(n) ?? 0) + d * dangling * (p.get(n) ?? 0);
+        const val = nr.get(n) + teleport;
+        nr.set(n, val); delta += Math.abs(val - r.get(n));
+      }
+      r = nr;
+      if (delta < tol) { converged = true; break; }
+    }
+    // 4) Ranking: (r_subj + r_obj) × confidence/1000, stabiler Tie-Break nach triple_hash.
+    const exactName = new Set(seeds.filter((s) => s.name === term).map((s) => s.id));
+    const scored = subEdges.map((e) => ({
+      subject: this._nodeName(e.subject_id), predicate: e.predicate,
+      object: this._nodeName(e.object_id), confidence: e.confidence,
+      score: (r.get(e.subject_id) + r.get(e.object_id)) * edgeWeight(e),
+      source: (exactName.has(e.subject_id) || exactName.has(e.object_id)) ? 'lexical' : 'graph',
+      triple_hash: e.triple_hash,
+    })).sort((a, b) => (b.score - a.score) || (a.triple_hash < b.triple_hash ? -1 : 1));
+    const truncated = scored.length > cap;
+    return {
+      seeds: seeds.map((s) => s.name), converged, truncated,
+      results: scored.slice(0, cap),
+      episodes: this.recallEpisodes({ term }).episodes,
+    };
+  }
+
   // ---- Export / Pull / Push / Clone (UC-06/07/11) --------------------
   exportSince(sinceClock = {}) {
     return this.db.prepare("SELECT * FROM knowledge_edges WHERE local_status='active'").all()

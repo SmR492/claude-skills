@@ -54,6 +54,11 @@ export const TOOLS = [
     inputSchema: S({ peer_id: { type: 'string' }, level: { type: 'string', enum: ['untrusted', 'limited', 'full', 'authoritative'] } }, ['peer_id', 'level']),
   },
   {
+    name: 'graph__search',
+    description: 'Hybrid-Retrieval (deterministisch): lexikalische Seed-Suche + belief-gewichtete Personalized PageRank über die k-Hop-Nachbarschaft + Episoden-Recall. „Antwort oder Weg dahin" auch ohne exakten Knotennamen.',
+    inputSchema: S({ term: { type: 'string' }, limit: { type: 'integer', minimum: 1, maximum: 50 }, max_hops: { type: 'integer', minimum: 1, maximum: 5 } }, ['term']),
+  },
+  {
     name: 'graph__record_episode',
     description: 'Speichert ein Roh-Erlebnis (episodische Schicht, lokal/peer-privat — nicht föderiert). Liefert episode_id zur Verknüpfung im store_triple (Konsolidierung).',
     inputSchema: S({ content: { type: 'string' }, source_type: { type: 'string' }, occurred_at: { type: 'string' }, context_slug: { type: 'string' } }, ['content']),
@@ -129,6 +134,9 @@ export class McpServer {
         case 'graph__peer_trust':
           this.engine.peerTrust(args.peer_id, args.level);
           result = { ok: true, peer: args.peer_id, level: args.level };
+          break;
+        case 'graph__search':
+          result = this.engine.search({ term: args.term, limit: args.limit ?? 10, max_hops: args.max_hops ?? 3 });
           break;
         case 'graph__record_episode':
           result = this.engine.recordEpisode({ content: args.content, source_type: args.source_type, occurred_at: args.occurred_at ?? null, context_slug: args.context_slug ?? null });
