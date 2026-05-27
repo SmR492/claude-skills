@@ -78,3 +78,13 @@ test('graph__record_episode + recall + store_triple-Link (UC-EP)', () => {
   assert.equal(rc.episodes.length, 1);
   assert.equal(rc.truncated, false);
 });
+
+test('graph__search liefert Hybrid-Retrieval (UC-HR)', () => {
+  const s = server();
+  const call = (name, args) => JSON.parse(s.handle({ jsonrpc: '2.0', id: 1, method: 'tools/call', params: { name, arguments: args } }).result.content[0].text);
+  call('graph__store_triple', { subject: 'Alpha', predicate: 'verbindet', object: 'Beta' });
+  call('graph__store_triple', { subject: 'Beta', predicate: 'verbindet', object: 'Gamma' });
+  const r = call('graph__search', { term: 'Alpha', max_hops: 3 });
+  assert.ok(r.results.some((x) => x.object === 'Gamma')); // Multi-Hop
+  assert.equal(typeof r.converged, 'boolean');
+});
