@@ -1,0 +1,17 @@
+{
+  "name": "nsai-edge",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Föderierter neuro-symbolischer Wissensgraph-Knoten (Node.js) für Claude Code — P2P-Peer des PHP-NeuroSymbolicAiBundle",
+  "bin": {
+    "nsai-edge": "bin/nsai-edge.mjs"
+  },
+  "scripts": {
+    "test": "node --disable-warning=ExperimentalWarning --test",
+    "start": "node bin/nsai-edge.mjs"
+  },
+  "engines": {
+    "node": ">=22.5"
+  }
+}

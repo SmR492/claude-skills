@@ -1,0 +1,7 @@
+{
+  "name": "nsai-edge",
+  "version": "0.1.0",
+  "description": "Föderierter neuro-symbolischer Wissensgraph als MCP-Server für Claude Code: persistentes, strukturiertes Wissen (Tripel mit Fixed-Point-Konfidenz, Forward-Chaining-Inferenz, Decay, Quarantäne) + P2P-Sync (CRDT, Ed25519) mit dem NeuroSymbolicAiBundle. Tools: graph__store_triple / query_knowledge / infer / decay_pass / quarantine_review.",
+  "author": { "name": "SmR492", "url": "https://github.com/SmR492" },
+  "keywords": ["mcp", "knowledge-graph", "neuro-symbolic", "memory", "crdt", "federation", "nsai"]
+}
