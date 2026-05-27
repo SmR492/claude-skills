@@ -195,10 +195,16 @@ export class Engine {
       if (!cur || better(cand, cur)) byObject.set(obj, cand);
     }
     const cands = [...byObject.values()];
-    // Einzelne Aussage ohne Konkurrenz → Gewinner per Default (auch bei niedrigem Tier).
+    // Einzelne Aussage ohne Konkurrenz → Gewinner per Default — ABER nur wenn durchsetzungsfähig
+    // (gleicher Gültigkeits-Test wie im Multi-Pfad: tier ≥ 0 UND trustRank > 0). Eine einzelne
+    // untrusted/gewichtslose Aussage (z.B. via clone bulkPromote aktiv) ist KEIN Belief-Gewinner →
+    // winner=null/belief 0 (allZero-Semantik). Sonst würde verify daraus fälschlich
+    // contradicted/supported ableiten (Adversarial 🔴-1, Open-World-Verletzung).
     if (cands.length === 1) {
-      const c = cands[0]; c.belief = 1000; c.weight = Math.round(c.weight);
-      return { subject, predicate, winner: c.object, contested: false, candidates: [c] };
+      const c = cands[0]; c.weight = Math.round(c.weight);
+      const enforceable = c.tier >= 0 && c.trustRank > 0;
+      c.belief = enforceable ? 1000 : 0;
+      return { subject, predicate, winner: enforceable ? c.object : null, contested: false, candidates: [c] };
     }
     // HARTE Autoritäts-Dominanz: nur die höchste Tier-Stufe konkurriert um den Belief;
     // niedrigere Stufen → belief 0 (sichtbar als disputed). Innerhalb der Top-Stufe:
@@ -668,6 +674,31 @@ export class Engine {
       results: scored.slice(0, cap),
       episodes: this.recallEpisodes({ term }).episodes,
     };
+  }
+
+  // ---- UC-V: Verifikation (Slice #4) — Claim gegen den Graphen prüfen --
+  // Reine Projektion von resolveBelief (keine eigene Belief-Logik). Read-only, deterministisch.
+  // Open-World: Abwesenheit/gewichtsloses Wissen → 'unknown', NIE 'contradicted'.
+  verify({ subject, predicate, object } = {}) {
+    validateTriple(subject, predicate, object);
+    const base = { subject, predicate, object };
+    const rb = this.resolveBelief(subject, predicate);
+    if (rb === null) return { ...base, verdict: 'unknown' };                       // kein Subjekt / keine aktive Aussage
+    if (rb.multiValue) {
+      return rb.candidates.some((c) => c.object === object)
+        ? { ...base, verdict: 'supported', multiValue: true }
+        : { ...base, verdict: 'unknown', multiValue: true };                       // set-valued Abwesenheit ≠ Widerspruch
+    }
+    if (rb.winner === null) return { ...base, verdict: 'unknown' };                // allZero — kein durchsetzungsfähiger Gewinner (🔴-1)
+    if (rb.winner === object) {
+      const cand = rb.candidates.find((c) => c.object === object);
+      const edge = this._getEdge(tripleHash(subject, predicate, object));
+      const out = { ...base, verdict: 'supported', belief: cand?.belief ?? null, contested: !!rb.contested };
+      if (edge?.derived_from) { try { out.derived_from = JSON.parse(edge.derived_from); } catch { /* ignore */ } }
+      return out;
+    }
+    // winner ≠ null UND winner ≠ object → der Graph glaubt etwas anderes.
+    return { ...base, verdict: 'contradicted', dominant: rb.winner, present: rb.candidates.some((c) => c.object === object) };
   }
 
   // ---- Export / Pull / Push / Clone (UC-06/07/11) --------------------

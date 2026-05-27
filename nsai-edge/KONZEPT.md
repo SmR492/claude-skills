@@ -662,6 +662,8 @@ Conformance-Vektor erzwingt identischen Hash für dasselbe Tripel in beiden Spra
 | Personalized PageRank (PPR) | belief-gewichtete Random-Walk-Relevanz mit Teleport auf Seed-Knoten — deterministische Multi-Hop-Suche | HippoRAG, Power-Iteration |
 | Hub-Dilution | hochgradige Knoten verteilen PPR-Masse uniform → Präzisionsverlust; via k-Hop-Schranke + Konfidenz gedämpft | HippoRAG-2 |
 | Teleport / Damping | Random-Walk-Neustart-Vektor (`p`, hier Seeds) bzw. Fortsetz-Wahrscheinlichkeit (`d=0.85`) | PageRank |
+| Verifikation (supported/contradicted/unknown) | deterministisches Verdikt einer Aussage gegen den Graphen | VeriCoT, Eidoku, ClaimVer |
+| Open-World-Annahme | fehlendes Wissen ist `unknown`, NICHT `false` (Abwesenheit ≠ Widerlegung) | OWA vs. Closed-World |
 
 ## 10. Probabilistik-Statement (§2.6)
 
@@ -722,10 +724,16 @@ Aus einem Quellenvergleich (Neuro-symbolische KI / Kautz-Taxonomie; Truth-Mainte
 
 ### H.2 Roadmap (priorisierte Slices)
 
-1. **Justification-TMS (Slice #1, UC-TMS unten):** `derived_from` → vollwertiger Justification-Graph mit IN/OUT-Status + Retraktions-Propagation. Stärkt Belief-Revision, Erklärbarkeit (BackwardChaining = Proof-Tree) und das Föderations-Merge zugleich.
-2. **3-Schichten-Gedächtnis (NS-Mem):** explizite episodische Schicht (Roh-Interaktionen + Zeit) + Konsolidierung episodisch→semantisch.
-3. **Hybrid-Retrieval (GraphRAG):** `query_knowledge` um Vektor-Ähnlichkeit + Personalized-PageRank-Ranking ergänzen (Operator schlägt Struktur).
-4. **Gelernte Gewichtung (LTN/DeepProbLog/Scallop):** Belief-Spec-Konstanten aus Daten lernen statt setzen — erst nach 1–3, Determinismus-Gate beachten.
+Umpriorisiert nach Recherche-Runde 2 (2026-Frontier-Validierung): neuro-symbolische **Verifikation** + **bi-temporale** Memory tragen nachweislich am meisten zum Ziel bei und passen zum Determinismus-Gate; die ursprüngliche „gelernte Gewichtung" rückt ans Ende (nicht-deterministisch → höchstens offline).
+
+1. **Justification-TMS (Slice #1, UC-TMS):** Retraktions-Propagation. ✅ erledigt.
+2. **3-Schichten-Gedächtnis (Slice #2, UC-EP):** episodische Schicht + Konsolidierung. ✅ erledigt.
+3. **Hybrid-Retrieval (Slice #3, UC-HR):** lexikalische Seeds + Personalized PageRank (rein deterministisch). ✅ erledigt.
+4. **Verifikation (Slice #4, UC-V unten):** `verify(claim)` → **supported / contradicted / unknown** gegen den Graphen. Frontier 2026 (VeriCoT, Eidoku „kein Pfad ⇒ ablehnen", ClaimVer). Deterministisch, nutzt Belief (Widerspruch) + TMS (Stützung) + `search`/PPR (Pfad) — der Schlussstein für „halluzinationsfreies Reasoning". Open-World-Pflicht: **unknown ≠ falsch**.
+5. **Bi-temporale Gültigkeit (Slice #5):** `valid_from/valid_to` + „as-of T"-Abfrage; Konflikt nicht-destruktiv (invalidieren statt löschen). Validiert durch Zep/Graphiti (+18,5 % LongMemEval); wir haben mit `asserted_at`/`created_at` das Rohmaterial.
+6. **Gelernte Gewichtung (Backlog):** Belief-Spec-Konstanten aus Daten lernen — nicht-deterministisch, daher nur **offline** gelernte Konstanten (Determinismus-Gate); ans Ende verschoben.
+
+Deferred-Verfeinerungen: Slice #1b (OUT→IN-Reaktivierung + Multi-Justification), #2b (LLM-Extraktion, frequenz-bewusste GC), #3b (Episoden als Kontextknoten im Retrieval, Vektor-Ähnlichkeit).
 
 ### UC-TMS — Justification-basierte Belief-Revision (Slice #1)
 
@@ -855,3 +863,44 @@ Aus einem Quellenvergleich (Neuro-symbolische KI / Kautz-Taxonomie; Truth-Mainte
 **Fehlerfälle (UC-HR):** leerer/<2-Zeichen-`term` → leeres Ergebnis (kein Crash); Graph ohne aktive Kanten / keine Seeds → leeres Ergebnis; `term` mit LIKE-Sonderzeichen → literal (ESCAPE, vgl. UC-EP 🟡-1); großer Graph → `max_hops`+`max_iter`-Cap begrenzen die Laufzeit (read-only, keine Sperre).
 
 > **Slice #3b (deferred):** echte semantische Ähnlichkeit via Vektor-Embeddings (extern/LLM, nicht deterministisch — Agentenseite); Re-Ranking-Verfeinerungen.
+
+### UC-V — Verifikation: `verify(claim)` gegen den Graphen (Slice #4)
+
+**Akteur:** System (deterministisch, Tier 1, **kein LLM**) · **Route:** intern + MCP-Tool `graph__verify` · **Roadmap:** §H.2 Punkt 4 (Frontier 2026: VeriCoT, Eidoku, ClaimVer).
+
+**Ziel (Schlussstein „halluzinationsfrei"):** Eine vom Agenten/LLM behauptete Aussage `(subject, predicate, object)` gegen das Gedächtnis prüfen und ein **deterministisches Verdikt** liefern — nutzt die drei bestehenden Säulen: Belief (Widerspruch), TMS/`derived_from` (Stützung), `search`/PPR (Pfad/Relatedness). Der Agent kann so vor dem Ausgeben einer Antwort prüfen, ob sie das Gedächtnis stützt, ihm widerspricht oder unbekannt ist.
+
+**Verdikt-Definition (über `resolveBelief(s,p)`):**
+- **`supported`** — die Aussage ist der Belief-Gewinner (single-value) ODER ein gültiges Objekt eines Mehrwert-Prädikats. Belief + Stützung (`derived_from`, falls abgeleitet) werden mitgeliefert.
+- **`contradicted`** — für `(s,p)` glaubt der Graph ein **anderes, durchsetzungsfähiges** Objekt (single-value, `winner ≠ null` UND `winner ≠ object`). Das dominante Objekt wird mitgeliefert; `present` = ob `object` selbst noch unter den (belief-unterlegenen) Kandidaten ist → `present:true, dominant:X`.
+- **`unknown`** — **OPEN-WORLD-PFLICHT:** keine aktiven `(s,p)`-Aussagen (`resolveBelief=null`), **ODER kein durchsetzungsfähiger Belief-Gewinner** (`rb.winner === null`, allZero — alle Top-Kandidaten Gewicht 0), ODER Mehrwert-Prädikat ohne dieses Objekt. Fehlendes/gewichtsloses Wissen ist **NIE** `contradicted` — Abwesenheit ≠ Widerlegung.
+
+**Invariante:** `verify` trifft **keine** eigene Glaubwürdigkeits-Entscheidung — das Verdikt ist eine reine **Projektion von `resolveBelief`** (Trust-/Autoritäts-/Recency-Linse unverändert geerbt → kein zweiter Belief-Pfad, keine Drift).
+
+**Ablauf (nummeriert, verzweigt) — `verify({subject, predicate, object})`:**
+1. Format validieren (s/p/o-Regex wie storeTriple); ungültig → Fehler (kein Verdikt).
+2. `rb = resolveBelief(subject, predicate)`.
+3. `rb === null` → **`unknown`** (kein Subjekt-Knoten ODER keine aktive `(s,p)`-Aussage — beide open-world).
+4. `rb.multiValue` → `object` in `rb.candidates`? ja → **`supported`**; nein → **`unknown`** (set-valued, Abwesenheit ≠ Widerspruch).
+5. `rb.winner === null` (allZero, kein durchsetzungsfähiger Gewinner) → **`unknown`** (🔴-1: NIE contradicted).
+6. `rb.winner === object` → **`supported`**, Verdikt bleibt supported auch bei `rb.contested===true` (Flag wird durchgereicht, warnt den Konsumenten).
+7. sonst (`winner ≠ null` UND `winner ≠ object`) → **`contradicted`** (+ `dominant = rb.winner`, + `present = rb.candidates.some(c => c.object === object)` — Objekt-Ebene, nicht Kanten-Identität).
+8. Read-only: keine Schreibwirkung, kein Wire, kein `vector_clock`-Tick.
+
+| AC | Kriterium | Test-Typ | Status |
+|---|---|---|---|
+| AC-12.1 | Aktive Aussage, die Belief-Gewinner ist → `supported` (+ Belief). | unit | offen (Slice #4) |
+| AC-12.2 | `(s,p)` mit dominantem Objekt X, geprüft wird Y≠X → `contradicted` (+ `dominant=X`). | unit | offen |
+| AC-12.3 | **Open-World:** unbekanntes `(s,p)` (keine aktive Aussage) → `unknown`, **niemals** `contradicted`. | unit | offen |
+| AC-12.4 | Mehrwert-Prädikat (`hat_tag`): vorhandenes Objekt → `supported`; nicht vorhandenes → `unknown` (kein Widerspruch). | unit | offen |
+| AC-12.5 | Belief-unterlegene, aber präsente Kante (Y aktiv, aber X dominiert) → `contradicted` mit `present:true, dominant:X`. | unit | offen |
+| AC-12.6 | Nur `active` zählt: ein `retracted`/`superseded`/`quarantined` Objekt gilt nicht als Stützung; ist es das einzige → `unknown`. | unit | offen |
+| AC-12.7 | `supported` einer abgeleiteten Aussage liefert die Begründung (`derived_from`/Stützung) mit (Erklärbarkeit). | unit | offen |
+| AC-12.9 | **Open-World (allZero):** multi-candidate mit `rb.winner===null` (alle Top-Kandidaten Gewicht 0 / nur untrusted) → `unknown`, **niemals** `contradicted`. | unit | offen |
+| AC-12.10 | Belief-Gewinner mit Zweitplatziertem ≥ `contestedThreshold` → `supported` MIT `contested:true` (Verdikt bleibt supported). | unit | offen |
+| AC-12.11 | Projektion: `verify` nutzt ausschließlich `resolveBelief` (keine eigene Belief-Logik) — Verdikt folgt der trust-primären Linse ohne Divergenz. | unit | offen |
+| AC-12.8 | read-only: keine DB-/Konfidenz-/Status-/`vector_clock`-Änderung durch `verify`. | unit | offen |
+
+**Fehlerfälle (UC-V):** ungültiges s/p/o-Format → Fehler, kein Verdikt; **Abwesenheit von Wissen → `unknown`, nie `contradicted`** (open-world, die zentrale Gefahr); Mehrwert-Prädikat-Abwesenheit → `unknown`; `verify` ist read-only (keine Sperre).
+
+> **Slice #4b (deferred):** strukturelle Pfad-Verifikation à la Eidoku (existiert *irgendein* Pfad subject↔object? via `search`/PPR als Zusatz-Signal `related`), und Mehr-Schritt-Claim-Zerlegung (mehrere Tripel einer Antwort gemeinsam prüfen) — bleibt Agenten-/Folge-Arbeit.
