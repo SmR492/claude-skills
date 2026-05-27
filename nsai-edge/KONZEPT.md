@@ -683,14 +683,3 @@ Engine deterministisch (Tier 1, Fixed-Point); aufrufender Claude-Code-Agent prob
 | UC-03/04/08/10 | 0 % (Engine/Gate) | — | n/a (deterministisch + Conformance) | Stefan Riedl |
 | UC-05/09/11 | 0 % (Tooling) | Developer (Trust/Promote/Clone) | hoch (Sicherheits-Entscheidung) | Stefan Riedl |
 | UC-06/07 | 0 % (Sync) | Developer (Peer-Autorisierung) | mittel | Stefan Riedl |
-
-## §G — Föderations-Härtung Phase 2 (Parität zur PHP-Gegenseite)
-
-Aus dem Threat-Model + Adversarial-Review der PHP-Gegenseite (ai-bundle, `docs/KONZEPT-graph-federation.md` AC-1.9–1.15) folgen Paritäts-ACs, die auch hier gelten — `engine.mjs` darf die latenten Lücken nicht behalten, sonst divergieren die co-gleichberechtigten Engines sicherheitsseitig.
-
-- **F1.9 — Fingerprint-Bindung am Verify-Gate.** `_verifyAgainstOrigin` akzeptiert einen Origin nur, wenn `origin_peer_id === "peer:"+fingerprint(originPubKey).slice(0,12)`. Schließt Key-Confusion (frei gewählter `peer_id` mit fremdem Key). Greift am Sicherheits-Gate (verify/pull/receive/clone), nicht in `peerAdd` — die Merge-Algebra-Unit-Tests nutzen bewusst ungebundene IDs ohne Verify.
-- **F1.11 — VC-Plausibilität.** `mergeIncoming` verwirft Wires mit nicht-ganzzahligen/negativen VC-Werten oder einem Sprung > `MAX_CLOCK_JUMP` (1e6) über den lokalen Stand — verhindert Clock-Vergiftung (künstlich hoher VC unterdrückt künftige echte Updates).
-- **F1.13 — Quarantäne im UPDATE-Zweig.** Geht bei gleichem Hash die Provenienz auf einen `untrusted`-Origin über, wird der Record `quarantined` (kein stiller Verbleib als `active`).
-- **F1.15 — Live-Konfidenz-Deckel.** `incLive = min(wire.confidence, asserted_confidence)` — das unsignierte Live-Feld hebt den Belief nie über die signierte Origin-Aussage.
-
-Nachweis: eigener Test-Block in `test/engine-federation.test.mjs`; alle Bestands-Tests bleiben grün (Bindung greift nur am echten Verify-Pfad, Live-Deckel ist No-op solange `confidence==asserted`).
