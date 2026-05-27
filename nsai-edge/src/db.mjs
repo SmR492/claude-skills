@@ -29,6 +29,8 @@ CREATE TABLE IF NOT EXISTS knowledge_edges (
   vector_clock TEXT NOT NULL,
   derived_from TEXT,
   context_slug TEXT,
+  valid_from TEXT,                             -- UC-BT: lokale Event-/Valid-Time-Start (Default-Fallback = asserted_at), NICHT im Wire
+  valid_to TEXT,                               -- UC-BT: lokales Gültigkeits-Ende (NULL = offen), NICHT im Wire
   created_at TEXT DEFAULT (datetime('now')),
   updated_at TEXT DEFAULT (datetime('now')),
   FOREIGN KEY(subject_id) REFERENCES knowledge_nodes(id) ON DELETE CASCADE,
@@ -89,6 +91,8 @@ CREATE TABLE knowledge_edges (
   vector_clock TEXT NOT NULL,
   derived_from TEXT,
   context_slug TEXT,
+  valid_from TEXT,
+  valid_to TEXT,
   created_at TEXT DEFAULT (datetime('now')),
   updated_at TEXT DEFAULT (datetime('now')),
   FOREIGN KEY(subject_id) REFERENCES knowledge_nodes(id) ON DELETE CASCADE,
@@ -103,7 +107,16 @@ export function openDb(path = ':memory:') {
   const db = new DatabaseSync(path);
   db.exec(SCHEMA);
   migrateRetractedStatus(db);
+  migrateValidityColumns(db);
   return db;
+}
+
+// UC-BT (Slice #5): additive valid_from/valid_to-Spalten für Bestands-DBs (idempotent, kein Rebuild).
+// Reihenfolge-unabhängig zum retracted-Rebuild — dieser kopiert namensbasiert die Spalten-Schnittmenge.
+function migrateValidityColumns(db) {
+  const cols = new Set(db.prepare("PRAGMA table_info('knowledge_edges')").all().map((r) => r.name));
+  if (!cols.has('valid_from')) db.exec('ALTER TABLE knowledge_edges ADD COLUMN valid_from TEXT');
+  if (!cols.has('valid_to')) db.exec('ALTER TABLE knowledge_edges ADD COLUMN valid_to TEXT');
 }
 
 // Idempotente, CRASH-SICHERE Migration: ältere persistente DBs haben die CHECK-Constraint ohne

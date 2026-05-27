@@ -664,6 +664,9 @@ Conformance-Vektor erzwingt identischen Hash für dasselbe Tripel in beiden Spra
 | Teleport / Damping | Random-Walk-Neustart-Vektor (`p`, hier Seeds) bzw. Fortsetz-Wahrscheinlichkeit (`d=0.85`) | PageRank |
 | Verifikation (supported/contradicted/unknown) | deterministisches Verdikt einer Aussage gegen den Graphen | VeriCoT, Eidoku, ClaimVer |
 | Open-World-Annahme | fehlendes Wissen ist `unknown`, NICHT `false` (Abwesenheit ≠ Widerlegung) | OWA vs. Closed-World |
+| Bi-temporal (Valid- vs Transaction-Time) | Wann war es wahr (`valid_from/valid_to`) vs. wann gelernt (`created_at`) | BiTRDF, Zep/Graphiti |
+| as-of-Abfrage | „was galt zum Zeitpunkt T" — Filter über das Gültigkeits-Intervall `[valid_from, valid_to)` | Bitemporale DB |
+| nicht-destruktive Invalidierung | überholten Fakt nicht löschen, sondern `valid_to` setzen (historisch abfragbar) | Graphiti edge-invalidation |
 
 ## 10. Probabilistik-Statement (§2.6)
 
@@ -904,3 +907,52 @@ Deferred-Verfeinerungen: Slice #1b (OUT→IN-Reaktivierung + Multi-Justification
 **Fehlerfälle (UC-V):** ungültiges s/p/o-Format → Fehler, kein Verdikt; **Abwesenheit von Wissen → `unknown`, nie `contradicted`** (open-world, die zentrale Gefahr); Mehrwert-Prädikat-Abwesenheit → `unknown`; `verify` ist read-only (keine Sperre).
 
 > **Slice #4b (deferred):** strukturelle Pfad-Verifikation à la Eidoku (existiert *irgendein* Pfad subject↔object? via `search`/PPR als Zusatz-Signal `related`), und Mehr-Schritt-Claim-Zerlegung (mehrere Tripel einer Antwort gemeinsam prüfen) — bleibt Agenten-/Folge-Arbeit.
+
+### UC-BT — Bi-temporale Gültigkeit + „as-of"-Abfrage (Slice #5)
+
+**Akteur:** System (deterministisch, Tier 1, **kein LLM**) · **Route:** intern + MCP `graph__set_validity` / `graph__query` (`as_of`) · **Roadmap:** §H.2 Punkt 5. Validiert (Zep/Graphiti +18,5 % LongMemEval; BiTRDF) + CDP5-geprüft.
+
+**Ziel:** „Was galt zum Zeitpunkt T" — temporales Gedächtnis mit **Gültigkeits-Intervallen** statt nur Zeitstempeln. Konflikt **nicht-destruktiv**: ein temporal überholter Fakt wird nicht gelöscht, sondern sein Gültigkeits-Ende gesetzt (historisch abfragbar).
+
+**Zwei Zeitachsen (ohne Wire-Bruch — CDP5-Architektur-Entscheidung):**
+- **Event-/Valid-Time:** `valid_from` (Default = signiertes `asserted_at`) … `valid_to` (offen = `NULL`). Halb-offenes Intervall `[valid_from, valid_to)`.
+- **Transaction-Time:** vorhandenes `created_at`/`updated_at`.
+- `valid_to` (+ optionaler `valid_from`-Override) sind **LOKAL** — wie `retracted`/`superseded` **nicht** signiert/föderiert (kein Wire-v2-Bruch, Parität gewahrt). Föderiert bleibt nur das signierte `asserted_at` (= Default-`valid_from`).
+
+**Determinismus (CDP5):** Graphitis LLM-Widerspruchs-Erkennung wird NICHT übernommen. Temporale Supersession ist **explizit** (`supersedeTemporally`) oder über die deterministische same-(s,p)-Regel — nie geraten.
+
+**Parameter:** `as_of` (ISO-8601, optional; Default „jetzt") · `valid_from`/`valid_to` (ISO-8601, nullable). Ungültiges ISO → Fehler.
+
+**Datenmodell:** additive Spalten `valid_from TEXT`, `valid_to TEXT` (beide nullable) auf `knowledge_edges`. **Default-Materialisierung (🔴-1):** Spalten bleiben NULL; der Default `valid_from = asserted_at` greift als **Fallback in der Query** via `COALESCE(valid_from, asserted_at)` (keine Backfill-Schreibung; Bestandszeilen bleiben damit korrekt „offen gültig"). **Migrations-Korrektheit (🔴-6):** `valid_from`/`valid_to` werden in BEIDEN Schema-Quellen ergänzt — `SCHEMA` (frische DB) **und** `EDGES_REBUILD` (db.mjs) — damit ein späterer `retracted`-Rebuild (namensbasierte Spalten-Kopie) sie nicht abschneidet. Für Bestands-DBs: idempotentes `ALTER ADD COLUMN` (nur falls fehlend, reihenfolge-unabhängig zum retracted-Rebuild). Keine CHECK-Constraint.
+
+**Ablauf (nummeriert, verzweigt):**
+1. `setValidity(hash, {valid_from?, valid_to?})`: unbekannter Hash → `null` (kein Schreiben, wie `reinforce`); ISO-Validierung; `valid_to ≤ valid_from` → Fehler (leeres Intervall). **Zukunfts-`valid_from` ist ERLAUBT** (🟡-3: legitime geplante Gültigkeit „gilt ab morgen" — anders als das Zukunfts-Klemmen von `asserted_at`, das Rückdatierungs-Betrug der signierten Aussage verhindert; `valid_*` ist lokale Welt-Gültigkeit).
+2. `supersedeTemporally({subject, predicate, object, as_of})` — **nur single-value** (Mehrwert-Prädikate sind set-valued → nicht anwendbar, 🔴-2): 2a. neuer Hash existiert bereits → nur `valid_from=as_of` setzen (idempotent, kein Duplikat); 2b. **alle** offenen (`valid_to IS NULL`) aktiven same-`(s,p)`-Fakten mit `valid_to=as_of` schließen; 2c. neuen Fakt mit `valid_from=as_of` anlegen. Alte bleiben `active` + auditierbar.
+3. **as-of-Lese-Linse** auf `query`/`resolveBelief` (Param `as_of=T`): eine Aussage zählt nur, wenn **`local_status='active'` UND** `COALESCE(valid_from, asserted_at) ≤ T` UND (`valid_to IS NULL` ODER `T < valid_to`) — halb-offen, **konjunktiv zur active-Menge** (🔴-2). Ohne `as_of` = „jetzt". Mehrwert-Prädikate: Filter gilt je Kante (mehrere gleichzeitig gültig bleiben möglich).
+4. **as-of verfeinert die `active`-Menge, garantiert KEINE Vergangenheits-Vollständigkeit (🟡-5):** ein per Decay `superseded`/per TMS `retracted`/`quarantined` gewordener Fakt erscheint NIE, auch nicht historisch (GC/Decay löschen historische Sichtbarkeit — bewusst akzeptiert; valid_* sind lokal, kein vollständiger History-Store).
+5. Read-only außer `set/supersede`; diese schreiben nur lokale Spalten (kein Wire/`vector_clock`-Tick, kein Signatur-Eingriff). `DATABASE_LOCKED` → Retry/fail-closed (Bestands-Verhalten).
+
+| AC | Kriterium | Test-Typ | Status |
+|---|---|---|---|
+| AC-13.1 | `valid_from` default = `asserted_at`; ohne `valid_to` gilt der Fakt „jetzt" (offen). | unit | offen (Slice #5) |
+| AC-13.2 | `as_of=T` liefert nur zu T gültige Fakten (halb-offen `[from,to)`); ein vor T beendeter Fakt fehlt, ein nach T begonnener fehlt. | unit | offen |
+| AC-13.3 | `supersedeTemporally` schließt den alten Fakt (`valid_to=as_of`) + legt neuen (`valid_from=as_of`) an; **beide bleiben `active`** (nicht gelöscht). | unit | offen |
+| AC-13.4 | as-of in der Vergangenheit liefert den ALTEN Fakt, as-of „jetzt" den NEUEN (nicht-destruktive Historie). | unit | offen |
+| AC-13.5 | `resolveBelief(s,p,{as_of:T})` wählt den Gewinner nur unter den zu T gültigen Fakten. | unit | offen |
+| AC-13.6 | `setValidity` mit `valid_to ≤ valid_from` → Fehler (leeres Intervall); ungültiges ISO → Fehler. | unit | offen |
+| AC-13.7 | Föderations-/Wire-Parität: `valid_from/valid_to` sind nicht im Wire/`signingString`; `exportSince` + Signatur unverändert; bit-identisch mit/ohne Validitäts-Daten. | unit | offen |
+| AC-13.8 | Additive Migration: Bestands-DB ohne `valid_*`-Spalten → Spalten ergänzt, Bestandsdaten + Tripel unberührt; idempotent. | unit | offen |
+| AC-13.9 | Open-World/Determinismus: fehlende Validitäts-Info = „gültig/offen" (Bestandszeile mit `valid_from=NULL` via COALESCE in jeder as_of-Abfrage sichtbar); `as_of`-Filter deterministisch + read-only. | unit | offen |
+| AC-13.10 | `as_of`-Filter ist **konjunktiv zu `active`**: ein abgelaufener-aber-`active` Fakt zählt im „jetzt"-Belief NICHT doppelt; ein `retracted`/`superseded` Fakt erscheint auch historisch nicht. | unit | offen |
+| AC-13.11 | `supersedeTemporally` auf ein Mehrwert-Prädikat → abgewiesen/nicht anwendbar (nur single-value); existierender Hash → idempotent (`valid_from` gesetzt, kein Duplikat). | unit | offen |
+| AC-13.12 | Zukunfts-`valid_from` (> jetzt) ist erlaubt; der Fakt erscheint erst ab `valid_from` in „jetzt"-Abfragen. | unit | offen |
+| AC-13.13 | Migrations-Robustheit: `valid_*` sind in `SCHEMA` **und** `EDGES_REBUILD`; ein `retracted`-Rebuild NACH gesetzter Validität erhält `valid_from/valid_to` (kein Spaltenverlust). | unit | offen |
+
+**Fehlerfälle (UC-BT):** leeres/negatives Intervall (`valid_to ≤ valid_from`) → Fehler; ungültiges ISO-Datum → Fehler; unbekannter Hash bei `setValidity` → `null` (kein Schreiben); `as_of` ohne Treffer → leeres Ergebnis (kein Crash); `supersedeTemporally` ohne offenen Vorgänger → legt nur den neuen Fakt an (kein Fehler); Mehrwert-Prädikat bei `supersedeTemporally` → nicht anwendbar; fehlende `valid_*` = offen gültig (open-world); `DATABASE_LOCKED` → Retry/fail-closed.
+
+**Bekannte Grenzen (Adversarial-Runde, bewusst akzeptiert):**
+- **🟡-3 Föderations-Asymmetrie:** ein lokal temporal abgelöster Fakt (`valid_to` gesetzt, aber `local_status='active'`) wird weiter exportiert; der Peer hat kein `valid_to` → sieht ihn als offen. `supersedeTemporally` wirkt **rein lokal** (konsistent mit „valid_* nicht föderiert"). Föderierte Gültigkeit bräuchte Wire-v2 → Slice #5b.
+- **🟡-5 UTC-Pflicht:** alle Zeitstempel werden bei `setValidity`/`supersedeTemporally` auf UTC-`Z` normalisiert (`_normIso`), da der as-of-Vergleich lexikografisch ist. Offset-Eingaben (`+02:00`) werden korrekt umgerechnet.
+- **🔴-1 Inversions-Schutz:** `supersedeTemporally` weist eine Ablösung ab, deren `as_of` vor dem `valid_from` eines offenen Vorgängers liegt (verhindert leeres/invertiertes Intervall = stiller Verlust).
+
+> **Slice #5b (deferred):** `as_of` auch auf `search`; föderierte Gültigkeit (Wire-v2 — bewusst nicht jetzt); LLM-gestützte Widerspruchs-Erkennung bleibt Agenten-Aufgabe (nicht-deterministisch). (`verify` hat `as_of` bereits.)

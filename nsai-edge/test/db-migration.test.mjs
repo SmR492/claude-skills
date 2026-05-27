@@ -69,3 +69,24 @@ test('🔴-1: Resumption — zurückgebliebenes _old (unterbrochener Rebuild) ve
     m.close();
   } finally { rmSync(p, { force: true }); }
 });
+
+test('AC-13.8/13.13: valid_* additiv; retracted-Rebuild erhält gesetzte Validität', () => {
+  const p = tmp('valid');
+  try {
+    // Alt-Schema (CHECK ohne retracted) MIT valid_*-Spalten + gesetzter valid_to → Rebuild muss sie erhalten.
+    const db = new DatabaseSync(p);
+    db.exec(OLD_EDGES);
+    db.exec('ALTER TABLE knowledge_edges ADD COLUMN valid_from TEXT');
+    db.exec('ALTER TABLE knowledge_edges ADD COLUMN valid_to TEXT');
+    db.exec("INSERT INTO knowledge_nodes(id,name) VALUES ('n1','Aa'),('n2','Bb')");
+    db.prepare("INSERT INTO knowledge_edges(triple_hash,subject_id,predicate,object_id,confidence,asserted_confidence,temporality,origin_peer_id,signature,vector_clock,valid_to) VALUES ('sha256:v','n1','pp','n2',700,700,'stable','peer:a','ed25519:x','{}','2023-01-01T00:00:00Z')").run();
+    db.close();
+    const m = openDb(p); // retracted-Rebuild (EDGES_REBUILD enthält valid_*) + valid-Migration
+    const cols = m.prepare('PRAGMA table_info(knowledge_edges)').all().map((r) => r.name);
+    assert.ok(cols.includes('valid_from') && cols.includes('valid_to'));
+    const row = m.prepare("SELECT valid_to, local_status FROM knowledge_edges WHERE triple_hash='sha256:v'").get();
+    assert.equal(row.valid_to, '2023-01-01T00:00:00Z'); // valid_to durch Rebuild erhalten (kein Spaltenverlust)
+    assert.ok(m.prepare("SELECT sql FROM sqlite_master WHERE name='knowledge_edges'").get().sql.includes('retracted'));
+    m.close();
+  } finally { rmSync(p, { force: true }); }
+});
