@@ -17,7 +17,6 @@ const RE_SUBJECT = /^[\w\-\\.:]{2,160}$/;
 const RE_PREDICATE = /^[a-z_]{2,50}$/;
 const TEMPORALITIES = new Set(['eternal', 'stable', 'temporal', 'ephemeral']);
 const EPOCH = '1970-01-01T00:00:00Z';
-const MAX_CLOCK_JUMP = 1000000; // F1.11: erlaubter VC-Sprung je Peer-Eintrag über den lokalen Stand
 
 export class EngineError extends Error {
   constructor(code, message) { super(message ? `${code}: ${message}` : code); this.code = code; }
@@ -25,16 +24,6 @@ export class EngineError extends Error {
 
 const clockMax = (a, b) => { const o = { ...a }; for (const [k, v] of Object.entries(b)) o[k] = Math.max(o[k] ?? 0, v); return o; };
 const clockLEQ = (a, b) => Object.entries(a).every(([k, v]) => v <= (b[k] ?? 0));
-// F1.11: eingehende VC-Werte müssen ganzzahlig, nicht-negativ und ohne implausiblen Sprung
-// über den lokalen Stand sein (Clock-Vergiftung verhindern).
-const clockPlausible = (inc, local) => {
-  if (!inc || typeof inc !== 'object') return false;
-  for (const [k, v] of Object.entries(inc)) {
-    if (!Number.isInteger(v) || v < 0) return false;
-    if (v > (local[k] ?? 0) + MAX_CLOCK_JUMP) return false;
-  }
-  return true;
-};
 
 function validateTriple(subject, predicate, object) {
   if (!RE_SUBJECT.test(String(subject ?? '')) || !RE_SUBJECT.test(String(object ?? '')) || !RE_PREDICATE.test(String(predicate ?? ''))) {
@@ -58,15 +47,6 @@ export class Engine {
       try { max = Math.max(max, JSON.parse(row.vector_clock)[this.peerId] ?? 0); } catch { /* ignore */ }
     }
     return max;
-  }
-
-  // F1.11: feldweises Maximum aller bekannten Vector-Clocks (Plausibilitäts-Referenz).
-  _localClock() {
-    let clock = {};
-    for (const row of this.db.prepare('SELECT vector_clock FROM knowledge_edges').all()) {
-      try { clock = clockMax(clock, JSON.parse(row.vector_clock)); } catch { /* ignore */ }
-    }
-    return clock;
   }
 
   // ---- interne Helfer -------------------------------------------------
@@ -371,13 +351,11 @@ export class Engine {
     if (wire.wire_version !== WIRE_VERSION) return 'rejected';
     validateTriple(wire.subject, wire.predicate, wire.object);
     const asserted = wire.asserted_confidence ?? wire.confidence;
-    // F1.15: das unsignierte Live-Feld hebt den Belief nie über die signierte asserted_confidence.
-    const incLive = Math.min(wire.confidence ?? asserted, asserted);
+    const incLive = wire.confidence ?? asserted;
     const sourceType = wire.source_type ?? 'llm';
     const assertedAt = wire.asserted_at ?? EPOCH;
     const SKEW = 86400000; // 1 Tag Clock-Skew-Toleranz
     if (Date.parse(assertedAt) > this._now() + SKEW) return 'rejected'; // kein Zukunftsdatum (Fix 🔴2)
-    if (!clockPlausible(wire.vector_clock, this._localClock())) return 'rejected'; // F1.11: VC-Plausibilität
     const existing = this._getEdge(wire.triple_hash);
     if (existing && existing.local_status === 'superseded' && clockLEQ(wire.vector_clock, JSON.parse(existing.vector_clock))) return 'ignored';
     if (existing) {
@@ -408,11 +386,8 @@ export class Engine {
         || (incR === exR && incTier === exTier && asserted > existing.asserted_confidence)
         || (incR === exR && incTier === exTier && asserted === existing.asserted_confidence && wire.origin_peer_id < existing.origin_peer_id);
       if (incWins) {
-        // F1.13: geht die Provenienz auf einen untrusted-Origin über, wird der Record quarantänisiert
-        // (kein stiller Verbleib als active), sonst bleibt der bisherige Status erhalten.
-        const newStatus = peerTrust === 'untrusted' ? 'quarantined' : existing.local_status;
-        this.db.prepare("UPDATE knowledge_edges SET confidence=?, asserted_confidence=?, source_type=?, asserted_at=?, origin_peer_id=?, relayed_by=?, signature=?, vector_clock=?, local_status=?, updated_at=datetime('now') WHERE triple_hash=?")
-          .run(liveConf, asserted, sourceType, assertedAt, wire.origin_peer_id, wire.relayed_by ?? null, wire.signature, JSON.stringify(vc), newStatus, wire.triple_hash);
+        this.db.prepare("UPDATE knowledge_edges SET confidence=?, asserted_confidence=?, source_type=?, asserted_at=?, origin_peer_id=?, relayed_by=?, signature=?, vector_clock=?, updated_at=datetime('now') WHERE triple_hash=?")
+          .run(liveConf, asserted, sourceType, assertedAt, wire.origin_peer_id, wire.relayed_by ?? null, wire.signature, JSON.stringify(vc), wire.triple_hash);
       } else {
         this.db.prepare("UPDATE knowledge_edges SET confidence=?, vector_clock=?, updated_at=datetime('now') WHERE triple_hash=?")
           .run(liveConf, JSON.stringify(vc), wire.triple_hash);
@@ -431,11 +406,7 @@ export class Engine {
   _verifyAgainstOrigin(wire) {
     if (wire.wire_version !== WIRE_VERSION) return false;
     const pub = this._originPubKey(wire.origin_peer_id);
-    if (!pub) return false;
-    // F1.9: Fingerprint-Bindung — der origin_peer_id MUSS aus dem Origin-Key abgeleitet sein
-    // (verhindert Key-Confusion: frei gewählter peer_id mit fremdem Key). Greift am Sicherheits-Gate.
-    if (wire.origin_peer_id !== `peer:${fingerprint(pub).slice(0, 12)}`) return false;
-    return verifyTriple(pub, wire, wire.signature);
+    return pub ? verifyTriple(pub, wire, wire.signature) : false;
   }
 
   // ---- UC-09: Peer-Trust & Identität ---------------------------------
