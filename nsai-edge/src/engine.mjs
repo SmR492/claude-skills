@@ -240,8 +240,11 @@ export class Engine {
   // ---- UC-02: Abfragen (Subgraph + Belief-Anreicherung) --------------
   // UC-BT: SQL-Klausel für die as-of-Lese-Linse (konjunktiv zu local_status='active').
   // Default-valid_from = asserted_at via COALESCE; halb-offenes Intervall [from, to).
+  // UTC-Z-Normalisierung (🟡-5): lexikografischer SQLite-Vergleich ist nur korrekt, wenn alle
+  // Zeitstempel UTC-Z sind. null bleibt null; ungültig → null (vom Aufrufer vorher validiert).
+  _normIso(x) { if (x == null) return null; const t = Date.parse(x); return Number.isNaN(t) ? null : new Date(t).toISOString(); }
   _validClause(asOf) {
-    const t = asOf ?? new Date(this._now()).toISOString(); // Default „jetzt" — schließt temporal beendete Fakten aus
+    const t = this._normIso(asOf) ?? new Date(this._now()).toISOString(); // Default „jetzt", normalisiert
     return { sql: ' AND COALESCE(valid_from, asserted_at) <= ? AND (valid_to IS NULL OR ? < valid_to)', args: [t, t] };
   }
 
@@ -689,10 +692,10 @@ export class Engine {
   // ---- UC-V: Verifikation (Slice #4) — Claim gegen den Graphen prüfen --
   // Reine Projektion von resolveBelief (keine eigene Belief-Logik). Read-only, deterministisch.
   // Open-World: Abwesenheit/gewichtsloses Wissen → 'unknown', NIE 'contradicted'.
-  verify({ subject, predicate, object } = {}) {
+  verify({ subject, predicate, object, as_of = null } = {}) {
     validateTriple(subject, predicate, object);
     const base = { subject, predicate, object };
-    const rb = this.resolveBelief(subject, predicate);
+    const rb = this.resolveBelief(subject, predicate, { as_of }); // UC-BT: optional zu T verifizieren (🟡-2)
     if (rb === null) return { ...base, verdict: 'unknown' };                       // kein Subjekt / keine aktive Aussage
     if (rb.multiValue) {
       return rb.candidates.some((c) => c.object === object)
@@ -719,8 +722,8 @@ export class Engine {
     const e = this._getEdge(hash);
     if (!e) return null;
     if (!this._validIso(valid_from) || !this._validIso(valid_to)) throw new EngineError('INVALID_PARAMETER_FORMAT', 'valid_from/valid_to kein ISO-Datum');
-    const vf = valid_from === undefined ? e.valid_from : valid_from;
-    const vt = valid_to === undefined ? e.valid_to : valid_to;
+    const vf = valid_from === undefined ? e.valid_from : this._normIso(valid_from);
+    const vt = valid_to === undefined ? e.valid_to : this._normIso(valid_to);
     const effFrom = vf ?? e.asserted_at; // Default-Fallback
     if (vt != null && Date.parse(vt) <= Date.parse(effFrom)) throw new EngineError('INVALID_PARAMETER_FORMAT', 'valid_to ≤ valid_from (leeres Intervall)');
     this.db.prepare("UPDATE knowledge_edges SET valid_from=?, valid_to=?, updated_at=datetime('now') WHERE triple_hash=?").run(vf ?? null, vt ?? null, hash);
@@ -733,19 +736,22 @@ export class Engine {
     if ((this.spec.multiValuePredicates || []).includes(predicate)) {
       throw new EngineError('NOT_APPLICABLE', 'supersedeTemporally gilt nur für single-value-Prädikate');
     }
-    const at = as_of ?? new Date(this._now()).toISOString();
-    if (!this._validIso(at)) throw new EngineError('INVALID_PARAMETER_FORMAT', 'as_of kein ISO-Datum');
+    if (!this._validIso(as_of)) throw new EngineError('INVALID_PARAMETER_FORMAT', 'as_of kein ISO-Datum');
+    const at = this._normIso(as_of) ?? new Date(this._now()).toISOString(); // 🟡-5: UTC-Z
     const newHash = tripleHash(subject, predicate, object);
+    const sNode = this.db.prepare('SELECT id FROM knowledge_nodes WHERE name = ?').get(subject);
+    // 🔴-1: Inversions-Guard — schließt KEINEN Vorgänger, dessen Gültigkeit erst AB/NACH `at` beginnt
+    // (sonst valid_to ≤ valid_from → leeres Intervall → Fakt nirgends mehr sichtbar = stiller Verlust).
+    const openPred = sNode ? this.db.prepare("SELECT triple_hash, valid_from, asserted_at FROM knowledge_edges WHERE subject_id=? AND predicate=? AND local_status='active' AND valid_to IS NULL").all(sNode.id, predicate).filter((e) => e.triple_hash !== newHash) : [];
+    for (const e of openPred) {
+      if (Date.parse(e.valid_from ?? e.asserted_at) >= Date.parse(at)) {
+        throw new EngineError('INVALID_PARAMETER_FORMAT', 'as_of liegt vor valid_from eines offenen Vorgängers (Intervall-Inversion)');
+      }
+    }
     // Neuen Fakt sicherstellen — VOR der Tx (storeTriple öffnet eine eigene Transaktion; kein nesting).
     if (!this._getEdge(newHash)) this.storeTriple({ subject, predicate, object, confidence, source_type, asserted_at: at });
     return this._tx(() => {
-      const sNode = this.db.prepare('SELECT id FROM knowledge_nodes WHERE name = ?').get(subject);
-      // alle OFFENEN aktiven same-(s,p)-Fakten (außer dem neuen) schließen — nicht-destruktiv
-      if (sNode) {
-        for (const e of this.db.prepare("SELECT triple_hash FROM knowledge_edges WHERE subject_id=? AND predicate=? AND local_status='active' AND valid_to IS NULL").all(sNode.id, predicate)) {
-          if (e.triple_hash !== newHash) this.db.prepare("UPDATE knowledge_edges SET valid_to=?, updated_at=datetime('now') WHERE triple_hash=?").run(at, e.triple_hash);
-        }
-      }
+      for (const e of openPred) this.db.prepare("UPDATE knowledge_edges SET valid_to=?, updated_at=datetime('now') WHERE triple_hash=?").run(at, e.triple_hash);
       this.db.prepare("UPDATE knowledge_edges SET valid_from=?, valid_to=NULL, updated_at=datetime('now') WHERE triple_hash=?").run(at, newHash);
       return { triple_hash: newHash, valid_from: at };
     });

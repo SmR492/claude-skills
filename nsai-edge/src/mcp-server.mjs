@@ -67,7 +67,7 @@ export const TOOLS = [
   {
     name: 'graph__verify',
     description: 'Prüft eine Aussage (Subjekt-Prädikat-Objekt) deterministisch gegen das Gedächtnis → supported / contradicted / unknown (open-world: Abwesenheit = unknown, nie contradicted). Für halluzinationsfreies Reasoning vor dem Antworten.',
-    inputSchema: S({ subject: { type: 'string' }, predicate: { type: 'string' }, object: { type: 'string' } }, ['subject', 'predicate', 'object']),
+    inputSchema: S({ subject: { type: 'string' }, predicate: { type: 'string' }, object: { type: 'string' }, as_of: { type: 'string', description: 'ISO-Zeitpunkt T (UC-BT): zu T verifizieren' } }, ['subject', 'predicate', 'object']),
   },
   {
     name: 'graph__search',
@@ -158,7 +158,7 @@ export class McpServer {
           result = this.engine.supersedeTemporally({ subject: args.subject, predicate: args.predicate, object: args.object, as_of: args.as_of ?? null, confidence: args.confidence ?? 700 });
           break;
         case 'graph__verify':
-          result = this.engine.verify({ subject: args.subject, predicate: args.predicate, object: args.object });
+          result = this.engine.verify({ subject: args.subject, predicate: args.predicate, object: args.object, as_of: args.as_of ?? null });
           break;
         case 'graph__search':
           result = this.engine.search({ term: args.term, limit: args.limit ?? 10, max_hops: args.max_hops ?? 3 });

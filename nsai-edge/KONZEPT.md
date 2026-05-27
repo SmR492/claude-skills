@@ -950,4 +950,9 @@ Deferred-Verfeinerungen: Slice #1b (OUT→IN-Reaktivierung + Multi-Justification
 
 **Fehlerfälle (UC-BT):** leeres/negatives Intervall (`valid_to ≤ valid_from`) → Fehler; ungültiges ISO-Datum → Fehler; unbekannter Hash bei `setValidity` → `null` (kein Schreiben); `as_of` ohne Treffer → leeres Ergebnis (kein Crash); `supersedeTemporally` ohne offenen Vorgänger → legt nur den neuen Fakt an (kein Fehler); Mehrwert-Prädikat bei `supersedeTemporally` → nicht anwendbar; fehlende `valid_*` = offen gültig (open-world); `DATABASE_LOCKED` → Retry/fail-closed.
 
-> **Slice #5b (deferred):** `as_of` auch auf `search`/`verify` (temporale Relevanz/Verifikation); föderierte Gültigkeit (bräuchte Wire-v2 — bewusst nicht jetzt); LLM-gestützte Widerspruchs-Erkennung bleibt Agenten-Aufgabe (nicht-deterministisch).
+**Bekannte Grenzen (Adversarial-Runde, bewusst akzeptiert):**
+- **🟡-3 Föderations-Asymmetrie:** ein lokal temporal abgelöster Fakt (`valid_to` gesetzt, aber `local_status='active'`) wird weiter exportiert; der Peer hat kein `valid_to` → sieht ihn als offen. `supersedeTemporally` wirkt **rein lokal** (konsistent mit „valid_* nicht föderiert"). Föderierte Gültigkeit bräuchte Wire-v2 → Slice #5b.
+- **🟡-5 UTC-Pflicht:** alle Zeitstempel werden bei `setValidity`/`supersedeTemporally` auf UTC-`Z` normalisiert (`_normIso`), da der as-of-Vergleich lexikografisch ist. Offset-Eingaben (`+02:00`) werden korrekt umgerechnet.
+- **🔴-1 Inversions-Schutz:** `supersedeTemporally` weist eine Ablösung ab, deren `as_of` vor dem `valid_from` eines offenen Vorgängers liegt (verhindert leeres/invertiertes Intervall = stiller Verlust).
+
+> **Slice #5b (deferred):** `as_of` auch auf `search`; föderierte Gültigkeit (Wire-v2 — bewusst nicht jetzt); LLM-gestützte Widerspruchs-Erkennung bleibt Agenten-Aufgabe (nicht-deterministisch). (`verify` hat `as_of` bereits.)

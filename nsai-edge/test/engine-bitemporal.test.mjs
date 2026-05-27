@@ -78,6 +78,34 @@ test('AC-13.11: supersedeTemporally — Mehrwert-Prädikat abgewiesen; existiere
   assert.equal(e._getEdge(tripleHash('Firma', 'ceo', 'Bob')).valid_from, T2023);
 });
 
+test('🔴-1: supersedeTemporally weist Intervall-Inversion ab (as_of vor Vorgänger-valid_from)', () => {
+  const e = new Engine();
+  const future = new Date(Date.now() + 90 * 86400000).toISOString();
+  const h = e.storeTriple({ subject: 'Amt', predicate: 'haelt', object: 'Erst', confidence: 800 }).triple_hash;
+  e.setValidity(h, { valid_from: future }); // Vorgänger gilt erst ab +90 Tagen
+  // Ablösung „jetzt" (vor dem Vorgänger-Start) wäre eine Inversion → fail-closed, kein stiller Verlust
+  assert.throws(() => e.supersedeTemporally({ subject: 'Amt', predicate: 'haelt', object: 'Zweit', as_of: new Date().toISOString() }), /INVALID_PARAMETER_FORMAT/);
+  assert.equal(e._getEdge(h).valid_to, null); // Vorgänger unangetastet (nicht invertiert)
+});
+
+test('🟡-5: Offset-Zeitstempel werden auf UTC-Z normalisiert (korrekte as-of-Fensterung)', () => {
+  const e = new Engine();
+  const h = e.storeTriple({ subject: 'Termin', predicate: 'ist', object: 'fix', confidence: 700, asserted_at: '2019-01-01T00:00:00Z' }).triple_hash;
+  e.setValidity(h, { valid_from: '2026-03-01T00:00:00+02:00' }); // = 2026-02-28T22:00:00Z
+  assert.equal(e._getEdge(h).valid_from, '2026-02-28T22:00:00.000Z'); // normalisiert gespeichert
+  // as_of knapp nach dem echten UTC-Instant → sichtbar (lexikografisch wäre es ohne Norm. falsch)
+  assert.equal(e.query('Termin', { as_of: '2026-02-28T23:00:00Z' }).edges.some((x) => x.object === 'fix'), true);
+  assert.equal(e.query('Termin', { as_of: '2026-02-28T21:00:00Z' }).edges.some((x) => x.object === 'fix'), false);
+});
+
+test('🟡-2: verify mit as_of prüft zu T (Zukunfts-Fakt jetzt unknown, später supported)', () => {
+  const e = new Engine();
+  const h = e.storeTriple({ subject: 'Regel', predicate: 'gilt', object: 'neu', confidence: 800, asserted_at: '2019-01-01T00:00:00Z' }).triple_hash;
+  e.setValidity(h, { valid_from: T2023 });
+  assert.equal(e.verify({ subject: 'Regel', predicate: 'gilt', object: 'neu' }).verdict, 'supported');         // jetzt (2026 ≥ 2023)
+  assert.equal(e.verify({ subject: 'Regel', predicate: 'gilt', object: 'neu', as_of: T2021 }).verdict, 'unknown'); // 2021 < 2023
+});
+
 test('AC-13.12: Zukunfts-valid_from erlaubt; erscheint erst ab valid_from', () => {
   const e = new Engine();
   const future = new Date(Date.now() + 30 * 86400000).toISOString();
