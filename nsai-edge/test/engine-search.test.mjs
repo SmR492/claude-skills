@@ -102,3 +102,20 @@ test('AC-11.2/EP: LIKE-Sonderzeichen im term literal; Episoden im Hybrid-Ergebni
   assert.ok(r.seeds.includes('Rate_50'));      // literal _ gematcht
   assert.equal(r.episodes.length, 1);          // Episoden-Recall im Hybrid
 });
+
+test('🟡-3: trust-diskontiert — limited-Peer-Tripel rankt trotz höherer confidence nicht über full', () => {
+  const e = new Engine();
+  e.peerAdd('peer:lim', new Engine().identity.publicKeyPem); e.peerTrust('peer:lim', 'limited');
+  e.storeTriple({ subject: 'Hub', predicate: 'zeigt', object: 'Voll', confidence: 600 });          // self=full → ×1.0 = 0.60
+  const h = e.storeTriple({ subject: 'Hub', predicate: 'zeigt', object: 'Limit', confidence: 950 }).triple_hash;
+  e.db.prepare("UPDATE knowledge_edges SET origin_peer_id='peer:lim' WHERE triple_hash=?").run(h); // limited → ×0.5 = 0.475
+  const objs = e.search({ term: 'Hub' }).results.map((r) => r.object);
+  assert.ok(objs.indexOf('Voll') < objs.indexOf('Limit')); // trotz 950 > 600 rankt Voll vorn
+});
+
+test('🟡-2: ungültige Parameter werden geklemmt (max_hops<=0 liefert trotzdem)', () => {
+  const e = new Engine();
+  chain(e, 'Alpha', 'Beta');
+  assert.ok(e.search({ term: 'Alpha', max_hops: 0 }).results.length > 0);   // auf 1 geklemmt
+  assert.ok(e.search({ term: 'Alpha', max_iter: -5, tol: 0 }).results.length > 0); // kein DoS/Crash
+});

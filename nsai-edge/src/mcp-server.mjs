@@ -56,7 +56,7 @@ export const TOOLS = [
   {
     name: 'graph__search',
     description: 'Hybrid-Retrieval (deterministisch): lexikalische Seed-Suche + belief-gewichtete Personalized PageRank über die k-Hop-Nachbarschaft + Episoden-Recall. „Antwort oder Weg dahin" auch ohne exakten Knotennamen.',
-    inputSchema: S({ term: { type: 'string' }, limit: { type: 'integer' }, max_hops: { type: 'integer' } }, ['term']),
+    inputSchema: S({ term: { type: 'string' }, limit: { type: 'integer', minimum: 1, maximum: 50 }, max_hops: { type: 'integer', minimum: 1, maximum: 5 } }, ['term']),
   },
   {
     name: 'graph__record_episode',

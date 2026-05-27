@@ -592,13 +592,21 @@ export class Engine {
   // Deterministisch durch feste Knoten-/Kanten-Summationsordnung (triple_hash) + stabilen Tie-Break.
   search({ term, limit = 10, max_hops = 3, max_iter = 100, tol = 1e-6 } = {}) {
     const cap = Math.min(Number.isInteger(limit) && limit > 0 ? limit : 10, 50);
+    // Parameter klemmen (Adversarial 🟡-1/2: ungeklemmt → CPU-DoS / still-leeres Ergebnis).
+    max_hops = Math.min(Math.max(Number.isInteger(max_hops) ? max_hops : 3, 1), 5);
+    max_iter = Math.min(Math.max(Number.isInteger(max_iter) ? max_iter : 100, 1), 200);
+    tol = (Number.isFinite(tol) && tol > 0) ? tol : 1e-6;
     if (typeof term !== 'string' || term.trim().length < 2) return { seeds: [], results: [], episodes: [], converged: true, truncated: false };
     const like = `%${term.replace(/[\\%_]/g, (m) => `\\${m}`)}%`;
     const seeds = this.db.prepare("SELECT id, name FROM knowledge_nodes WHERE name LIKE ? ESCAPE '\\' ORDER BY name").all(like);
     if (!seeds.length) return { seeds: [], results: [], episodes: this.recallEpisodes({ term }).episodes, converged: true, truncated: false };
 
     // 1) k-Hop-Subgraph (ungerichtet für Mitgliedschaft) über aktive Kanten.
-    const edges = this.db.prepare("SELECT triple_hash, subject_id, predicate, object_id, confidence FROM knowledge_edges WHERE local_status='active'").all();
+    const edges = this.db.prepare("SELECT triple_hash, subject_id, predicate, object_id, confidence, origin_peer_id FROM knowledge_edges WHERE local_status='active'").all();
+    // Relevanz-Gewicht = trust-diskontierte Konfidenz (Adversarial 🟡-3): ein limited/niedrig-
+    // vertrauter Origin soll nicht allein wegen hoher gespeicherter confidence oben ranken.
+    // Das ist eine RELEVANZ-Linse, NICHT die volle Belief-Auflösung (resolveBelief bleibt zuständig).
+    const edgeWeight = (e) => (e.confidence / 1000) * (trustFactor(this.spec, this._originTrust(e.origin_peer_id)) / 1000);
     const adjAll = new Map(); // node -> [{other, dir, e}]
     for (const e of edges) {
       (adjAll.get(e.subject_id) ?? adjAll.set(e.subject_id, []).get(e.subject_id)).push(e);
@@ -617,8 +625,8 @@ export class Engine {
     const subEdges = edges.filter((e) => inSub.has(e.subject_id) && inSub.has(e.object_id))
       .sort((a, b) => (a.triple_hash < b.triple_hash ? -1 : a.triple_hash > b.triple_hash ? 1 : 0));
     const nodes = [...inSub].sort();
-    const outW = new Map(); // summe der Out-Gewichte je Knoten
-    for (const e of subEdges) outW.set(e.subject_id, (outW.get(e.subject_id) ?? 0) + e.confidence / 1000);
+    const outW = new Map(); // summe der Out-Gewichte je Knoten (trust-diskontiert)
+    for (const e of subEdges) outW.set(e.subject_id, (outW.get(e.subject_id) ?? 0) + edgeWeight(e));
 
     // 3) Personalized PageRank (Power-Iteration, deterministische Ordnung).
     const N = nodes.length;
@@ -632,8 +640,9 @@ export class Engine {
       let dangling = 0;
       for (const n of nodes) if (!outW.get(n)) dangling += r.get(n); // Sinks: Masse → Teleport
       for (const e of subEdges) { // sortiert → feste Summationsreihenfolge
-        const w = (e.confidence / 1000) / outW.get(e.subject_id);
-        nr.set(e.object_id, nr.get(e.object_id) + d * w * r.get(e.subject_id));
+        const ow = outW.get(e.subject_id);
+        if (!ow) continue; // dangling (kein effektives Out-Gewicht) → Masse via Teleport
+        nr.set(e.object_id, nr.get(e.object_id) + d * (edgeWeight(e) / ow) * r.get(e.subject_id));
       }
       let delta = 0;
       for (const n of nodes) {
@@ -649,7 +658,7 @@ export class Engine {
     const scored = subEdges.map((e) => ({
       subject: this._nodeName(e.subject_id), predicate: e.predicate,
       object: this._nodeName(e.object_id), confidence: e.confidence,
-      score: (r.get(e.subject_id) + r.get(e.object_id)) * (e.confidence / 1000),
+      score: (r.get(e.subject_id) + r.get(e.object_id)) * edgeWeight(e),
       source: (exactName.has(e.subject_id) || exactName.has(e.object_id)) ? 'lexical' : 'graph',
       triple_hash: e.triple_hash,
     })).sort((a, b) => (b.score - a.score) || (a.triple_hash < b.triple_hash ? -1 : 1));
