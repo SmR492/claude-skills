@@ -78,6 +78,8 @@ Diese Punkte mindern die lokale Produktivnutzung (Ziele 1/2/4/5) nicht; sie betr
 
 **Recall vs. Precision:** die Tabellen-Extraktion ist bewusst recall-orientiert (lieber ein Fakt zu viel) — Rauschen wird über Konfidenz/Decay/Belief mit der Zeit abgewertet, nicht hart gefiltert.
 
+**Precision-Bewertung (2026-05-27, gemessen):** Stichprobe über 12.141 Kanten ergab **~97% bedeutungstragende Relationen** — die Top-Prädikate sind echte Domänen-Relationen (`typ`, `status`, `kriterium`, `beschreibung`, `route`, `akteur`, `pflicht`, `test_klasse`, `verhalten`, `werkzeug`). „Geringwertig" sind nur ~42 `hat_wert`-Fallbacks (Header fehlte, Objekt aber sinnvoll) + ~289 Boolean-Objekte (`pflicht→Ja`) = ~2,7%, allesamt gültige Fakten. **Entscheidung:** KEINE destruktive Bereinigung des Bestands (würde gegen Recall>Precision wertvolle Fakten löschen). Precision-Verbesserung greift nur in der **künftigen** Ingestion: triviale Boolean-/Separator-Zellen werden übersprungen, der `hat_wert`-Fallback nur bei sinnvollem Objekt (≥3 Zeichen, kein reines Satzzeichen) gesetzt.
+
 #### Akzeptanzkriterien (UC-13)
 | # | Kriterium | Test-Typ | Test-Klasse | Status |
 |---|---|---|---|---|
