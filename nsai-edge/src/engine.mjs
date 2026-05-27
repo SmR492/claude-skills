@@ -275,6 +275,10 @@ export class Engine {
           const concl = this._bind(rule.conclusion, binding.vars);
           const confidence = trunc((Math.min(...binding.confidences) * rule.factor) / 1000);
           const hash = tripleHash(concl.subject, concl.predicate, concl.object);
+          // DAG-Invariante (UC-TMS, AC-9.3): keine zyklus-bildende Justification — eine Prämisse
+          // darf den Konklusions-Hash nicht (transitiv) selbst ableiten, sonst oszilliert die
+          // Retraktions-Propagation. Solche Bindungen werden übersprungen.
+          if (binding.hashes.includes(hash) || binding.hashes.some((h) => this._dependsOn(h, hash))) continue;
           const existing = this._getEdge(hash);
           const status = confidence < this.spec.quarantineThreshold ? 'quarantined' : 'active';
           const derivedObj = { from: binding.hashes, rule_id: rule.id };
@@ -323,18 +327,74 @@ export class Engine {
   }
   _bind(pattern, vars) { const r = (v) => (v.startsWith('?') ? vars[v] : v); return { subject: r(pattern.subject), predicate: r(pattern.predicate), object: r(pattern.object) }; }
 
+  // ---- UC-TMS: Justification-basierte Belief-Revision (Slice #1) ------
+  // Premissen-Hashes eines Edges (Single-Justification: derived_from = {from:[…], rule_id}).
+  _premises(hash) {
+    const e = this._getEdge(hash);
+    if (!e || !e.derived_from) return [];
+    try { return JSON.parse(e.derived_from).from ?? []; } catch { return []; }
+  }
+  // Leitet `hash` (transitiv) aus `target` ab? (Zyklus-Schutz für die DAG-Invariante.)
+  _dependsOn(hash, target, visited = new Set()) {
+    if (visited.has(hash)) return false;
+    visited.add(hash);
+    for (const p of this._premises(hash)) {
+      if (p === target || this._dependsOn(p, target, visited)) return true;
+    }
+    return false;
+  }
+  // Retraktions-Propagation (AC-9.1/9.2/9.4/9.6/9.7): verliert eine Prämisse den IN-Status,
+  // werden alle (transitiv) darauf gegründeten, defeasiblen Edges auf `retracted` gesetzt.
+  // Status-only: keine Live-Konfidenz-/Vector-Clock-Änderung (AC-9.5). Caller stellt die
+  // Transaktion (vermeidet verschachtelte BEGIN). visited-Set garantiert Terminierung.
+  _propagateRetraction(changedHash) {
+    const queue = [changedHash];
+    const visited = new Set();
+    let retracted = 0;
+    while (queue.length) {
+      const h = queue.shift();
+      if (visited.has(h)) continue;
+      visited.add(h);
+      // Dependents = aktive Edges, deren derived_from.from `h` enthält.
+      for (const e of this.db.prepare("SELECT triple_hash, temporality, derived_from FROM knowledge_edges WHERE local_status='active'").all()) {
+        if (!e.derived_from) continue;
+        let from; try { from = JSON.parse(e.derived_from).from ?? []; } catch { from = []; }
+        if (!from.includes(h)) continue;
+        if (e.temporality === 'eternal') continue; // strikt (A5/AC-9.4)
+        this.db.prepare("UPDATE knowledge_edges SET local_status='retracted', updated_at=datetime('now') WHERE triple_hash=?").run(e.triple_hash);
+        retracted++;
+        queue.push(e.triple_hash); // transitiv (AC-9.2)
+      }
+    }
+    return retracted;
+  }
+
   // ---- UC-04: Decay & Reinforcement (nur lokaler Live-Wert) ----------
   decayPass({ dryRun = false } = {}) {
     const edges = this.db.prepare("SELECT * FROM knowledge_edges WHERE local_status='active'").all();
+    const plan = []; // { hash, newConf, supersede }
     let decayed = 0, superseded = 0;
     for (const e of edges) {
       const reduction = this.spec.decayPerPeriod[e.temporality] ?? 0;
       if (reduction === 0) continue;
       const newConf = Math.max(0, e.confidence - reduction);
-      if (newConf < this.spec.deleteThreshold) { superseded++; if (!dryRun) this.db.prepare("UPDATE knowledge_edges SET confidence=?, local_status='superseded', updated_at=datetime('now') WHERE triple_hash=?").run(newConf, e.triple_hash); }
-      else { decayed++; if (!dryRun) this.db.prepare("UPDATE knowledge_edges SET confidence=?, updated_at=datetime('now') WHERE triple_hash=?").run(newConf, e.triple_hash); }
+      const supersede = newConf < this.spec.deleteThreshold;
+      if (supersede) superseded++; else decayed++;
+      plan.push({ hash: e.triple_hash, newConf, supersede });
     }
-    return { decayed, superseded, dryRun };
+    if (dryRun) return { decayed, superseded, retracted: 0, dryRun };
+    // 🔴-2: Decay-/Supersede-Writes UND Retraktions-Propagation in EINER Transaktion (fail-closed,
+    // kein Zwischenzustand „Prämisse weg, Schlussfolgerung noch aktiv").
+    const retracted = this._tx(() => {
+      let r = 0;
+      for (const p of plan) {
+        if (p.supersede) this.db.prepare("UPDATE knowledge_edges SET confidence=?, local_status='superseded', updated_at=datetime('now') WHERE triple_hash=?").run(p.newConf, p.hash);
+        else this.db.prepare("UPDATE knowledge_edges SET confidence=?, updated_at=datetime('now') WHERE triple_hash=?").run(p.newConf, p.hash);
+      }
+      for (const p of plan) if (p.supersede) r += this._propagateRetraction(p.hash);
+      return r;
+    });
+    return { decayed, superseded, retracted, dryRun };
   }
   // GC: alte superseded-Tombstones + Waisen-Knoten physisch entfernen (KONZEPT §8.4).
   gc({ maxAgeDays = 30 } = {}) {
@@ -361,7 +421,13 @@ export class Engine {
     this.db.prepare("UPDATE knowledge_edges SET local_status='active', updated_at=datetime('now') WHERE triple_hash=?").run(hash);
     return true;
   }
-  reject(hash) { this.db.prepare("UPDATE knowledge_edges SET local_status='superseded', updated_at=datetime('now') WHERE triple_hash=?").run(hash); }
+  reject(hash) {
+    // UC-TMS: Reject einer Prämisse propagiert auf abgeleitete Fakten (eine Transaktion).
+    return this._tx(() => {
+      this.db.prepare("UPDATE knowledge_edges SET local_status='superseded', updated_at=datetime('now') WHERE triple_hash=?").run(hash);
+      this._propagateRetraction(hash);
+    });
+  }
 
   // ---- UC-08: Merge eines bereits verifizierten Wire-Tripels ---------
   // Widersprüche werden NICHT mehr hart quarantänisiert — sie koexistieren aktiv und
@@ -413,6 +479,10 @@ export class Engine {
         const newStatus = peerTrust === 'untrusted' ? 'quarantined' : existing.local_status;
         this.db.prepare("UPDATE knowledge_edges SET confidence=?, asserted_confidence=?, source_type=?, asserted_at=?, origin_peer_id=?, relayed_by=?, signature=?, vector_clock=?, local_status=?, updated_at=datetime('now') WHERE triple_hash=?")
           .run(liveConf, asserted, sourceType, assertedAt, wire.origin_peer_id, wire.relayed_by ?? null, wire.signature, JSON.stringify(vc), newStatus, wire.triple_hash);
+        // Hinweis (Adversarial-Runde 2): der active→quarantined-Flip ist hier über die trust-primäre
+        // Präzedenz unerreichbar (F1.13 „dead-but-correct"). Eine Retraktions-Propagation gehört NICHT
+        // hierher — mergeIncoming läuft ohne Tx. Würde die Präzedenz je untrusted-Gewinne zulassen,
+        // muss dieser Pfad transaktional werden und dann _propagateRetraction aufrufen (Slice #1b).
       } else {
         this.db.prepare("UPDATE knowledge_edges SET confidence=?, vector_clock=?, updated_at=datetime('now') WHERE triple_hash=?")
           .run(liveConf, JSON.stringify(vc), wire.triple_hash);
@@ -451,8 +521,14 @@ export class Engine {
   }
   peerRotate(peerId, newPublicKeyPem) { const fp = fingerprint(newPublicKeyPem); this.db.prepare('UPDATE peers SET public_key=?, fingerprint=? WHERE peer_id=?').run(newPublicKeyPem, fp, peerId); return fp; }
   peerRevoke(peerId) {
-    this.db.prepare("UPDATE peers SET trust_level='untrusted' WHERE peer_id=?").run(peerId);
-    this.db.prepare("UPDATE knowledge_edges SET local_status='quarantined' WHERE origin_peer_id=? AND local_status='active'").run(peerId);
+    // 🔴-3: quarantänisierte Edges sind verlorene Prämissen → ihre Schlussfolgerungen retraktieren
+    // (sonst bleiben verwaiste Fakten aktiv UND werden weiter exportiert — Halluzinationspfad). Eine Tx.
+    return this._tx(() => {
+      this.db.prepare("UPDATE peers SET trust_level='untrusted' WHERE peer_id=?").run(peerId);
+      const affected = this.db.prepare("SELECT triple_hash FROM knowledge_edges WHERE origin_peer_id=? AND local_status='active'").all(peerId).map((r) => r.triple_hash);
+      this.db.prepare("UPDATE knowledge_edges SET local_status='quarantined' WHERE origin_peer_id=? AND local_status='active'").run(peerId);
+      for (const h of affected) this._propagateRetraction(h);
+    });
   }
 
   // ---- Export / Pull / Push / Clone (UC-06/07/11) --------------------
