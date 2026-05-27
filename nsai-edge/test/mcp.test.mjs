@@ -66,3 +66,15 @@ test('notifications/initialized → keine Antwort', () => {
   const s = server();
   assert.equal(s.handle({ jsonrpc: '2.0', method: 'notifications/initialized' }), null);
 });
+
+test('graph__record_episode + recall + store_triple-Link (UC-EP)', () => {
+  const s = server();
+  const call = (name, args, id = 1) => JSON.parse(s.handle({ jsonrpc: '2.0', id, method: 'tools/call', params: { name, arguments: args } }).result.content[0].text);
+  const ep = call('graph__record_episode', { content: 'Nutzer meldete Glatteis' });
+  assert.ok(ep.episode_id);
+  const st = call('graph__store_triple', { subject: 'Glatteis', predicate: 'verursacht', object: 'Unfall', episode_id: ep.episode_id });
+  assert.equal(st.episode_linked, true);
+  const rc = call('graph__recall_episodes', { term: 'Glatteis' });
+  assert.equal(rc.episodes.length, 1);
+  assert.equal(rc.truncated, false);
+});

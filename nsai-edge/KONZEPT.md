@@ -656,6 +656,9 @@ Conformance-Vektor erzwingt identischen Hash für dasselbe Tripel in beiden Spra
 | Rebutting vs. Undercutting | Defeater gegen das Objekt vs. gegen die Inferenz-Verknüpfung | Pollock, Defeasible Reasoning |
 | Epistemische Entrenchment | Resistenz eines Glaubens gegen Rücknahme = Retraktions-Priorität | AGM (Gärdenfors/Makinson) |
 | strikt vs. defeasible | nicht-relabelbar (`eternal`) vs. revidierbar | Defeasible Logic |
+| Episode | Roh-Erlebnis mit Zeit/Kontext (episodische Schicht), lokal/peer-privat | NS-Mem, Tulving (episodisch vs. semantisch) |
+| Konsolidierung | Verknüpfung Episode→Fakt (Audit/Erklärbarkeit) + Recency-Refresh, kein Count-Boost | NS-Mem, Memory consolidation |
+| episodisch vs. semantisch | Roh-Erlebnis (wann/woher) vs. verdichtetes Wissen (Tripel) | NS-Mem 3-Schichten |
 
 ## 10. Probabilistik-Statement (§2.6)
 
@@ -760,3 +763,48 @@ Aus einem Quellenvergleich (Neuro-symbolische KI / Kautz-Taxonomie; Truth-Mainte
 **Fehlerfälle (UC-TMS):** zyklus-bildende `derived_from` → von `infer()` abgewiesen (AC-9.3), Propagation terminiert per `visited`-Set; fehlende Prämisse (Hash nicht (mehr) vorhanden, z.B. GC) → wie nicht-IN behandelt (undercutting, `retracted`); Propagation während Föderations-Merge → dieselbe Transaktion, sonst Rollback.
 
 > **Verschoben auf Slice #1b (Review-Runden 1+2, dokumentiert):** Re-Aktivierung OUT→IN bei Prämissen-Rückkehr (braucht Trigger im re-assert-Pfad + binäre „kein offenes Rebutting"-Bedingung via `resolveBelief`); Multi-Justification (mehrere `derived_from` je Edge). Beides ist für die Halluzinations-Prävention (Retraktions-Richtung) nicht erforderlich. **Bekannte Einschränkung (Adversarial-Runde 2, 🟡):** solange OUT→IN fehlt, bleibt ein `retracted` Edge inaktiv, auch wenn eine Prämisse lokal re-asserted oder die Aussage von einem Peer neu behauptet wird (mergeIncoming gibt dann `accepted` zurück, der Edge bleibt aber `retracted`/unsichtbar bis #1b). Kein Datenverlust — nur keine automatische Re-Validierung.
+
+### UC-EP — Episodisches Gedächtnis + Konsolidierung (Slice #2)
+
+**Akteur:** System (deterministisch, Tier 1, **kein LLM** — die Extraktion von Tripeln aus Roh-Text bleibt beim aufrufenden Agenten) · **Route:** intern + MCP-Tools `graph__record_episode`/`graph__recall_episodes` · **Roadmap:** §H.2 Punkt 2 (NS-Mem 3-Schichten).
+
+**Ziel (A1/NS-Mem):** NSAI bekommt eine **episodische Schicht** (Roh-Erlebnisse mit Zeit/Kontext) neben der **semantischen** (Tripel) und der **Regel**-Schicht. Konsolidierung verknüpft Episoden mit den daraus entstandenen Fakten (Provenienz/Erklärbarkeit: „warum glaube ich X? → Episoden E1,E2") und hält deren **Recency** frisch — **ohne** Count-Inflation (Leitplanke „Aktualität statt Anzahl der Quellen"; A4).
+
+**Abgrenzung Föderation (wichtig):** Episoden sind **lokal/peer-privat** — sie sind **nicht** Teil des Wire-Vertrags, werden nie exportiert/gemergt. Föderiert wird ausschließlich die semantische Schicht (signierte Tripel). Damit ist die episodische Schicht CRDT-/Wire-neutral.
+
+**Datenmodell (neu, additiv):**
+- `episodes`: `id` (uuid PK), `content` (Roh-Text, Länge 1–8000, fail-closed), `source_type` (nur **Herkunfts-Label** der Episode, **KEINE** Autoritäts-Stufe wie das `source_type` der Tripel/§B — Episoden durchlaufen keine Belief-Konkurrenz), `occurred_at` (ISO), `context_slug` (nullable), `created_at`.
+- `episode_triples`: `episode_id` + `triple_hash` (PK-Paar) — reiner **Audit-Trail**, welche Fakten aus welcher Episode entstanden. FK auf `episodes` ON DELETE CASCADE; **bewusst kein FK auf edges**: Tripel können per GC (§8.4) physisch verschwinden → der Link wird dann **verwaist** (tolerierte Audit-Spur). Invariante: alle Lese-Pfade behandeln verwaiste Links definiert (LEFT JOIN/Überspringen, kein Crash).
+
+**Status-Unabhängigkeit (🔴-1, entschieden):** Ein `episode_triples`-Link ist **status-unabhängig** — er darf auf ein Tripel **jeden** `local_status` zeigen (active/quarantined/superseded/retracted); er dokumentiert das Erlebnis, nicht den aktuellen Glauben. Ein Episode-getriebenes `storeTriple` auf ein `retracted` Tripel **reaktiviert es NICHT** (OUT→IN bleibt Slice #1b): `storeTriple` lässt `local_status` unberührt, refresht aber Recency (`asserted_at`). `episodesForTriple` liefert die Episoden samt aktuellem Tripel-Status, blendet nichts aus.
+
+**Ablauf (nummeriert, verzweigt):**
+1. `recordEpisode({content, source_type, occurred_at?, context_slug?})`: `content` leer/>8000 → fail-closed; `occurred_at` default = jetzt, **Zukunftsdatum** → auf jetzt geklemmt (wie storeTriple); persistiert Episode, gibt `episode_id` zurück.
+2. `storeTriple({…, episode_id?})`: ist `episode_id` gesetzt → Tripel-Write **und** `episode_triples`-Link in **derselben Transaktion** (atomar). Existiert die Episode nicht → Link wird übersprungen + Reason geloggt, der Tripel-Write bleibt gültig. Recency folgt dem bestehenden `asserted_at`-Mechanismus (Refresh on re-assert); **kein** Konfidenz-Boost je Episode (A4 — Korroboration ≠ Zählen). `local_status` bleibt unberührt.
+3. `recallEpisodes({context_slug?, term?, since?, limit=25})`: Episoden **recency-geordnet** (`occurred_at` DESC), optional gefiltert nach Kontext / Volltext-`term` (LIKE) / Zeitfenster; `limit` hart auf 100 gekappt, `truncated`-Flag wie UC-02.
+4. `episodesForTriple(triple_hash)`: die Episoden hinter einem Fakt + dessen aktueller `local_status` (Erklärbarkeit). Verwaiste/fehlende Tripel definiert behandelt.
+5. `episodicGc({maxAgeDays})`: alte Episoden + ihre Links physisch entfernen; zusätzlich verwaiste Links (Ziel-Tripel weg) aufräumen; **semantische Tripel bleiben** unangetastet.
+6. Nebenläufigkeit: Schreib-Tools laufen unter WAL + busy_timeout wie der Bestand; `DATABASE_LOCKED` → Retry/fail-closed analog UC-01/04.
+
+| AC | Kriterium | Test-Typ | Status |
+|---|---|---|---|
+| AC-10.1 | `recordEpisode` persistiert Roh-Episode + gibt `episode_id`; `occurred_at` in der Zukunft wird auf jetzt geklemmt. | unit | offen (Slice #2) |
+| AC-10.2 | `storeTriple` mit `episode_id` legt genau einen `episode_triples`-Link an (in derselben Tx wie der Tripel-Write); ohne `episode_id` keinen. | unit | offen |
+| AC-10.3 | Konsolidierung inflationiert die Konfidenz NICHT: dieselbe Aussage aus N Episoden → Konfidenz wie bei einem Re-Assert (kein Count-Boost, A4). | unit | offen |
+| AC-10.4 | Recency-Refresh: `storeTriple` mit `episode_id` aktualisiert `asserted_at` des Ziel-Tripels (messbar), ohne Konfidenz-Boost. | unit | offen |
+| AC-10.5 | `recallEpisodes` recency-geordnet (occurred_at DESC) + respektiert context/term/since; `limit` hart bei 100 gekappt + `truncated`. | unit | offen |
+| AC-10.6 | `episodesForTriple` liefert verknüpfte Episoden + Tripel-Status; status-unabhängig (auch für `retracted` Tripel). | unit | offen |
+| AC-10.7 | Status-Unabhängigkeit: `storeTriple(episode_id)` auf ein `retracted` Tripel legt den Link an, lässt `local_status='retracted'` (keine Reaktivierung, #1b). | unit | offen |
+| AC-10.8 | `episodicGc` entfernt alte Episoden + Links + verwaiste Links; semantische Tripel unangetastet. | unit | offen |
+| AC-10.9 | Verwaister Link (Ziel-Tripel per GC weg) → `episodesForTriple`/`recallEpisodes` crashen nicht, behandeln ihn definiert. | unit | offen |
+| AC-10.10 | Föderations-Parität: Episoden nicht im Wire — `exportSince` enthält keine Episoden-Daten; Links beeinflussen `vector_clock`/Signatur nicht. | unit | offen |
+| AC-10.11 | Additive Migration: bestehende DB ohne `episodes`-Tabellen → Tabellen werden angelegt, Bestandsdaten unberührt. | unit | offen |
+| AC-10.12 | Fehlerfall: leerer/>8000-Zeichen-`content` → fail-closed (kein Schreiben); nicht-existente `episode_id` → Tripel-Write bleibt committet, Link übersprungen. | unit | offen |
+
+**Fehlerfälle (UC-EP):** leerer/überlanger `content` → fail-closed (AC-10.12); `episode_id` auf nicht-existente Episode → Link übersprungen + geloggt, Tripel bleibt gültig (AC-10.12); verwaister Link nach Tripel-GC → definiert (AC-10.9); `recallEpisodes` mit kaputtem `since` → leeres Ergebnis/Fehlerquittung; `episodicGc` läuft nie über semantische Tripel (AC-10.8); `DATABASE_LOCKED` → Retry/fail-closed (Bestands-Verhalten).
+
+**Web-validierte Design-Entscheidungen + Risiken (Quellenvergleich, kritisch geprüft):** Die episodisch/semantisch-Trennung, Konsolidierung, Provenienz/Audit, Recency-Gewichtung und Forgetting/GC decken sich mit dem Stand der Agent-Memory-Forschung 2025/26 (NS-Mem; FadeMem; ACT-R-inspirierte Architekturen; SSGM). **Bewusst NICHT übernommen / validiert:**
+> - **Zugriffs-Frequenz als Signal** (FadeMem): kollidiert nur scheinbar mit der Leitplanke „Aktualität statt Anzahl" — Quellen-/Episoden-*Anzahl* darf den **Belief** nie inflationieren (A4, fix), Zugriffs-Häufigkeit dürfte allenfalls die **GC-Retention** modulieren (anderer Mechanismus, belief-neutral) → deferred, nicht im Belief.
+> - **Memory-Poisoning** (reales, dokumentiertes Risiko): Roh-`content` aus `recallEpisodes` ist **untrusted Data** — ein vergifteter Episode-Text ist ein persistenter Injection-Vektor, wenn der Konsument ihn als Instruktion behandelt. Schutz: (a) Episoden sind lokal/peer-privat (kein Fremd-Poisoning über Föderation), (b) Episoden treiben **nie** direkt den Belief — nur die vom Agenten extrahierten **Tripel** (die durch Trust/Belief/TMS laufen). Konsument MUSS recall-`content` als Daten, nicht als Anweisung behandeln (Threat-Model-Vermerk für den Adversarial-Review).
+
+> **Slice #2b (deferred):** automatische Tripel-Extraktion aus `content` (Agenten-Aufgabe, nicht deterministisch); unscharfe (ähnlichkeitsbasierte) Episoden-Suche ist Teil von Slice #3; zugriffs-frequenz-bewusste GC-Retention (belief-neutral).

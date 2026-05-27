@@ -107,7 +107,7 @@ export class Engine {
   }
 
   // ---- UC-01: Tripel lokal erfassen ----------------------------------
-  storeTriple({ subject, predicate, object, confidence = 700, temporality = 'stable', source_type = 'manual', asserted_at = null, context_slug = null }) {
+  storeTriple({ subject, predicate, object, confidence = 700, temporality = 'stable', source_type = 'manual', asserted_at = null, context_slug = null, episode_id = null }) {
     validateTriple(subject, predicate, object);
     if (!Number.isInteger(confidence) || confidence < 0 || confidence > 1000) throw new EngineError('INVALID_PARAMETER_FORMAT', 'confidence außerhalb 0–1000');
     if (!TEMPORALITIES.has(temporality)) throw new EngineError('INVALID_PARAMETER_FORMAT', 'temporality ungültig');
@@ -118,21 +118,35 @@ export class Engine {
     return this._tx(() => {
       const existing = this._getEdge(hash);
       const clock = this._tick();
+      let result;
       if (existing) {
         const asserted = Math.max(existing.asserted_confidence, confidence);
         const vc = clockMax(JSON.parse(existing.vector_clock), clock);
         const t = this._signSelf({ hash, subject, predicate, object, asserted_confidence: asserted, source_type, asserted_at: ts, temporality: existing.temporality, vector_clock: vc, derived_from: existing.derived_from ? JSON.parse(existing.derived_from) : null });
+        // local_status BLEIBT unberührt (UC-EP: kein OUT→IN durch Re-Assert, das ist Slice #1b).
         this.db.prepare("UPDATE knowledge_edges SET confidence=?, asserted_confidence=?, source_type=?, asserted_at=?, origin_peer_id=?, relayed_by=?, signature=?, vector_clock=?, updated_at=datetime('now') WHERE triple_hash=?")
           .run(Math.max(existing.confidence, confidence), asserted, source_type, ts, this.peerId, this.peerId, t.signature, JSON.stringify(vc), hash);
-        return { triple_hash: hash, confidence: Math.max(existing.confidence, confidence), status: existing.local_status, created: false };
+        result = { triple_hash: hash, confidence: Math.max(existing.confidence, confidence), status: existing.local_status, created: false };
+      } else {
+        const sId = this._ensureNode(subject); const oId = this._ensureNode(object);
+        const t = this._signSelf({ hash, subject, predicate, object, asserted_confidence: confidence, source_type, asserted_at: ts, temporality, vector_clock: clock, derived_from: null });
+        this.db.prepare(
+          `INSERT INTO knowledge_edges (triple_hash, subject_id, predicate, object_id, confidence, asserted_confidence, source_type, asserted_at, temporality, local_status, origin_peer_id, relayed_by, signature, vector_clock, derived_from, context_slug)
+           VALUES (?,?,?,?,?,?,?,?,?, 'active', ?,?,?,?, NULL, ?)`,
+        ).run(hash, sId, predicate, oId, confidence, confidence, source_type, ts, temporality, this.peerId, this.peerId, t.signature, JSON.stringify(clock), context_slug);
+        result = { triple_hash: hash, confidence, status: 'active', created: true };
       }
-      const sId = this._ensureNode(subject); const oId = this._ensureNode(object);
-      const t = this._signSelf({ hash, subject, predicate, object, asserted_confidence: confidence, source_type, asserted_at: ts, temporality, vector_clock: clock, derived_from: null });
-      this.db.prepare(
-        `INSERT INTO knowledge_edges (triple_hash, subject_id, predicate, object_id, confidence, asserted_confidence, source_type, asserted_at, temporality, local_status, origin_peer_id, relayed_by, signature, vector_clock, derived_from, context_slug)
-         VALUES (?,?,?,?,?,?,?,?,?, 'active', ?,?,?,?, NULL, ?)`,
-      ).run(hash, sId, predicate, oId, confidence, confidence, source_type, ts, temporality, this.peerId, this.peerId, t.signature, JSON.stringify(clock), context_slug);
-      return { triple_hash: hash, confidence, status: 'active', created: true };
+      // UC-EP: Konsolidierungs-Link in DERSELBEN Transaktion (atomar). Episode muss existieren,
+      // sonst Link überspringen (Tripel bleibt gültig). Status-unabhängiger Audit-Trail.
+      if (episode_id) {
+        if (this.db.prepare('SELECT 1 FROM episodes WHERE id=?').get(episode_id)) {
+          this.db.prepare('INSERT OR IGNORE INTO episode_triples (episode_id, triple_hash) VALUES (?,?)').run(episode_id, hash);
+          result.episode_linked = true;
+        } else {
+          result.episode_linked = false; // nicht-existente Episode → Link übersprungen
+        }
+      }
+      return result;
     });
   }
 
@@ -528,6 +542,48 @@ export class Engine {
       const affected = this.db.prepare("SELECT triple_hash FROM knowledge_edges WHERE origin_peer_id=? AND local_status='active'").all(peerId).map((r) => r.triple_hash);
       this.db.prepare("UPDATE knowledge_edges SET local_status='quarantined' WHERE origin_peer_id=? AND local_status='active'").run(peerId);
       for (const h of affected) this._propagateRetraction(h);
+    });
+  }
+
+  // ---- UC-EP: Episodisches Gedächtnis + Konsolidierung (Slice #2) -----
+  // LOKAL/peer-privat — Episoden sind NICHT im Wire-Vertrag (keine Föderation).
+  recordEpisode({ content, source_type = 'llm', occurred_at = null, context_slug = null } = {}) {
+    if (typeof content !== 'string' || content.length < 1 || content.length > 8000) {
+      throw new EngineError('INVALID_PARAMETER_FORMAT', 'content leer oder > 8000 Zeichen');
+    }
+    let ts = occurred_at ?? new Date(this._now()).toISOString();
+    if (Date.parse(ts) > this._now() || Number.isNaN(Date.parse(ts))) ts = new Date(this._now()).toISOString();
+    const id = randomUUID();
+    this.db.prepare('INSERT INTO episodes (id, content, source_type, occurred_at, context_slug) VALUES (?,?,?,?,?)')
+      .run(id, content, source_type, ts, context_slug);
+    return { episode_id: id, occurred_at: ts };
+  }
+  recallEpisodes({ context_slug = null, term = null, since = null, limit = 25 } = {}) {
+    const cap = Math.min(Number.isInteger(limit) && limit > 0 ? limit : 25, 100);
+    const where = []; const args = [];
+    if (context_slug) { where.push('context_slug = ?'); args.push(context_slug); }
+    if (term) { where.push('content LIKE ?'); args.push(`%${String(term).replace(/[%_]/g, (m) => `\\${m}`)}%`); }
+    if (since) { const t = Date.parse(since); if (!Number.isNaN(t)) { where.push('occurred_at >= ?'); args.push(new Date(t).toISOString()); } }
+    const sql = `SELECT id, content, source_type, occurred_at, context_slug FROM episodes${where.length ? ' WHERE ' + where.join(' AND ') : ''} ORDER BY occurred_at DESC, id LIMIT ?`;
+    const rows = this.db.prepare(sql).all(...args, cap + 1);
+    const truncated = rows.length > cap;
+    return { episodes: rows.slice(0, cap), truncated };
+  }
+  episodesForTriple(tripleHashValue) {
+    const edge = this._getEdge(tripleHashValue);
+    const rows = this.db.prepare(
+      'SELECT e.id, e.content, e.source_type, e.occurred_at, e.context_slug FROM episode_triples l JOIN episodes e ON e.id = l.episode_id WHERE l.triple_hash = ? ORDER BY e.occurred_at DESC',
+    ).all(tripleHashValue);
+    // status-unabhängig: Tripel kann fehlen (GC) oder retracted sein — beides definiert.
+    return { triple_hash: tripleHashValue, triple_status: edge ? edge.local_status : null, episodes: rows };
+  }
+  episodicGc({ maxAgeDays = 90 } = {}) {
+    return this._tx(() => {
+      const cutoff = new Date(this._now() - maxAgeDays * 86400000).toISOString();
+      const eps = this.db.prepare('DELETE FROM episodes WHERE occurred_at < ?').run(cutoff); // Links via CASCADE
+      // verwaiste Links (Ziel-Tripel per GC entfernt) aufräumen — semantische Tripel bleiben unberührt.
+      const orphans = this.db.prepare('DELETE FROM episode_triples WHERE triple_hash NOT IN (SELECT triple_hash FROM knowledge_edges)').run();
+      return { episodesDeleted: eps.changes, orphanLinksDeleted: orphans.changes };
     });
   }
 

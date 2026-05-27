@@ -48,6 +48,25 @@ CREATE TABLE IF NOT EXISTS peers (
 CREATE INDEX IF NOT EXISTS idx_edges_status ON knowledge_edges(local_status);
 CREATE INDEX IF NOT EXISTS idx_edges_subject ON knowledge_edges(subject_id);
 CREATE INDEX IF NOT EXISTS idx_edges_object ON knowledge_edges(object_id);
+
+-- Episodische Schicht (UC-EP, NS-Mem). LOKAL/peer-privat — NICHT im Wire-Vertrag.
+CREATE TABLE IF NOT EXISTS episodes (
+  id TEXT PRIMARY KEY NOT NULL,
+  content TEXT NOT NULL CHECK(length(content) BETWEEN 1 AND 8000),
+  source_type TEXT NOT NULL DEFAULT 'llm',  -- Herkunfts-Label, KEINE Autoritäts-Stufe
+  occurred_at TEXT NOT NULL,
+  context_slug TEXT,
+  created_at TEXT DEFAULT (datetime('now'))
+);
+CREATE TABLE IF NOT EXISTS episode_triples (
+  episode_id TEXT NOT NULL,
+  triple_hash TEXT NOT NULL,                 -- bewusst KEIN FK auf edges (GC darf Tripel entfernen)
+  PRIMARY KEY (episode_id, triple_hash),
+  FOREIGN KEY(episode_id) REFERENCES episodes(id) ON DELETE CASCADE
+);
+CREATE INDEX IF NOT EXISTS idx_episodes_occurred ON episodes(occurred_at);
+CREATE INDEX IF NOT EXISTS idx_episodes_context ON episodes(context_slug);
+CREATE INDEX IF NOT EXISTS idx_episode_triples_hash ON episode_triples(triple_hash);
 `;
 
 // knowledge_edges-DDL OHNE PRAGMA/IF-NOT-EXISTS — für den transaktionalen Rebuild der Migration
