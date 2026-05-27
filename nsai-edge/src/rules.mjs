@@ -31,6 +31,9 @@ export const DEFAULT_SPEC = {
   beliefSharpness: 3,
   // Zweitplatzierter ab dieser Belief-Schwelle (Promille) → Aussage gilt als "umstritten".
   contestedThreshold: 150,
+  // Mehrwertige (set-valued) Prädikate: mehrere Objekte sind GLEICHZEITIG gültig (kein Widerspruch).
+  // Sie sind von der Belief-Konkurrenz/disputed-Logik ausgenommen — jedes Objekt belief 1000.
+  multiValuePredicates: ['hat_tag', 'hat_abschnitt', 'verweist_auf', 'quelle', 'gehoert_zu', 'hat_wert', 'enthaelt', 'beispiel'],
   // Forward-Chaining-Regeln. Pattern-Felder: konkreter String oder '?var'.
   inferenceRules: [
     {

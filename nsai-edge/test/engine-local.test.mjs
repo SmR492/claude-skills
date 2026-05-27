@@ -123,6 +123,18 @@ test('AC-5.2: Promote eines ungültig signierten Fakts wird blockiert', () => {
   assert.throws(() => e.promote(r.triple_hash), /UNVERIFIED_ORIGIN/);
 });
 
+// ---- Multi-Wert-Prädikate (set-valued, kein Widerspruch) -------------
+test('Multi-Wert-Prädikat hat_tag: mehrere Objekte gleichzeitig gültig, kein disputed', () => {
+  const e = fresh();
+  e.storeTriple({ subject: 'BundleX', predicate: 'hat_tag', object: 'symfony', confidence: 900 });
+  e.storeTriple({ subject: 'BundleX', predicate: 'hat_tag', object: 'auth_lib', confidence: 900 });
+  const r = e.resolveBelief('BundleX', 'hat_tag');
+  assert.equal(r.multiValue, true);
+  assert.equal(r.candidates.length, 2);
+  assert.ok(r.candidates.every((c) => c.belief === 1000)); // beide voll gültig
+  assert.ok(e.query('BundleX', { maxDepth: 1 }).edges.every((x) => x.disputed === undefined));
+});
+
 // ---- GC (§8.4) -------------------------------------------------------
 test('GC entfernt alte superseded-Tombstones + Waisen-Knoten', () => {
   const e = fresh();

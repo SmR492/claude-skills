@@ -142,6 +142,12 @@ export class Engine {
     if (!sNode) return null;
     const edges = this.db.prepare("SELECT * FROM knowledge_edges WHERE subject_id=? AND predicate=? AND local_status='active'").all(sNode.id, predicate);
     if (edges.length === 0) return null;
+    // Mehrwertiges Prädikat (z.B. hat_tag): alle distinkten Objekte sind GLEICHZEITIG gültig —
+    // keine Belief-Konkurrenz, kein disputed. Jedes Objekt belief 1000.
+    if ((this.spec.multiValuePredicates || []).includes(predicate)) {
+      const objs = [...new Set(edges.map((e) => this._nodeName(e.object_id)))];
+      return { subject, predicate, multiValue: true, winner: null, contested: false, candidates: objs.map((o) => ({ object: o, belief: 1000 })) };
+    }
     // Pro Objekt beste Repräsentanz nach Präzedenz (Origin-Trust, effektive Stufe, within-weight) —
     // konsistent zur trust-primären Provenienz im Schreibpfad.
     const RANK = { untrusted: 0, limited: 1, full: 2, authoritative: 3 };
@@ -226,7 +232,7 @@ export class Engine {
         effective_tier: cand?.tier ?? this._effTier(e), // trust-gekappte Autoritäts-Stufe (nicht der rohe source_type-Anspruch, 🟡-3)
         asserted_at: e.asserted_at, origin_peer_id: e.origin_peer_id,
       };
-      if (res && res.candidates.length > 1 && res.winner !== object) { out.disputed = true; out.dominant = res.winner; }
+      if (res && !res.multiValue && res.candidates.length > 1 && res.winner !== object) { out.disputed = true; out.dominant = res.winner; }
       if (e.relayed_by && e.relayed_by !== e.origin_peer_id) out.relayed_by = e.relayed_by;
       if (explain && e.derived_from) out.derived_from = JSON.parse(e.derived_from);
       return out;
