@@ -479,9 +479,10 @@ export class Engine {
         const newStatus = peerTrust === 'untrusted' ? 'quarantined' : existing.local_status;
         this.db.prepare("UPDATE knowledge_edges SET confidence=?, asserted_confidence=?, source_type=?, asserted_at=?, origin_peer_id=?, relayed_by=?, signature=?, vector_clock=?, local_status=?, updated_at=datetime('now') WHERE triple_hash=?")
           .run(liveConf, asserted, sourceType, assertedAt, wire.origin_peer_id, wire.relayed_by ?? null, wire.signature, JSON.stringify(vc), newStatus, wire.triple_hash);
-        // 🔴-3: kippt ein bislang aktiver Edge durch untrusted-Provenienz auf quarantined,
-        // retraktieren seine Schlussfolgerungen (verlorene Prämisse).
-        if (newStatus === 'quarantined' && existing.local_status === 'active') this._propagateRetraction(wire.triple_hash);
+        // Hinweis (Adversarial-Runde 2): der active→quarantined-Flip ist hier über die trust-primäre
+        // Präzedenz unerreichbar (F1.13 „dead-but-correct"). Eine Retraktions-Propagation gehört NICHT
+        // hierher — mergeIncoming läuft ohne Tx. Würde die Präzedenz je untrusted-Gewinne zulassen,
+        // muss dieser Pfad transaktional werden und dann _propagateRetraction aufrufen (Slice #1b).
       } else {
         this.db.prepare("UPDATE knowledge_edges SET confidence=?, vector_clock=?, updated_at=datetime('now') WHERE triple_hash=?")
           .run(liveConf, JSON.stringify(vc), wire.triple_hash);
