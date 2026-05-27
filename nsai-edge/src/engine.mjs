@@ -562,7 +562,7 @@ export class Engine {
     const cap = Math.min(Number.isInteger(limit) && limit > 0 ? limit : 25, 100);
     const where = []; const args = [];
     if (context_slug) { where.push('context_slug = ?'); args.push(context_slug); }
-    if (term) { where.push('content LIKE ?'); args.push(`%${String(term).replace(/[%_]/g, (m) => `\\${m}`)}%`); }
+    if (term) { where.push("content LIKE ? ESCAPE '\\'"); args.push(`%${String(term).replace(/[\\%_]/g, (m) => `\\${m}`)}%`); }
     if (since) { const t = Date.parse(since); if (!Number.isNaN(t)) { where.push('occurred_at >= ?'); args.push(new Date(t).toISOString()); } }
     const sql = `SELECT id, content, source_type, occurred_at, context_slug FROM episodes${where.length ? ' WHERE ' + where.join(' AND ') : ''} ORDER BY occurred_at DESC, id LIMIT ?`;
     const rows = this.db.prepare(sql).all(...args, cap + 1);

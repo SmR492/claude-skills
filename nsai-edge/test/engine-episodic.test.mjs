@@ -64,6 +64,17 @@ test('AC-10.5: recallEpisodes recency-geordnet + Filter + limit-Cap', () => {
   assert.equal(term.episodes.length, 1);
 });
 
+test('🟡-1: recall mit LIKE-Sonderzeichen (%/_/\\) matcht literal, kein Wildcard-Leak', () => {
+  const e = new Engine();
+  e.recordEpisode({ content: 'Rabatt 50% deal heute' });
+  e.recordEpisode({ content: 'snake_case bezeichner' });
+  e.recordEpisode({ content: 'nichts dergleichen' });
+  assert.equal(e.recallEpisodes({ term: '50%' }).episodes.length, 1);   // literal % gefunden
+  assert.equal(e.recallEpisodes({ term: 'snake_case' }).episodes.length, 1); // literal _ gefunden
+  // '%' als Literal matcht nur das „50%"-Episode (1), NICHT alle 3 → kein Wildcard-Leak.
+  assert.equal(e.recallEpisodes({ term: '%' }).episodes.length, 1);
+});
+
 test('AC-10.6/10.7: episodesForTriple status-unabhängig; Re-Assert reaktiviert retracted NICHT', () => {
   const e = new Engine();
   const ep = e.recordEpisode({ content: 'Quelle' });
