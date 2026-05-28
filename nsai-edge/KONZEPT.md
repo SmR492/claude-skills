@@ -1314,4 +1314,51 @@ Deferred-Verfeinerungen: Slice #1b (OUT→IN-Reaktivierung + Multi-Justification
 
 **Bias-Schutz (Adversarial-Vorab):** wir lernen aus **lokalen reject-Aktionen**. Das spiegelt die Werturteile des lokalen Nutzers — was *kann* eine Form von Bias-Kodierung sein, ist aber bewusst auf die lokale Trust-Achse beschränkt (subjektives Vertrauen). Die *globalen* `sourceTier`/`trustFactor`-Skalen bleiben statisch (#6.4-Diskussion deferred). Kein Konfabulationspfad in den Belief-Output, weil das Verhalten nur Vorschläge generiert und nicht den Belief-Pfad ändert.
 
-> **Slice #6.1 (in Bearbeitung):** Offline-Peer-Trust-Adjustment als reine Vorschlags-Logik. Nach #6.1 folgen #6.3 (zugriffs-basiertes Decay), #6.2 (Schema-Konsolidierung), #6.4 (signiertes Spec-Tuning). **Slice #6.E (Bias-Lerner) ist bewusst verworfen** (Konfabulationsfalle, Drift bei zu wenig Kontext).
+> **Slice #6.1 (erledigt):** Offline-Peer-Trust-Adjustment als Vorschlags-Logik mit `user_rejected_at`-Säule. **Slice #6.E (Bias-Lerner) bleibt bewusst verworfen.**
+
+### UC-AD — Zugriffs-basiertes Decay / Spaced-Repetition (Slice #6.3)
+
+**Akteur:** System (deterministisch, Tier 1, **kein LLM**) · **Route:** intern `markRecalled([hashes])` + erweitertes `decayPass` · **Roadmap:** §H.2 Punkt 6, zweiter Offline-Lern-Slice (Option C aus #6-Diskussion).
+
+**Ziel (menschenähnliche Stärke „häufig benutzte Erinnerung verblasst langsamer"):** Tripel, die der Konsument aktiv nutzt (über `markRecalled` markiert), unterliegen einem **abgeschwächten Decay**. Klassische Spaced-Repetition (Ebbinghaus mit Reaktivierungs-Bonus), aber **deterministisch + Integer-Promille**.
+
+**Scope-Grenzen (constraint-verträglich):**
+- **Explizite Markierung**, kein impliziter Side-Effect in `query`/`verify`/`resolveBelief` (sonst Schreib-Last + Race-Conditions). Konsument ruft `markRecalled(hashes[])`.
+- **Lokale Konfidenz-Achse**: `confidence` ist seit Anfang lokal pro Knoten (CRDT-max-Konvergenz beim Wire). Aktiv-genutzte Konfidenz dominiert nach Föderations-Merge.
+- **Integer-Promille**: `recallDecayDivisor`-Modulation auf der bestehenden `decayPerPeriod[temporality]`-Stufe; keine Floats.
+- **Wire-Vertrag intakt**: `last_recalled_at` ist eine lokale Lese-/Modulations-Spalte, nicht im Wire.
+
+**Mechanik (deterministisch):**
+1. **Schema additiv:** `knowledge_edges.last_recalled_at TEXT` (ISO-UTC-Z, NULL by default).
+2. **`markRecalled(hashes[])`:** setzt `last_recalled_at = now` für jeden gegebenen `triple_hash`. Idempotent. Unbekannte Hashes werden übersprungen (no-op pro Hash).
+3. **`decayPass`-Erweiterung:** bei jedem Edge wird die Reduktion `decayPerPeriod[temporality]` durch `recallDecayDivisor` (Default 2) **dividiert**, wenn `last_recalled_at` innerhalb `recallProtectionDays` (Default 30) liegt. Sonst voller Decay.
+4. **Migrations-Konvention:** Pre-Slice-Edges haben `last_recalled_at = NULL` → fallen unter „voller Decay" (konservativ, identisch zum bestehenden Verhalten).
+
+**AC-Tabelle:**
+| AC | Kriterium | Test-Typ | Status |
+|---|---|---|---|
+| AC-21.1 | `markRecalled([h])` setzt `last_recalled_at` auf ISO-UTC-Z (≈ now). | unit | offen |
+| AC-21.2 | Unbekannte Hashes in `markRecalled` werden ignoriert (kein Crash, kein neuer Row). | unit | offen |
+| AC-21.3 | `decayPass` reduziert kürzlich abgerufene Tripel um `decayPerPeriod / recallDecayDivisor` (Integer-Division). | unit | offen |
+| AC-21.4 | `decayPass` reduziert nicht-kürzlich-abgerufene Tripel um vollen `decayPerPeriod` (unverändert). | unit | offen |
+| AC-21.5 | Edges mit `last_recalled_at = NULL` erhalten vollen Decay. | unit | offen |
+| AC-21.6 | Edges mit `last_recalled_at` älter als `recallProtectionDays` → voller Decay. | unit | offen |
+| AC-21.7 | KEINE impliziten Side-Effects: `query`/`verify`/`resolveBelief` ändern `last_recalled_at` NICHT. | unit | offen |
+| AC-21.8 | Wire/PHP-Parität: `last_recalled_at` taucht NICHT in `_edgeToWire`/`exportSince` auf. | unit | offen |
+| AC-21.9 | Determinismus: gleicher Graph + gleiche `_now()` → identische Decay-Werte. | unit | offen |
+| AC-21.10 | `dryRun=true` in `decayPass` schreibt nichts (auch bei recall-protection-Edges). | unit | offen |
+| AC-21.11 | Migration idempotent: Spalte additiv via ALTER ADD COLUMN. | unit | offen |
+| AC-21.12 | **(Adversarial 🟡-1)** `markRecalled` schreibt NUR auf active Edges — retracted/quarantined/superseded Edges werden NICHT markiert (sonst Lüge im `recalled`-Counter, da der Bonus später nie wirkt). | unit | offen |
+| AC-21.13 | **(Adversarial 🟡-1)** `promote(hash)` setzt `last_recalled_at = NULL` zurück (Un-Recall analog Un-Reject — sonst Decay-Bonus aus der Quarantäne-/Reject-Phase). | unit | offen |
+| AC-21.14 | **(Adversarial 🟡-2)** `recallProtectionDays = 0` deaktiviert das Feature (kein Bonus für irgendein Edge, identisch zum Pre-Slice-Verhalten). | unit | offen |
+| AC-21.15 | **(Adversarial 🟡-3)** `markRecalled` mit > 200 Hashes → `INVALID_PARAMETER_FORMAT` (DoS-Schutz, deterministischer Cap). | unit | offen |
+
+**Fehlerfälle (UC-AD):** `markRecalled([])` → no-op; ungültiger Hash-String → wie unbekannt (silent skip).
+
+**Determinismus-Gate:** Integer-Division, deterministische `_now()`-Zeitbasis. Keine LLM-Logik, keine Floats.
+
+**Wire-Vertrag intakt:** `last_recalled_at` ist eine reine Lokal-Spalte. PHP-Bundle muss nicht spiegeln.
+
+**Bias-Schutz (Adversarial 🟡-5):** `markRecalled` verschiebt die lokale Konfidenz konkurrierender Aussagen — wer ein Tripel oft markiert, hilft ihm gegen Decay. Bei zwei konkurrierenden Aussagen (z. B. `kind_of red` vs. `kind_of blue`) kann das nach mehreren `decayPass`-Runden die Belief-Reihenfolge kippen. Das ist **beabsichtigt** (aktiv-genutzte Konfidenz dominiert nach Föderations-Merge), aber ein MCP-Client mit Zugriff auf `graph__mark_recalled` kann unbemerkt einseitig Belief verschieben — analog zur #6.1-Diskussion ein Bias-Vektor, der **bewusst gewählt** ist (sonst gäbe es das Feature gar nicht). Der Schutz liegt auf der Client-Ebene: `markRecalled` sollte nur für Tripel aufgerufen werden, die tatsächlich konsultiert wurden — nicht als Belief-Manipulation.
+
+> **Slice #6.3 (in Bearbeitung):** explizites `markRecalled` + Recall-Bonus in `decayPass`. **Deferred:** echte Ebbinghaus-Kurve (1/log(t)), Adaptiver Recall-Bonus basierend auf Recall-Frequenz, Episoden-Recall-Tracking.

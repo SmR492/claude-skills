@@ -95,6 +95,11 @@ export const TOOLS = [
     inputSchema: S({ triple_hash: { type: 'string' } }, ['triple_hash']),
   },
   {
+    name: 'graph__mark_recalled',
+    description: 'UC-AD Slice #6.3 — explizite Markierung „dieses Tripel wurde gerade abgerufen" (für Spaced-Repetition-Decay-Bonus). Setzt last_recalled_at = now (UTC-Z) für jeden gegebenen triple_hash. Tripel mit kürzlichem Recall verlieren beim decayPass nur die Hälfte der Konfidenz. Unbekannte Hashes werden silent übersprungen. KEIN impliziter Side-Effect in query/verify (Schreib-Last + Race).',
+    inputSchema: S({ hashes: { type: 'array', items: { type: 'string' }, minItems: 0, maxItems: 200 } }, ['hashes']),
+  },
+  {
     name: 'graph__learn_trust_adjustments',
     description: 'UC-TA Slice #6.1 — Offline-Peer-Trust-Adjustment (Vorschlags-Modus, KEIN Auto-Apply). Aggregiert Reject/Supersede/Quarantine-Rate pro Origin-Peer und liefert Vorschläge zur Trust-Herabstufung (untrusted/limited) MIT Belegen. Der Nutzer muss explizit graph__peer_trust(peer_id, level) rufen, um Vorschläge anzunehmen.',
     inputSchema: S({ since: { type: 'string', description: 'ISO-Zeitpunkt — nur Aussagen mit updated_at ≥ since werden gezählt' }, min_evidence: { type: 'integer', minimum: 1, description: 'Mindest-Aussagen pro Peer (Default 5, Sybil-Schutz)' } }),
@@ -200,6 +205,9 @@ export class McpServer {
           break;
         case 'graph__learn_trust_adjustments':
           result = this.engine.learnTrustAdjustments({ since: args.since, min_evidence: args.min_evidence });
+          break;
+        case 'graph__mark_recalled':
+          result = this.engine.markRecalled(args.hashes ?? []);
           break;
         default:
           return { content: [{ type: 'text', text: `Unknown tool: ${name}` }], isError: true };
