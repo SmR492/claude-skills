@@ -66,7 +66,7 @@ export const TOOLS = [
   },
   {
     name: 'graph__verify',
-    description: 'Prüft eine Aussage (Subjekt-Prädikat-Objekt) deterministisch gegen das Gedächtnis → supported / contradicted / unknown (open-world: Abwesenheit = unknown, nie contradicted). Für halluzinationsfreies Reasoning vor dem Antworten. **Hinweis (UC-CR/Slice #R1):** Bei `unknown` kann das Ergebnis ein Feld `corrective_hints[]` enthalten mit verwandten supported-Tripeln im 2-Hop-Subgraph (Felder `via_subject`, `triple_hash`). Diese sind **Diagnose-Hinweise** auf andere Subjekte — das gefragte Subject bleibt `unknown`. NICHT als Verdikt-Verstärkung für das gefragte Subject interpretieren (sonst Konfabulation).',
+    description: 'Prüft eine Aussage (Subjekt-Prädikat-Objekt) deterministisch gegen das Gedächtnis → supported / contradicted / unknown (open-world: Abwesenheit = unknown, nie contradicted). Für halluzinationsfreies Reasoning vor dem Antworten. **Hinweis (UC-CR/Slice #R1):** Bei `unknown` kann das Ergebnis ein Feld `corrective_hints[]` enthalten mit verwandten supported-Tripeln im 2-Hop-Subgraph (Felder `via_subject`, `triple_hash`). Diese sind **Diagnose-Hinweise** auf andere Subjekte — das gefragte Subject bleibt `unknown`. NICHT als Verdikt-Verstärkung für das gefragte Subject interpretieren (sonst Konfabulation). **Hinweis (UC-VPS/Slice #R4):** Output kann ein additives Feld `physical_status: \'active\'|\'superseded\'|\'retracted\'|\'quarantined\'` enthalten, wenn das gefragte Tripel physisch im Graphen existiert — reine Erklärbarkeit (z. B. „du hast das schon abgelehnt"), KEIN Verdikt-Drift. Feld fehlt wenn das Tripel nicht physisch existiert (Open-World).',
     inputSchema: S({ subject: { type: 'string' }, predicate: { type: 'string' }, object: { type: 'string' }, as_of: { type: 'string', description: 'ISO-Zeitpunkt T (UC-BT): zu T verifizieren' } }, ['subject', 'predicate', 'object']),
   },
   {
@@ -96,7 +96,7 @@ export const TOOLS = [
   },
   {
     name: 'graph__assert_claims',
-    description: 'UC-SC Slice #R2 — Self-Critique-Pflicht-Pass: verifiziert eine Liste von Aussagen (bis 50) gleichzeitig gegen das Gedächtnis und liefert ein kategorisches Aggregat (`all_supported` / `any_contradicted` / `any_unknown`) + per-Claim-Verdikte mit Provenienz. Für halluzinationsfreies Reasoning VOR der Ausgabe einer zusammengesetzten Antwort. Output KATEGORISCH (keine Wahrscheinlichkeiten).',
+    description: 'UC-SC Slice #R2 — Self-Critique-Pflicht-Pass: verifiziert eine Liste von Aussagen (bis 50) gleichzeitig gegen das Gedächtnis und liefert ein kategorisches Aggregat (`all_supported` / `any_contested` / `any_unknown` / `any_contradicted`) + per-Claim-Verdikte mit Provenienz. Für halluzinationsfreies Reasoning VOR der Ausgabe einer zusammengesetzten Antwort. Output KATEGORISCH (keine Wahrscheinlichkeiten). Per-Claim-Felder kategorisch (verdict, contested, multiValue, dominant, present, corrective_hints, physical_status) — KEINE numerischen Provenienz-Felder wie belief/quorum.',
     inputSchema: S({ claims: { type: 'array', items: { type: 'object', properties: { subject: { type: 'string' }, predicate: { type: 'string' }, object: { type: 'string' }, as_of: { type: 'string' } }, required: ['subject', 'predicate', 'object'] }, minItems: 0, maxItems: 50 } }, ['claims']),
   },
 ];
