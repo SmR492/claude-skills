@@ -34,6 +34,16 @@ export const DEFAULT_SPEC = {
   // Mehrwertige (set-valued) Prädikate: mehrere Objekte sind GLEICHZEITIG gültig (kein Widerspruch).
   // Sie sind von der Belief-Konkurrenz/disputed-Logik ausgenommen — jedes Objekt belief 1000.
   multiValuePredicates: ['hat_tag', 'hat_abschnitt', 'verweist_auf', 'quelle', 'gehoert_zu', 'hat_wert', 'enthaelt', 'beispiel'],
+  // UC-MS Slice #M.1 — Trust-Quorum-Endorsement (kategorische Verdikte):
+  // - quorumAuthFloor: Schwelle für Single-Authoritative-Pfad in `clusterContribution = trustRank × tier`-Skala
+  //   (Beispiel: trustRank=full(1000) × tier=fachquelle(3) = 3000 → unter AUTH_FLOOR; full × behoerde(5) = 5000 → erreicht).
+  // - quorumMulti: Schwelle für Multi-Cluster-Pfad (≥2 beitragende Cluster).
+  // PHP-spiegelbar via Conformance-Vektor.
+  quorumAuthFloor: 4500,
+  quorumMulti: 2000,
+  // trustRank in Promille-Skala (analog trustFactor, aber NUR für Quorum-Aggregation —
+  // authoritative > full hier, um die Single-Auth-Schwelle messbar abzubilden).
+  quorumTrustRank: { untrusted: 0, limited: 500, full: 1000, authoritative: 1500 },
   // Forward-Chaining-Regeln. Pattern-Felder: konkreter String oder '?var'.
   inferenceRules: [
     {

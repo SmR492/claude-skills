@@ -158,6 +158,85 @@ export class Engine {
   _trustTierCap(trust) { return this.spec.trustTierCap[trust] ?? -1; }
   // Effektive Autoritäts-Stufe: source_type-Tier, gekappt durch Origin-Trust (Fix 🔴1).
   _effTier(edge) { return Math.min(this._sourceTier(edge.source_type), this._trustTierCap(this._originTrust(edge.origin_peer_id))); }
+
+  // ---- UC-MS Slice #M.1: Trust-Quorum-Endorsement -----
+  _clusterIdOf(peerId) {
+    if (peerId === this.peerId) return peerId; // Self-Peer = eigener Cluster
+    // Adversarial 🟡-2: truthy-Check, damit ''  (leerer String) NICHT als „gemeinsamer leerer Cluster" interpretiert wird.
+    const c = this._peer(peerId)?.cluster_id;
+    return (c && c.length > 0) ? c : peerId; // Default-Fallback: peer_id = eigener Cluster
+  }
+  _quorumTrustRank(level) { return this.spec.quorumTrustRank?.[level] ?? 0; }
+  // Aggregiert alle ENDORSEMENTS für `triple_hash` zu kategorischem Quorum-Verdikt.
+  // Liefert {weighted_support, cluster_count, verdict ∈ supported/unknown, contributions}.
+  // Endorsements eines untrusted/-1-getierten Origins tragen 0 bei (AC-15.4 Sybil).
+  // Echo-Schutz: pro Cluster gewinnt der MAXIMUM-Beitrag (AC-15.2).
+  //
+  // Adversarial-Audit (🔴-1 Status-Konjunktion + 🔴-3 as_of-Linse): das Quorum gilt NUR auf
+  // active Tripeln und respektiert die UC-BT-Lese-Linse (asserted_at_norm ≤ as_of). Sonst
+  // entstünde eine Halluzinations-Quelle: ein retracted/superseded Tripel würde via überlebende
+  // Endorsements weiter „supported" melden — genau die plumpe Halluzination, die wir verhindern.
+  _quorumFor(tripleHashValue, { as_of = null } = {}) {
+    const edge = this._getEdge(tripleHashValue);
+    if (!edge || edge.local_status !== 'active') return { weighted_support: 0, cluster_count: 0, verdict: 'unknown', contributions: [] };
+    // UC-BT-konjunktiv: das Tripel muss zu T gültig sein (gleiche Klausel wie _validClause).
+    {
+      const t = this._normIso(as_of) ?? new Date(this._now()).toISOString();
+      const visible = this.db.prepare("SELECT 1 FROM knowledge_edges WHERE triple_hash=? AND COALESCE(valid_from, asserted_at_norm, asserted_at) <= ? AND (valid_to IS NULL OR ? < valid_to)").get(tripleHashValue, t, t);
+      if (!visible) return { weighted_support: 0, cluster_count: 0, verdict: 'unknown', contributions: [] };
+    }
+    // Endorsements nach UC-BT-Linse filtern (asserted_at_norm ≤ as_of) — keine Zukunfts-Endorsements
+    // für historische Anfragen (Probe K des Re-Audits).
+    const tAsOf = this._normIso(as_of) ?? new Date(this._now()).toISOString();
+    const rows = this.db.prepare("SELECT origin_peer_id, source_type FROM triple_endorsements WHERE triple_hash=? AND COALESCE(asserted_at_norm, asserted_at) <= ?").all(tripleHashValue, tAsOf);
+    if (!rows.length) return { weighted_support: 0, cluster_count: 0, verdict: 'unknown', contributions: [] };
+    const perCluster = new Map(); // clusterId -> max contribution
+    for (const r of rows) {
+      const trust = this._originTrust(r.origin_peer_id);
+      const tier = Math.min(this._sourceTier(r.source_type), this._trustTierCap(trust)); // tier-gekappt
+      const rank = this._quorumTrustRank(trust);
+      const contribution = (tier > 0) ? rank * tier : 0; // tier ≤ 0 → kein Beitrag (untrusted oder unter-tier)
+      const cluster = this._clusterIdOf(r.origin_peer_id);
+      const cur = perCluster.get(cluster) ?? 0;
+      if (contribution > cur) perCluster.set(cluster, contribution);
+    }
+    const contributions = [...perCluster.entries()].filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1] || (a[0] < b[0] ? -1 : 1));
+    const weighted_support = contributions.reduce((s, [, v]) => s + v, 0);
+    const cluster_count = contributions.length;
+    const authFloor = this.spec.quorumAuthFloor ?? 4500;
+    const qMulti = this.spec.quorumMulti ?? 2000;
+    const verdict = (contributions.length > 0 && contributions[0][1] >= authFloor) || (cluster_count >= 2 && weighted_support >= qMulti)
+      ? 'supported' : 'unknown';
+    return { weighted_support, cluster_count, verdict, contributions };
+  }
+  // Endorsement-Aufnahme. `wire` kann eine Self-Endorsement-Aussage sein (self-signed) oder
+  // föderal eingehend (signiert vom Origin). triple_hash MUSS bereits als active edge existieren.
+  endorseTriple({ subject, predicate, object, source_type = 'manual', confidence = 700, asserted_at = null } = {}) {
+    validateTriple(subject, predicate, object);
+    if (!Number.isInteger(confidence) || confidence < 0 || confidence > 1000) throw new EngineError('INVALID_PARAMETER_FORMAT', 'confidence außerhalb 0–1000');
+    const hash = tripleHash(subject, predicate, object);
+    const edge = this._getEdge(hash);
+    if (!edge || edge.local_status !== 'active') {
+      throw new EngineError('NOT_APPLICABLE', 'Endorsement für unbekanntes oder nicht-aktives Tripel'); // AC-15.12, Föderations-Race-Option-b
+    }
+    let ts = asserted_at ?? new Date(this._now()).toISOString();
+    if (Date.parse(ts) > this._now() || Number.isNaN(Date.parse(ts))) ts = new Date(this._now()).toISOString();
+    const tsNorm = this._normIso(ts);
+    // Adversarial Re-Audit (🟡-C): KEIN _tick() im Endorsement-Pfad — Endorsement-Schema kennt
+    // kein vector_clock, und ein Tick auf Idempotenz-Hit wäre verloren. Signatur ohne VC-Feld:
+    // wir signieren über ein Endorsement-spezifisches Tupel (ohne vector_clock).
+    const existingRow = this.db.prepare('SELECT 1 FROM triple_endorsements WHERE triple_hash=? AND origin_peer_id=?').get(hash, this.peerId);
+    if (existingRow) return { triple_hash: hash, endorser: this.peerId, weighted: this._quorumFor(hash), idempotent: true };
+    const t = this._signSelf({ hash, subject, predicate, object, asserted_confidence: confidence, source_type, asserted_at: ts, temporality: edge.temporality, vector_clock: {}, derived_from: null });
+    this.db.prepare(
+      `INSERT INTO triple_endorsements (triple_hash, origin_peer_id, source_type, asserted_confidence, asserted_at, asserted_at_norm, signature) VALUES (?,?,?,?,?,?,?)`
+    ).run(hash, this.peerId, source_type, confidence, ts, tsNorm, t.signature);
+    return { triple_hash: hash, endorser: this.peerId, weighted: this._quorumFor(hash) };
+  }
+  endorsementsFor(tripleHashValue) {
+    const rows = this.db.prepare("SELECT triple_hash, origin_peer_id, source_type, asserted_confidence, asserted_at FROM triple_endorsements WHERE triple_hash=? ORDER BY asserted_at_norm DESC, origin_peer_id").all(tripleHashValue);
+    return { triple_hash: tripleHashValue, endorsements: rows, quorum: this._quorumFor(tripleHashValue) };
+  }
   _recencyFactor(assertedAt, temporality = 'stable') {
     const half = this.spec.recencyHalflifeDays[temporality] ?? this.spec.recencyHalflifeDays.default ?? 3650;
     if (!Number.isFinite(half)) return 1; // eternal → kein Recency-Decay
@@ -721,6 +800,43 @@ export class Engine {
   verify({ subject, predicate, object, as_of = null } = {}) {
     validateTriple(subject, predicate, object);
     const base = { subject, predicate, object };
+    // UC-MS Slice #M.1: Trust-Quorum-Pfad hat Vorrang vor Single-Source-Belief — ABER
+    // der Konflikt-Check muss BEIDE Linsen einbeziehen (Adversarial 🔴-2): wenn das gefragte
+    // Objekt Quorum-supported ist, der trust-primäre resolveBelief aber ein ANDERES Objekt
+    // dominant findet, ist das ein echter Konsens-vs-Autorität-Konflikt → `contested:true`.
+    // So entsteht keine Doppelwahrheit für single-value-Prädikate (Konfabulation verhindert).
+    const hash = tripleHash(subject, predicate, object);
+    const q = this._quorumFor(hash, { as_of });
+    // Adversarial Re-Audit (🔴 multiValue): mehrwertige Prädikate (hat_tag, quelle, …) sind
+    // set-valued — mehrere Objekte gelten GLEICHZEITIG. Geschwister-Quorum darf NICHT zu
+    // `contested:true` oder `contradicted` führen (sonst Konfabulation: zwei Tags wären angeblich
+    // Konflikt). multiValue-Pfad: Quorum gilt nur für das gefragte Objekt isoliert.
+    const isMulti = (this.spec.multiValuePredicates || []).includes(predicate);
+    if (q.verdict === 'supported') {
+      if (isMulti) return { ...base, verdict: 'supported', quorum: q, multiValue: true };
+      const edge = this._getEdge(hash);
+      // 1) andere quorum-supported same-(s,p) Objekte → contested
+      const competing = edge ? this.db.prepare("SELECT triple_hash, object_id FROM knowledge_edges WHERE subject_id=? AND predicate=? AND triple_hash<>? AND local_status='active'").all(edge.subject_id, predicate, hash) : [];
+      let contested = competing.some((c) => this._quorumFor(c.triple_hash, { as_of }).verdict === 'supported');
+      // 2) trust-primärer resolveBelief sagt ein anderes Objekt ist dominant → contested
+      const rbConflict = this.resolveBelief(subject, predicate, { as_of });
+      if (rbConflict && !rbConflict.multiValue && rbConflict.winner != null && rbConflict.winner !== object) {
+        contested = true;
+      }
+      return { ...base, verdict: 'supported', quorum: q, contested };
+    }
+    // Ein anderer Objekt-Wert via Quorum-supported, das gefragte aber nicht → contradicted (AC-15.7)
+    // Für multiValue NICHT anwendbar — set-valued Geschwister sind kein Widerspruch (Open-World).
+    if (!isMulti) {
+      const edgeForHash = this._getEdge(hash);
+      if (edgeForHash) {
+        const otherSupported = this.db.prepare("SELECT triple_hash, object_id FROM knowledge_edges WHERE subject_id=? AND predicate=? AND triple_hash<>? AND local_status='active'").all(edgeForHash.subject_id, predicate, hash)
+          .find((c) => this._quorumFor(c.triple_hash, { as_of }).verdict === 'supported');
+        if (otherSupported) {
+          return { ...base, verdict: 'contradicted', dominant: this._nodeName(otherSupported.object_id), present: true, quorum: q };
+        }
+      }
+    }
     const rb = this.resolveBelief(subject, predicate, { as_of }); // UC-BT: optional zu T verifizieren (🟡-2)
     if (rb === null) return { ...base, verdict: 'unknown' };                       // kein Subjekt / keine aktive Aussage
     if (rb.multiValue) {

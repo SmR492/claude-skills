@@ -4,6 +4,7 @@
 // phpRunner eingehängt; fehlt er, bleibt die Gegenseite 'unverified' (kein grünes Gate).
 import { Engine } from './engine.mjs';
 import { tripleHash } from './canonical.mjs';
+import { DEFAULT_SPEC as _DS } from './rules.mjs';
 
 export function runVector(vector, { spec } = {}) {
   const e = new Engine({ spec });
@@ -39,3 +40,11 @@ export function checkConformance(vectors, { spec, phpRunner = null, requiredOps 
     phpVerified: typeof phpRunner === 'function', // ohne PHP-Runner: false (kein grünes Cross-Lang-Gate)
   };
 }
+
+// UC-MS Slice #M.1: Quorum-Konstanten-Spiegel für PHP-Parität (Auditor 🟡-1).
+// Beide Seiten lesen denselben Konstanten-Vektor; eine Drift-PR-Diff wäre damit sofort sichtbar.
+export const QUORUM_CONSTANTS = Object.freeze({
+  quorumAuthFloor: _DS.quorumAuthFloor,
+  quorumMulti: _DS.quorumMulti,
+  quorumTrustRank: Object.freeze({ ..._DS.quorumTrustRank }),
+});
