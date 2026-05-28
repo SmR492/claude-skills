@@ -237,6 +237,67 @@ export class Engine {
     const rows = this.db.prepare("SELECT triple_hash, origin_peer_id, source_type, asserted_confidence, asserted_at FROM triple_endorsements WHERE triple_hash=? ORDER BY asserted_at_norm DESC, origin_peer_id").all(tripleHashValue);
     return { triple_hash: tripleHashValue, endorsements: rows, quorum: this._quorumFor(tripleHashValue) };
   }
+
+  // UC-TA Slice #6.1 — Peer-Trust-Adjustment (Vorschlags-Modus, KEIN Auto-Apply).
+  // Adversarial-Audit-Lehre (🔴-1/-2 Konfabulations-Konfusion): wir zählen NICHT alle
+  // nicht-active-Stati, sondern ausschließlich `user_rejected_at IS NOT NULL` — also
+  // Edges, die der Nutzer EXPLIZIT via `reject(hash)` abgelehnt hat. System-Quarantäne
+  // (low-conf inference, untrusted-Clone, peerRevoke) und Decay-Supersede lassen das
+  // Feld NULL und werden NICHT als Trust-Signal interpretiert.
+  // Output ist ein Vorschlag mit Belegen — der Nutzer entscheidet via peerTrust(peer_id, level).
+  // Determinismus-Gate: Integer-Promille, keine Floats. Wire-Vertrag: schreibt nichts, kein Wire-Inhalt.
+  learnTrustAdjustments({ since = '1970-01-01T00:00:00Z', min_evidence } = {}) {
+    if (!this._validIso(since)) throw new EngineError('INVALID_PARAMETER_FORMAT', 'since kein ISO-Datum');
+    const minEv = min_evidence ?? this.spec.trustAdjustMinEvidence ?? 5;
+    if (!Number.isInteger(minEv) || minEv < 1) throw new EngineError('INVALID_PARAMETER_FORMAT', 'min_evidence muss Integer ≥ 1 sein');
+    const sinceNorm = this._normIso(since) ?? '1970-01-01T00:00:00.000Z';
+    const limitedThr = this.spec.demoteLimitedThreshold ?? 500;
+    const untrustedThr = this.spec.demoteUntrustedThreshold ?? 800;
+    // Filter:
+    // - `total` = Aussagen des Peers, der reject-relevant ist: jede Aussage mit asserted_at_norm ≥ since
+    //   (Bewertungs-Zeitraum für die Aussagen selbst, nicht für die Reject-Aktion).
+    // - `rejected` = Teilmenge mit `user_rejected_at IS NOT NULL` UND user_rejected_at ≥ since
+    //   (nur Reject-Aktionen im Zeitraum zählen).
+    const rows = this.db.prepare(`
+      SELECT origin_peer_id,
+             COUNT(*) AS total,
+             SUM(CASE WHEN user_rejected_at IS NOT NULL AND user_rejected_at >= ? THEN 1 ELSE 0 END) AS rejected
+      FROM knowledge_edges
+      WHERE COALESCE(asserted_at_norm, asserted_at) >= ?
+      GROUP BY origin_peer_id
+      ORDER BY origin_peer_id
+    `).all(sinceNorm, sinceNorm);
+    const suggestions = [];
+    for (const r of rows) {
+      if (r.origin_peer_id === this.peerId) continue;                          // Self-Peer
+      if (r.total < minEv) continue;                                            // zu wenig Daten (Sybil-Schutz)
+      const peer = this._peer(r.origin_peer_id);
+      const currentLevel = peer ? peer.trust_level : 'unknown';               // Adversarial 🟡-4: nicht stillschweigend auf 'untrusted' annehmen
+      if (currentLevel === 'authoritative') continue;                          // explizit gesetzt
+      const rejectRate = Math.trunc((r.rejected * 1000) / r.total);
+      let suggested = null;
+      if (rejectRate >= untrustedThr) suggested = 'untrusted';
+      else if (rejectRate >= limitedThr) suggested = 'limited';
+      if (!suggested || suggested === currentLevel) continue;
+      const evidence = this.db.prepare(`
+        SELECT triple_hash, local_status, user_rejected_at
+        FROM knowledge_edges
+        WHERE origin_peer_id = ? AND user_rejected_at IS NOT NULL AND user_rejected_at >= ?
+        ORDER BY user_rejected_at DESC, triple_hash
+        LIMIT 20
+      `).all(r.origin_peer_id, sinceNorm);
+      suggestions.push({
+        peer_id: r.origin_peer_id,
+        current_level: currentLevel,
+        suggested_level: suggested,
+        total: r.total,
+        rejected: r.rejected,
+        reject_rate_promille: rejectRate,
+        evidence,
+      });
+    }
+    return { suggestions, since: sinceNorm, min_evidence: minEv };
+  }
   _recencyFactor(assertedAt, temporality = 'stable') {
     const half = this.spec.recencyHalflifeDays[temporality] ?? this.spec.recencyHalflifeDays.default ?? 3650;
     if (!Number.isFinite(half)) return 1; // eternal → kein Recency-Decay
@@ -537,13 +598,21 @@ export class Engine {
     if (!e) return false;
     const pub = this._originPubKey(e.origin_peer_id);
     if (!pub || !verifyTriple(pub, this._edgeToWire(e), e.signature)) throw new EngineError('UNVERIFIED_ORIGIN', 'Origin-Signatur nicht verifizierbar');
-    this.db.prepare("UPDATE knowledge_edges SET local_status='active', updated_at=datetime('now') WHERE triple_hash=?").run(hash);
+    // UC-TA (Re-Audit 🟡-B): promote() ist die komplementäre Aktion zu reject() — wenn der
+    // Nutzer das Tripel wieder aktiviert, ist das ein de-facto Un-Reject; `user_rejected_at`
+    // wird zurückgenommen, sonst bleibt der Peer im learnTrustAdjustments-Counter als „belastet"
+    // obwohl der Nutzer den reject zurückgenommen hat (stille Inkonsistenz).
+    this.db.prepare("UPDATE knowledge_edges SET local_status='active', user_rejected_at=NULL, updated_at=datetime('now') WHERE triple_hash=?").run(hash);
     return true;
   }
   reject(hash) {
     // UC-TMS: Reject einer Prämisse propagiert auf abgeleitete Fakten (eine Transaktion).
+    // UC-TA (Slice #6.1): setzt `user_rejected_at` als explizite Markierung — NUR diese
+    // werden in `learnTrustAdjustments` als reject-Belege gezählt. Decay/quarantine/TMS-
+    // Retraktion lassen die Spalte NULL → keine Konfabulationsquelle (Adversarial 🔴-1/-2).
+    const nowZ = new Date(this._now()).toISOString();
     return this._tx(() => {
-      this.db.prepare("UPDATE knowledge_edges SET local_status='superseded', updated_at=datetime('now') WHERE triple_hash=?").run(hash);
+      this.db.prepare("UPDATE knowledge_edges SET local_status='superseded', user_rejected_at=?, updated_at=datetime('now') WHERE triple_hash=?").run(nowZ, hash);
       this._propagateRetraction(hash);
     });
   }

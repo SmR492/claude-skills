@@ -1251,4 +1251,67 @@ Deferred-Verfeinerungen: Slice #1b (OUT→IN-Reaktivierung + Multi-Justification
 
 **Wire-Vertrag intakt:** `physical_status` ist eine lokale UX-Anreicherung, kein Wire-Feld. PHP-Bundle muss nicht spiegeln.
 
-> **Slice #R4 (in Bearbeitung):** Additives `physical_status`-Feld in `verify`-Output. Kein Verdikt-Drift, kein neuer Wire-Inhalt. Klärt die KI-VO-Demo-Subtilität ohne neue Konfabulations-Klasse.
+> **Slice #R4 (erledigt):** Additives `physical_status`-Feld im `verify`-Output. Wrapper-Pattern, kein Verdikt-Drift, kein neuer Wire-Inhalt.
+
+### UC-TA — Peer-Trust-Adjustment (Offline-Lernen, Vorschlags-Modus, Slice #6.1)
+
+**Akteur:** System (deterministisch, Tier 1, **kein LLM**) · **Route:** intern `learnTrustAdjustments`, MCP `graph__learn_trust_adjustments` · **Roadmap:** §H.2 Punkt 6 — erster Offline-Lern-Slice (Option A aus #6-Diskussion).
+
+**Ziel (menschenähnliche Stärke „wer mich oft enttäuscht, dem glaube ich weniger", ohne Bias-Falle):** Aus der Reject/Supersede/Quarantine-Historie pro Origin-Peer ableiten, **welche Peers sich nicht bewährt haben**. Output ist ein **Vorschlag** mit Belegen (welche Tripel wurden abgelehnt, wann), kein Auto-Apply. Der Nutzer entscheidet explizit per `peerTrust(peer_id, level)`.
+
+**Bewusste Scope-Grenzen (constraint-verträglich):**
+- **KEIN Auto-Apply** — sonst wäre es genau die menschliche Schwäche „kodierter Bias", die wir vermeiden (Option E der #6-Diskussion).
+- **Lokale Trust-Achse**, **NICHT** globale Spec-Tuning — `trust_level` ist per Definition lokal pro Peer-Beziehung; kein Föderations-Bruch.
+- **Integer-Promille-Berechnung** — kein Float, deterministisch.
+- **Audit-Pfad** — jeder Vorschlag kommt mit konkreten `triple_hash`-Belegen.
+- **NUR explicit-Nutzer-Reject zählt** (Adversarial 🔴-1/-2): `learnTrustAdjustments` zählt ausschließlich Edges mit `user_rejected_at IS NOT NULL` — also Aussagen, die der Nutzer explizit per `reject(hash)` abgelehnt hat. **System-Quarantäne** (low-confidence-inference, default-quarantine bei untrusted-Clone, peerRevoke), **Decay-Supersede** und **TMS-Retraktion** lassen `user_rejected_at` NULL und werden **NICHT** als Trust-Signal interpretiert. Das schließt die Konfabulations-Konfusion strukturell aus.
+
+**Mechanik (deterministisch):**
+1. **Eingabe:** `learnTrustAdjustments({ since? = epoch, min_evidence = 5 })`. `since` filtert den Bewertungs-Zeitraum (UTC-Z-normalisiert) — Aussagen mit `COALESCE(asserted_at_norm, asserted_at) ≥ since` werden gezählt; Reject-Aktionen mit `user_rejected_at ≥ since`. `min_evidence` ist die Mindest-Anzahl signed-Aussagen pro Peer, damit der Peer überhaupt in die Auswertung eingeht (Sybil-Schutz: 2-3 Aussagen sind kein Trust-Signal).
+2. **Aggregation pro `origin_peer_id`:**
+   - `total` = Anzahl Aussagen ab `since` (über `asserted_at_norm`).
+   - `rejected` = Anzahl davon mit `user_rejected_at IS NOT NULL AND user_rejected_at ≥ since` — **NUR explicit-User-Rejects** (Adversarial 🔴-1/-2). System-Quarantäne, Decay-Supersede, TMS-Retraktion zählen NICHT.
+   - `reject_rate_promille` = `trunc(rejected * 1000 / total)` (Integer-Division, Trunkierung gegen Null).
+3. **Vorschlags-Logik (Schwellen aus `spec`, Integer-Promille):**
+   - `reject_rate >= demoteUntrustedThreshold` (Default 800) → Vorschlag `level: 'untrusted'`.
+   - `reject_rate >= demoteLimitedThreshold` (Default 500) → Vorschlag `level: 'limited'`.
+   - sonst → kein Vorschlag (Peer hat sich bewährt oder Daten reichen nicht).
+4. **Skip-Bedingungen:** `total < min_evidence` → kein Vorschlag (zu wenig Daten); aktuelle `trust_level === 'authoritative'` → kein Vorschlag (Autoritäts-Setzung ist explizit). Self-Peer wird übersprungen.
+5. **Audit-Belege:** je Vorschlag eine Liste der bis zu 20 jüngsten user-rejected `triple_hash`-Werte (deterministisch sortiert nach `user_rejected_at DESC, triple_hash`).
+6. **Output-Format:** Array von `{ peer_id, current_level, suggested_level, total, rejected, reject_rate_promille, evidence: [{triple_hash, local_status, user_rejected_at}, …] }`. `current_level` ist `'untrusted'|'limited'|'full'|'authoritative'` ODER `'unknown'` (Peer existiert in `knowledge_edges`, aber nicht in `peers` — Re-Audit 🟡-4).
+
+**Un-Reject-Semantik (Re-Audit 🟡-B):** `promote(hash)` ist die komplementäre Aktion zu `reject(hash)` und nimmt einen früheren Reject zurück — setzt `local_status='active'` UND **löscht** `user_rejected_at`. Damit verschwindet der Reject aus dem `learnTrustAdjustments`-Zähler. Sonst entstünde ein „Geisterzähler" (Peer steht weiter belastet auf der Liste, obwohl der Nutzer den Reject zurückgenommen hat).
+
+**Legacy-Daten (Re-Audit 🟡-C):** Edges, die VOR Slice #6.1 angelegt und mittels `reject()` quittiert wurden, haben `user_rejected_at = NULL` (das Feld existierte noch nicht). Sie sind aus Sicht des Trust-Lerners **unsichtbar** — konservativ richtig: das System kann „legacy-superseded durch reject" nicht von „legacy-superseded durch Decay" unterscheiden, also wird die ältere Reject-Historie ignoriert. Trust-Lernen beginnt effektiv mit dem Slice; ältere Reject-Aktionen sind kein Trust-Signal.
+
+**Anwendung durch den Nutzer (KEIN Auto-Apply):** der Konsument liest die Vorschläge, prüft die Belege, entscheidet → ruft `peerTrust(peer_id, suggested_level)` für die Vorschläge die er annehmen will. Der Lern-Pfad selbst schreibt **nichts** in `peers`.
+
+**AC-Tabelle:**
+| AC | Kriterium | Test-Typ | Status |
+|---|---|---|---|
+| AC-20.1 | Peer mit reject-Rate ≥ 800‰ wird zu `untrusted` vorgeschlagen. | unit | offen |
+| AC-20.2 | Peer mit reject-Rate ≥ 500‰ und < 800‰ wird zu `limited` vorgeschlagen. | unit | offen |
+| AC-20.3 | Peer mit reject-Rate < 500‰ erhält keinen Vorschlag. | unit | offen |
+| AC-20.4 | Peer mit `total < min_evidence` erhält keinen Vorschlag (Sybil-Schutz). | unit | offen |
+| AC-20.5 | `authoritative`-Peer erhält keinen Vorschlag (Autoritäts-Setzung ist explizit). | unit | offen |
+| AC-20.6 | Self-Peer wird übersprungen. | unit | offen |
+| AC-20.7 | KEIN Auto-Apply: nach `learnTrustAdjustments` ist kein `peers.trust_level` verändert. | unit | offen |
+| AC-20.8 | Audit-Belege: je Vorschlag bis 20 jüngste rejected `triple_hash`-Werte, deterministisch sortiert. | unit | offen |
+| AC-20.9 | Determinismus: gleicher Graph → identische Vorschlags-Liste in identischer Reihenfolge. | unit | offen |
+| AC-20.10 | Integer-Promille im Output: `reject_rate_promille` ist Integer 0–1000, keine Floats. | unit | offen |
+| AC-20.11 | `since`-Filter: nur Aussagen mit `updated_at >= since` werden gezählt (`updated_at_norm` falls vorhanden, UC-5d-konform). | unit | offen |
+| AC-20.12 | Wire/PHP-Parität: `learn_trust_adjustments` ist eine lokale Lese-Op, kein Wire-Inhalt; PHP-Bundle muss nicht spiegeln. | unit | offen |
+| AC-20.13 | **(Adversarial 🔴-1)** System-Quarantänen (low-conf inference, default-quarantine bei untrusted-Clone, peerRevoke) zählen NICHT als reject — der Vorschlag entsteht nur bei `user_rejected_at IS NOT NULL`. | unit | offen |
+| AC-20.14 | **(Adversarial 🔴-2)** Decay-Supersede zählt NICHT als reject (kein `user_rejected_at`). Ein Peer, dessen Aussagen veralten, wird NICHT herabgestuft vorgeschlagen. | unit | offen |
+| AC-20.15 | **(Adversarial 🟡-4)** Peer, der in `knowledge_edges` als origin auftaucht aber NICHT in `peers` registriert ist, erhält `current_level: 'unknown'` (nicht stillschweigend `untrusted`). | unit | offen |
+| AC-20.16 | **(Re-Audit 🟡-B)** `promote(hash)` löscht `user_rejected_at` — nach Un-Reject zählt das Tripel nicht mehr im Trust-Lerner; der Peer wird aus der Vorschlags-Liste herausgenommen (wenn dadurch die Schwelle unterschritten ist). | unit | offen |
+
+**Fehlerfälle (UC-TA):** keine bekannten Origin-Peers → leeres Array (kein Fehler); ungültiges `since` (kein ISO) → `INVALID_PARAMETER_FORMAT`; `min_evidence < 1` → `INVALID_PARAMETER_FORMAT`.
+
+**Determinismus-Gate:** reine SQL-Aggregation + Integer-Arithmetik. Keine LLM-Aufrufe, keine Floats, keine probabilistischen Aggregate.
+
+**Wire-Vertrag intakt:** UC-TA ist eine **lokale Lese-Operation**; sie schreibt nichts in den Graphen, sie liefert nur Vorschläge. `trust_level` selbst ist seit Anfang lokal pro Knoten (Peer-Beziehungen sind subjektiv) — kein Föderations-Bruch.
+
+**Bias-Schutz (Adversarial-Vorab):** wir lernen aus **lokalen reject-Aktionen**. Das spiegelt die Werturteile des lokalen Nutzers — was *kann* eine Form von Bias-Kodierung sein, ist aber bewusst auf die lokale Trust-Achse beschränkt (subjektives Vertrauen). Die *globalen* `sourceTier`/`trustFactor`-Skalen bleiben statisch (#6.4-Diskussion deferred). Kein Konfabulationspfad in den Belief-Output, weil das Verhalten nur Vorschläge generiert und nicht den Belief-Pfad ändert.
+
+> **Slice #6.1 (in Bearbeitung):** Offline-Peer-Trust-Adjustment als reine Vorschlags-Logik. Nach #6.1 folgen #6.3 (zugriffs-basiertes Decay), #6.2 (Schema-Konsolidierung), #6.4 (signiertes Spec-Tuning). **Slice #6.E (Bias-Lerner) ist bewusst verworfen** (Konfabulationsfalle, Drift bei zu wenig Kontext).

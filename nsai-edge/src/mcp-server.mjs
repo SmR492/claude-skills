@@ -95,6 +95,11 @@ export const TOOLS = [
     inputSchema: S({ triple_hash: { type: 'string' } }, ['triple_hash']),
   },
   {
+    name: 'graph__learn_trust_adjustments',
+    description: 'UC-TA Slice #6.1 — Offline-Peer-Trust-Adjustment (Vorschlags-Modus, KEIN Auto-Apply). Aggregiert Reject/Supersede/Quarantine-Rate pro Origin-Peer und liefert Vorschläge zur Trust-Herabstufung (untrusted/limited) MIT Belegen. Der Nutzer muss explizit graph__peer_trust(peer_id, level) rufen, um Vorschläge anzunehmen.',
+    inputSchema: S({ since: { type: 'string', description: 'ISO-Zeitpunkt — nur Aussagen mit updated_at ≥ since werden gezählt' }, min_evidence: { type: 'integer', minimum: 1, description: 'Mindest-Aussagen pro Peer (Default 5, Sybil-Schutz)' } }),
+  },
+  {
     name: 'graph__assert_claims',
     description: 'UC-SC Slice #R2 — Self-Critique-Pflicht-Pass: verifiziert eine Liste von Aussagen (bis 50) gleichzeitig gegen das Gedächtnis und liefert ein kategorisches Aggregat (`all_supported` / `any_contested` / `any_unknown` / `any_contradicted`) + per-Claim-Verdikte mit Provenienz. Für halluzinationsfreies Reasoning VOR der Ausgabe einer zusammengesetzten Antwort. Output KATEGORISCH (keine Wahrscheinlichkeiten). Per-Claim-Felder kategorisch (verdict, contested, multiValue, dominant, present, corrective_hints, physical_status) — KEINE numerischen Provenienz-Felder wie belief/quorum.',
     inputSchema: S({ claims: { type: 'array', items: { type: 'object', properties: { subject: { type: 'string' }, predicate: { type: 'string' }, object: { type: 'string' }, as_of: { type: 'string' } }, required: ['subject', 'predicate', 'object'] }, minItems: 0, maxItems: 50 } }, ['claims']),
@@ -192,6 +197,9 @@ export class McpServer {
           break;
         case 'graph__assert_claims':
           result = this.engine.assertClaims(args.claims ?? []);
+          break;
+        case 'graph__learn_trust_adjustments':
+          result = this.engine.learnTrustAdjustments({ since: args.since, min_evidence: args.min_evidence });
           break;
         default:
           return { content: [{ type: 'text', text: `Unknown tool: ${name}` }], isError: true };
