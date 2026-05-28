@@ -64,15 +64,22 @@ test('AC-10.5: recallEpisodes recency-geordnet + Filter + limit-Cap', () => {
   assert.equal(term.episodes.length, 1);
 });
 
-test('🟡-1: recall mit LIKE-Sonderzeichen (%/_/\\) matcht literal, kein Wildcard-Leak', () => {
+test('🟡-1 (#R3 angepasst): recall mit Sonderzeichen — kein Crash, kein All-Match-Leak', () => {
+  // Vor Slice #R3 nutzte recallEpisodes LIKE+ESCAPE. Slice #R3 hebt auf FTS5/BM25:
+  // FTS5-Operatoren (-/+/:/*/^/(/) /") werden via _sanitizeFtsQuery zu Space → niemals
+  // SQL-MATCH-Crash. Pure-Punctuation-Terme tokenisieren zu nichts → leeres Ergebnis,
+  // niemals All-Match (das wäre die analoge Wildcard-Leak-Gefahr).
   const e = new Engine();
-  e.recordEpisode({ content: 'Rabatt 50% deal heute' });
-  e.recordEpisode({ content: 'snake_case bezeichner' });
+  e.recordEpisode({ content: 'Rabatt 50 deal heute' });
+  e.recordEpisode({ content: 'snake bezeichner' });
   e.recordEpisode({ content: 'nichts dergleichen' });
-  assert.equal(e.recallEpisodes({ term: '50%' }).episodes.length, 1);   // literal % gefunden
-  assert.equal(e.recallEpisodes({ term: 'snake_case' }).episodes.length, 1); // literal _ gefunden
-  // '%' als Literal matcht nur das „50%"-Episode (1), NICHT alle 3 → kein Wildcard-Leak.
-  assert.equal(e.recallEpisodes({ term: '%' }).episodes.length, 1);
+  // 50 matched eine Episode (BM25 ranked); FTS5-Operator-Bindestrich wird entschärft.
+  assert.equal(e.recallEpisodes({ term: '50' }).episodes.length, 1);
+  assert.equal(e.recallEpisodes({ term: 'snake' }).episodes.length, 1);
+  // Operator-Spam: ein Term aus reinen FTS5-Operatoren tokenisiert zu leer → kein Crash, leeres Ergebnis (KEIN All-Match-Leak).
+  assert.equal(e.recallEpisodes({ term: '-+*()"' }).episodes.length, 0);
+  // Punctuation-only: unicode61-Tokenizer ignoriert; kein All-Match-Leak.
+  assert.equal(e.recallEpisodes({ term: '%' }).episodes.length, 0);
 });
 
 test('AC-10.6/10.7: episodesForTriple status-unabhängig; Re-Assert reaktiviert retracted NICHT', () => {

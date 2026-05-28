@@ -88,6 +88,26 @@ CREATE TABLE IF NOT EXISTS episode_triples (
 CREATE INDEX IF NOT EXISTS idx_episodes_occurred ON episodes(occurred_at);
 CREATE INDEX IF NOT EXISTS idx_episodes_context ON episodes(context_slug);
 CREATE INDEX IF NOT EXISTS idx_episode_triples_hash ON episode_triples(triple_hash);
+
+-- UC-VS Slice #R3: FTS5 contentless-Index für Episoden-Volltext (BM25). Tokenizer mit Umlaut-Toleranz.
+-- contentless: episodes ist die Quelle; episodes_fts speichert nur den invertierten Index.
+-- Trigger halten den Index synchron in derselben Transaktion (ACID).
+CREATE VIRTUAL TABLE IF NOT EXISTS episodes_fts USING fts5(
+  content,
+  content='episodes',
+  content_rowid='rowid',
+  tokenize="unicode61 remove_diacritics 2"
+);
+CREATE TRIGGER IF NOT EXISTS episodes_ai AFTER INSERT ON episodes BEGIN
+  INSERT INTO episodes_fts(rowid, content) VALUES (new.rowid, new.content);
+END;
+CREATE TRIGGER IF NOT EXISTS episodes_au AFTER UPDATE ON episodes BEGIN
+  INSERT INTO episodes_fts(episodes_fts, rowid, content) VALUES ('delete', old.rowid, old.content);
+  INSERT INTO episodes_fts(rowid, content) VALUES (new.rowid, new.content);
+END;
+CREATE TRIGGER IF NOT EXISTS episodes_ad AFTER DELETE ON episodes BEGIN
+  INSERT INTO episodes_fts(episodes_fts, rowid, content) VALUES ('delete', old.rowid, old.content);
+END;
 `;
 
 // knowledge_edges-DDL OHNE PRAGMA/IF-NOT-EXISTS — für den transaktionalen Rebuild der Migration
@@ -130,7 +150,28 @@ export function openDb(path = ':memory:') {
   migrateValidityColumns(db);
   migrateUtcZNormalization(db);
   migrateClusterId(db);
+  migrateEpisodesFts(db);
   return db;
+}
+
+// UC-VS Slice #R3: idempotenter Initial-Build des FTS5-Index.
+// Adversarial 🔴-2: `COUNT(*) FROM episodes_fts` reflektiert bei External-Content-Tables die
+// QUELLE (episodes), nicht den Index. Echter Index-Count steht in der Shadow-Table `episodes_fts_docsize`.
+// Wenn diese kleiner ist als episodes-Count → Rebuild nötig (alte DB ohne FTS5 oder versehentlich geleert).
+function migrateEpisodesFts(db) {
+  const epCount = db.prepare('SELECT COUNT(*) c FROM episodes').get().c;
+  if (!epCount) return;
+  // Shadow-Table existiert mit CREATE VIRTUAL TABLE; falls nicht vorhanden, sicheren Fallback nehmen.
+  let indexedCount = 0;
+  try {
+    indexedCount = db.prepare('SELECT COUNT(*) c FROM episodes_fts_docsize').get().c;
+  } catch { indexedCount = 0; } // FTS5-Shadow fehlt → Migration nötig
+  if (indexedCount >= epCount) return; // Index ist auf Stand
+  db.exec('BEGIN IMMEDIATE');
+  try {
+    db.prepare("INSERT INTO episodes_fts(episodes_fts) VALUES('rebuild')").run();
+    db.exec('COMMIT');
+  } catch (e) { db.exec('ROLLBACK'); throw e; }
 }
 
 // UC-MS Slice #M.1: additive `peers.cluster_id`-Spalte (idempotent).

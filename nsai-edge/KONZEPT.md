@@ -1150,4 +1150,63 @@ Deferred-Verfeinerungen: Slice #1b (OUT→IN-Reaktivierung + Multi-Justification
 
 **Determinismus-Gate:** keine LLM-Aufrufe, keine Floats; reine Schleife über `verify` mit kategorischer Aggregations-Regel.
 
-> **Slice #R2 (in Bearbeitung):** Multi-Claim-Verify als Pflicht-Schnittstelle für Agenten. Output kategorisch + provenienz-vollständig.
+> **Slice #R2 (erledigt):** Multi-Claim-Verify als Pflicht-Schnittstelle für Agenten. Output kategorisch + Strip-Allowlist.
+
+### UC-VS — Volltext-Suche im Episoden-Recall via FTS5/BM25 (Slice #R3)
+
+**Akteur:** System (deterministisch, Tier 1, **kein LLM**) · **Route:** intern `recallEpisodes`, MCP `graph__recall_episodes` (Output unverändert) · **Roadmap:** §H.2 nach #R2.
+
+**Ziel (menschenähnliche Stärke „relevante Erlebnisse zuerst", ohne Konfabulations-Risiko):** Ein LLM-Konsument formuliert eine Mehrwort-Anfrage („Schulung Risiko KI-VO"). Heute scannt `recallEpisodes` per `content LIKE '%term%'` linear über alle Episoden — ein Term, eine Trefferliste in Recency-DESC. **Mit FTS5+BM25** bekommt der Konsument die nach Relevanz rangierten Episoden zuerst: häufig auftauchende Tokens werden weniger gewichtet (IDF), kurze Episoden mit gehäuften Treffern stehen vorn (TF normalisiert über `avgdl`).
+
+**Scope-Klarstellung (nach Bewertung externer KI-Vorschläge):**
+- **FTS5 wird nur für `episodes.content` aufgebaut** — echter Volltext (1–8000 Zeichen), wo BM25 semantisch wirkt.
+- **`knowledge_nodes.name` bleibt LIKE-Pfad** — atomare Identifier (`EU-KI-VO`, `KI-Kompetenz`) sind keine Volltexte; FTS5 würde sie als Whole-Tokens speichern, was keinen messbaren Gewinn gegenüber LIKE bringt.
+- **Recursive CTE für Graph-Traversal bewusst NICHT übernommen** — würde unsere deterministische BFS-Reihenfolge (#R1-Härtung), die Status-Konjunktion (#M.1-Härtung) und die UC-BT-Lese-Linse (#5d-Härtung) zurücksetzen. JS-BFS bleibt.
+- **`search()` Hybrid-Output** nutzt die FTS5-Episoden-Rankliste statt Recency-DESC bei Mehrwort-Anfragen — Knoten-Seed-Auswahl bleibt LIKE.
+
+**Forschungs-Anker (RAG 2026, validiert):**
+- *BM25 als Minimum-Viable-Baseline* (RAG 2026): in mehreren 2026-Benches schlägt BM25 sogar text-embedding-3-large — Begründung dafür, keine Vektoren einzuführen (würde Wire/Determinismus brechen).
+- *Hybrid Retrieval* (RAG 2026): lexikalisch (BM25) + Graph (PPR). Wir haben den Graph-Teil seit Slice #3.
+
+**Mechanik (deterministisch):**
+1. **Schema additiv** — virtuelle Tabelle `episodes_fts(content)` als Contentless-View auf `episodes(rowid, content)`. Tokenizer: `unicode61 remove_diacritics 2` (Umlaut-Toleranz: „Süß" matched „suess").
+2. **Trigger-Sync** — `AFTER INSERT/UPDATE/DELETE ON episodes` hält FTS5-Index konsistent zur Quell-Tabelle. ACID innerhalb derselben Transaktion.
+3. **Idempotente Migration** — beim DB-Open: `CREATE VIRTUAL TABLE IF NOT EXISTS episodes_fts ...`, dann Initial-Index-Build über bestehende Episoden, die noch keinen Eintrag haben (Re-Run no-op).
+4. **Query-Sanitization** — `_sanitizeFtsQuery(term)` ersetzt FTS5-Operatoren (`-`, `+`, `:`, `*`, `^`, `(`, `)`, `"`) durch Space und normalisiert Whitespace. Verhindert die ganze Klasse `no such column: VO`-Fehler und schließt eine Injection-Klasse aus.
+5. **`recallEpisodes(term=…)`** — wenn `term` vorhanden: `JOIN episodes_fts ON … WHERE episodes_fts MATCH ? ORDER BY bm25(episodes_fts) ASC LIMIT N+1`. Sortiert nach BM25-Score (FTS5-Konvention: negative Werte, kleiner = relevanter), dann nach `id` als Tie-Break. Ohne `term`: Fallback auf bestehende `occurred_at_norm DESC, id`-Sortierung.
+6. **`search()` Hybrid** — Mehrwort-Terme verwenden den FTS5-Pfad in `recallEpisodes`; single-token-Terme können entweder Pfad nehmen, Default bleibt FTS5 (deterministisch in beiden Pfaden).
+
+**BM25-Parameter (FTS5-Defaults, in SQLite C-Source hartcodiert):**
+- `k1=1.2`, `b=0.75` — FTS5-Defaults, stabil seit SQLite 3.20. FTS5 erlaubt KEIN expliziten Override im SQL (`CREATE VIRTUAL TABLE` hat keine k1/b-Parameter). Determinismus zwischen NSAI-Edge-Knoten ist gegeben, solange beide SQLite ≥ 3.20 nutzen — über `node:sqlite` (Node ≥ 22) und die PHP-Seite mit ihrer eigenen Volltext-Implementierung (z. B. MySQL FULLTEXT). Diese Werte sind eine Doku-Annahme, kein Code-Pinning.
+
+**Term-Sanitization (Adversarial 🔴-1 — textuelle Operatoren):**
+- Allowlist `[\\p{L}\\p{N}\\s]` entfernt Symbol-Operatoren strukturell. Aber FTS5 hat auch textuelle Operatoren (`AND`, `OR`, `NOT`, `NEAR`) — reine Letters, die durch die Allowlist passieren würden. Lösung: **jeder Token nach Sanitization wird in Phrase-Quotes (`"token"`) eingebettet**. FTS5 nimmt Phrasen wörtlich; eine Anfrage „Sicherheit AND wichtig" wird zu `"Sicherheit" "AND" "wichtig"` → drei Phrasen mit implizitem AND-Verknüpfung. Keine Operator-Interpretation, keine Crashes bei zufällig groß geschriebenen deutschen Konjunktionen.
+
+**Was NICHT angeboten wird (bewusste Scope-Grenze):**
+- Prefix/Wildcard-Matching (`KI*`) — durch Phrase-Quoting strukturell ausgeschlossen. Wer Substring-Match braucht, nutzt `search()` (LIKE-Pfad über Knoten-Namen).
+- Boolean-Operatoren als User-Eingabe (`AND`/`OR`/`NEAR`) — werden zu Literal-Phrasen. Mehrwort-Anfragen verknüpfen sich über impliziten AND zwischen den Phrasen.
+- Sprachen-spezifisches Stemming (deferred Slice #R3b).
+
+**AC-Tabelle:**
+| AC | Kriterium | Test-Typ | Status |
+|---|---|---|---|
+| AC-18.1 | `recallEpisodes(term)` mit Mehrwort-Term liefert relevantere Episoden zuerst (BM25-Score ASC). | unit | offen |
+| AC-18.2 | `_sanitizeFtsQuery` entfernt alle FTS5-Operatoren — ein Term mit `-`/`+`/`"`/`(` etc. erzeugt KEINE SQL-Exception, sondern eine sanitisierte MATCH-Query. | unit | offen |
+| AC-18.3 | Umlaut-Toleranz: Suche nach „suess" findet Episode mit „Süß" (remove_diacritics 2). | unit | offen |
+| AC-18.4 | Trigger-Sync: nach `recordEpisode` ist die Episode sofort über FTS5 auffindbar (gleiche Transaktion). | unit | offen |
+| AC-18.5 | DELETE: nach `episodicGc` ist die gelöschte Episode NICHT mehr im FTS5-Index. | unit | offen |
+| AC-18.6 | Idempotente Migration: zweiter DB-Open ohne neue Episoden ändert nichts; Erst-Build über Bestand füllt nur fehlende Einträge. | unit | offen |
+| AC-18.7 | Determinismus: gleicher Index-Stand + gleicher Term → identische Reihenfolge (BM25-Score deterministisch, Tie-Break nach `id`). | unit | offen |
+| AC-18.8 | Output-Schema unverändert: `recallEpisodes` liefert dieselben Felder wie vor #R3 (Konsumenten-Kompatibilität). | unit | offen |
+| AC-18.9 | Ohne `term`: Fallback auf occurred_at_norm-DESC-Sortierung (UC-5d-konform). | unit | offen |
+| AC-18.10 | Föderation/Wire unverändert: FTS5-Index ist rein lokal, nicht im Wire, nicht in Signatur. | unit | offen |
+| AC-18.11 | UC-BT-Verträglichkeit: `since`/`until`-Filter kombinieren sich mit FTS5-MATCH (WHERE-Bedingung konjunktiv). | unit | offen |
+| AC-18.12 | Open-World-Verträglichkeit: Term ohne Treffer → leeres Ergebnis (kein „nearby"-Konfabulations-Match). | unit | offen |
+
+**Fehlerfälle (UC-VS):** leerer Term nach Sanitization → leeres Ergebnis (kein MATCH-Aufruf); FTS5-Index inkonsistent (Trigger-Bug) → DB-Open repariert via Initial-Build (idempotent); ungültiges ISO in since/until → wie bisher in recallEpisodes ignoriert/normalisiert.
+
+**Determinismus-Gate:** FTS5 ist deterministisch (gleiche Parameter, gleicher Tokenizer → gleiche Token-Liste → gleicher BM25-Score). Tokenizer-Version: SQLite ≥ 3.9. Wir pinnen den Tokenizer-String explizit in der `CREATE VIRTUAL TABLE`-Definition.
+
+**Wire-Vertrag intakt:** FTS5 ist rein lokal — Index nicht im Wire, nicht in Signatur. PHP-NSAI-Bundle muss nicht spiegeln (PHP nutzt seine eigene Volltext-Variante, z. B. MySQL FULLTEXT — Output-Format `recallEpisodes` ist gleich, interner Algorithmus darf abweichen).
+
+> **Slice #R3 (in Bearbeitung):** FTS5+BM25 für Episode-Volltextsuche. **Deferred** zu #R3b: BM25 auf `knowledge_nodes.name` falls Mehrwort-Knoten-Namen jemals dominant werden; Sprachen-spezifische Tokenizer (German-Stemming).
