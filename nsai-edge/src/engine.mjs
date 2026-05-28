@@ -666,22 +666,52 @@ export class Engine {
       .run(id, content, source_type, ts, tsNorm, context_slug);
     return { episode_id: id, occurred_at: ts };
   }
-  // UC-EP-Recall, optional zeit-fensterbar: `since` = untere Grenze (occurred_at ≥ since),
-  // `until` = obere Grenze (occurred_at ≤ until). Slice #5b/🟡-A: `until` schließt die Lese-Linsen-
-  // Lücke, durch die `search({as_of: T})` 2026er-Episoden zurücklieferte, obwohl der Aufrufer
-  // einen historischen Snapshot zu T erwartete. `since`/`until` sind Episoden-Achse (occurred_at),
-  // nicht die UC-BT-valid_*-Achse — bewusst getrennt (Episoden tragen kein Validitäts-Intervall).
+  // UC-VS Slice #R3: Sanitisiert einen User-Term für FTS5 MATCH.
+  // Zwei Schutz-Klassen:
+  //   1. Symbol-Operatoren (-+:*^()"',% etc.) via Allowlist `\p{L}\p{N}\s` entfernt.
+  //   2. Adversarial 🔴-1: textuelle FTS5-Operatoren (AND/OR/NOT/NEAR) sind reine Letters
+  //      und würden die Allowlist passieren. Daher wird JEDER Token in Phrase-Quotes
+  //      (`"token"`) eingebettet — FTS5 nimmt Phrasen wörtlich, keine Operator-Interpretation,
+  //      keine Reservierte-Wort-Crashes. Mehrwort-Suche bleibt erhalten via implicit-AND
+  //      zwischen Phrasen (FTS5-Default).
+  // Liefert null wenn nach Sanitization nichts übrig — Aufrufer entscheidet (All-Match-Schutz).
+  _sanitizeFtsQuery(term) {
+    if (typeof term !== 'string') return null;
+    const clean = term.replace(/[^\p{L}\p{N}\s]/gu, ' ').replace(/\s+/g, ' ').trim();
+    if (!clean) return null;
+    return clean.split(' ').map((t) => `"${t}"`).join(' ');
+  }
+
+  // UC-EP-Recall, optional zeit-fensterbar (since/until) und volltext-rankt (term via FTS5/BM25, Slice #R3).
+  // Slice #5b/🟡-A: `until` schließt die Lese-Linsen-Lücke (search-as_of → historische Episoden).
+  // Slice #R3/UC-VS: bei `term` läuft die Suche über `episodes_fts` MATCH+BM25 — relevantere
+  // Episoden zuerst (BM25-Score ASC), Tie-Break nach `id`. Term wird via `_sanitizeFtsQuery` entschärft.
   recallEpisodes({ context_slug = null, term = null, since = null, until = null, limit = 25 } = {}) {
     const cap = Math.min(Number.isInteger(limit) && limit > 0 ? limit : 25, 100);
     const where = []; const args = [];
-    if (context_slug) { where.push('context_slug = ?'); args.push(context_slug); }
-    if (term) { where.push("content LIKE ? ESCAPE '\\'"); args.push(`%${String(term).replace(/[\\%_]/g, (m) => `\\${m}`)}%`); }
-    // UC-5d: Filter über UTC-Z-normalisierte Form (occurred_at_norm); Fallback occurred_at für Altbestände.
-    if (since) { const t = Date.parse(since); if (!Number.isNaN(t)) { where.push('COALESCE(occurred_at_norm, occurred_at) >= ?'); args.push(new Date(t).toISOString()); } }
-    if (until) { const t = Date.parse(until); if (!Number.isNaN(t)) { where.push('COALESCE(occurred_at_norm, occurred_at) <= ?'); args.push(new Date(t).toISOString()); } }
-    // UC-5d 🔴-2 (Adversarial): ORDER BY ebenfalls über occurred_at_norm, sonst limit/DESC-Reihenfolge unter Offset-Mix falsch.
-    const sql = `SELECT id, content, source_type, occurred_at, context_slug FROM episodes${where.length ? ' WHERE ' + where.join(' AND ') : ''} ORDER BY COALESCE(occurred_at_norm, occurred_at) DESC, id LIMIT ?`;
-    const rows = this.db.prepare(sql).all(...args, cap + 1);
+    if (context_slug) { where.push('e.context_slug = ?'); args.push(context_slug); }
+    if (since) { const t = Date.parse(since); if (!Number.isNaN(t)) { where.push('COALESCE(e.occurred_at_norm, e.occurred_at) >= ?'); args.push(new Date(t).toISOString()); } }
+    if (until) { const t = Date.parse(until); if (!Number.isNaN(t)) { where.push('COALESCE(e.occurred_at_norm, e.occurred_at) <= ?'); args.push(new Date(t).toISOString()); } }
+    const safeTerm = term != null ? this._sanitizeFtsQuery(term) : null;
+    // WICHTIG (All-Match-Leak-Schutz): wenn `term` explizit gegeben wurde aber nach
+    // Sanitization leer ist (z.B. nur Operatoren `-+*"`), DARF NICHT auf den term-losen
+    // Recency-Pfad zurückgefallen werden — sonst sieht der Konsument alle Episoden statt
+    // ein leeres Treffer-Set für sein Operator-only-Pattern.
+    if (term != null && !safeTerm) return { episodes: [], truncated: false };
+    let sql; let queryArgs;
+    if (safeTerm) {
+      // FTS5-Pfad: JOIN auf episodes_fts MATCH; ORDER BY BM25 (FTS5-Konvention: negative Werte, ASC = relevanter zuerst).
+      sql = `SELECT e.id, e.content, e.source_type, e.occurred_at, e.context_slug
+             FROM episodes_fts JOIN episodes e ON e.rowid = episodes_fts.rowid
+             WHERE episodes_fts MATCH ?${where.length ? ' AND ' + where.join(' AND ') : ''}
+             ORDER BY bm25(episodes_fts) ASC, e.id LIMIT ?`;
+      queryArgs = [safeTerm, ...args, cap + 1];
+    } else {
+      // Fallback ohne Term: Recency-DESC (UC-5d-konform).
+      sql = `SELECT e.id, e.content, e.source_type, e.occurred_at, e.context_slug FROM episodes e${where.length ? ' WHERE ' + where.join(' AND ') : ''} ORDER BY COALESCE(e.occurred_at_norm, e.occurred_at) DESC, e.id LIMIT ?`;
+      queryArgs = [...args, cap + 1];
+    }
+    const rows = this.db.prepare(sql).all(...queryArgs);
     const truncated = rows.length > cap;
     return { episodes: rows.slice(0, cap), truncated };
   }

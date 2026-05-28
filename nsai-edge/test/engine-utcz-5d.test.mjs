@@ -135,14 +135,21 @@ test('🔴-1 (Adversarial-5d): episodicGc löscht Offset-Episoden nicht fälschl
   assert.ok(remaining, 'Episode darf NICHT gelöscht werden — sie ist real NACH cutoff (Offset darf nicht „älter" machen)');
 });
 
-test('🔴-2 (Adversarial-5d): recallEpisodes ORDER BY ist real-time-DESC (Offset darf Reihenfolge nicht kippen)', () => {
+test('🔴-2 (Adversarial-5d): recallEpisodes ohne term sortiert real-time-DESC (occurred_at_norm)', () => {
+  // Slice #R3 hat das Verhalten geändert: MIT term → BM25-Sortierung (Relevanz).
+  // OHNE term → unverändert Recency-DESC über occurred_at_norm. Dieser Test prüft den
+  // Recency-Pfad (was die ursprüngliche Adversarial-Aussage adressierte: Offset-Drift
+  // darf real-time-Reihenfolge nicht kippen).
   const e = new Engine();
-  // A: Offset 12:00+02:00 = real 10:00Z. B: 11:00Z. Real-DESC: [B, A]. Lex-DESC ohne _norm: [A, B] (12 > 11).
+  // Triggers schreiben den FTS5-Index automatisch — Direct-INSERT muss aber die FTS5-
+  // Trigger aktivieren, also dürfen wir nicht die niedrige Trigger-Stufe umgehen.
+  // Test verwendet hier nur den Recency-Pfad (kein term), Triggers sind irrelevant.
   e.db.prepare('INSERT INTO episodes (id, content, source_type, occurred_at, occurred_at_norm, context_slug) VALUES (?,?,?,?,?,?)')
     .run('ep-A', 'alpha A', 'manual', '2024-06-01T12:00:00+02:00', '2024-06-01T10:00:00.000Z', null);
   e.db.prepare('INSERT INTO episodes (id, content, source_type, occurred_at, occurred_at_norm, context_slug) VALUES (?,?,?,?,?,?)')
     .run('ep-B', 'alpha B', 'manual', '2024-06-01T11:00:00Z', '2024-06-01T11:00:00.000Z', null);
-  const r = e.recallEpisodes({ term: 'alpha' });
+  const r = e.recallEpisodes({}); // ohne term
+  // Real-DESC: ep-B (11Z) vor ep-A (10Z real).
   assert.equal(r.episodes[0].id, 'ep-B', 'B muss vor A stehen (real 11:00Z > 10:00Z)');
   assert.equal(r.episodes[1].id, 'ep-A');
 });
