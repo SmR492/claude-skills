@@ -577,12 +577,18 @@ export class Engine {
       .run(id, content, source_type, ts, context_slug);
     return { episode_id: id, occurred_at: ts };
   }
-  recallEpisodes({ context_slug = null, term = null, since = null, limit = 25 } = {}) {
+  // UC-EP-Recall, optional zeit-fensterbar: `since` = untere Grenze (occurred_at ≥ since),
+  // `until` = obere Grenze (occurred_at ≤ until). Slice #5b/🟡-A: `until` schließt die Lese-Linsen-
+  // Lücke, durch die `search({as_of: T})` 2026er-Episoden zurücklieferte, obwohl der Aufrufer
+  // einen historischen Snapshot zu T erwartete. `since`/`until` sind Episoden-Achse (occurred_at),
+  // nicht die UC-BT-valid_*-Achse — bewusst getrennt (Episoden tragen kein Validitäts-Intervall).
+  recallEpisodes({ context_slug = null, term = null, since = null, until = null, limit = 25 } = {}) {
     const cap = Math.min(Number.isInteger(limit) && limit > 0 ? limit : 25, 100);
     const where = []; const args = [];
     if (context_slug) { where.push('context_slug = ?'); args.push(context_slug); }
     if (term) { where.push("content LIKE ? ESCAPE '\\'"); args.push(`%${String(term).replace(/[\\%_]/g, (m) => `\\${m}`)}%`); }
     if (since) { const t = Date.parse(since); if (!Number.isNaN(t)) { where.push('occurred_at >= ?'); args.push(new Date(t).toISOString()); } }
+    if (until) { const t = Date.parse(until); if (!Number.isNaN(t)) { where.push('occurred_at <= ?'); args.push(new Date(t).toISOString()); } }
     const sql = `SELECT id, content, source_type, occurred_at, context_slug FROM episodes${where.length ? ' WHERE ' + where.join(' AND ') : ''} ORDER BY occurred_at DESC, id LIMIT ?`;
     const rows = this.db.prepare(sql).all(...args, cap + 1);
     const truncated = rows.length > cap;
@@ -609,19 +615,24 @@ export class Engine {
   // ---- UC-HR: Hybrid-Retrieval (Slice #3) — lexikalische Seeds + PPR --
   // Lokale, read-only Lese-Linse (Float wie resolveBelief; nicht föderiert, kein Wire).
   // Deterministisch durch feste Knoten-/Kanten-Summationsordnung (triple_hash) + stabilen Tie-Break.
-  search({ term, limit = 10, max_hops = 3, max_iter = 100, tol = 1e-6 } = {}) {
+  search({ term, limit = 10, max_hops = 3, max_iter = 100, tol = 1e-6, as_of = null } = {}) {
     const cap = Math.min(Number.isInteger(limit) && limit > 0 ? limit : 10, 50);
     // Parameter klemmen (Adversarial 🟡-1/2: ungeklemmt → CPU-DoS / still-leeres Ergebnis).
     max_hops = Math.min(Math.max(Number.isInteger(max_hops) ? max_hops : 3, 1), 5);
     max_iter = Math.min(Math.max(Number.isInteger(max_iter) ? max_iter : 100, 1), 200);
     tol = (Number.isFinite(tol) && tol > 0) ? tol : 1e-6;
+    if (!this._validIso(as_of)) throw new EngineError('INVALID_PARAMETER_FORMAT', 'as_of kein ISO-Datum'); // UC-BT (Slice #5b)
     if (typeof term !== 'string' || term.trim().length < 2) return { seeds: [], results: [], episodes: [], converged: true, truncated: false };
     const like = `%${term.replace(/[\\%_]/g, (m) => `\\${m}`)}%`;
     const seeds = this.db.prepare("SELECT id, name FROM knowledge_nodes WHERE name LIKE ? ESCAPE '\\' ORDER BY name").all(like);
-    if (!seeds.length) return { seeds: [], results: [], episodes: this.recallEpisodes({ term }).episodes, converged: true, truncated: false };
+    if (!seeds.length) return { seeds: [], results: [], episodes: this.recallEpisodes({ term, until: as_of }).episodes, converged: true, truncated: false };
 
-    // 1) k-Hop-Subgraph (ungerichtet für Mitgliedschaft) über aktive Kanten.
-    const edges = this.db.prepare("SELECT triple_hash, subject_id, predicate, object_id, confidence, origin_peer_id FROM knowledge_edges WHERE local_status='active'").all();
+    // 1) k-Hop-Subgraph (ungerichtet für Mitgliedschaft) über aktive UND zu `as_of` gültige Kanten.
+    // UC-BT (Slice #5b): konjunktiv zu local_status='active'; ohne as_of = jetzt — gleiche Lese-Linse
+    // wie resolveBelief/query/verify, damit search nicht historische/zukünftige Fakten zeigt, die im
+    // gewählten Zeitpunkt nicht gelten (Konsistenz zwischen den Lese-Pfaden).
+    const vc = this._validClause(as_of);
+    const edges = this.db.prepare(`SELECT triple_hash, subject_id, predicate, object_id, confidence, origin_peer_id FROM knowledge_edges WHERE local_status='active'${vc.sql}`).all(...vc.args);
     // Relevanz-Gewicht = trust-diskontierte Konfidenz (Adversarial 🟡-3): ein limited/niedrig-
     // vertrauter Origin soll nicht allein wegen hoher gespeicherter confidence oben ranken.
     // Das ist eine RELEVANZ-Linse, NICHT die volle Belief-Auflösung (resolveBelief bleibt zuständig).
@@ -685,7 +696,8 @@ export class Engine {
     return {
       seeds: seeds.map((s) => s.name), converged, truncated,
       results: scored.slice(0, cap),
-      episodes: this.recallEpisodes({ term }).episodes,
+      episodes: this.recallEpisodes({ term, until: as_of }).episodes, // Slice #5b/🟡-A: zu T begrenzen
+
     };
   }
 

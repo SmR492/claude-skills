@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { Engine } from '../src/engine.mjs';
+import { tripleHash } from '../src/canonical.mjs';
 
 // UC-HR (Slice #3) — Hybrid-Retrieval: lexikalische Seeds + Personalized PageRank.
 
@@ -118,4 +119,88 @@ test('🟡-2: ungültige Parameter werden geklemmt (max_hops<=0 liefert trotzdem
   chain(e, 'Alpha', 'Beta');
   assert.ok(e.search({ term: 'Alpha', max_hops: 0 }).results.length > 0);   // auf 1 geklemmt
   assert.ok(e.search({ term: 'Alpha', max_iter: -5, tol: 0 }).results.length > 0); // kein DoS/Crash
+});
+
+// Slice #5b — bi-temporale Lese-Linse auch im Hybrid-Retrieval (Konsistenz zu query/verify/resolveBelief).
+test('AC-11.11 (Slice #5b): as_of filtert nicht-zu-T gültige Kanten aus dem Subgraphen', () => {
+  const e = new Engine();
+  // 2 Hops: Alpha → Beta (offen) → Gamma (nur 2023..2025 gültig)
+  e.storeTriple({ subject: 'Alpha', predicate: 'verbindet', object: 'Beta', confidence: 800, asserted_at: '2019-01-01T00:00:00Z' });
+  const h2 = e.storeTriple({ subject: 'Beta', predicate: 'verbindet', object: 'Gamma', confidence: 800, asserted_at: '2019-01-01T00:00:00Z' }).triple_hash;
+  e.setValidity(h2, { valid_from: '2023-01-01T00:00:00Z', valid_to: '2025-01-01T00:00:00Z' });
+  const now = e.search({ term: 'Alpha', max_hops: 3, as_of: '2026-05-01T00:00:00Z' }).results.map((r) => r.object);
+  assert.ok(!now.includes('Gamma')); // 2026 > valid_to (2025) → Beta→Gamma raus, Gamma außer Reichweite
+  const past = e.search({ term: 'Alpha', max_hops: 3, as_of: '2024-06-01T00:00:00Z' }).results.map((r) => r.object);
+  assert.ok(past.includes('Gamma')); // 2024 im Intervall → drin
+  const before = e.search({ term: 'Alpha', max_hops: 3, as_of: '2022-01-01T00:00:00Z' }).results.map((r) => r.object);
+  assert.ok(!before.includes('Gamma')); // 2022 < valid_from → raus
+});
+
+test('AC-11.12 (Slice #5b): ungültiges as_of → INVALID_PARAMETER_FORMAT (fail-closed)', () => {
+  const e = new Engine();
+  chain(e, 'Alpha', 'Beta');
+  assert.throws(() => e.search({ term: 'Alpha', as_of: 'kein-datum' }), /INVALID_PARAMETER_FORMAT/);
+});
+
+test('AC-11.13 (Slice #5b): Lese-Linsen-Vertrag — keine zu T außerhalb-gültige Kante taucht in search auf (gleiche Klausel wie query/verify)', () => {
+  // 🟡-B (Adversarial): kein objekt-Whitelist, sondern direkt der Linsen-Vertrag.
+  // query (Tiefe 1) und search (k-Hop, LIKE-Seeds) haben unterschiedliche Topologie-Reichweite —
+  // der echte Vertrag ist NICHT „search ⊆ query", sondern: search wendet die GLEICHE Validitäts-
+  // Klausel an wie query/verify/resolveBelief. Wir verifizieren das, indem wir eine zu T außerhalb-
+  // gültige Kante einbauen und prüfen, dass sie in KEINER Lese-Linse erscheint.
+  const e = new Engine();
+  const PAST = '2019-01-01T00:00:00Z';
+  // Kette mit gestaffelten Intervallen, alle erreichbar von "Vertrag" aus.
+  const triples = [
+    { s: 'Vertrag', p: 'gilt', o: 'aktiv',  from: '2021-01-01T00:00:00Z', to: '2023-01-01T00:00:00Z' }, // ⤬ außerhalb T=2024
+    { s: 'Vertrag', p: 'hat',  o: 'Anhang', from: '2020-01-01T00:00:00Z', to: '2030-01-01T00:00:00Z' }, // ✓ T drin
+    { s: 'Vertrag', p: 'gilt', o: 'neu',    from: '2025-01-01T00:00:00Z', to: null },                   // ⤬ ab nach T
+    { s: 'Vertrag', p: 'war',  o: 'alt',    from: PAST,                    to: '2020-01-01T00:00:00Z' }, // ⤬ vor T beendet
+  ];
+  const meta = new Map(); // hash → {outsideAtT}
+  for (const t of triples) {
+    const h = e.storeTriple({ subject: t.s, predicate: t.p, object: t.o, confidence: 800, asserted_at: PAST }).triple_hash;
+    e.setValidity(h, { valid_from: t.from, valid_to: t.to });
+    const fromT = Date.parse(t.from ?? PAST), toT = t.to ? Date.parse(t.to) : Infinity, atT = Date.parse('2024-06-01T00:00:00Z');
+    meta.set(h, { outsideAtT: !(fromT <= atT && atT < toT) });
+  }
+  const T = '2024-06-01T00:00:00Z';
+  const sHashes = new Set(e.search({ term: 'Vertrag', as_of: T, max_hops: 3 }).results.map((r) => r.triple_hash));
+  // query liefert keine triple_hash-Spalte → über (s,p,o) rekonstruieren.
+  const qHashes = new Set(e.query('Vertrag', { as_of: T }).edges.map((x) => tripleHash(x.subject, x.predicate, x.object)));
+  // Der Linsen-Vertrag: keine zu T außerhalb-gültige Kante darf in einer Lese-Linse auftauchen.
+  for (const [h, m] of meta) {
+    if (m.outsideAtT) {
+      assert.equal(sHashes.has(h), false, `search zeigt zu T außerhalb-gültige Kante ${h.slice(0, 16)}…`);
+      assert.equal(qHashes.has(h), false, `query zeigt zu T außerhalb-gültige Kante ${h.slice(0, 16)}…`);
+    }
+  }
+  // Sanity: die zu T gültige Kante MUSS in beiden Linsen sichtbar sein (sonst wäre das Setup defekt).
+  const validHash = [...meta.entries()].find(([, m]) => !m.outsideAtT)[0];
+  assert.ok(sHashes.has(validHash), 'gültige Kante fehlt in search — Setup-Fehler');
+  assert.ok(qHashes.has(validHash), 'gültige Kante fehlt in query — Setup-Fehler');
+});
+
+test('AC-11.14 (Slice #5b 🟡-A): recallEpisodes respektiert as_of als obere Schranke (until=as_of)', () => {
+  const e = new Engine();
+  // recordEpisode lehnt Zukunfts-`occurred_at` ab (clampt auf jetzt) → wir setzen die Episoden
+  // direkt mit definierten occurred_at-Werten, um die Linsen-Lücke deterministisch zu prüfen.
+  const ts = (iso) => iso;
+  e.recordEpisode({ content: 'Alpha frühe Notiz', occurred_at: '2009-06-01T00:00:00Z' });
+  const future = e.recordEpisode({ content: 'Alpha sagt etwas Wichtiges' }); // jetzt
+  e.db.prepare('UPDATE episodes SET occurred_at=? WHERE id=?').run('2030-01-01T00:00:00Z', future.episode_id);
+  const past = e.search({ term: 'Alpha', as_of: ts('2010-01-01T00:00:00Z') });
+  assert.equal(past.episodes.length, 1, 'nur die 2009er-Episode darf zu 2010 sichtbar sein');
+  assert.equal(past.episodes[0].content, 'Alpha frühe Notiz');
+  const now = e.search({ term: 'Alpha' }); // ohne as_of → alle
+  assert.equal(now.episodes.length, 2);
+});
+
+test('AC-11.14b (Slice #5b 🟡-A): auch der „keine Seeds"-Frühausstieg filtert Episoden zu as_of', () => {
+  const e = new Engine();
+  const ep = e.recordEpisode({ content: 'Zukunfts-Notiz mit Token Beta' });
+  e.db.prepare('UPDATE episodes SET occurred_at=? WHERE id=?').run('2030-01-01T00:00:00Z', ep.episode_id);
+  const r = e.search({ term: 'Beta', as_of: '2010-01-01T00:00:00Z' });
+  assert.deepEqual(r.results, []); // keine Seeds (kein Knoten "Beta")
+  assert.equal(r.episodes.length, 0); // Frühausstieg respektiert as_of → 2030er Episode raus
 });
