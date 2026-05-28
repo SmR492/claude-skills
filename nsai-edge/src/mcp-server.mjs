@@ -66,7 +66,7 @@ export const TOOLS = [
   },
   {
     name: 'graph__verify',
-    description: 'Prüft eine Aussage (Subjekt-Prädikat-Objekt) deterministisch gegen das Gedächtnis → supported / contradicted / unknown (open-world: Abwesenheit = unknown, nie contradicted). Für halluzinationsfreies Reasoning vor dem Antworten.',
+    description: 'Prüft eine Aussage (Subjekt-Prädikat-Objekt) deterministisch gegen das Gedächtnis → supported / contradicted / unknown (open-world: Abwesenheit = unknown, nie contradicted). Für halluzinationsfreies Reasoning vor dem Antworten. **Hinweis (UC-CR/Slice #R1):** Bei `unknown` kann das Ergebnis ein Feld `corrective_hints[]` enthalten mit verwandten supported-Tripeln im 2-Hop-Subgraph (Felder `via_subject`, `triple_hash`). Diese sind **Diagnose-Hinweise** auf andere Subjekte — das gefragte Subject bleibt `unknown`. NICHT als Verdikt-Verstärkung für das gefragte Subject interpretieren (sonst Konfabulation).',
     inputSchema: S({ subject: { type: 'string' }, predicate: { type: 'string' }, object: { type: 'string' }, as_of: { type: 'string', description: 'ISO-Zeitpunkt T (UC-BT): zu T verifizieren' } }, ['subject', 'predicate', 'object']),
   },
   {

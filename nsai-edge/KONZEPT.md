@@ -1062,4 +1062,48 @@ Deferred-Verfeinerungen: Slice #1b (OUT→IN-Reaktivierung + Multi-Justification
 
 **Wire-Vertrag intakt:** Endorsement-Wire ist eine Erweiterung von `wire_version` — wir nutzen den **gleichen** signingString-Aufbau wie für Tripel (gleiches Format `[wire_version, triple_hash, ...]`), nur mit `endorsement=true`-Marker. PHP-NSAI-Bundle erhält additiv die `triple_endorsements`-Tabelle; alte PHP-Peers ohne MS-Wissen empfangen weiter via `_edgeToWire` die single-row-Projektion.
 
-> **Slice #M.1 (in Bearbeitung):** Quorum-Endorsement Phase 1 — Schema, Engine-Aggregation, MCP-Tool `graph__endorse_triple`. **Deferred** zu #M.2: dynamisches Cluster-Inference, Endorsement-Decay über Recency-Achse, Endorsement-Revocation.
+> **Slice #M.1 (erledigt):** Quorum-Endorsement Phase 1 — Schema, Engine-Aggregation, MCP-Tool `graph__endorse_triple`. **Deferred** zu #M.2: dynamisches Cluster-Inference, Endorsement-Decay über Recency-Achse, Endorsement-Revocation.
+
+### UC-CR — Corrective Retrieval (Eskalations-Loop, Slice #R1)
+
+**Akteur:** System (deterministisch, Tier 1, **kein LLM**) · **Route:** intern in `verify`, MCP `graph__verify` (transparent, derselbe Output) · **Roadmap:** §H.2 nach #M.1.
+
+**Ziel (menschenähnliche Stärke „nochmal nachdenken bevor man unknown sagt", ohne Konfabulations-Risiko):** Wenn `verify` ein `unknown` produzieren würde, sucht das System im graph-strukturellen 2-Hop-Subgraph nach **verwandten supported-Tripeln** und gibt diese als `corrective_hints` zurück — **als Hinweise, nicht als Verdikt-Änderung**. Verdikt bleibt `unknown`. Konsument entscheidet selbst, ob die Hinweise hilfreich sind.
+
+**Adversarial-Audit-Lehre (Slice-Re-Design):** Eine erste Implementation hob `unknown` auf `supported` mittels Substring-Matches und Subgraph-Verwandtschaft — und produzierte damit zwei Konfabulations-Pfade: (1) ein gefragtes Subject „KI-VO" matched per LIKE „FAKE-KI-VO" und übernahm dessen Endorsements; (2) ein `hat_tag`-Quorum für Doc-B leakte als Tag-Aussage über Doc-A (verbunden via `relates_to`). Beide sind genau die plumpen Halluzinationen, die der Slice eliminieren sollte. Konsequenz: **Hint-Modell** — Stufe 2 ändert das Verdikt NIE.
+
+**Forschungs-Anker (RAG 2026, validiert):**
+- *Self-Reflective / Corrective RAG* (2026): "wenn Evidenz schwach, re-query mit erweitertem Suchraum". Wir übernehmen die **Idee** (zweite, breitere Lookup-Runde) ohne die Halluzinations-Falle (Suggestion → Verdikt).
+- *Adaptive Retrieval* (RAG 2026): Query-Classifier wählt Pipeline. Wir reduzieren auf **Regelbasiert** (Stufe 1 = Standard, Stufe 2 = Subgraph-Hints).
+
+**Mechanik (deterministisch, 2-Stufen):**
+1. **Stufe 1 — Standard-Lookup:** `verify` läuft wie bisher (Quorum-Pfad + resolveBelief-Fallback). Liefert `supported`/`contradicted`/`unknown`.
+2. **Stufe 2 — Hint-Sammlung (nur wenn Stufe 1 = `unknown` UND subject ist ein exakter Knoten im Graph):**
+   - **(a) Exakter-Knoten-Gate:** ist `subject` in `knowledge_nodes.name` NICHT exakt vorhanden → keine Stufe 2 (kein Substring-Match).
+   - **(b) Graph-strukturelle 2-Hop-BFS:** vom `subject_id` aus über `knowledge_edges`-Adjazenz (subject_id OR object_id) mit UC-BT-konjunktiver Klausel. Kein `search`/PPR/LIKE (Sycophancy-Lehre).
+   - **(c) Hint-Auswahl:** unter den im Subgraph erreichbaren Knoten suche Tripel `(other_subject, gefragtes_predicate, gefragtes_object)` mit `_quorumFor === supported`. Lege diese als `corrective_hints[]` an (sortiert nach `triple_hash`).
+3. **Verdikt-Stabilität:** Verdikt bleibt `unknown`, egal wie viele Hints gefunden werden. Konsument liest `corrective_hints` als Diagnose-Hilfe („verwandte Subjekte tragen diese Aussage, dein gefragtes nicht").
+
+**multiValue-Verträglichkeit (AC-16.9):** Bei mehrwertigen Prädikaten (`hat_tag`, …) ist Stufe 2 vollständig **deaktiviert** — Tags/Eigenschaften sind Subject-spezifisch und dürfen nicht über verwandte Subjekte projiziert werden.
+
+**Sicherheits-Constraint (Open-World absolut):** Stufe 2 ändert **NIE** das Verdikt. Damit ist Konfabulation strukturell ausgeschlossen. Hints sind reine Lese-Diagnose; das gefragte Tripel bleibt `unknown` bis ein direktes Endorsement/Belief es supported macht.
+
+**AC-Tabelle:**
+| AC | Kriterium | Test-Typ | Status |
+|---|---|---|---|
+| AC-16.1 | Stufe-2 ändert das Verdikt NIE — bleibt immer `unknown` (kein Verdikt-Hochheben, keine Konfabulation). | unit | erfüllt |
+| AC-16.2 | Stufe-2 findet ein `(other_subject, predicate, object)`-Quorum-supported im 2-Hop-Subgraph → als `corrective_hints[]` ausgegeben; Verdikt bleibt `unknown`. | unit | erfüllt |
+| AC-16.3 | Stufe-2-Subgraph-Distanz hart auf max_hops=2 gekappt; **keine** PPR/`search`-Aufrufe, nur BFS über `knowledge_edges`-Adjazenz. | unit | erfüllt |
+| AC-16.4 | Output-Feld `corrective_hints[]` ist gesetzt, wenn Hints existieren; sonst nicht vorhanden. Es gibt KEIN `corrective=true`-Flag mehr (Slice-Re-Design). | unit | erfüllt |
+| AC-16.5 | Subject existiert nicht als exakter Knoten → unverändert `unknown`, kein Stufe-2-Aufwand. **Insbesondere KEIN Substring-Match-Rescue** über andere Knoten, die den Subject-String enthalten (Adversarial 🔴-1). | unit | erfüllt |
+| AC-16.6 | Determinismus: gleicher Graph + Anfrage → gleicher Output, in beliebiger Insert-Reihenfolge. Hints sind nach `triple_hash` sortiert. | unit | erfüllt |
+| AC-16.7 | Open-World absolut: Stufe 2 hebt NIE `unknown` auf `supported` — keine Pattern-Match-Vermutung, keine Cross-Subject-Tag-Projektion. | unit | erfüllt |
+| AC-16.8 | Föderations-Parität: nur lokale Daten — kein Wire, keine Reentrant-Pull-Operationen während verify. | unit | erfüllt |
+| AC-16.9 | multiValue (`hat_tag`, …): Stufe 2 ist deaktiviert (Subject-spezifische Tags dürfen nicht projiziert werden — Adversarial 🔴-2). | unit | erfüllt |
+| AC-16.10 | UC-BT-Verträglichkeit: bei `as_of=T` wird Stufe 2 auch über die UC-BT-Linse ausgewertet (gleiche `_validClause`-Klausel wie Stufe 1). | unit | erfüllt |
+
+**Fehlerfälle (UC-CR):** `subject`-Knoten existiert nicht → unverändert `unknown` (kein Stufe-2-Aufwand); ungültiges `as_of` → wie Stufe 1 fail-closed (`INVALID_PARAMETER_FORMAT`); recursive `verify` während Stufe 2 → Stufe 2 ruft nur `_quorumFor` (deterministisch, kein Rekursions-Pfad).
+
+**Determinismus-Gate:** keine LLM-Aufrufe in Stufe 2; nur deterministisch ausgewertete BFS über `knowledge_edges`-Adjazenz (kein `search`/PPR/LIKE) + `_quorumFor`. Alle Schwellen aus `spec`. Hints sortiert nach `triple_hash` (deterministische Reihenfolge zwischen Knoten).
+
+> **Slice #R1 (in Bearbeitung):** Corrective Retrieval Phase 1 — Subgraph-Distanz-2-Lookup + konkurrierende-Endorsement-Auflösung. **Deferred** zu #R1b: Alias-Tabelle für Synonym-Knoten, Domain-Wörterbuch.

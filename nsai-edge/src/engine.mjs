@@ -838,13 +838,13 @@ export class Engine {
       }
     }
     const rb = this.resolveBelief(subject, predicate, { as_of }); // UC-BT: optional zu T verifizieren (🟡-2)
-    if (rb === null) return { ...base, verdict: 'unknown' };                       // kein Subjekt / keine aktive Aussage
+    if (rb === null) return this._maybeCorrective(base, as_of, isMulti);    // Subject existiert nicht — versuche Stufe 2 (#R1)
     if (rb.multiValue) {
       return rb.candidates.some((c) => c.object === object)
         ? { ...base, verdict: 'supported', multiValue: true }
-        : { ...base, verdict: 'unknown', multiValue: true };                       // set-valued Abwesenheit ≠ Widerspruch
+        : { ...base, verdict: 'unknown', multiValue: true };                // set-valued Abwesenheit ≠ Widerspruch
     }
-    if (rb.winner === null) return { ...base, verdict: 'unknown' };                // allZero — kein durchsetzungsfähiger Gewinner (🔴-1)
+    if (rb.winner === null) return this._maybeCorrective(base, as_of, isMulti); // allZero (🔴-1) — Stufe 2 versuchen
     if (rb.winner === object) {
       const cand = rb.candidates.find((c) => c.object === object);
       const edge = this._getEdge(tripleHash(subject, predicate, object));
@@ -854,6 +854,50 @@ export class Engine {
     }
     // winner ≠ null UND winner ≠ object → der Graph glaubt etwas anderes.
     return { ...base, verdict: 'contradicted', dominant: rb.winner, present: rb.candidates.some((c) => c.object === object) };
+  }
+
+  // UC-CR Slice #R1 — Corrective Retrieval (Eskalations-Loop bei sonst-unknown).
+  // Adversarial-Audit (R1 Findings 1+2): Stufe 2 darf das Verdikt NICHT von unknown auf
+  // supported heben — sonst Substring-Match-Konfabulation („KI-VO" matcht „FAKE-KI-VO") oder
+  // Cross-Subject-Tag-Leak (Doc-A bekommt Tag von verbundenem Doc-B). Stattdessen: Stufe 2
+  // liefert ausschließlich `corrective_hints` — verwandte (vom EXAKTEN subject-Knoten aus
+  // graph-strukturell erreichbare) Tripel, die quorum-supported sind. Verdikt bleibt unknown.
+  // Konsument entscheidet selbst, ob die Hinweise hilfreich sind. Open-World absolut (AC-16.7).
+  //
+  // multiValue: explizit deaktiviert — Tags sind Subject-spezifisch, kein Übertrag auf Verwandte.
+  _maybeCorrective(base, as_of, isMulti) {
+    const { subject, predicate, object } = base;
+    if (isMulti) return { ...base, verdict: 'unknown', multiValue: true };
+    // (a) subject MUSS exakter Knoten sein — kein Substring-Match.
+    const sNode = this.db.prepare('SELECT id FROM knowledge_nodes WHERE name = ?').get(subject);
+    if (!sNode) return { ...base, verdict: 'unknown', corrective_searched: false };
+    // (b) graph-strukturelle 2-Hop-Adjazenz vom subject_id ausgehen — kein search/LIKE/PPR.
+    //     BFS deterministisch, sortiert nach triple_hash.
+    const vc = this._validClause(as_of);
+    const adjStmt = this.db.prepare(`SELECT triple_hash, subject_id, predicate, object_id FROM knowledge_edges WHERE (subject_id=? OR object_id=?) AND local_status='active'${vc.sql}`);
+    const seen = new Set([sNode.id]);
+    let frontier = [sNode.id];
+    for (let h = 0; h < 2 && frontier.length; h++) {
+      const next = [];
+      for (const nid of frontier) {
+        for (const r of adjStmt.all(nid, nid, ...vc.args)) {
+          const other = r.subject_id === nid ? r.object_id : r.subject_id;
+          if (!seen.has(other)) { seen.add(other); next.push(other); }
+        }
+      }
+      frontier = next;
+    }
+    // (c) im erreichbaren Subgraph: Tripel (anderes-Subject, gefragtes-predicate, gefragtes-object)
+    //     mit Quorum-supported — als HINT melden, nicht als Verdikt.
+    const candidates = this.db.prepare(`SELECT triple_hash, subject_id FROM knowledge_edges WHERE predicate=? AND object_id=(SELECT id FROM knowledge_nodes WHERE name=?) AND local_status='active' AND subject_id IN (${[...seen].map(() => '?').join(',')})`).all(predicate, object, ...seen);
+    const hints = [];
+    for (const c of candidates) {
+      const q = this._quorumFor(c.triple_hash, { as_of });
+      if (q.verdict === 'supported') hints.push({ via_subject: this._nodeName(c.subject_id), triple_hash: c.triple_hash });
+    }
+    const out = { ...base, verdict: 'unknown', corrective_searched: true };
+    if (hints.length) out.corrective_hints = hints.sort((a, b) => a.triple_hash < b.triple_hash ? -1 : 1);
+    return out;
   }
 
   // ---- UC-BT: Bi-temporale Gültigkeit (Slice #5) — lokale valid_from/valid_to ----
