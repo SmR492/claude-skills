@@ -827,7 +827,23 @@ export class Engine {
   // ---- UC-V: Verifikation (Slice #4) — Claim gegen den Graphen prüfen --
   // Reine Projektion von resolveBelief (keine eigene Belief-Logik). Read-only, deterministisch.
   // Open-World: Abwesenheit/gewichtsloses Wissen → 'unknown', NIE 'contradicted'.
-  verify({ subject, predicate, object, as_of = null } = {}) {
+  //
+  // UC-VPS Slice #R4 — Public-Wrapper: hängt `physical_status` additiv an, wenn das gefragte
+  // Tripel physisch in `knowledge_edges` existiert (active/superseded/retracted/quarantined).
+  // KEINE Verdikt-Drift — das Feld ist reine Erklärbarkeit (z. B. „du hattest mich nach 'nichts'
+  // gefragt, ich habe das aber durch reject auf superseded gesetzt"). Open-World: Feld fehlt,
+  // wenn das Tripel nicht physisch existiert.
+  verify(args = {}) {
+    const result = this._verifyCore(args);
+    const { subject, predicate, object } = args;
+    if (typeof subject === 'string' && typeof predicate === 'string' && typeof object === 'string') {
+      const edge = this._getEdge(tripleHash(subject, predicate, object));
+      if (edge) result.physical_status = edge.local_status; // 'active'|'superseded'|'retracted'|'quarantined'
+    }
+    return result;
+  }
+
+  _verifyCore({ subject, predicate, object, as_of = null } = {}) {
     validateTriple(subject, predicate, object);
     const base = { subject, predicate, object };
     // UC-MS Slice #M.1: Trust-Quorum-Pfad hat Vorrang vor Single-Source-Belief — ABER
@@ -970,6 +986,7 @@ export class Engine {
           stripped.corrective_hints = v.corrective_hints.map((h) => ({ via_subject: h.via_subject, triple_hash: h.triple_hash }));
         }
         if (v.corrective_searched === true) stripped.corrective_searched = true;
+        if (typeof v.physical_status === 'string') stripped.physical_status = v.physical_status; // UC-VPS (#R4): kategorischer String aus festem Set
         return stripped;
       });
       let aggregate;

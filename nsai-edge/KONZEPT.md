@@ -1209,4 +1209,46 @@ Deferred-Verfeinerungen: Slice #1b (OUT→IN-Reaktivierung + Multi-Justification
 
 **Wire-Vertrag intakt:** FTS5 ist rein lokal — Index nicht im Wire, nicht in Signatur. PHP-NSAI-Bundle muss nicht spiegeln (PHP nutzt seine eigene Volltext-Variante, z. B. MySQL FULLTEXT — Output-Format `recallEpisodes` ist gleich, interner Algorithmus darf abweichen).
 
-> **Slice #R3 (in Bearbeitung):** FTS5+BM25 für Episode-Volltextsuche. **Deferred** zu #R3b: BM25 auf `knowledge_nodes.name` falls Mehrwort-Knoten-Namen jemals dominant werden; Sprachen-spezifische Tokenizer (German-Stemming).
+> **Slice #R3 (erledigt):** FTS5+BM25 für Episode-Volltextsuche mit Phrase-Quote-Sanitization. **Deferred** zu #R3b: BM25 auf `knowledge_nodes.name`; Sprachen-spezifisches Stemming.
+
+### UC-VPS — Verify-Physical-Status (UX-Schliff für reject/retract, Slice #R4)
+
+**Akteur:** System (deterministisch, Tier 1, **kein LLM**) · **Route:** intern `verify`, MCP `graph__verify` (Output additiv erweitert) · **Roadmap:** §H.2 nach #R3.
+
+**Ziel (Erklärbarkeit ohne Verdikt-Drift):** Nach einem `reject(hash)` ist das Tripel physisch in der DB (Status `superseded`), aber nicht mehr im Belief-Pfad. Wenn ein Konsument danach `verify(s, p, rejected_object)` ruft, liefert das System weiter `contradicted` (richtige single-value-Logik, weil das dominante Objekt ein anderes ist) — aber der Konsument hat keinen Hinweis darauf, dass er die Frage schon einmal beantwortet hat und das Tripel bewusst abgelehnt wurde. UC-VPS schließt diese Erklärbarkeits-Lücke durch ein **zusätzliches** Feld `physical_status` im `verify`-Output. Verdikt-Kategorien bleiben unverändert; keine neue Probabilistik, keine Verdikt-Drift.
+
+**Ursprung (KI-VO-Demo Backlog):** „nach `reject` zeigt `verify` das Gerücht weiter als `contradicted` — konsistent zur Dominanz-Logik, aber für die Erklärbarkeit fragwürdig." Korrekt-Erkenntnis: das Verdikt ist richtig (single-value-Dominanz), das Erklärbarkeits-Feld fehlte.
+
+**Mechanik (deterministisch):**
+1. `verify({s, p, o, as_of?})` läuft wie bisher (Quorum-Pfad + resolveBelief-Fallback + Corrective-Hints). Verdikt bleibt aus `supported`/`contradicted`/`unknown`.
+2. **Additiv:** das `physical_status`-Feld wird gesetzt, **wenn** das gefragte Tripel `(s, p, o)` als Edge in `knowledge_edges` physisch existiert. Werte:
+   - `'active'` — Edge ist active.
+   - `'superseded'` — durch `reject` oder Decay nicht-aktiv. **Genau der Demo-Fall.**
+   - `'retracted'` — TMS-OUT (Retraktions-Propagation).
+   - `'quarantined'` — untrusted-Origin oder unter Quarantäne-Schwelle.
+3. **Wenn das Tripel nicht physisch existiert** (`_getEdge(hash) === null`), wird das Feld **NICHT** gesetzt (Open-World: Abwesenheit signalisieren wir durch das Fehlen des Felds, nicht durch `'none'`).
+4. **Wire/Föderation unverändert:** `physical_status` ist eine lokale Lese-Linse, kein Wire-Inhalt.
+
+**AC-Tabelle:**
+| AC | Kriterium | Test-Typ | Status |
+|---|---|---|---|
+| AC-19.1 | nach `reject(hash)` liefert `verify(s,p,o)` für das rejected Tripel `verdict: 'contradicted'` + `physical_status: 'superseded'`. | unit | offen |
+| AC-19.2 | Verdikt-Stabilität: kein bestehender Verdikt-Pfad ändert sich; das Feld ist rein additiv. | unit | offen |
+| AC-19.3 | Open-World absolut: das gefragte Tripel existiert nicht physisch → `physical_status` ist NICHT im Output (Abwesenheit durch Feld-Fehlen). | unit | offen |
+| AC-19.4 | `physical_status: 'active'` bei einem konkurrierenden-aber-existierenden Tripel. | unit | offen |
+| AC-19.5 | `retracted`/`quarantined`-Stati werden korrekt durchgereicht. | unit | offen |
+| AC-19.6 | Föderation/Wire: `physical_status` taucht NIE in `_edgeToWire`/`exportSince` auf. | unit | offen |
+| AC-19.7 | UC-BT-Verträglichkeit: bei `as_of=T` reflektiert `physical_status` den Status **aktuell** (nicht zum Zeitpunkt T) — Status ist nicht bi-temporal (#R2-Lehre). | unit | offen |
+| AC-19.8 | Output bleibt **kategorisch** — keine numerischen Werte, keine Wahrscheinlichkeits-Felder im Erweiterungs-Output. | unit | offen |
+| AC-19.9 | Determinismus: gleicher Graph + gleiche Anfrage → identischer Output (Feld-Existenz + identischer String-Wert). | unit | offen |
+| AC-19.10 | `assertClaims`-Strip-Allowlist erweitert: `physical_status` darf im Self-Critique-Output erscheinen (kategorischer String, kein Probabilistik-Leak). | unit | offen |
+
+**Klarstellung `present` vs. `physical_status` (Adversarial 🟡-2):** Beide Felder beschreiben **unterschiedliche Lese-Linsen** und können gleichzeitig im Output erscheinen. `present` antwortet auf „Ist das gefragte Objekt ein Kandidat im resolveBelief-Pfad?" (Belief-Linse). `physical_status` antwortet auf „Existiert das Tripel als Edge im Graphen, und wie ist sein lokaler Status?" (Edge-Linse). Beispiel nach `reject`: `verdict:'contradicted'`, `present:false` (kein active-Kandidat im rb), `physical_status:'superseded'` (Edge existiert weiter, aber nicht aktiv) — alles konsistent, jeweils eine andere Frage.
+
+**Fehlerfälle (UC-VPS):** keine neuen Fehlerfälle — UC-VPS ist rein additiv und greift nur, wenn `_getEdge(hash)` ein Tripel findet.
+
+**Determinismus-Gate:** reine DB-Lese-Operation auf `local_status`-Spalte; deterministisch.
+
+**Wire-Vertrag intakt:** `physical_status` ist eine lokale UX-Anreicherung, kein Wire-Feld. PHP-Bundle muss nicht spiegeln.
+
+> **Slice #R4 (in Bearbeitung):** Additives `physical_status`-Feld in `verify`-Output. Kein Verdikt-Drift, kein neuer Wire-Inhalt. Klärt die KI-VO-Demo-Subtilität ohne neue Konfabulations-Klasse.
