@@ -94,6 +94,11 @@ export const TOOLS = [
     description: 'UC-MS: liefert alle Endorsements eines Tripels + aktuelles Quorum-Aggregat (cluster_count, weighted_support, kategorisches verdict).',
     inputSchema: S({ triple_hash: { type: 'string' } }, ['triple_hash']),
   },
+  {
+    name: 'graph__assert_claims',
+    description: 'UC-SC Slice #R2 — Self-Critique-Pflicht-Pass: verifiziert eine Liste von Aussagen (bis 50) gleichzeitig gegen das Gedächtnis und liefert ein kategorisches Aggregat (`all_supported` / `any_contradicted` / `any_unknown`) + per-Claim-Verdikte mit Provenienz. Für halluzinationsfreies Reasoning VOR der Ausgabe einer zusammengesetzten Antwort. Output KATEGORISCH (keine Wahrscheinlichkeiten).',
+    inputSchema: S({ claims: { type: 'array', items: { type: 'object', properties: { subject: { type: 'string' }, predicate: { type: 'string' }, object: { type: 'string' }, as_of: { type: 'string' } }, required: ['subject', 'predicate', 'object'] }, minItems: 0, maxItems: 50 } }, ['claims']),
+  },
 ];
 
 export class McpServer {
@@ -184,6 +189,9 @@ export class McpServer {
           break;
         case 'graph__endorsements_for':
           result = this.engine.endorsementsFor(args.triple_hash);
+          break;
+        case 'graph__assert_claims':
+          result = this.engine.assertClaims(args.claims ?? []);
           break;
         default:
           return { content: [{ type: 'text', text: `Unknown tool: ${name}` }], isError: true };
