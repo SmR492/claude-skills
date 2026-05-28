@@ -554,9 +554,24 @@ export class Engine {
     const edges = this.db.prepare("SELECT * FROM knowledge_edges WHERE local_status='active'").all();
     const plan = []; // { hash, newConf, supersede }
     let decayed = 0, superseded = 0;
+    // UC-AD Slice #6.3: Recall-Bonus innerhalb recallProtectionDays.
+    const recallProtMs = (this.spec.recallProtectionDays ?? 30) * 86400000;
+    const recallDivisor = Math.max(1, Math.trunc(this.spec.recallDecayDivisor ?? 2));
+    const nowMs = this._now();
+    // Adversarial 🟡-2: `recallProtectionDays=0` muss das Feature deaktivieren, nicht „immer Bonus".
+    // Strikte Ungleichung + positiver Schwellen-Check.
+    const recallActive = recallProtMs > 0;
     for (const e of edges) {
-      const reduction = this.spec.decayPerPeriod[e.temporality] ?? 0;
+      let reduction = this.spec.decayPerPeriod[e.temporality] ?? 0;
       if (reduction === 0) continue;
+      // Recall-Bonus: wenn last_recalled_at strikt innerhalb recallProtectionDays, dividiere Reduktion.
+      if (recallActive && e.last_recalled_at) {
+        const recallMs = Date.parse(e.last_recalled_at);
+        if (!Number.isNaN(recallMs) && (nowMs - recallMs) < recallProtMs) {
+          reduction = Math.trunc(reduction / recallDivisor);
+          if (reduction === 0) continue; // komplett geschützt
+        }
+      }
       const newConf = Math.max(0, e.confidence - reduction);
       const supersede = newConf < this.spec.deleteThreshold;
       if (supersede) superseded++; else decayed++;
@@ -598,13 +613,34 @@ export class Engine {
     if (!e) return false;
     const pub = this._originPubKey(e.origin_peer_id);
     if (!pub || !verifyTriple(pub, this._edgeToWire(e), e.signature)) throw new EngineError('UNVERIFIED_ORIGIN', 'Origin-Signatur nicht verifizierbar');
-    // UC-TA (Re-Audit 🟡-B): promote() ist die komplementäre Aktion zu reject() — wenn der
-    // Nutzer das Tripel wieder aktiviert, ist das ein de-facto Un-Reject; `user_rejected_at`
-    // wird zurückgenommen, sonst bleibt der Peer im learnTrustAdjustments-Counter als „belastet"
-    // obwohl der Nutzer den reject zurückgenommen hat (stille Inkonsistenz).
-    this.db.prepare("UPDATE knowledge_edges SET local_status='active', user_rejected_at=NULL, updated_at=datetime('now') WHERE triple_hash=?").run(hash);
+    // UC-TA (Re-Audit 🟡-B): Un-Reject — user_rejected_at wird zurückgenommen.
+    // UC-AD (Adversarial 🟡-1): last_recalled_at wird ebenfalls zurückgesetzt, sonst kriegt
+    // ein wieder-aktiviertes Tripel unverdient Decay-Bonus aus der Quarantäne-/Reject-Phase.
+    this.db.prepare("UPDATE knowledge_edges SET local_status='active', user_rejected_at=NULL, last_recalled_at=NULL, updated_at=datetime('now') WHERE triple_hash=?").run(hash);
     return true;
   }
+  // UC-AD Slice #6.3 — explizit-Recall-Markierung für Spaced-Repetition-Decay-Bonus.
+  // Setzt `last_recalled_at = now` (UTC-Z) für jeden gegebenen triple_hash. Idempotent.
+  // Unbekannte Hashes werden silent übersprungen (kein Crash, kein neuer Row).
+  // KEIN impliziter Aufruf aus query/verify/resolveBelief (vermeidet Schreib-Last + Race).
+  // Adversarial 🟡-1: nur ACTIVE Edges können recall-markiert werden — auf retracted/quarantined/
+  // superseded zu schreiben wäre semantisch eine Lüge (Bonus würde nie wirken, da decayPass
+  // local_status='active' filtert). 🟡-3: Engine-seitiges Limit gegen DoS bei Direct-Aufruf.
+  markRecalled(hashes = []) {
+    if (!Array.isArray(hashes)) throw new EngineError('INVALID_PARAMETER_FORMAT', 'hashes muss ein Array sein');
+    if (hashes.length > 200) throw new EngineError('INVALID_PARAMETER_FORMAT', 'maximal 200 hashes pro Aufruf');
+    if (hashes.length === 0) return { recalled: 0 };
+    const nowZ = new Date(this._now()).toISOString();
+    let count = 0;
+    const stmt = this.db.prepare("UPDATE knowledge_edges SET last_recalled_at=? WHERE triple_hash=? AND local_status='active'");
+    for (const h of hashes) {
+      if (typeof h !== 'string' || h.length === 0) continue;
+      const info = stmt.run(nowZ, h);
+      if (info.changes > 0) count++;
+    }
+    return { recalled: count };
+  }
+
   reject(hash) {
     // UC-TMS: Reject einer Prämisse propagiert auf abgeleitete Fakten (eine Transaktion).
     // UC-TA (Slice #6.1): setzt `user_rejected_at` als explizite Markierung — NUR diese

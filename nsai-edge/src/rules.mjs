@@ -51,6 +51,11 @@ export const DEFAULT_SPEC = {
   demoteUntrustedThreshold: 800,
   // Mindest-Anzahl Aussagen damit ein Peer überhaupt in die Auswertung eingeht (Sybil-Schutz).
   trustAdjustMinEvidence: 5,
+  // UC-AD Slice #6.3 — Zugriffs-basiertes Decay (Spaced-Repetition).
+  // Innerhalb recallProtectionDays seit dem letzten markRecalled wird decayPerPeriod[temporality]
+  // durch recallDecayDivisor geteilt (Integer-Division). Default: Halbierung über 30 Tage.
+  recallProtectionDays: 30,
+  recallDecayDivisor: 2,
   // Forward-Chaining-Regeln. Pattern-Felder: konkreter String oder '?var'.
   inferenceRules: [
     {

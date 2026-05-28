@@ -33,6 +33,7 @@ CREATE TABLE IF NOT EXISTS knowledge_edges (
   valid_to TEXT,                               -- UC-BT: lokales Gültigkeits-Ende (NULL = offen), NICHT im Wire
   asserted_at_norm TEXT,                       -- UC-5d: UTC-Z-normalisierte Form von asserted_at für lexikografisch korrekte Lese-Linse; NICHT im Wire (Signatur prüft Original).
   user_rejected_at TEXT,                       -- UC-TA Slice #6.1: ISO-UTC-Z-Timestamp, gesetzt NUR durch reject(hash) (explizit-Nutzer-Aktion). NULL für System-Quarantaene/Decay-Supersede/TMS-Retraktion. learnTrustAdjustments zaehlt NUR Edges mit user_rejected_at IS NOT NULL.
+  last_recalled_at TEXT,                       -- UC-AD Slice #6.3: ISO-UTC-Z-Timestamp, gesetzt durch markRecalled(hashes). decayPass dividiert decayPerPeriod durch recallDecayDivisor wenn last_recalled_at innerhalb recallProtectionDays.
   created_at TEXT DEFAULT (datetime('now')),
   updated_at TEXT DEFAULT (datetime('now')),
   FOREIGN KEY(subject_id) REFERENCES knowledge_nodes(id) ON DELETE CASCADE,
@@ -135,6 +136,7 @@ CREATE TABLE knowledge_edges (
   valid_to TEXT,
   asserted_at_norm TEXT,
   user_rejected_at TEXT,
+  last_recalled_at TEXT,
   created_at TEXT DEFAULT (datetime('now')),
   updated_at TEXT DEFAULT (datetime('now')),
   FOREIGN KEY(subject_id) REFERENCES knowledge_nodes(id) ON DELETE CASCADE,
@@ -153,6 +155,7 @@ export function openDb(path = ':memory:') {
   migrateUtcZNormalization(db);
   migrateClusterId(db);
   migrateUserRejectedAt(db);
+  migrateLastRecalledAt(db);
   migrateEpisodesFts(db);
   return db;
 }
@@ -189,6 +192,13 @@ function migrateClusterId(db) {
 function migrateUserRejectedAt(db) {
   const cols = new Set(db.prepare("PRAGMA table_info('knowledge_edges')").all().map((r) => r.name));
   if (!cols.has('user_rejected_at')) db.exec('ALTER TABLE knowledge_edges ADD COLUMN user_rejected_at TEXT');
+}
+
+// UC-AD Slice #6.3: additive `knowledge_edges.last_recalled_at`-Spalte (idempotent).
+// Wird durch markRecalled(hashes) gesetzt; decayPass nutzt sie für Spaced-Repetition-Bonus.
+function migrateLastRecalledAt(db) {
+  const cols = new Set(db.prepare("PRAGMA table_info('knowledge_edges')").all().map((r) => r.name));
+  if (!cols.has('last_recalled_at')) db.exec('ALTER TABLE knowledge_edges ADD COLUMN last_recalled_at TEXT');
 }
 
 // UC-5d: additive Spalten + idempotente Befüllung der UTC-Z-Normalisierung.
