@@ -667,6 +667,11 @@ Conformance-Vektor erzwingt identischen Hash für dasselbe Tripel in beiden Spra
 | Bi-temporal (Valid- vs Transaction-Time) | Wann war es wahr (`valid_from/valid_to`) vs. wann gelernt (`created_at`) | BiTRDF, Zep/Graphiti |
 | as-of-Abfrage | „was galt zum Zeitpunkt T" — Filter über das Gültigkeits-Intervall `[valid_from, valid_to)` | Bitemporale DB |
 | nicht-destruktive Invalidierung | überholten Fakt nicht löschen, sondern `valid_to` setzen (historisch abfragbar) | Graphiti edge-invalidation |
+| Endorsement (UC-MS) | Eine separat signierte Wieder-Bestätigung eines Tripels durch einen Origin — eine Zeile pro `(triple_hash, origin_peer_id)`. Wire-Vertrag-kompatibel additiv. | Subjective Logic, Multi-Source-Corroboration |
+| Cluster (UC-MS) | Markierungs-Gruppe für korrelierte Peers; gleiche `peers.cluster_id` ⇒ als nicht-unabhängig behandelt. Default `cluster_id = peer_id` (konservativ — jeder als eigener Cluster). | FoolsGold-Style Independence-Filter |
+| Quorum-Schwelle (Q, AUTH_FLOOR) | Integer-Schwellen für kategorische Verdikte: AUTH_FLOOR=4500 (Single-Authoritative-Pfad), Q=2000 (Multi-Cluster-Pfad, ≥2 beitragende Cluster). Konstanten in `conformance.mjs` (PHP-spiegelbar). | Trust-Quorum |
+| weighted_support / cluster_count | Aggregations-Größen pro `triple_hash`: `cluster_count` = Anzahl beitragender Cluster; `weighted_support` = Σ über `clusterContribution(c) = MAX_{e∈c}(trustRank × tier)`. Integer, dimensionslos. | UC-MS Mechanik Punkt 2 |
+| Echo-Kammer-Neutralisierung | Innerhalb eines Clusters zählt nur das stärkste Endorsement (MAX), nicht die Summe — verhindert dass mehrere Aussagen aus derselben Quelle den Belief inflationieren. | UC-MS, Wisdom of Crowds (Independence-Annahme) |
 
 ## 10. Probabilistik-Statement (§2.6)
 
@@ -987,3 +992,74 @@ Deferred-Verfeinerungen: Slice #1b (OUT→IN-Reaktivierung + Multi-Justification
 > **Fehlerfälle (UC-5d):** ungültiges ISO im Wire → `asserted_at_norm` bleibt `NULL`, Lese-Linse fällt auf `valid_from`/Epoch zurück; Migration crash → idempotent restartbar (kein partieller Schaden, weil `_norm`-Spalte additiv); concurrent INSERT während Migration → durch `BEGIN IMMEDIATE` serialisiert.
 >
 > **Determinismus-Gate:** `_normIso` ist deterministisch (Standard-`Date.parse` + UTC-Z-toISOString); zwei Knoten ergeben dieselbe normalisierte Form.
+
+### UC-MS — Multi-Source-Corroboration (Trust-Quorum-Endorsement, Slice #M.1)
+
+**Akteur:** System (deterministisch, Tier 1, **kein LLM**) · **Route:** intern + neue Tabelle `triple_endorsements`, MCP `graph__endorse_triple` (additiv) · **Roadmap:** §H.2 zwischen #5 und #6, vor #R1/R2/R3.
+
+**Ziel (menschenähnliche Stärke ohne menschliche Schwäche):** Eine Aussage soll an Glaubwürdigkeit gewinnen, wenn sie von mehreren *unabhängigen* Quellen bestätigt wird — **ohne** Echo-Kammer (gleiche Quelle 100×), **ohne** Sybil-Verstärkung (100 untrusted-Peers), **ohne** Wahrheits-Vorhersage (keine `believe(70%)`-Aussagen). Endprodukt von `verify`/`resolveBelief` bleibt **kategorisch** (`supported`/`contradicted`/`disputed`/`unknown`) mit Provenienz.
+
+**Forschungs-Anker (validiert + CDP5-geprüft 2026):**
+- *Subjective Logic* (Jøsang, fortlaufend bis 2026 — DSPG-Synthesis): formale Multi-Source-Fusion mit Trust-Discounting. **Frame übernommen, probabilistische Ausgabe verworfen** (Determinismus-Gate + „keine plumpen Halluzinationen").
+- *Wisdom of Crowds* (2026): unabhängige Bestätigungen mit unkorrelierten Fehlern aggregieren konstruktiv — **Korrelations-Annahme kritisch** → Cluster-Independence-Filter Pflicht.
+- *Sybil-Defense* (FoolsGold/FedSybil 2026): trust-gewichtete Aggregation > naive Stimmenzahl. **Konzept übernommen**, Sybil bei uns ohnehin durch manuelle `trust_level`-Vergabe weitgehend eingedämmt (untrusted → tier 0 → kein Belief-Gewicht).
+
+**Daten-Modell (Schema-Eingriff, additiv):**
+- `triple_endorsements(triple_hash, origin_peer_id, source_cluster_id, source_type, asserted_confidence, asserted_at, asserted_at_norm, signature, PRIMARY KEY (triple_hash, origin_peer_id))` — eine Zeile pro (Tripel, Origin). Wire bleibt: jedes Endorsement ist eine eigene signierte Wire-Nachricht (kein Wire-v2).
+- `peers.cluster_id TEXT` — optionale Cluster-Markierung; Default: `cluster_id = peer_id` (jeder als eigener Cluster, konservativ). Manuelle Cluster-Zuweisung wie heute `trust_level`.
+
+**Wertebereiche (zitiert aus §B):** `trustRank ∈ {0 untrusted, 500 limited, 1000 full, 1500 authoritative}`; `tier ∈ {0..6}` (llm/manual=0, sensor=1, web=2, fachquelle=3, behoerde=4, gesetz=5, audit=6). Die Aggregation rechnet in dieser Integer-Promille-Skala.
+
+**Mechanik (deterministisch):**
+1. **Endorsement-Empfang** (`endorseTriple(wire)` ODER `mergeIncoming` für bekannten Hash): Signatur über das Endorsement-Tupel prüfen; bei akzeptierter Signatur in `triple_endorsements` einfügen. Kollidierende Wieder-Behauptung desselben (triple, origin) → `INSERT OR IGNORE` (Idempotenz).
+2. **Quorum-Aggregation** (Lese-Pfad in `resolveBelief`) — **explizite Formel (🔴-1 geschlossen):**
+   ```
+   clusterContribution(c) = MAX_{e ∈ c}(trustRank(e.origin) × tier(e.source_type))   // Integer, Wertebereich 0..9000
+   weighted_support       = Σ_c clusterContribution(c)                                // Σ über distinkte cluster_id
+   cluster_count          = |{c : clusterContribution(c) > 0}|                        // gezählt werden nur „beitragende" Cluster
+   ```
+   Pro Cluster zählt das **stärkste** Endorsement (MAX), nicht die Summe — Echo-Kammer innerhalb eines Clusters neutralisiert. `weighted_support` ist die **Summe** dimensionsloser Promille×Tier-Beiträge über Cluster-Grenzen hinweg.
+3. **Kategorisches Verdikt** (Schwellen, KEINE Probabilistik) — Konstanten in `conformance.mjs` (PHP-spiegelbar):
+   - `supported` ⇔ ∃ Cluster `c*` mit `clusterContribution(c*) ≥ AUTH_FLOOR=4500` (single authoritative-Pfad: `trustRank ≥ full × tier ≥ fachquelle`) **ODER** `cluster_count ≥ 2 ∧ weighted_support ≥ Q=2000`.
+   - `disputed` (intern, Flag `contested:true`) ⇔ zwei *konkurrierende* Objekte (gleiche s+p, distinkte o) erreichen jeweils die `supported`-Schwellen.
+   - `contradicted` ⇔ ein dominantes Objekt erreicht `supported` UND das gefragte Objekt nicht.
+   - `unknown` ⇔ keine Schwelle erreicht (Open-World — niemals „vermutlich", niemals Float-Wahrscheinlichkeit im Output).
+4. **Wire-Konsistenz:** `knowledge_edges` bleibt Single-Row pro Hash (für `_edgeToWire`-Konsumenten, die das nicht kennen, weiter konsumierbar). Live-`confidence` projiziert weiter das stärkste Endorsement.
+
+**`verify`-Verträglichkeit (🟡-1 geschlossen):** UC-V bleibt bei den drei Verdikten `{supported, contradicted, unknown}`. `disputed` ist **kein** viertes verify-Verdikt, sondern ein **Flag** `contested:true` zusammen mit `supported`/`contradicted` (wie heute in UC-12). Konsumenten, die nur die drei Verdikte kennen, sehen weiterhin nur drei Werte.
+
+**Restrisiko-Notiz Self-Endorsement (Re-Audit 🟡-A):** Ein lokaler Peer kann sein eigenes Tripel mit einem `gesetz`/`behoerde`-source_type-Endorsement allein auf Quorum-`supported` heben (`full × tier 6 = 6000 ≥ AUTH_FLOOR=4500`). Dieses Verhalten ist konsistent mit der allgemeinen Single-Auth-Schwelle, aber Konsumenten sollten wissen: `supported` aus dem MCP unterscheidet derzeit nicht zwischen „extern korroboriert" und „lokal mit hoher Autoritäts-Selbst-Aussage". Slice #M.2 wird ein `external_cluster_count`-Feld in der Output-Struktur ergänzen, damit der Konsument das selbst entscheiden kann.
+
+**multiValue-Verträglichkeit (Re-Audit 🔴 multiValue):** Bei mehrwertigen Prädikaten (`hat_tag`, `quelle`, `verweist_auf`, `gehoert_zu`, `hat_wert`, `enthaelt`, `beispiel`, `hat_abschnitt`) sind Geschwister-Aussagen **kein Widerspruch**. Der Quorum-Pfad in `verify` umgeht für diese Prädikate die Konflikt-Logik (kein `contested`, kein `contradicted` aus Geschwister-Endorsements) — jedes Endorsement gilt isoliert für das eigene Objekt.
+
+**Restrisiko-Notiz Cluster-Inference (🔴-2 als bewusster Slice-#M.1-Kompromiss):** In Slice #M.1 wird `peers.cluster_id` **manuell** zugewiesen; Default `cluster_id = peer_id` (jeder Peer = eigener Cluster). **Sybil-Schutz bleibt damit primär die `trust_level`-Achse** (untrusted → trustRank=0 → clusterContribution=0; tragen niemals zum Quorum bei — AC-15.4). Wenn jedoch *mehrere* `trust=full`-Peers ohne explizite Cluster-Zuweisung de facto korreliert sind (z. B. dieselbe Organisation, derselbe LLM-Provider), zählt das aktuelle Slice sie als unabhängig. Schließen erfolgt in **Slice #M.2** (dynamische Cluster-Inference via Endpoint-Suffix / Key-Issuer / Verhaltens-Ähnlichkeit). Bis dahin ist `trust=full` eine **manuell verantwortete** Vertrauens-Aussage — wer einen Peer auf `full` hebt, übernimmt explizit das Korrelations-Risiko.
+
+**Föderations-Race „Endorsement vor Edge" (🔴-3 entschieden — Option b):** Ein Endorsement für unbekannten `triple_hash` wird mit `status=rejected` quittiert (Wire-Vertrag-Response). Es gibt **keine** Pending-Queue (Komplexität + DoS-Vektor). Es liegt am Endorser, beim nächsten Push-Zyklus erneut zu senden — der Edge ist dann hoffentlich angekommen. **Idempotenz nach AC-15.10** garantiert, dass das saubere eventual-consistency-Verhalten bleibt. Sender-Side-Logik (Re-Push pending Endorsements bis `accepted`) ist Verantwortung des Föderations-Partners. AC-15.14 prüft den Re-Push-Pfad.
+
+**AC-Tabelle:**
+| AC | Kriterium | Test-Typ | Status |
+|---|---|---|---|
+| AC-15.1 | Mehrere Endorsements aus **unterschiedlichen Clustern** mit `trust=full` heben das Verdikt von `unknown` auf `supported` (Quorum erreicht). | unit | offen |
+| AC-15.2 | Mehrere Endorsements aus **gleichem Cluster** wirken NICHT doppelt (Max-Aggregation je Cluster) — kein Echo-Verstärken. | unit | offen |
+| AC-15.3 | Ein einzelnes `authoritative`-Endorsement schaltet `supported` (kein Quorum nötig). | unit | offen |
+| AC-15.4 | 100 untrusted-Endorsements bewegen das Verdikt NICHT (tier=0 → Beitrag=0); Verdikt bleibt `unknown` — Sybil neutralisiert. | unit | offen |
+| AC-15.5 | Open-World: kein Endorsement + keine konkurrierende Aussage → `unknown` (NIEMALS `vermutlich` oder probabilistische Aussage). | unit | offen |
+| AC-15.6 | Determinismus: gleiche Endorsement-Menge in beliebiger Empfangs-Reihenfolge → gleiches Verdikt + gleiche Candidate-Reihenfolge (lexikografisch sortiert). | unit | offen |
+| AC-15.7 | Konkurrierende Objekte aus verschiedenen vertrauten Clustern → `contested:true` + beide candidates sichtbar; `verify` liefert `contradicted` für nicht-dominante Objekte und `supported`+`contested` für das dominante. | unit | offen |
+| AC-15.8 | Wire-Kompatibilität: alte Peers konsumieren `_edgeToWire`-Projektion (Single-Row pro Hash) ohne Endorsement-Wissen — Signatur bleibt prüfbar, Determinismus-Gate intakt. | unit | offen |
+| AC-15.9 | Föderations-Parität: zwei Knoten mit gleicher Endorsement-Menge ergeben gleiches Quorum-Verdikt (deterministische Aggregations-Funktion). | unit | offen |
+| AC-15.10 | Idempotenz: zweimaliger `endorseTriple` desselben (triple, origin) führt zu einer (nicht zwei) Endorsement-Zeile. | unit | offen |
+| AC-15.11 | UTC-Z-Konsistenz: Endorsement-`asserted_at_norm` wird wie in UC-5d gepflegt (gleiche Migration). | unit | offen |
+| AC-15.12 | Status-Konjunktion: ein `retracted`/`quarantined` Tripel zählt **kein** Endorsement (Quorum gilt nur auf `active`-Tripeln). | unit | offen |
+| AC-15.13 | **Probabilistik-Leak-Test (🟡-2):** Verdikt-Felder von `verify`/`resolveBelief`/`graph__endorse_triple` enthalten **keine** Float-Werte, keine `%`/`vermutlich`/`believe_pct`-Ausdrücke; der Schema-Validator wirft sonst. | unit | offen |
+| AC-15.14 | **Föderations-Race-Recovery (🔴-3):** ein für unbekannten Hash rejected-Endorsement wird nach Edge-Eintreffen **idempotent** ein zweites Mal angenommen (Endorser-Re-Push) → genau eine Zeile in `triple_endorsements`. | unit | offen |
+| AC-15.15 | **Replay-Schutz revozierter Peers (🟡-5):** ein Endorsement, dessen Origin nach `asserted_at` `peer_revoke`-d wurde, wird abgelehnt; bestehende Endorsements desselben Origin werden nach Revoke aus dem `weighted_support` ausgenommen (Decay-konjunktiv zu trust). | unit | offen |
+| AC-15.16 | **Default-Cluster-Restrisiko (🔴-2 dokumentiert):** drei `trust=full`-Peers ohne explizite Cluster-Zuweisung werden als drei unabhängige Cluster gezählt — das ist das deklarierte Restrisiko von #M.1 und wird durch das Slice ausdrücklich akzeptiert, bis #M.2 dynamisches Clustering liefert. | doc | offen |
+
+**Fehlerfälle (UC-MS):** Endorsement mit unverifizierter Signatur → rejected; Endorsement für unbekannten triple_hash → rejected (kein Auto-Materialisieren — der Edge muss separat ankommen); Endorsement von eigener Identität → akzeptiert wie Selbst-Aussage (gleiche `_signSelf`-Logik); ungültiges ISO im Endorsement → rejected; `peers.cluster_id` NULL → Fallback `cluster_id = peer_id` (konservativ).
+
+**Determinismus-Gate:** Cluster-Max-Aggregation = `MAX(trustRank × tier)` per Cluster (Integer); Quorum-Schwellen als Konstanten in `conformance.mjs` (PHP-spiegelbar); deterministische Sortierreihenfolge bei Candidates (Cluster-Count DESC, dann Object-Name ASC).
+
+**Wire-Vertrag intakt:** Endorsement-Wire ist eine Erweiterung von `wire_version` — wir nutzen den **gleichen** signingString-Aufbau wie für Tripel (gleiches Format `[wire_version, triple_hash, ...]`), nur mit `endorsement=true`-Marker. PHP-NSAI-Bundle erhält additiv die `triple_endorsements`-Tabelle; alte PHP-Peers ohne MS-Wissen empfangen weiter via `_edgeToWire` die single-row-Projektion.
+
+> **Slice #M.1 (in Bearbeitung):** Quorum-Endorsement Phase 1 — Schema, Engine-Aggregation, MCP-Tool `graph__endorse_triple`. **Deferred** zu #M.2: dynamisches Cluster-Inference, Endorsement-Decay über Recency-Achse, Endorsement-Revocation.

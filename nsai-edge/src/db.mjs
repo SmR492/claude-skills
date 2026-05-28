@@ -45,8 +45,25 @@ CREATE TABLE IF NOT EXISTS peers (
   endpoint TEXT,
   trust_level TEXT NOT NULL DEFAULT 'untrusted'
     CHECK(trust_level IN ('untrusted','limited','full','authoritative')),
-  last_clock TEXT
+  last_clock TEXT,
+  cluster_id TEXT                            -- UC-MS Slice #M.1: optionale Cluster-Markierung; NULL ⇒ Fallback peer_id
 );
+
+-- UC-MS Slice #M.1: Multi-Source-Corroboration. Eine Zeile pro (Tripel, Origin) — Trust-Quorum-Aggregation.
+CREATE TABLE IF NOT EXISTS triple_endorsements (
+  triple_hash TEXT NOT NULL,
+  origin_peer_id TEXT NOT NULL,
+  source_type TEXT NOT NULL DEFAULT 'llm',
+  asserted_confidence INTEGER NOT NULL CHECK(asserted_confidence BETWEEN 0 AND 1000),
+  asserted_at TEXT NOT NULL,                  -- Wire-Original (für signingString-Re-Verify)
+  asserted_at_norm TEXT,                      -- UC-5d-konsistent
+  signature TEXT NOT NULL,
+  created_at TEXT DEFAULT (datetime('now')),
+  PRIMARY KEY (triple_hash, origin_peer_id),
+  FOREIGN KEY (triple_hash) REFERENCES knowledge_edges(triple_hash) ON DELETE CASCADE
+);
+CREATE INDEX IF NOT EXISTS idx_endorsements_hash ON triple_endorsements(triple_hash);
+CREATE INDEX IF NOT EXISTS idx_endorsements_origin ON triple_endorsements(origin_peer_id);
 
 CREATE INDEX IF NOT EXISTS idx_edges_status ON knowledge_edges(local_status);
 CREATE INDEX IF NOT EXISTS idx_edges_subject ON knowledge_edges(subject_id);
@@ -112,7 +129,14 @@ export function openDb(path = ':memory:') {
   migrateRetractedStatus(db);
   migrateValidityColumns(db);
   migrateUtcZNormalization(db);
+  migrateClusterId(db);
   return db;
+}
+
+// UC-MS Slice #M.1: additive `peers.cluster_id`-Spalte (idempotent).
+function migrateClusterId(db) {
+  const cols = new Set(db.prepare("PRAGMA table_info('peers')").all().map((r) => r.name));
+  if (!cols.has('cluster_id')) db.exec('ALTER TABLE peers ADD COLUMN cluster_id TEXT');
 }
 
 // UC-5d: additive Spalten + idempotente Befüllung der UTC-Z-Normalisierung.

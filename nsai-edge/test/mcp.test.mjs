@@ -115,6 +115,29 @@ test('graph__verify liefert ein Verdikt (UC-V)', () => {
   assert.equal(call('graph__verify', { subject: 'Unbekannt', predicate: 'ist', object: 'Ding' }).verdict, 'unknown');
 });
 
+test('graph__endorse_triple + graph__endorsements_for (UC-MS Slice #M.1)', () => {
+  const s = server();
+  const call = (name, args) => JSON.parse(s.handle({ jsonrpc: '2.0', id: 1, method: 'tools/call', params: { name, arguments: args } }).result.content[0].text);
+  // Tripel anlegen
+  const st = call('graph__store_triple', { subject: 'MS-Test', predicate: 'ist', object: 'wahr' });
+  assert.ok(st.triple_hash);
+  // Self-Endorsement
+  const e1 = call('graph__endorse_triple', { subject: 'MS-Test', predicate: 'ist', object: 'wahr', source_type: 'manual', confidence: 800 });
+  assert.equal(e1.triple_hash, st.triple_hash);
+  assert.ok(e1.weighted);
+  // Endorsements abrufen
+  const lst = call('graph__endorsements_for', { triple_hash: st.triple_hash });
+  assert.equal(lst.endorsements.length, 1);
+  assert.equal(typeof lst.quorum.weighted_support, 'number');
+});
+
+test('graph__endorse_triple liefert isError bei nicht-existentem Tripel (Föderations-Race-Option-b)', () => {
+  const s = server();
+  const r = s.handle({ jsonrpc: '2.0', id: 9, method: 'tools/call', params: { name: 'graph__endorse_triple', arguments: { subject: 'Nope-Test', predicate: 'ist', object: 'leer' } } });
+  assert.equal(r.result.isError, true);
+  assert.match(r.result.content[0].text, /NOT_APPLICABLE/);
+});
+
 test('graph__supersede_temporally + query as_of (UC-BT)', () => {
   const s = server();
   const call = (name, args) => JSON.parse(s.handle({ jsonrpc: '2.0', id: 1, method: 'tools/call', params: { name, arguments: args } }).result.content[0].text);
