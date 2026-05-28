@@ -44,6 +44,13 @@ export const DEFAULT_SPEC = {
   // trustRank in Promille-Skala (analog trustFactor, aber NUR für Quorum-Aggregation —
   // authoritative > full hier, um die Single-Auth-Schwelle messbar abzubilden).
   quorumTrustRank: { untrusted: 0, limited: 500, full: 1000, authoritative: 1500 },
+  // UC-TA Slice #6.1 — Offline-Peer-Trust-Adjustment (Vorschlags-Modus).
+  // Reject-Rate (Promille) ab der ein Peer zu `limited` bzw. `untrusted` herabgestuft VORGESCHLAGEN
+  // wird. KEIN Auto-Apply — der Nutzer muss explizit peerTrust(peer_id, level) rufen.
+  demoteLimitedThreshold: 500,
+  demoteUntrustedThreshold: 800,
+  // Mindest-Anzahl Aussagen damit ein Peer überhaupt in die Auswertung eingeht (Sybil-Schutz).
+  trustAdjustMinEvidence: 5,
   // Forward-Chaining-Regeln. Pattern-Felder: konkreter String oder '?var'.
   inferenceRules: [
     {

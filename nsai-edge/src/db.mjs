@@ -32,6 +32,7 @@ CREATE TABLE IF NOT EXISTS knowledge_edges (
   valid_from TEXT,                             -- UC-BT: lokale Event-/Valid-Time-Start (Default-Fallback = asserted_at), NICHT im Wire
   valid_to TEXT,                               -- UC-BT: lokales Gültigkeits-Ende (NULL = offen), NICHT im Wire
   asserted_at_norm TEXT,                       -- UC-5d: UTC-Z-normalisierte Form von asserted_at für lexikografisch korrekte Lese-Linse; NICHT im Wire (Signatur prüft Original).
+  user_rejected_at TEXT,                       -- UC-TA Slice #6.1: ISO-UTC-Z-Timestamp, gesetzt NUR durch reject(hash) (explizit-Nutzer-Aktion). NULL für System-Quarantaene/Decay-Supersede/TMS-Retraktion. learnTrustAdjustments zaehlt NUR Edges mit user_rejected_at IS NOT NULL.
   created_at TEXT DEFAULT (datetime('now')),
   updated_at TEXT DEFAULT (datetime('now')),
   FOREIGN KEY(subject_id) REFERENCES knowledge_nodes(id) ON DELETE CASCADE,
@@ -133,6 +134,7 @@ CREATE TABLE knowledge_edges (
   valid_from TEXT,
   valid_to TEXT,
   asserted_at_norm TEXT,
+  user_rejected_at TEXT,
   created_at TEXT DEFAULT (datetime('now')),
   updated_at TEXT DEFAULT (datetime('now')),
   FOREIGN KEY(subject_id) REFERENCES knowledge_nodes(id) ON DELETE CASCADE,
@@ -150,6 +152,7 @@ export function openDb(path = ':memory:') {
   migrateValidityColumns(db);
   migrateUtcZNormalization(db);
   migrateClusterId(db);
+  migrateUserRejectedAt(db);
   migrateEpisodesFts(db);
   return db;
 }
@@ -178,6 +181,14 @@ function migrateEpisodesFts(db) {
 function migrateClusterId(db) {
   const cols = new Set(db.prepare("PRAGMA table_info('peers')").all().map((r) => r.name));
   if (!cols.has('cluster_id')) db.exec('ALTER TABLE peers ADD COLUMN cluster_id TEXT');
+}
+
+// UC-TA Slice #6.1: additive `knowledge_edges.user_rejected_at`-Spalte (idempotent).
+// NUR `reject(hash)` (explizit-Nutzer-Aktion) setzt diesen Timestamp. System-Quarantäne, Decay,
+// TMS-Retraktion lassen ihn NULL. learnTrustAdjustments zählt nur diese Spalte (Adversarial 🔴-1/-2).
+function migrateUserRejectedAt(db) {
+  const cols = new Set(db.prepare("PRAGMA table_info('knowledge_edges')").all().map((r) => r.name));
+  if (!cols.has('user_rejected_at')) db.exec('ALTER TABLE knowledge_edges ADD COLUMN user_rejected_at TEXT');
 }
 
 // UC-5d: additive Spalten + idempotente Befüllung der UTC-Z-Normalisierung.
