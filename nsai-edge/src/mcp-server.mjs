@@ -71,8 +71,8 @@ export const TOOLS = [
   },
   {
     name: 'graph__search',
-    description: 'Hybrid-Retrieval (deterministisch): lexikalische Seed-Suche + belief-gewichtete Personalized PageRank über die k-Hop-Nachbarschaft + Episoden-Recall. „Antwort oder Weg dahin" auch ohne exakten Knotennamen.',
-    inputSchema: S({ term: { type: 'string' }, limit: { type: 'integer', minimum: 1, maximum: 50 }, max_hops: { type: 'integer', minimum: 1, maximum: 5 } }, ['term']),
+    description: 'Hybrid-Retrieval (deterministisch): lexikalische Seed-Suche + belief-gewichtete Personalized PageRank über die k-Hop-Nachbarschaft + Episoden-Recall. „Antwort oder Weg dahin" auch ohne exakten Knotennamen. UC-BT: as_of begrenzt den Subgraphen auf zu T gültige Fakten (konsistent zu query/verify/resolveBelief).',
+    inputSchema: S({ term: { type: 'string' }, limit: { type: 'integer', minimum: 1, maximum: 50 }, max_hops: { type: 'integer', minimum: 1, maximum: 5 }, as_of: { type: 'string', description: 'ISO-Zeitpunkt T (UC-BT): nur zu T gültige Kanten' } }, ['term']),
   },
   {
     name: 'graph__record_episode',
@@ -161,7 +161,7 @@ export class McpServer {
           result = this.engine.verify({ subject: args.subject, predicate: args.predicate, object: args.object, as_of: args.as_of ?? null });
           break;
         case 'graph__search':
-          result = this.engine.search({ term: args.term, limit: args.limit ?? 10, max_hops: args.max_hops ?? 3 });
+          result = this.engine.search({ term: args.term, limit: args.limit ?? 10, max_hops: args.max_hops ?? 3, as_of: args.as_of ?? null });
           break;
         case 'graph__record_episode':
           result = this.engine.recordEpisode({ content: args.content, source_type: args.source_type, occurred_at: args.occurred_at ?? null, context_slug: args.context_slug ?? null });

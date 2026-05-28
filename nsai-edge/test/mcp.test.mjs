@@ -89,6 +89,24 @@ test('graph__search liefert Hybrid-Retrieval (UC-HR)', () => {
   assert.equal(typeof r.converged, 'boolean');
 });
 
+test('graph__search as_of begrenzt den Subgraphen auf zu T gültige Fakten (UC-BT / Slice #5b)', () => {
+  const s = server();
+  const call = (name, args) => JSON.parse(s.handle({ jsonrpc: '2.0', id: 1, method: 'tools/call', params: { name, arguments: args } }).result.content[0].text);
+  const a = call('graph__store_triple', { subject: 'Alpha', predicate: 'verbindet', object: 'Beta' });
+  const b = call('graph__store_triple', { subject: 'Beta', predicate: 'verbindet', object: 'Gamma' });
+  assert.ok(a.triple_hash && b.triple_hash);
+  // Beide Kanten rückdatieren — sonst wäre default asserted_at=jetzt und as_of=2024 würde a/b ausschließen.
+  call('graph__set_validity', { triple_hash: a.triple_hash, valid_from: '2019-01-01T00:00:00Z' });
+  call('graph__set_validity', { triple_hash: b.triple_hash, valid_from: '2023-01-01T00:00:00Z', valid_to: '2025-01-01T00:00:00Z' });
+  const now = call('graph__search', { term: 'Alpha', max_hops: 3, as_of: '2026-05-01T00:00:00Z' });
+  assert.ok(!now.results.some((x) => x.object === 'Gamma')); // außerhalb Gültigkeit
+  const past = call('graph__search', { term: 'Alpha', max_hops: 3, as_of: '2024-06-01T00:00:00Z' });
+  assert.ok(past.results.some((x) => x.object === 'Gamma')); // im Intervall
+  // ungültiges as_of → isError, kein Crash
+  const r = s.handle({ jsonrpc: '2.0', id: 9, method: 'tools/call', params: { name: 'graph__search', arguments: { term: 'Alpha', as_of: 'kein-datum' } } });
+  assert.equal(r.result.isError, true);
+});
+
 test('graph__verify liefert ein Verdikt (UC-V)', () => {
   const s = server();
   const call = (name, args) => JSON.parse(s.handle({ jsonrpc: '2.0', id: 1, method: 'tools/call', params: { name, arguments: args } }).result.content[0].text);
