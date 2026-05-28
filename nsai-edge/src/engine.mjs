@@ -114,6 +114,9 @@ export class Engine {
     if (!this.identity) throw new EngineError('NO_PEER_IDENTITY', 'keine lokale Identität');
     let ts = asserted_at ?? new Date(this._now()).toISOString();
     if (Date.parse(ts) > this._now()) ts = new Date(this._now()).toISOString(); // kein Zukunftsdatum (Fix 🔴2)
+    // UC-5d: Wire/Signatur bleibt unangetastet (Original `ts` geht in den signingString); die
+    // lokale Normalisierung wandert in `asserted_at_norm` (UTC-Z) für lexikografisch korrekte Filter.
+    const tsNorm = this._normIso(ts);
     const hash = tripleHash(subject, predicate, object);
     return this._tx(() => {
       const existing = this._getEdge(hash);
@@ -124,16 +127,16 @@ export class Engine {
         const vc = clockMax(JSON.parse(existing.vector_clock), clock);
         const t = this._signSelf({ hash, subject, predicate, object, asserted_confidence: asserted, source_type, asserted_at: ts, temporality: existing.temporality, vector_clock: vc, derived_from: existing.derived_from ? JSON.parse(existing.derived_from) : null });
         // local_status BLEIBT unberührt (UC-EP: kein OUT→IN durch Re-Assert, das ist Slice #1b).
-        this.db.prepare("UPDATE knowledge_edges SET confidence=?, asserted_confidence=?, source_type=?, asserted_at=?, origin_peer_id=?, relayed_by=?, signature=?, vector_clock=?, updated_at=datetime('now') WHERE triple_hash=?")
-          .run(Math.max(existing.confidence, confidence), asserted, source_type, ts, this.peerId, this.peerId, t.signature, JSON.stringify(vc), hash);
+        this.db.prepare("UPDATE knowledge_edges SET confidence=?, asserted_confidence=?, source_type=?, asserted_at=?, asserted_at_norm=?, origin_peer_id=?, relayed_by=?, signature=?, vector_clock=?, updated_at=datetime('now') WHERE triple_hash=?")
+          .run(Math.max(existing.confidence, confidence), asserted, source_type, ts, tsNorm, this.peerId, this.peerId, t.signature, JSON.stringify(vc), hash);
         result = { triple_hash: hash, confidence: Math.max(existing.confidence, confidence), status: existing.local_status, created: false };
       } else {
         const sId = this._ensureNode(subject); const oId = this._ensureNode(object);
         const t = this._signSelf({ hash, subject, predicate, object, asserted_confidence: confidence, source_type, asserted_at: ts, temporality, vector_clock: clock, derived_from: null });
         this.db.prepare(
-          `INSERT INTO knowledge_edges (triple_hash, subject_id, predicate, object_id, confidence, asserted_confidence, source_type, asserted_at, temporality, local_status, origin_peer_id, relayed_by, signature, vector_clock, derived_from, context_slug)
-           VALUES (?,?,?,?,?,?,?,?,?, 'active', ?,?,?,?, NULL, ?)`,
-        ).run(hash, sId, predicate, oId, confidence, confidence, source_type, ts, temporality, this.peerId, this.peerId, t.signature, JSON.stringify(clock), context_slug);
+          `INSERT INTO knowledge_edges (triple_hash, subject_id, predicate, object_id, confidence, asserted_confidence, source_type, asserted_at, asserted_at_norm, temporality, local_status, origin_peer_id, relayed_by, signature, vector_clock, derived_from, context_slug)
+           VALUES (?,?,?,?,?,?,?,?,?,?, 'active', ?,?,?,?, NULL, ?)`,
+        ).run(hash, sId, predicate, oId, confidence, confidence, source_type, ts, tsNorm, temporality, this.peerId, this.peerId, t.signature, JSON.stringify(clock), context_slug);
         result = { triple_hash: hash, confidence, status: 'active', created: true };
       }
       // UC-EP: Konsolidierungs-Link in DERSELBEN Transaktion (atomar). Episode muss existieren,
@@ -165,7 +168,9 @@ export class Engine {
   }
   // Innerhalb derselben Tier-Stufe: Aktualität × Konfidenz × Liefer-Trust (Float, rein lokal).
   _withinWeight(edge) {
-    return this._recencyFactor(edge.asserted_at, edge.temporality) * edge.confidence * (trustFactor(this.spec, this._originTrust(edge.origin_peer_id)) / 1000);
+    // UC-5d: Recency über UTC-Z-normalisierte Form — sonst kann ein Offset-Zeitstempel im Wire
+    // einen semantisch identischen Fakt mit Z um die Offset-Differenz „älter" machen lassen.
+    return this._recencyFactor(edge.asserted_at_norm ?? edge.asserted_at, edge.temporality) * edge.confidence * (trustFactor(this.spec, this._originTrust(edge.origin_peer_id)) / 1000);
   }
 
   // Löst konkurrierende Aussagen (gleiches subject+predicate) zu einer gewichteten
@@ -245,7 +250,9 @@ export class Engine {
   _normIso(x) { if (x == null) return null; const t = Date.parse(x); return Number.isNaN(t) ? null : new Date(t).toISOString(); }
   _validClause(asOf) {
     const t = this._normIso(asOf) ?? new Date(this._now()).toISOString(); // Default „jetzt", normalisiert
-    return { sql: ' AND COALESCE(valid_from, asserted_at) <= ? AND (valid_to IS NULL OR ? < valid_to)', args: [t, t] };
+    // UC-5d: lexikografischer SQL-Vergleich nur korrekt über UTC-Z-Form (asserted_at_norm).
+    // Fallback `asserted_at` für Bestände ohne _norm (Migration füllt das beim DB-Open).
+    return { sql: ' AND COALESCE(valid_from, asserted_at_norm, asserted_at) <= ? AND (valid_to IS NULL OR ? < valid_to)', args: [t, t] };
   }
 
   query(term, { maxDepth = 1, explain = false, as_of = null } = {}) {
@@ -325,9 +332,9 @@ export class Engine {
             const sId = this._ensureNode(concl.subject); const oId = this._ensureNode(concl.object);
             const t = this._signSelf({ hash, ...concl, asserted_confidence: confidence, source_type: 'inference', asserted_at: nowIso, temporality: 'stable', vector_clock: clock, derived_from: derivedObj });
             this.db.prepare(
-              `INSERT INTO knowledge_edges (triple_hash, subject_id, predicate, object_id, confidence, asserted_confidence, source_type, asserted_at, temporality, local_status, origin_peer_id, relayed_by, signature, vector_clock, derived_from)
-               VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
-            ).run(hash, sId, concl.predicate, oId, confidence, confidence, 'inference', nowIso, 'stable', status, this.peerId, this.peerId, t.signature, JSON.stringify(clock), JSON.stringify(derivedObj));
+              `INSERT INTO knowledge_edges (triple_hash, subject_id, predicate, object_id, confidence, asserted_confidence, source_type, asserted_at, asserted_at_norm, temporality, local_status, origin_peer_id, relayed_by, signature, vector_clock, derived_from)
+               VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+            ).run(hash, sId, concl.predicate, oId, confidence, confidence, 'inference', nowIso, nowIso, 'stable', status, this.peerId, this.peerId, t.signature, JSON.stringify(clock), JSON.stringify(derivedObj));
             created++;
           }
         }
@@ -474,6 +481,8 @@ export class Engine {
     const incLive = Math.min(wire.confidence ?? asserted, asserted);
     const sourceType = wire.source_type ?? 'llm';
     const assertedAt = wire.asserted_at ?? EPOCH;
+    // UC-5d: lokale UTC-Z-Form für lexikografische Lese-Linsen. Wire-`assertedAt` bleibt unverändert (Signatur prüft Original).
+    const assertedAtNorm = this._normIso(assertedAt);
     const SKEW = 86400000; // 1 Tag Clock-Skew-Toleranz
     if (Date.parse(assertedAt) > this._now() + SKEW) return 'rejected'; // kein Zukunftsdatum (Fix 🔴2)
     if (!clockPlausible(wire.vector_clock, this._localClock())) return 'rejected'; // F1.11: VC-Plausibilität
@@ -510,8 +519,8 @@ export class Engine {
         // F1.13: geht die Provenienz auf einen untrusted-Origin über, wird der Record quarantänisiert
         // (kein stiller Verbleib als active), sonst bleibt der bisherige Status erhalten.
         const newStatus = peerTrust === 'untrusted' ? 'quarantined' : existing.local_status;
-        this.db.prepare("UPDATE knowledge_edges SET confidence=?, asserted_confidence=?, source_type=?, asserted_at=?, origin_peer_id=?, relayed_by=?, signature=?, vector_clock=?, local_status=?, updated_at=datetime('now') WHERE triple_hash=?")
-          .run(liveConf, asserted, sourceType, assertedAt, wire.origin_peer_id, wire.relayed_by ?? null, wire.signature, JSON.stringify(vc), newStatus, wire.triple_hash);
+        this.db.prepare("UPDATE knowledge_edges SET confidence=?, asserted_confidence=?, source_type=?, asserted_at=?, asserted_at_norm=?, origin_peer_id=?, relayed_by=?, signature=?, vector_clock=?, local_status=?, updated_at=datetime('now') WHERE triple_hash=?")
+          .run(liveConf, asserted, sourceType, assertedAt, assertedAtNorm, wire.origin_peer_id, wire.relayed_by ?? null, wire.signature, JSON.stringify(vc), newStatus, wire.triple_hash);
         // Hinweis (Adversarial-Runde 2): der active→quarantined-Flip ist hier über die trust-primäre
         // Präzedenz unerreichbar (F1.13 „dead-but-correct"). Eine Retraktions-Propagation gehört NICHT
         // hierher — mergeIncoming läuft ohne Tx. Würde die Präzedenz je untrusted-Gewinne zulassen,
@@ -525,9 +534,9 @@ export class Engine {
     const sId = this._ensureNode(wire.subject); const oId = this._ensureNode(wire.object);
     const status = peerTrust === 'untrusted' ? 'quarantined' : 'active';
     this.db.prepare(
-      `INSERT INTO knowledge_edges (triple_hash, subject_id, predicate, object_id, confidence, asserted_confidence, source_type, asserted_at, temporality, local_status, origin_peer_id, relayed_by, signature, vector_clock, derived_from)
-       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
-    ).run(wire.triple_hash, sId, wire.predicate, oId, asserted, asserted, sourceType, assertedAt, wire.temporality, status, wire.origin_peer_id, wire.relayed_by ?? null, wire.signature, JSON.stringify(wire.vector_clock), wire.derived_from ? JSON.stringify(wire.derived_from) : null);
+      `INSERT INTO knowledge_edges (triple_hash, subject_id, predicate, object_id, confidence, asserted_confidence, source_type, asserted_at, asserted_at_norm, temporality, local_status, origin_peer_id, relayed_by, signature, vector_clock, derived_from)
+       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+    ).run(wire.triple_hash, sId, wire.predicate, oId, asserted, asserted, sourceType, assertedAt, assertedAtNorm, wire.temporality, status, wire.origin_peer_id, wire.relayed_by ?? null, wire.signature, JSON.stringify(wire.vector_clock), wire.derived_from ? JSON.stringify(wire.derived_from) : null);
     return status === 'active' ? 'accepted' : 'quarantined';
   }
 
@@ -572,9 +581,10 @@ export class Engine {
     }
     let ts = occurred_at ?? new Date(this._now()).toISOString();
     if (Date.parse(ts) > this._now() || Number.isNaN(Date.parse(ts))) ts = new Date(this._now()).toISOString();
+    const tsNorm = this._normIso(ts); // UC-5d: UTC-Z für lexikografische Filter
     const id = randomUUID();
-    this.db.prepare('INSERT INTO episodes (id, content, source_type, occurred_at, context_slug) VALUES (?,?,?,?,?)')
-      .run(id, content, source_type, ts, context_slug);
+    this.db.prepare('INSERT INTO episodes (id, content, source_type, occurred_at, occurred_at_norm, context_slug) VALUES (?,?,?,?,?,?)')
+      .run(id, content, source_type, ts, tsNorm, context_slug);
     return { episode_id: id, occurred_at: ts };
   }
   // UC-EP-Recall, optional zeit-fensterbar: `since` = untere Grenze (occurred_at ≥ since),
@@ -587,9 +597,11 @@ export class Engine {
     const where = []; const args = [];
     if (context_slug) { where.push('context_slug = ?'); args.push(context_slug); }
     if (term) { where.push("content LIKE ? ESCAPE '\\'"); args.push(`%${String(term).replace(/[\\%_]/g, (m) => `\\${m}`)}%`); }
-    if (since) { const t = Date.parse(since); if (!Number.isNaN(t)) { where.push('occurred_at >= ?'); args.push(new Date(t).toISOString()); } }
-    if (until) { const t = Date.parse(until); if (!Number.isNaN(t)) { where.push('occurred_at <= ?'); args.push(new Date(t).toISOString()); } }
-    const sql = `SELECT id, content, source_type, occurred_at, context_slug FROM episodes${where.length ? ' WHERE ' + where.join(' AND ') : ''} ORDER BY occurred_at DESC, id LIMIT ?`;
+    // UC-5d: Filter über UTC-Z-normalisierte Form (occurred_at_norm); Fallback occurred_at für Altbestände.
+    if (since) { const t = Date.parse(since); if (!Number.isNaN(t)) { where.push('COALESCE(occurred_at_norm, occurred_at) >= ?'); args.push(new Date(t).toISOString()); } }
+    if (until) { const t = Date.parse(until); if (!Number.isNaN(t)) { where.push('COALESCE(occurred_at_norm, occurred_at) <= ?'); args.push(new Date(t).toISOString()); } }
+    // UC-5d 🔴-2 (Adversarial): ORDER BY ebenfalls über occurred_at_norm, sonst limit/DESC-Reihenfolge unter Offset-Mix falsch.
+    const sql = `SELECT id, content, source_type, occurred_at, context_slug FROM episodes${where.length ? ' WHERE ' + where.join(' AND ') : ''} ORDER BY COALESCE(occurred_at_norm, occurred_at) DESC, id LIMIT ?`;
     const rows = this.db.prepare(sql).all(...args, cap + 1);
     const truncated = rows.length > cap;
     return { episodes: rows.slice(0, cap), truncated };
@@ -597,7 +609,8 @@ export class Engine {
   episodesForTriple(tripleHashValue) {
     const edge = this._getEdge(tripleHashValue);
     const rows = this.db.prepare(
-      'SELECT e.id, e.content, e.source_type, e.occurred_at, e.context_slug FROM episode_triples l JOIN episodes e ON e.id = l.episode_id WHERE l.triple_hash = ? ORDER BY e.occurred_at DESC',
+      // UC-5d 🔴-3 (Adversarial): Provenienz-Reihenfolge ebenfalls über _norm.
+      'SELECT e.id, e.content, e.source_type, e.occurred_at, e.context_slug FROM episode_triples l JOIN episodes e ON e.id = l.episode_id WHERE l.triple_hash = ? ORDER BY COALESCE(e.occurred_at_norm, e.occurred_at) DESC',
     ).all(tripleHashValue);
     // status-unabhängig: Tripel kann fehlen (GC) oder retracted sein — beides definiert.
     return { triple_hash: tripleHashValue, triple_status: edge ? edge.local_status : null, episodes: rows };
@@ -605,7 +618,8 @@ export class Engine {
   episodicGc({ maxAgeDays = 90 } = {}) {
     return this._tx(() => {
       const cutoff = new Date(this._now() - maxAgeDays * 86400000).toISOString();
-      const eps = this.db.prepare('DELETE FROM episodes WHERE occurred_at < ?').run(cutoff); // Links via CASCADE
+      // UC-5d 🔴-1 (Adversarial): GC-DELETE über _norm — sonst werden Offset-Episoden fälschlich gelöscht (Datenverlust).
+      const eps = this.db.prepare('DELETE FROM episodes WHERE COALESCE(occurred_at_norm, occurred_at) < ?').run(cutoff); // Links via CASCADE
       // verwaiste Links (Ziel-Tripel per GC entfernt) aufräumen — semantische Tripel bleiben unberührt.
       const orphans = this.db.prepare('DELETE FROM episode_triples WHERE triple_hash NOT IN (SELECT triple_hash FROM knowledge_edges)').run();
       return { episodesDeleted: eps.changes, orphanLinksDeleted: orphans.changes };
@@ -823,10 +837,12 @@ export class Engine {
       if (Date.parse(wire.asserted_at ?? EPOCH) > this._now() + SKEW) { rejected++; continue; } // kein Zukunftsdatum (Fix 🔴C)
       const sId = this._ensureNode(wire.subject); const oId = this._ensureNode(wire.object);
       const asserted = wire.asserted_confidence ?? wire.confidence;
+      const assertedAt = wire.asserted_at ?? EPOCH;                  // UC-5d: Wire-Original
+      const assertedAtNorm = this._normIso(assertedAt);              //         lokale UTC-Z-Form
       this.db.prepare(
-        `INSERT OR IGNORE INTO knowledge_edges (triple_hash, subject_id, predicate, object_id, confidence, asserted_confidence, source_type, asserted_at, temporality, local_status, origin_peer_id, relayed_by, signature, vector_clock, derived_from)
-         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
-      ).run(wire.triple_hash, sId, wire.predicate, oId, asserted, asserted, wire.source_type ?? 'llm', wire.asserted_at ?? EPOCH, wire.temporality, bulkPromote ? 'active' : 'quarantined', wire.origin_peer_id, wire.relayed_by ?? null, wire.signature, JSON.stringify(wire.vector_clock), wire.derived_from ? JSON.stringify(wire.derived_from) : null);
+        `INSERT OR IGNORE INTO knowledge_edges (triple_hash, subject_id, predicate, object_id, confidence, asserted_confidence, source_type, asserted_at, asserted_at_norm, temporality, local_status, origin_peer_id, relayed_by, signature, vector_clock, derived_from)
+         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+      ).run(wire.triple_hash, sId, wire.predicate, oId, asserted, asserted, wire.source_type ?? 'llm', assertedAt, assertedAtNorm, wire.temporality, bulkPromote ? 'active' : 'quarantined', wire.origin_peer_id, wire.relayed_by ?? null, wire.signature, JSON.stringify(wire.vector_clock), wire.derived_from ? JSON.stringify(wire.derived_from) : null);
       cloned++;
     }
     let maxClock = {};

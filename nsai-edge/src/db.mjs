@@ -31,6 +31,7 @@ CREATE TABLE IF NOT EXISTS knowledge_edges (
   context_slug TEXT,
   valid_from TEXT,                             -- UC-BT: lokale Event-/Valid-Time-Start (Default-Fallback = asserted_at), NICHT im Wire
   valid_to TEXT,                               -- UC-BT: lokales Gültigkeits-Ende (NULL = offen), NICHT im Wire
+  asserted_at_norm TEXT,                       -- UC-5d: UTC-Z-normalisierte Form von asserted_at für lexikografisch korrekte Lese-Linse; NICHT im Wire (Signatur prüft Original).
   created_at TEXT DEFAULT (datetime('now')),
   updated_at TEXT DEFAULT (datetime('now')),
   FOREIGN KEY(subject_id) REFERENCES knowledge_nodes(id) ON DELETE CASCADE,
@@ -56,7 +57,8 @@ CREATE TABLE IF NOT EXISTS episodes (
   id TEXT PRIMARY KEY NOT NULL,
   content TEXT NOT NULL CHECK(length(content) BETWEEN 1 AND 8000),
   source_type TEXT NOT NULL DEFAULT 'llm',  -- Herkunfts-Label, KEINE Autoritäts-Stufe
-  occurred_at TEXT NOT NULL,
+  occurred_at TEXT NOT NULL,                -- ggf. mit Offset; das was reinkommt
+  occurred_at_norm TEXT,                    -- UC-5d: UTC-Z-normalisiert; verwendet für lexikografische Filter (since/until)
   context_slug TEXT,
   created_at TEXT DEFAULT (datetime('now'))
 );
@@ -93,6 +95,7 @@ CREATE TABLE knowledge_edges (
   context_slug TEXT,
   valid_from TEXT,
   valid_to TEXT,
+  asserted_at_norm TEXT,
   created_at TEXT DEFAULT (datetime('now')),
   updated_at TEXT DEFAULT (datetime('now')),
   FOREIGN KEY(subject_id) REFERENCES knowledge_nodes(id) ON DELETE CASCADE,
@@ -108,7 +111,58 @@ export function openDb(path = ':memory:') {
   db.exec(SCHEMA);
   migrateRetractedStatus(db);
   migrateValidityColumns(db);
+  migrateUtcZNormalization(db);
   return db;
+}
+
+// UC-5d: additive Spalten + idempotente Befüllung der UTC-Z-Normalisierung.
+// Wire/Signatur bleiben unangetastet (Original-`asserted_at`/`occurred_at` werden NICHT modifiziert).
+// Beim Lesen verwendet die Engine `asserted_at_norm`/`occurred_at_norm` für lexikografisch
+// korrekten Vergleich. Idempotent — zweiter Lauf no-op (WHERE _norm IS NULL).
+function migrateUtcZNormalization(db) {
+  const edgeCols = new Set(db.prepare("PRAGMA table_info('knowledge_edges')").all().map((r) => r.name));
+  if (!edgeCols.has('asserted_at_norm')) db.exec('ALTER TABLE knowledge_edges ADD COLUMN asserted_at_norm TEXT');
+  const epCols = new Set(db.prepare("PRAGMA table_info('episodes')").all().map((r) => r.name));
+  if (!epCols.has('occurred_at_norm')) db.exec('ALTER TABLE episodes ADD COLUMN occurred_at_norm TEXT');
+
+  // JavaScript-seitig normalisieren (SQLite hat kein ISO-Z-Toleranz-Built-in).
+  // Nur Zeilen mit _norm IS NULL anfassen → idempotent.
+  const fillRows = (table, srcCol, normCol) => {
+    const rows = db.prepare(`SELECT rowid, ${srcCol} FROM ${table} WHERE ${normCol} IS NULL AND ${srcCol} IS NOT NULL`).all();
+    if (!rows.length) return;
+    const upd = db.prepare(`UPDATE ${table} SET ${normCol}=? WHERE rowid=?`);
+    db.exec('BEGIN IMMEDIATE');
+    try {
+      for (const r of rows) {
+        const t = Date.parse(r[srcCol]);
+        const norm = Number.isNaN(t) ? null : new Date(t).toISOString();
+        upd.run(norm, r.rowid);
+      }
+      db.exec('COMMIT');
+    } catch (e) { db.exec('ROLLBACK'); throw e; }
+  };
+  fillRows('knowledge_edges', 'asserted_at', 'asserted_at_norm');
+  fillRows('episodes', 'occurred_at', 'occurred_at_norm');
+
+  // Adversarial 🟡 (Re-Audit): `valid_from`/`valid_to` sind lokale Spalten (nicht im Wire/Signatur)
+  // — eine In-Place-Normalisierung ist hier zulässig. Engine schreibt sie schon via `_normIso`,
+  // aber Altbestand vor Slice #5-Fix (oder externer SQL-Tool-Schreibung) könnte Offset-Form tragen.
+  // Idempotent: nur Werte mit Offset-Notation anfassen.
+  const fixInPlace = (table, col) => {
+    const offsetRows = db.prepare(`SELECT rowid, ${col} FROM ${table} WHERE ${col} IS NOT NULL AND (${col} LIKE '%+%' OR ${col} GLOB '*-[0-9][0-9]:[0-9][0-9]')`).all();
+    if (!offsetRows.length) return;
+    const upd = db.prepare(`UPDATE ${table} SET ${col}=? WHERE rowid=?`);
+    db.exec('BEGIN IMMEDIATE');
+    try {
+      for (const r of offsetRows) {
+        const t = Date.parse(r[col]);
+        if (!Number.isNaN(t)) upd.run(new Date(t).toISOString(), r.rowid);
+      }
+      db.exec('COMMIT');
+    } catch (e) { db.exec('ROLLBACK'); throw e; }
+  };
+  fixInPlace('knowledge_edges', 'valid_from');
+  fixInPlace('knowledge_edges', 'valid_to');
 }
 
 // UC-BT (Slice #5): additive valid_from/valid_to-Spalten für Bestands-DBs (idempotent, kein Rebuild).
