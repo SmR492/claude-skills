@@ -963,4 +963,27 @@ Deferred-Verfeinerungen: Slice #1b (OUT→IN-Reaktivierung + Multi-Justification
 
 > **Slice #5b (erledigt):** `as_of` auch auf `search` (siehe UC-HR AC-11.11–11.14); föderierte Gültigkeit (Wire-v2 — bewusst weiter deferred); LLM-gestützte Widerspruchs-Erkennung bleibt Agenten-Aufgabe (nicht-deterministisch). (`verify` hat `as_of` seit 🟡-2 Slice #5.)
 
-> **Slice #5d (deferred — vorbestehender Latenzdefekt, sichtbar durch #5b):** UTC-Z-Normalisierung auch auf der **Datenseite**, nicht nur auf der Lese-Seite. Aktuell normalisiert `_validClause(as_of)` den Lese-Zeitpunkt via `_normIso`, aber `storeTriple` und `mergeIncoming` legen `asserted_at` **verbatim** ab (inkl. Offset-Notation `+02:00`). Folge: lexikografischer SQLite-Vergleich `COALESCE(valid_from, asserted_at) <= ?` verschiebt die Sichtbarkeit eines mit `+02:00` gespeicherten Fakts um die Offset-Differenz in die Zukunft → ein `query`/`search`/`verify` zum "passenden" Moment kann den Fakt verfehlen. Slice #5b weitet diesen Effekt auf die Hybrid-Retrieval-Linse aus (Symptom wird sichtbarer, der Defekt ist älter). Lösung: `_normIso` in `storeTriple` (Zeile ~115) + `mergeIncoming` (Zeile ~476/514) für `asserted_at` + einmalige Migration der Bestands-Spalte. Bewusst **deferred**: Slice #5b soll narrow + auditierbar bleiben; der UTC-Z-Datenpfad ist eine eigene Korrektur (read-and-write-side), die Migration braucht eine eigene Risiko-Betrachtung (Idempotenz, Live-DB-Kopie-Verifikation wie bei der retracted-Migration). Adversarial-Audit-Beleg: Probe-Case mit `asserted_at='+02:00'` zeigt 2-Stunden-Lese-Drift bis das semantisch identische `as_of` erreicht ist.
+> **Slice #5d (UC-5d, in Bearbeitung) — UTC-Z-Normalisierung auch auf der Datenseite:** Slice #5 normalisiert die *Lese-*Seite (`_validClause` via `_normIso`), aber `storeTriple`/`mergeIncoming`/`clone` legen `asserted_at` verbatim ab (inkl. Offset `+02:00`). Folge: der lexikografische SQLite-Vergleich `COALESCE(valid_from, asserted_at) <= ?` verschiebt die Sichtbarkeit eines mit `+02:00` gespeicherten Fakts um die Offset-Differenz in die Zukunft. Slice #5b machte das sichtbarer (Hybrid-Retrieval-Linse).
+>
+> **Design-Constraint (Wire-Vertrag intakt):** `asserted_at` ist Bestandteil des `signingString`. Eine In-Place-Modifikation würde die Origin-Signatur ungültig machen (wir können nicht resignieren — Origin-Privatkey fehlt). Daher **abgeleitete Spalte** statt In-Place-Mutation.
+>
+> **Implementation:**
+> - Schema: `knowledge_edges.asserted_at_norm TEXT` (UTC-Z-normalisiert) + `episodes.occurred_at_norm TEXT` — additiv, kein Rebuild nötig.
+> - Engine: beim INSERT/UPDATE wird `_norm` automatisch via `_normIso(asserted_at)` befüllt; `_edgeToWire` ignoriert die `_norm`-Spalten (Wire unverändert, Signatur intakt).
+> - Lese-Pfade (`_validClause`, `_recencyFactor`, `COALESCE(valid_from, asserted_at)`): verwenden konsequent `asserted_at_norm` statt `asserted_at`.
+> - Migration (idempotent): einmaliger Pass beim DB-Open setzt `asserted_at_norm = _normIso(asserted_at)` für alle Edges mit `asserted_at_norm IS NULL`. Analog für `occurred_at_norm`.
+> - Eingangs-Härtung beim Wire: ein Wire mit nicht-UTC-Z `asserted_at` wird **akzeptiert** (Wire-Kompat, Signatur prüft Original), aber lokal normalisiert in `asserted_at_norm` für korrekte Lese-Linsen.
+>
+> **AC-Tabelle:**
+> - AC-5d.1: Wire mit `asserted_at='+02:00'` wird akzeptiert (mergeIncoming-Signatur prüft Original); `asserted_at_norm` ist UTC-Z.
+> - AC-5d.2: `query`/`search`/`verify` mit `as_of` knapp nach dem semantisch echten Instant zeigt den Fakt (Linsen-Drift behoben).
+> - AC-5d.3: `_edgeToWire` enthält weiterhin **das ursprüngliche** `asserted_at` (keine `_norm`-Felder im Wire); `verifyTriple` gegen Origin bleibt grün.
+> - AC-5d.4: Migration ist idempotent — zweiter DB-Open verändert nichts; Bestands-Fakten ohne Offset (bereits Z) bleiben byte-gleich.
+> - AC-5d.5: `_recencyFactor` nutzt `asserted_at_norm` → ein mit `+02:00` empfangener Fakt hat dieselbe Recency wie ein semantisch identischer mit `Z`.
+> - AC-5d.6: `episodes.occurred_at_norm` analog; `recallEpisodes`-Filter (`since`/`until`) lexikografisch korrekt für Offset-Eingaben.
+> - AC-5d.7: Föderations-Parität — gleiche Wire-Daten ergeben auf zwei Knoten gleichen `asserted_at_norm` (deterministische `_normIso`).
+> - AC-5d.8 (Adversarial-Repro): Probe-Case mit `asserted_at='2024-06-01T12:00:00+02:00'` und `as_of='2024-06-01T10:00:01Z'` → Fakt sichtbar (vorher: Drift 2 h).
+>
+> **Fehlerfälle (UC-5d):** ungültiges ISO im Wire → `asserted_at_norm` bleibt `NULL`, Lese-Linse fällt auf `valid_from`/Epoch zurück; Migration crash → idempotent restartbar (kein partieller Schaden, weil `_norm`-Spalte additiv); concurrent INSERT während Migration → durch `BEGIN IMMEDIATE` serialisiert.
+>
+> **Determinismus-Gate:** `_normIso` ist deterministisch (Standard-`Date.parse` + UTC-Z-toISOString); zwei Knoten ergeben dieselbe normalisierte Form.
