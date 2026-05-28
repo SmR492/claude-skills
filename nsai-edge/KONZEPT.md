@@ -1106,4 +1106,48 @@ Deferred-Verfeinerungen: Slice #1b (OUT→IN-Reaktivierung + Multi-Justification
 
 **Determinismus-Gate:** keine LLM-Aufrufe in Stufe 2; nur deterministisch ausgewertete BFS über `knowledge_edges`-Adjazenz (kein `search`/PPR/LIKE) + `_quorumFor`. Alle Schwellen aus `spec`. Hints sortiert nach `triple_hash` (deterministische Reihenfolge zwischen Knoten).
 
-> **Slice #R1 (in Bearbeitung):** Corrective Retrieval Phase 1 — Subgraph-Distanz-2-Lookup + konkurrierende-Endorsement-Auflösung. **Deferred** zu #R1b: Alias-Tabelle für Synonym-Knoten, Domain-Wörterbuch.
+> **Slice #R1 (erledigt):** Corrective Retrieval als Hint-Modell — `_maybeCorrective` sammelt diagnostische Hinweise, ändert das Verdikt NIE. **Deferred** zu #R1b: Alias-Tabelle für Synonym-Knoten, Domain-Wörterbuch.
+
+### UC-SC — Self-Critique-Pflicht-Pass (Multi-Claim-Verify, Slice #R2)
+
+**Akteur:** System (deterministisch, Tier 1, **kein LLM**) · **Route:** MCP `graph__assert_claims` (neu); intern `assertClaims([claims])` · **Roadmap:** §H.2 nach #R1.
+
+**Ziel (menschenähnliche Stärke „innerer Fakten-Check vor dem Aussprechen", ohne Konfabulations-Schwäche):** Vor der Generierung einer zusammengesetzten Antwort prüft der LLM-Konsument **mehrere Aussagen gleichzeitig** über `assertClaims([{s,p,o}, ...])` gegen das Gedächtnis. Bekommt pro Claim ein kategorisches Verdikt mit Provenienz plus eine Aggregat-Empfehlung (`all_supported` / `any_contradicted` / `any_unknown`). Damit entscheidet der Agent **deterministisch**, ob er antworten darf oder eine Klarstellungs-Frage stellen muss.
+
+**Forschungs-Anker (RAG 2026, validiert):**
+- *Self-Reflective RAG* (2026): „LLM prüft eigene Antwort gegen Retrieval-Quellen vor Ausgabe". Wir liefern das **deterministisch** als Bulk-Verify mit Aggregat — der LLM ist Konsument, nicht Teil der Bewertung.
+- *VeriCoT* (Chain-of-Thought-Verifikation): jedes Reasoning-Schritt-Tripel gegen Graph. Wir reduzieren auf den Bulk-Verify-Kern.
+
+**Mechanik (deterministisch):**
+1. **Eingabe:** Array von `{subject, predicate, object, as_of?}` Claims (max 50 pro Aufruf, AC-17.6).
+2. **Verarbeitung:** für jeden Claim → `verify(claim)` (nutzt komplette UC-V/UC-MS/UC-CR-Pipeline inkl. Quorum + Hints).
+3. **Aggregat-Empfehlung** (kategorisch, KEINE Probabilistik) — Priorität streng:
+   - `any_contradicted` ⇔ mindestens ein `contradicted` → Agent MUSS Antwort revidieren (höchste Priorität).
+   - `any_contested` ⇔ kein contradicted, aber mindestens ein supported mit `contested:true` → Agent MUSS klären/auf Konflikt hinweisen (Adversarial 🔴-5: contested darf NIE als all_supported maskiert werden).
+   - `any_unknown` ⇔ keiner der höheren Stufen, mindestens ein unknown → Agent darf ausgeben, muss aber `unknown`-Claims als „unbestätigt" kennzeichnen.
+   - `all_supported` ⇔ alle Claims supported und keiner contested.
+4. **Per-Claim-Output reduziert auf kategorische Felder (Adversarial 🔴-1/4):** `verdict`, `contested` (Flag), `multiValue` (Flag), `dominant` (String), `present` (Boolean), `corrective_hints[]` (mit `via_subject`+`triple_hash`), `corrective_searched`. **NICHT** durchgereicht werden numerische Provenienz-Felder wie `belief` (Promille), `quorum.weighted_support`, `quorum.cluster_count`, `quorum.contributions` und auch nicht `derived_from` (Inferenz-Ketten) — sonst Wahrscheinlichkeits-/Provenienz-Leak. Wer Provenienz-Details braucht, ruft `graph__verify` (volle Provenienz inkl. `derived_from`) oder `graph__endorsements_for(triple_hash)` separat auf.
+
+**AC-Tabelle:**
+| AC | Kriterium | Test-Typ | Status |
+|---|---|---|---|
+| AC-17.1 | Bulk-verify über N Claims liefert pro Claim das gleiche Verdikt wie ein einzelner `verify`-Aufruf (Korrektheits-Identität). | unit | offen |
+| AC-17.2 | Aggregat `all_supported` ⇔ alle Claims supported. | unit | offen |
+| AC-17.3 | Aggregat `any_contradicted` ⇔ mindestens ein contradicted (höchste Priorität). | unit | offen |
+| AC-17.3b | **(Adversarial 🔴-5)** Aggregat `any_contested` ⇔ kein contradicted, mindestens ein supported mit `contested:true`. `contested` wird NIE als `all_supported` maskiert. | unit | offen |
+| AC-17.4 | Aggregat `any_unknown` ⇔ keiner der höheren Stufen, mindestens ein unknown. | unit | offen |
+| AC-17.5 | Leere Claim-Liste → `all_supported` (vacuously) + `count: 0`. | unit | offen |
+| AC-17.6 | Mehr als 50 Claims → `INVALID_PARAMETER_FORMAT` (DoS-Schutz, deterministischer Cap). | unit | offen |
+| AC-17.7 | Determinismus: gleiche Claim-Liste in gleicher Reihenfolge → identische Verdikt-Reihenfolge. | unit | offen |
+| AC-17.8 | Output bleibt **kategorisch** — keine Float-Aggregate, keine Prozent-Zahlen, kein „vermutlich"-Feld. Insbesondere KEINE numerischen Provenienz-Felder (`belief`, `weighted_support`, `cluster_count`, `contributions`) im per-Claim-Result — diese sind Wahrscheinlichkeits-Repräsentationen (Adversarial 🔴-1/4). | unit | offen |
+| AC-17.9 | UC-BT-Verträglichkeit: pro-Claim `as_of` wird respektiert. | unit | offen |
+| AC-17.10 | MCP-Tool `graph__assert_claims` reicht die Output-Struktur 1:1 durch. | unit | offen |
+| AC-17.11 | Ungültige Claim-Struktur (fehlende s/p/o) → `INVALID_PARAMETER_FORMAT`, kein partielles Ergebnis. | unit | offen |
+| AC-17.12 | **(Adversarial 🟡-2)** Ungültiges `as_of` in einem Claim → `INVALID_PARAMETER_FORMAT` (fail-closed, KEINE stille Coercion auf jetzt). | unit | offen |
+| AC-17.13 | **(Adversarial 🟡-3)** `assertClaims` läuft in einer Read-Transaktion — alle Per-Claim-`verify` sehen einen konsistenten Snapshot, selbst wenn parallel Schreibungen einlaufen würden. | unit | offen |
+
+**Fehlerfälle (UC-SC):** leere Claim-Liste → `all_supported` mit `count: 0` (vacuously true); >50 Claims → `INVALID_PARAMETER_FORMAT`; ungültige Claim-Struktur → wirft auf dem ersten ungültigen Claim, kein partielles Ergebnis.
+
+**Determinismus-Gate:** keine LLM-Aufrufe, keine Floats; reine Schleife über `verify` mit kategorischer Aggregations-Regel.
+
+> **Slice #R2 (in Bearbeitung):** Multi-Claim-Verify als Pflicht-Schnittstelle für Agenten. Output kategorisch + provenienz-vollständig.

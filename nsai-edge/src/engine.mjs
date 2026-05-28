@@ -900,6 +900,57 @@ export class Engine {
     return out;
   }
 
+  // ---- UC-SC: Self-Critique-Pflicht-Pass (Slice #R2) — Bulk-Verify -----
+  // Verifiziert mehrere Claims gleichzeitig und liefert ein kategorisches Aggregat —
+  // `all_supported` / `any_contested` / `any_unknown` / `any_contradicted`. KATEGORISCH,
+  // keine Wahrscheinlichkeits-Werte (Adversarial 🔴-1/4): Per-Claim-Output ist auf
+  // kategorische Felder reduziert (kein `belief`-Promille, kein `quorum.weighted_support`).
+  // Provenienz-Details bleiben über separate Tools (`graph__endorsements_for`) erreichbar.
+  // Aggregat-Priorität: any_contradicted > any_contested > any_unknown > all_supported
+  // (Adversarial 🔴-5: `contested:true` darf NICHT als `all_supported` maskiert werden,
+  // sonst publiziert der Agent stillschweigend einen erkannten Konflikt).
+  assertClaims(claims = []) {
+    if (!Array.isArray(claims)) throw new EngineError('INVALID_PARAMETER_FORMAT', 'claims muss ein Array sein');
+    if (claims.length > 50) throw new EngineError('INVALID_PARAMETER_FORMAT', 'maximal 50 claims pro Aufruf');
+    for (const c of claims) {
+      if (!c || typeof c !== 'object' || typeof c.subject !== 'string' || typeof c.predicate !== 'string' || typeof c.object !== 'string') {
+        throw new EngineError('INVALID_PARAMETER_FORMAT', 'claim erfordert subject/predicate/object als Strings');
+      }
+      // Adversarial 🟡-2: as_of fail-closed validieren (statt silent coercion auf jetzt).
+      if (c.as_of != null && !this._validIso(c.as_of)) {
+        throw new EngineError('INVALID_PARAMETER_FORMAT', `claim.as_of ist kein gültiges ISO-Datum: ${c.as_of}`);
+      }
+    }
+    if (claims.length === 0) return { aggregate: 'all_supported', count: 0, results: [] };
+    // Adversarial 🟡-3: Read-Snapshot konsistent halten via Transaktion.
+    return this._tx(() => {
+      const results = claims.map((c) => {
+        const v = this.verify({ subject: c.subject, predicate: c.predicate, object: c.object, as_of: c.as_of ?? null });
+        // Adversarial 🔴-1/4: Per-Claim-Output STRIPPEN auf kategorische Felder.
+        // belief/quorum.weighted_support/contributions/multiValue.cluster-Details sind
+        // Wahrscheinlichkeits-Repräsentationen und dürfen im Self-Critique-Output NICHT
+        // erscheinen. Provenienz bleibt via Tool `graph__endorsements_for` abrufbar.
+        const stripped = { subject: v.subject, predicate: v.predicate, object: v.object, verdict: v.verdict };
+        if (v.contested === true) stripped.contested = true;          // kategorisches Flag, kein Score
+        if (v.multiValue === true) stripped.multiValue = true;        // kategorisches Flag
+        if (v.dominant != null) stripped.dominant = v.dominant;       // String (Object-Name)
+        if (v.present != null) stripped.present = v.present;          // Boolean
+        if (Array.isArray(v.corrective_hints) && v.corrective_hints.length) {
+          // Hints behalten (Diagnose), aber nur kategorische Felder — kein Score.
+          stripped.corrective_hints = v.corrective_hints.map((h) => ({ via_subject: h.via_subject, triple_hash: h.triple_hash }));
+        }
+        if (v.corrective_searched === true) stripped.corrective_searched = true;
+        return stripped;
+      });
+      let aggregate;
+      if (results.some((r) => r.verdict === 'contradicted')) aggregate = 'any_contradicted';
+      else if (results.some((r) => r.verdict === 'supported' && r.contested === true)) aggregate = 'any_contested';
+      else if (results.some((r) => r.verdict === 'unknown')) aggregate = 'any_unknown';
+      else aggregate = 'all_supported';
+      return { aggregate, count: results.length, results };
+    });
+  }
+
   // ---- UC-BT: Bi-temporale Gültigkeit (Slice #5) — lokale valid_from/valid_to ----
   _validIso(v) { return v == null || (typeof v === 'string' && !Number.isNaN(Date.parse(v))); }
   // Setzt das lokale Gültigkeits-Intervall. Unbekannter Hash → null (wie reinforce). Zukunfts-

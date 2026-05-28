@@ -115,6 +115,28 @@ test('graph__verify liefert ein Verdikt (UC-V)', () => {
   assert.equal(call('graph__verify', { subject: 'Unbekannt', predicate: 'ist', object: 'Ding' }).verdict, 'unknown');
 });
 
+test('graph__assert_claims liefert Aggregat + per-Claim-Verdikte (UC-SC Slice #R2)', () => {
+  const s = server();
+  const call = (name, args) => JSON.parse(s.handle({ jsonrpc: '2.0', id: 1, method: 'tools/call', params: { name, arguments: args } }).result.content[0].text);
+  call('graph__store_triple', { subject: 'AA-MCP', predicate: 'ist', object: 'wahr' });
+  const r = call('graph__assert_claims', { claims: [
+    { subject: 'AA-MCP', predicate: 'ist', object: 'wahr' },
+    { subject: 'BB-MCP', predicate: 'ist', object: 'unbekannt' },
+  ] });
+  assert.equal(r.aggregate, 'any_unknown');
+  assert.equal(r.count, 2);
+  assert.equal(r.results[0].verdict, 'supported');
+  assert.equal(r.results[1].verdict, 'unknown');
+});
+
+test('graph__assert_claims wirft INVALID_PARAMETER_FORMAT bei >50 claims', () => {
+  const s = server();
+  const claims = Array.from({ length: 51 }, (_, i) => ({ subject: `S${i}`, predicate: 'ist', object: 'xx' }));
+  const r = s.handle({ jsonrpc: '2.0', id: 9, method: 'tools/call', params: { name: 'graph__assert_claims', arguments: { claims } } });
+  assert.equal(r.result.isError, true);
+  assert.match(r.result.content[0].text, /INVALID_PARAMETER_FORMAT/);
+});
+
 test('graph__endorse_triple + graph__endorsements_for (UC-MS Slice #M.1)', () => {
   const s = server();
   const call = (name, args) => JSON.parse(s.handle({ jsonrpc: '2.0', id: 1, method: 'tools/call', params: { name, arguments: args } }).result.content[0].text);
