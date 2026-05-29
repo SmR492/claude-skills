@@ -94,13 +94,14 @@ Diese Punkte mindern die lokale Produktivnutzung (Ziele 1/2/4/5) nicht; sie betr
 3. Rollen-Übersicht
 4. Datenmodell (merge-fähig, content-adressiert, Fixed-Point)
 5. Anti-Drift: Regel-Spec + Conformance-Gate
-6. Use Cases (UC-01…UC-11)
+6. Use Cases (UC-01…UC-12 Kern; erweiterte UCs in §H/§I: UC-TMS, UC-EP, UC-HR, UC-V, UC-BT, UC-MS, UC-CR, UC-SC, UC-VS, UC-VPS, UC-TA, UC-AD)
 7. Sicherheit & Bedrohungsanalyse
 8. Technische Anhänge & Schemata
 9. Glossar & Semantische Anker
 10. Probabilistik-Statement
 11. Vendor-Risiko-Statement
 12. Verantwortungs-Matrix
+- §G — Föderations-Härtung Phase 2 · §H — Forschungs-fundierte Verfeinerungen (Slices #1–#6.3) · §I — Erweiterungs-Roadmap Phase 2 (Eval 2026-05)
 
 ## 1. Architektur-Entscheidung (ADR-Kurzform)
 
@@ -160,6 +161,7 @@ Gegen echten Quellcode geprüft (frischer Checkout, Mai 2026):
   - **Reinforcement (UC-04, additiv mit Deckel):** `confidence = min(confidence + reinforce_delta, 1000)`. **Trigger:** erneutes `graph__store_triple` (UC-01) ODER Pull (UC-06) mit identischem `triple_hash`. Default `reinforce_delta` = 50 ‰ (in der Spec überschreibbar). Additiv (nicht multiplikativ), damit auch niedrige Konfidenzen durch Wiederholung wachsen.
 - **`nsai-rules.spec.json`** (Single Source of Truth, sprachneutral): Inferenzregeln; Decay-Tabelle (Promille-Reduktion **pro Periode** je Temporalität); Reinforcement-Faktor (Integer); Quarantäne-Schwelle (Promille); Konfidenz-Merge-Funktion (§UC-08); `trust_factor` je Trust-Level (0–1000).
 - **Decay-Beispieltabelle** (normativer Startwert, in der Spec überschreibbar): Reduktion pro Periode — `eternal` = 0 (unverändert), `stable` = 5 ‰, `temporal` = 50 ‰, `ephemeral` = 200 ‰. Lösch-Schwelle = 50 ‰. `trust_factor`: `full`/`authoritative` = 1000, `limited` = 500, `untrusted` = 0 (→ Quarantäne, kein Merge-Beitrag).
+- **Recency-Halbwertszeit-Tabelle** (Tage, normativ — `recencyHalflifeDays` in `rules.mjs`, M5): `eternal` = ∞ (kein Recency-Zerfall), `stable` = 3650, `temporal` = 180, `ephemeral` = 30, `default` = 3650. Recency wirkt **nur INNERHALB derselben Autoritäts-Stufe** (§B) — `_recencyFactor = 2^(−Alter/Halbwertszeit)`, bleibt minimal positiv (nie exakt 0). Beide Engines MÜSSEN diese Tabelle bit-identisch spiegeln (Conformance-Vektor `decay-recall`).
 - **`conformance-vectors.json`**: Input-Graph → erwarteter Output-Graph nach Inferenz/Decay/Merge. Beide Engines müssen **exakt gleiche** Integer-Outputs liefern (Fixed-Point + feste Rundung ⇒ keine Toleranz nötig). Vektor-Suite muss Grenzfälle abdecken (Promille-Unterlauf, leere Prämisse, Inferenz-Zyklus, Trunkierungs-Grenzwert) — Coverage-Mindestmaß als CI-Bedingung.
 - CI-Gate (UC-10) blockt Merge bei Abweichung Node↔PHP↔Erwartung.
 
@@ -550,6 +552,7 @@ Gegen echten Quellcode geprüft (frischer Checkout, Mai 2026):
 | Repudiation | Peer leugnet Herkunft | G/M | AC-Sec-5: `origin_peer_id` + Signatur persistent/auditierbar. |
 | Information Disclosure | Pfad-/Stacktrace-Leak | M/G | AC-Sec-6: opake Fehler nach außen, Details nur lokal. |
 | Elevation of Privilege | Command-Injection über Sync-Argumente | G/H | AC-Sec-7: `child_process.execFile` mit statischem Array. |
+| Elevation of Privilege | Self-Endorsement-Eskalation: lokaler Peer hebt eigenes Tripel via `gesetz`/`behoerde`-Self-Endorsement auf Quorum-`supported`; korrelierte Default-Cluster zählen als unabhängig | M/M | AC-15.15 (Revoke-Replay-Ausschluss) + AC-15.16 (Default-Cluster-Restrisiko dokumentiert); voll geschlossen erst mit Slice #M.2 (dynamische Cluster-Inferenz / MeritRank, §I). Restrisiko bewusst akzeptiert (UC-MS Z-Notiz Self-Endorsement). |
 
 ## 8. Technische Anhänge & Schemata
 
@@ -1032,19 +1035,21 @@ Priorität: `retracted` (TMS-Cascade) gewinnt gegen `superseded` (eigener Decay)
 - `triple_endorsements(triple_hash, origin_peer_id, source_type, asserted_confidence, asserted_at, asserted_at_norm, signature, PRIMARY KEY (triple_hash, origin_peer_id))` — eine Zeile pro (Tripel, Origin). Wire bleibt: jedes Endorsement ist eine eigene signierte Wire-Nachricht (kein Wire-v2).
 - `peers.cluster_id TEXT` — optionale Cluster-Markierung; Default: `cluster_id = peer_id` (jeder als eigener Cluster, konservativ). Manuelle Cluster-Zuweisung wie heute `trust_level`. Der Cluster eines Endorsements wird zur Lese-Zeit über `_clusterIdOf(origin_peer_id)` aufgelöst (Join auf `peers`) — **keine denormalisierte Spalte** in `triple_endorsements`, damit eine spätere Cluster-Anpassung in `peers` automatisch durchschlägt.
 
-**Wertebereiche (zitiert aus §B):** `trustRank ∈ {0 untrusted, 500 limited, 1000 full, 1500 authoritative}`; `tier ∈ {0..6}` (llm/manual=0, sensor=1, web=2, fachquelle=3, behoerde=4, gesetz=5, audit=6). Die Aggregation rechnet in dieser Integer-Promille-Skala.
+**Wertebereiche (Single Source of Truth = `rules.mjs`/`conformance.mjs`, nicht neu erfinden):** `trustRank ∈ {untrusted(0), limited(500), full(1000), authoritative(1500)}` (= `quorumTrustRank`); `tier` = die `sourceTier`-Skala `{llm(0), inference(0), web(1), manual(2), fachquelle(3), sensor(4), behoerde(5), gesetz(6)}` — **identisch zu §B/Glossar und `rules.mjs:sourceTier`** (kein `audit`-Tier; das existiert im Code nicht). Im Quorum wird `tier` zusätzlich **trust-gekappt** (`effTier`, s. Formel unten). Die Aggregation rechnet in dieser Integer-Promille-Skala.
 
 **Mechanik (deterministisch):**
 1. **Endorsement-Empfang** (`endorseTriple(wire)` ODER `mergeIncoming` für bekannten Hash): Signatur über das Endorsement-Tupel prüfen; bei akzeptierter Signatur in `triple_endorsements` einfügen. Kollidierende Wieder-Behauptung desselben (triple, origin) → `INSERT OR IGNORE` (Idempotenz).
 2. **Quorum-Aggregation** (Lese-Pfad in `resolveBelief`) — **explizite Formel (🔴-1 geschlossen):**
    ```
-   clusterContribution(c) = MAX_{e ∈ c}(trustRank(e.origin) × tier(e.source_type))   // Integer, Wertebereich 0..9000
-   weighted_support       = Σ_c clusterContribution(c)                                // Σ über distinkte cluster_id
-   cluster_count          = |{c : clusterContribution(c) > 0}|                        // gezählt werden nur „beitragende" Cluster
+   effTier(e)             = min(sourceTier(e.source_type), trustTierCap(originTrust(e)))   // trust-gekappte Stufe (engine.mjs _effTier)
+   clusterContribution(c) = MAX_{e ∈ c}(trustRank(e.origin) × effTier(e))                 // Integer, Wertebereich 0..9000; nur effTier>0 trägt bei
+   weighted_support       = Σ_c clusterContribution(c)                                     // Σ über distinkte cluster_id, Wertebereich 0..(9000·cluster_count)
+   cluster_count          = |{c : clusterContribution(c) > 0}|                            // gezählt werden nur „beitragende" Cluster
    ```
+   **Wichtig (Paritäts-kritisch):** `effTier` nutzt den **trust-gekappten** Tier (`min(sourceTier, trustTierCap)`), NICHT den rohen `sourceTier`. Ein `limited`-Peer (trustTierCap=1), der `gesetz` (sourceTier 6) behauptet, trägt also nur mit `effTier=1` bei (`limited(500) × 1 = 500`), nicht `500 × 6 = 3000`. Eine PHP-Re-Implementierung ohne diesen min() bräche die Parität.
    Pro Cluster zählt das **stärkste** Endorsement (MAX), nicht die Summe — Echo-Kammer innerhalb eines Clusters neutralisiert. `weighted_support` ist die **Summe** dimensionsloser Promille×Tier-Beiträge über Cluster-Grenzen hinweg.
 3. **Kategorisches Verdikt** (Schwellen, KEINE Probabilistik) — Konstanten in `conformance.mjs` (PHP-spiegelbar):
-   - `supported` ⇔ ∃ Cluster `c*` mit `clusterContribution(c*) ≥ AUTH_FLOOR=4500` (single authoritative-Pfad: `trustRank ≥ full × tier ≥ fachquelle`) **ODER** `cluster_count ≥ 2 ∧ weighted_support ≥ Q=2000`.
+   - `supported` ⇔ ∃ Cluster `c*` mit `clusterContribution(c*) ≥ AUTH_FLOOR=4500` (single-authoritative-Pfad — z. B. `full(1000) × behoerde(5) = 5000` ODER `authoritative(1500) × fachquelle(3) = 4500`; Gegenbeispiel: `full(1000) × fachquelle(3) = 3000` erreicht die Schwelle NICHT) **ODER** `cluster_count ≥ 2 ∧ weighted_support ≥ Q=2000`.
    - `disputed` (intern, Flag `contested:true`) ⇔ zwei *konkurrierende* Objekte (gleiche s+p, distinkte o) erreichen jeweils die `supported`-Schwellen.
    - `contradicted` ⇔ ein dominantes Objekt erreicht `supported` UND das gefragte Objekt nicht.
    - `unknown` ⇔ keine Schwelle erreicht (Open-World — niemals „vermutlich", niemals Float-Wahrscheinlichkeit im Output).
@@ -1052,7 +1057,7 @@ Priorität: `retracted` (TMS-Cascade) gewinnt gegen `superseded` (eigener Decay)
 
 **`verify`-Verträglichkeit (🟡-1 geschlossen):** UC-V bleibt bei den drei Verdikten `{supported, contradicted, unknown}`. `disputed` ist **kein** viertes verify-Verdikt, sondern ein **Flag** `contested:true` zusammen mit `supported`/`contradicted` (wie heute in UC-12). Konsumenten, die nur die drei Verdikte kennen, sehen weiterhin nur drei Werte.
 
-**Restrisiko-Notiz Self-Endorsement (Re-Audit 🟡-A):** Ein lokaler Peer kann sein eigenes Tripel mit einem `gesetz`/`behoerde`-source_type-Endorsement allein auf Quorum-`supported` heben (`full × tier 6 = 6000 ≥ AUTH_FLOOR=4500`). Dieses Verhalten ist konsistent mit der allgemeinen Single-Auth-Schwelle, aber Konsumenten sollten wissen: `supported` aus dem MCP unterscheidet derzeit nicht zwischen „extern korroboriert" und „lokal mit hoher Autoritäts-Selbst-Aussage". Slice #M.2 wird ein `external_cluster_count`-Feld in der Output-Struktur ergänzen, damit der Konsument das selbst entscheiden kann.
+**Restrisiko-Notiz Self-Endorsement (Re-Audit 🟡-A):** Ein lokaler Peer kann sein eigenes Tripel mit einem `gesetz`/`behoerde`-source_type-Endorsement allein auf Quorum-`supported` heben (`full(1000) × gesetz(6) = 6000` bzw. `full(1000) × behoerde(5) = 5000`, beide ≥ AUTH_FLOOR=4500). Dieses Verhalten ist konsistent mit der allgemeinen Single-Auth-Schwelle, aber Konsumenten sollten wissen: `supported` aus dem MCP unterscheidet derzeit nicht zwischen „extern korroboriert" und „lokal mit hoher Autoritäts-Selbst-Aussage". Slice #M.2 wird ein `external_cluster_count`-Feld in der Output-Struktur ergänzen, damit der Konsument das selbst entscheiden kann.
 
 **multiValue-Verträglichkeit (Re-Audit 🔴 multiValue):** Bei mehrwertigen Prädikaten (`hat_tag`, `quelle`, `verweist_auf`, `gehoert_zu`, `hat_wert`, `enthaelt`, `beispiel`, `hat_abschnitt`) sind Geschwister-Aussagen **kein Widerspruch**. Der Quorum-Pfad in `verify` umgeht für diese Prädikate die Konflikt-Logik (kein `contested`, kein `contradicted` aus Geschwister-Endorsements) — jedes Endorsement gilt isoliert für das eigene Objekt.
 
@@ -1376,8 +1381,11 @@ Priorität: `retracted` (TMS-Cascade) gewinnt gegen `superseded` (eigener Decay)
 | AC-21.13 | **(Adversarial 🟡-1)** `promote(hash)` setzt `last_recalled_at = NULL` zurück (Un-Recall analog Un-Reject — sonst Decay-Bonus aus der Quarantäne-/Reject-Phase). | unit | offen |
 | AC-21.14 | **(Adversarial 🟡-2)** `recallProtectionDays = 0` deaktiviert das Feature (kein Bonus für irgendein Edge, identisch zum Pre-Slice-Verhalten). | unit | offen |
 | AC-21.15 | **(Adversarial 🟡-3)** `markRecalled` mit > 200 Hashes → `INVALID_PARAMETER_FORMAT` (DoS-Schutz, deterministischer Cap). | unit | offen |
+| AC-21.16 | **(Re-Audit K3 — Divisor-Unterlauf)** Fällt `trunc(decayPerPeriod[temporality] / recallDecayDivisor)` auf 0 (z. B. `stable`=5 ‰ / Divisor 2 = 2; aber `decayPerPeriod`=1 / 2 = 0), gilt das Edge in dieser Periode als **vollständig geschützt** (`continue`, kein Decay) — das ist bewusstes, dokumentiertes Verhalten, KEIN stiller Stillstand-Bug. Determinismus-invariant über Engines. | unit | offen |
 
 **Fehlerfälle (UC-AD):** `markRecalled([])` → no-op; ungültiger Hash-String → wie unbekannt (silent skip).
+
+**Invariante (K3 — Divisor-Unterlauf, normativ):** `recallDecayDivisor` ist via `Math.max(1, trunc(spec))` gegen 0/negativ geschützt (kein Div-by-Zero). Der dividierte Reduktionswert KANN deterministisch auf 0 fallen — dann ist das Edge für diese Periode vollständig recall-geschützt (siehe AC-21.16). Beide Engines MÜSSEN diese Unterlauf-Semantik identisch spiegeln.
 
 **Determinismus-Gate:** Integer-Division, deterministische `_now()`-Zeitbasis. Keine LLM-Logik, keine Floats.
 
