@@ -64,7 +64,8 @@ test('AC-R7.5: Conformance-Vektor `decay-recall-cascade` (R6) — P+K fallen im 
       { subject: 'Sand', predicate: 'ist_ein', object: 'Strassengefahr', confidence: 0, status: 'superseded' },
     ],
   };
-  const r = checkConformance([vector, { name: 'infer-noop', input: [], op: 'infer', expected: [] }]);
+  // Fokussierter Decay-Test → requiredOps auf die getestete Teilmenge (kein Quorum-Vektor nötig).
+  const r = checkConformance([vector, { name: 'infer-noop', input: [], op: 'infer', expected: [] }], { requiredOps: ['decay', 'infer'] });
   assert.equal(r.allPass, true, `Cascade-Vektor muss passen: ${JSON.stringify(r)}`);
   assert.equal(r.phpVerified, false, 'ohne phpRunner: kein grünes Cross-Lang-Gate');
 });
@@ -78,8 +79,79 @@ test('AC-R7.6: Conformance-Vektor `decay-recall-expired` — last_recalled_at NI
     op: 'decay',
     expected: [{ subject: 'Wetter', predicate: 'ist', object: 'Regen', confidence: 750, status: 'active' }],
   };
-  const r = checkConformance([vector, { name: 'infer-noop', input: [], op: 'infer', expected: [] }]);
+  const r = checkConformance([vector, { name: 'infer-noop', input: [], op: 'infer', expected: [] }], { requiredOps: ['decay', 'infer'] });
   assert.equal(r.allPass, true);
+});
+
+// ---- R12: Wurzelursache K1/K2 — Quorum-Pfad-Conformance-Coverage ----------
+
+test('AC-R7.8 (R12): QUORUM_CONSTANTS spiegelt jetzt sourceTier + trustTierCap (K1-Tabelle)', () => {
+  // Vor R12 fehlten genau diese beiden — die `tier`-Eingabe der Quorum-Formel war nicht
+  // konstanten-gespiegelt, also war K1 (sourceTier-Drift) für die PHP-Parität unsichtbar.
+  assert.deepEqual(QUORUM_CONSTANTS.sourceTier, DEFAULT_SPEC.sourceTier);
+  assert.deepEqual(QUORUM_CONSTANTS.trustTierCap, DEFAULT_SPEC.trustTierCap);
+  assert.ok(Object.isFrozen(QUORUM_CONSTANTS.sourceTier) && Object.isFrozen(QUORUM_CONSTANTS.trustTierCap));
+  // Golden-Pin (NICHT self-regression): der K1-Wert ist literal festgenagelt. Eine versehentliche
+  // Lockstep-Änderung in rules.mjs+Spiegel würde hier auffallen und eine bewusste Entscheidung erzwingen.
+  assert.equal(QUORUM_CONSTANTS.sourceTier.behoerde, 5, 'K1-Pin: behoerde=5');
+  assert.equal(QUORUM_CONSTANTS.sourceTier.gesetz, 6, 'K1-Pin: gesetz=6');
+});
+
+test('AC-R7.9 (R12): Quorum-Verhaltens-Vektor behoerde → supported (5000); pinnt K1×K2-Arithmetik', () => {
+  const vector = {
+    name: 'quorum-behoerde', op: 'quorum',
+    input: [{ subject: 'Akte', predicate: 'verlangt', object: 'Pruefung', confidence: 700 }],
+    endorsements: [{ subject: 'Akte', predicate: 'verlangt', object: 'Pruefung', source_type: 'behoerde' }],
+    expected: [{ subject: 'Akte', predicate: 'verlangt', object: 'Pruefung', weighted_support: 5000, cluster_count: 1, verdict: 'supported' }],
+  };
+  const out = runVector(vector);
+  const k = Object.keys(out)[0];
+  assert.deepEqual(out[k], { weighted_support: 5000, cluster_count: 1, verdict: 'supported' });
+});
+
+test('AC-R7.10 (R12): Quorum-Boundary fachquelle → unknown (3000 < AUTH_FLOOR=4500); pinnt K2-Schwelle', () => {
+  // Genau das K2-Gegenbeispiel: full × fachquelle = 3000 erreicht AUTH_FLOOR NICHT.
+  const vector = {
+    name: 'quorum-fachquelle', op: 'quorum',
+    input: [{ subject: 'Notiz', predicate: 'behauptet', object: 'Faktum', confidence: 700 }],
+    endorsements: [{ subject: 'Notiz', predicate: 'behauptet', object: 'Faktum', source_type: 'fachquelle' }],
+    expected: [{ subject: 'Notiz', predicate: 'behauptet', object: 'Faktum', weighted_support: 3000, cluster_count: 1, verdict: 'unknown' }],
+  };
+  const out = runVector(vector);
+  const k = Object.keys(out)[0];
+  assert.deepEqual(out[k], { weighted_support: 3000, cluster_count: 1, verdict: 'unknown' });
+});
+
+test('AC-R7.11 (R12): Coverage-Gate fordert jetzt `quorum` — decay+infer allein blockt', () => {
+  // Beweist, dass der strukturelle blinde Fleck geschlossen ist: ein decay+infer-Suite ohne
+  // Quorum-Vektor erreicht die Pflicht-Coverage nicht mehr (Default requiredOps inkl. 'quorum').
+  const noQuorum = [
+    { name: 'd', input: [{ subject: 'Aa', predicate: 'pp', object: 'Bb', confidence: 800, temporality: 'temporal' }], op: 'decay', expected: [{ subject: 'Aa', predicate: 'pp', object: 'Bb', confidence: 750 }] },
+    { name: 'i', input: [], op: 'infer', expected: [] },
+  ];
+  const r = checkConformance(noQuorum);
+  assert.equal(r.coverageMet, false, 'ohne quorum-Vektor darf das Gate nicht grün sein');
+  assert.equal(r.allPass, false);
+});
+
+test('AC-R7.12 (R12): der Quorum-Vektor FÄNGT K1 — sourceTier-Drift kippt das Verdikt', () => {
+  // Empirischer Beweis des Wurzelursachen-Fixes: mit der KORREKTEN Spec → supported; mit einer
+  // K1-getreuen Drift (behoerde=4 statt 5) → 4000 < 4500 → unknown. Vor R12 war dieser Pfad
+  // nicht vektorisiert, die Drift also unsichtbar.
+  const vector = {
+    name: 'quorum-k1-drift', op: 'quorum',
+    input: [{ subject: 'Akte', predicate: 'verlangt', object: 'Pruefung', confidence: 700 }],
+    endorsements: [{ subject: 'Akte', predicate: 'verlangt', object: 'Pruefung', source_type: 'behoerde' }],
+    expected: [{ subject: 'Akte', predicate: 'verlangt', object: 'Pruefung', weighted_support: 5000, cluster_count: 1, verdict: 'supported' }],
+  };
+  const correct = runVector(vector);
+  assert.equal(correct[Object.keys(correct)[0]].verdict, 'supported');
+
+  const driftedSpec = { ...DEFAULT_SPEC, sourceTier: { ...DEFAULT_SPEC.sourceTier, behoerde: 4 } };
+  const drifted = runVector(vector, { spec: driftedSpec });
+  const d = drifted[Object.keys(drifted)[0]];
+  assert.equal(d.weighted_support, 4000, 'behoerde=4 → 1000×4=4000');
+  assert.equal(d.verdict, 'unknown', 'K1-Drift kippt supported→unknown → Vektor fängt sie');
 });
 
 test('AC-R7.7: Determinismus — wiederholter Recall-Lauf gibt identisches Ergebnis (kein Mikrosekunden-Drift)', () => {

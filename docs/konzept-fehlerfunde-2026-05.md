@@ -43,6 +43,19 @@ Unabhängige zweite Perspektive (parallel zur laufenden Konzept-Bearbeitung). Je
 
 Ergänzend: **Truth-Discovery Copying/Dependence-Detection** (SmartMTD arXiv 1708.02018; Dong et al.) = statistische Basis für dynamische Cluster-Inferenz aus Verhalten statt manuellem `cluster_id`. **Decentralized-Reputation-Trilemma** = Rahmen, um im Konzept ehrlich zu deklarieren, welche Eigenschaft geopfert wird (Pre-Trust-Seed-Abhängigkeit).
 
+## 🔬 Wurzelursache von K1/K2 (verifiziert in conformance.mjs)
+Das Anti-Drift-Gate führt nur `decay` + `infer` als echte Input→Output-Vektoren aus (`conformance.mjs:20-21`, `requiredOps` default). Der **Quorum-/Belief-Pfad hat KEINEN Verhaltens-Vektor**. Der Konstanten-Spiegel `QUORUM_CONSTANTS` (Z.54-58) spiegelt `quorumAuthFloor/quorumMulti/quorumTrustRank`, **aber NICHT `sourceTier`/`trustTierCap`** — genau die Tier-Tabelle aus K1. Test AC-R7.3 prüft nur „Spiegel == Spec-Objekt" (Regression gegen sich selbst), nie die Arithmetik.
+- **Folge:** Die als „PHP-spiegelbar" deklarierte Quorum-Parität ist nur halb gedeckt — die `tier`-Eingabe (`sourceTier`) zur Formel `clusterContribution = trustRank × tier` ist weder vektorisiert noch konstanten-gespiegelt. Drift dort (K1) ist für das Gate unsichtbar.
+- **Hinweis Abgrenzung:** Belief-Softmax (`beliefSharpness`/`recency`) ist laut §B-Float-Hinweis bewusst „nicht conformance-relevant" (lokale Float-Linse) — das ist OK. Der Befund betrifft NUR den als integer/bit-exakt deklarierten Quorum-Pfad.
+- **Fix:** (a) `sourceTier`/`trustTierCap` in den Konstanten-Spiegel aufnehmen; (b) einen Quorum-Verhaltens-Vektor (`op:'resolve_belief'`/`'quorum'`) ergänzen, der `clusterContribution`/`weighted_support`/Verdikt integer-exakt prüft; (c) `requiredOps` um diesen Op erweitern.
+
+## Nachtrag — §G/§H/§I-Pass (2026-05-29, Konzept wuchs 1372→1747 Z., aktiv editiert)
+Hinweis: Der andere Agent integriert bereits Vorschläge (z. B. §I.3 = B1/SOC-PMI + E3-eingehegt mit Falsifikations-Schwelle `Recall@5<0,7`). Diese Stränge NICHT re-evaluiert.
+- **Positiv:** Konstanten-Spiegel-Disziplin existiert für Slices 6.1/6.3 (`LEARN_CONSTANTS`, `DECAY_RECALL_CONSTANTS` in conformance.mjs) — die K1-`sourceTier`-Lücke betrifft spezifisch den älteren M.1/Belief-Pfad.
+- **Kandidat F-1 — `SUGG_CAP=50` nicht gespiegelt:** §G.2 (Z.730) nennt `SUGG_CAP=50` als parität-relevant, `LEARN_CONSTANTS` (conformance.mjs:65-69) enthält es nicht. Gleiche Omissions-Klasse wie sourceTier. (Existenz im Code unbestätigt — engine.mjs mid-write.)
+- **Kandidat F-2 — Status-Drift §H:** UC-EP-ACs (AC-10.1–10.9) als „offen (Slice #2)" markiert, obwohl test/engine-episodic.test.mjs existiert + Retro 0006 Slice abgeschlossen. Wahrscheinlich „gebaut-im-Code, offen-im-Konzept". Vor Aktion verifizieren.
+- **G1 bestätigt pervasiv:** AC-Nummernkollision UC-TMS/UC-09 (`AC-9.x`), UC-EP/UC-10 (`AC-10.x`).
+
 ## ⭐ Meta-Fund (höchster Hebel — Prozess)
 K1/K2 sind eine Fehlerklasse, die grüne Tests (lesen nur `rules.mjs`) UND Adversarial-Audits (prüfen nur Verhalten) systematisch übersehen: **numerische Konstante in Prosa ≠ Code.** Empfehlung: vorhandenes `konzept-model-api`-Gate um einen **Konstanten-Tabellen-Konsistenz-Check** erweitern (diffe sourceTier/trustTierCap/quorum*/Decay/Recency-Tabellen in KONZEPT.md gegen rules.mjs/conformance.mjs). Hätte K1+K2 in 0 Token gefangen.
 

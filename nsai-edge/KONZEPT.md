@@ -468,7 +468,8 @@ Gegen echten Quellcode geprüft (frischer Checkout, Mai 2026):
 | AC-10.2 | Node-seitige Vektoren bestehen Integer-exakt; ohne PHP-Runner `phpVerified=false` (ehrlich) | Integration | conformance AC-10.2 | grün |
 | AC-10.4 | Conformance Node-seitig reproduzierbar/deterministisch (kein interner Drift über Läufe) | Unit | conformance AC-10.4 | grün |
 | AC-10.1 | Abweichung Node↔PHP blockt Gate (Exit 1) | Integration | — | Phase 2 (braucht PHP-Runner) |
-| AC-10.3 | Unterschrittene Vektor-Coverage blockt Gate | Unit | — | Phase 2 |
+| AC-10.3 | Unterschrittene Vektor-Coverage blockt Gate | Unit | conformance AC-10.3 | grün |
+| AC-10.5 (R12) | Der als PHP-spiegelbar deklarierte **Quorum-Pfad** hat einen Verhaltens-Vektor (`op:'quorum'`), Default-`requiredOps` fordert ihn (decay+infer allein blockt), und `QUORUM_CONSTANTS` spiegelt `sourceTier`+`trustTierCap`. Integer-exakte Golden-Outputs (`behoerde→5000/supported`, `fachquelle→3000/unknown`); eine sourceTier-Drift kippt das Verdikt (AC-R7.12). | Unit | conformance AC-R7.8–R7.12 | grün |
 
 ### UC-11: Initialer Clone des Bundle-Bestands (Bootstrap)
 
@@ -727,6 +728,7 @@ Die PHP-Gegenseite (`ai-bundle/graph-federation`) ist Stand 2026-05 NICHT auf di
 
 | Bereich | Node-Stand | PHP-Spiegel benötigt | Bit-exakte Vorgabe |
 |---|---|---|---|
+| **Quorum-Pfad (UC-MS / Slice #M.1) — R12 Wurzelursache K1/K2** | `QUORUM_CONSTANTS` spiegelt jetzt zusätzlich `sourceTier` + `trustTierCap`; `conformance.mjs` hat den Verhaltens-Vektor `op:'quorum'`, Default-`requiredOps` fordert ihn | identische Tier-Skala + `_quorumFor`-Arithmetik | `clusterContribution = quorumTrustRank(trust) × min(sourceTier(source_type), trustTierCap(trust))`; `weighted_support = Σ MAX-pro-Cluster`; `supported ⇔ ∃ clusterContribution ≥ AUTH_FLOOR=4500 ODER (cluster_count≥2 ∧ weighted_support ≥ Q=2000)`. Golden-Vektoren: `behoerde→5000/supported`, `fachquelle→3000/unknown` |
 | `LEARN_CONSTANTS` (UC-TA / Slice #6.1) | `conformance.mjs` exportiert frozen | identische Konstanten + `learnTrustAdjustments`-Algorithmus (Vorschlags-Modus, kein Auto-Apply) | `demoteLimitedThreshold`, `demoteUntrustedThreshold`, `trustAdjustMinEvidence`; Reject-Rate-Berechnung in **Promille**, Integer-Truncation gegen Null; Cap `SUGG_CAP=50` + `truncated`-Flag (Wire-frei) |
 | `DECAY_RECALL_CONSTANTS` (UC-AD / Slice #6.3 + R5/R6) | `conformance.mjs` exportiert frozen | `decayPass` mit Recall-Bonus + R6-Phasen-Reihenfolge | `recallProtectionDays`, `recallDecayDivisor`; **strikte Ungleichung** `(now − last_recalled_at) < recallProtectionMs`; Integer-Division `reduction = trunc(reduction / divisor)`; **Phase B (propagateRetraction) VOR Phase A**; Counter-Drift-Fix (`info.changes` der Phase-A-UPDATEs); `markRecalled` zählt nur **distinkte** Hashes |
 | `markRecalled`-Wire-Parität (AC-21.8) | `last_recalled_at` NICHT in `_edgeToWire`/`exportSince` | identisches Wire-Strip-Verhalten | Lokales Feld, nicht-föderiert; kein Wire-v2-Bruch |
@@ -734,6 +736,8 @@ Die PHP-Gegenseite (`ai-bundle/graph-federation`) ist Stand 2026-05 NICHT auf di
 | Trifecta-Egress-Allowlist (additive Output-Felder via Wrap-Pattern) | MCP-Tool-Descriptions tragen alle additiven Felder (R9: `mcp-doc-drift-gate`-Gate) | identische Tool-Descriptions/-Allowlists wenn PHP eigene MCP-Tools exponiert | additive Felder MÜSSEN in der Description erwähnt sein (Consumer-Sycophancy-Schutz) |
 
 **Vorgehen:** sobald ein `phpRunner` verfügbar ist, fügt `test/engine-federation.test.mjs` Vektoren `decay-recall-bonus` und `decay-recall-cascade` hinzu, der `checkConformance({phpRunner})`-Lauf muss dann `phpVerified: true` + `allPass: true` melden. Bis dahin: Schuld dokumentiert, Node-Seite blockt nicht.
+
+**R12 (Wurzelursache K1/K2 geschlossen, Node-seitig):** Die Fehler-Kette war K1/K2 (Konstanten-Defekt im Text) → **Conformance-Coverage-Lücke** (der als PHP-spiegelbar deklarierte Quorum-Pfad hatte weder Verhaltens-Vektor noch `sourceTier`/`trustTierCap`-Spiegel; AC-R7.3 prüfte nur „Spiegel == Spec", also Regression gegen sich selbst) → Konstanten-Konsistenz-Gate (`konzept-const-sync`, Prozess-Fix). R12 schließt die mittlere Lücke: `sourceTier`/`trustTierCap` sind jetzt im Spiegel, der `op:'quorum'`-Vektor prüft `clusterContribution`/`weighted_support`/Verdikt **integer-exakt** mit Golden-Outputs, und `requiredOps` fordert `quorum` (decay+infer allein erreicht die Coverage nicht mehr). Empirisch belegt durch AC-R7.12: eine sourceTier-Drift (`behoerde=4`) kippt das Vektor-Verdikt `supported→unknown` — der Pfad ist nicht mehr blind. **Abgrenzung:** die Belief-Softmax (`beliefSharpness`/Recency-Float-Linse) bleibt bewusst NICHT conformance-relevant (lokale Float-Linse, §B); R12 betrifft nur den integer/bit-exakten Quorum-Pfad.
 
 ## §H — Forschungs-fundierte Verfeinerungen (Roadmap)
 
