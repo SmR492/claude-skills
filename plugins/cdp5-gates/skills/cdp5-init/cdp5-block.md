@@ -17,6 +17,8 @@ Nicht-triviale Aufträge werden nach **CDP5** orchestriert (Konzept → Design �
 | Konzept ↔ Code-Mapping / Drift | `konzept-mapper`, `konzept-model-api`, `roadmap-drift` |
 | Klartext-Secrets / PII im Repo | `secrets-scan`, `pii-scan` |
 | MCP-Config-Risiken | `mcp-config-lint` |
+| MCP-Tool-Description vs. Input-/Output-Felder (Consumer-Sycophancy-Schutz) | `mcp-doc-drift-gate` |
+| numerische Konstanten in Konzept-Prosa vs. Code-Spec (Paritäts-Drift) | `konzept-const-sync` |
 | Wiki-Health (Broken-Links/Orphans) | `wiki-lint` |
 | ungetestete sicherheitskritische Klassen | `test-gap` |
 | Retro→Memory-Loop prüfen | `retro-memory-loop-check` |
@@ -29,5 +31,5 @@ Nicht-triviale Aufträge werden nach **CDP5** orchestriert (Konzept → Design �
 
 ### Werkzeuge
 
-- **`cdp5-gates`** (deterministische, read-only T1-Skills): konzept-lint · ac-to-test-scaffold · konzept-mapper · konzept-model-api · roadmap-drift · secrets-scan · pii-scan · mcp-config-lint · wiki-lint · test-gap · retro-memory-loop-check · profile-check · cdp5-init · cdp5-reference.
+- **`cdp5-gates`** (deterministische, read-only T1-Skills): konzept-lint · ac-to-test-scaffold · konzept-mapper · konzept-model-api · konzept-const-sync · roadmap-drift · secrets-scan · pii-scan · mcp-config-lint · mcp-doc-drift-gate · wiki-lint · test-gap · retro-memory-loop-check · profile-check · cdp5-init · cdp5-reference.
 - **`cdp5-agents`** (Judgment, read-only): konzept-reviewer · review-verify · adversarial-auditor · threat-modeler · mcp-security-reviewer.

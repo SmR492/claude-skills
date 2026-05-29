@@ -938,7 +938,7 @@ Die Verschiebung der Anhang-III/I-Fristen erfolgte durch den **Digital-Omnibus v
 
 | UC | Provider | Modell | Migrations-Strategie | Daten-Souveränität |
 |---|---|---|---|---|
-| UC-XX | Anthropic | claude-opus-4-7 | Spring AI Adapter (Provider-Wechsel über Config) | PII-Anonymisierung via Presidio vor Send |
+| UC-XX | Anthropic | claude-opus-4-8 | Spring AI Adapter (Provider-Wechsel über Config) | PII-Anonymisierung via Presidio vor Send |
 | UC-YY | lokal (Ollama) | llama-3.1-70b | self-hosted, kein Vendor | volle Souveränität |
 ```
 
@@ -1384,7 +1384,7 @@ Pflicht-Attribute pro LLM-Span:
 
 ```json
 {
-  "gen_ai.request.model": "claude-opus-4-7",
+  "gen_ai.request.model": "claude-opus-4-8",
   "gen_ai.system": "anthropic",
   "gen_ai.request.temperature": "0.8",
   "gen_ai.response.id": "...",
@@ -1393,7 +1393,7 @@ Pflicht-Attribute pro LLM-Span:
   "gen_ai.usage.input_tokens": "6938",
   "gen_ai.usage.output_tokens": "440",
   "gen_ai.usage.total_tokens": "6958",
-  "gen_ai.response.model": "claude-opus-4-7"
+  "gen_ai.response.model": "claude-opus-4-8"
 }
 ```
 
