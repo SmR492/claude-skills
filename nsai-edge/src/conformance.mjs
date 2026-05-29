@@ -9,6 +9,14 @@ import { DEFAULT_SPEC as _DS } from './rules.mjs';
 export function runVector(vector, { spec } = {}) {
   const e = new Engine({ spec });
   for (const t of vector.input) e.storeTriple(t);
+  // R7 (UC-AD Spaced-Repetition): optionales `recall`-Feld markiert Tripel als gerade-abgerufen
+  // VOR dem op — Conformance-Vektor für Recall-Bonus in `decayPass`. Hash-stabil über Sprachen
+  // (canonical), Zeitstempel ≈ now auf beiden Seiten (Diff < recallProtectionMs → beide Seiten
+  // sehen den Bonus identisch).
+  if (Array.isArray(vector.recall) && vector.recall.length > 0) {
+    const hashes = vector.recall.map((t) => tripleHash(t.subject, t.predicate, t.object));
+    e.markRecalled(hashes);
+  }
   if (vector.op === 'decay') e.decayPass();
   else if (vector.op === 'infer') e.infer();
   const out = {};
@@ -47,4 +55,24 @@ export const QUORUM_CONSTANTS = Object.freeze({
   quorumAuthFloor: _DS.quorumAuthFloor,
   quorumMulti: _DS.quorumMulti,
   quorumTrustRank: Object.freeze({ ..._DS.quorumTrustRank }),
+});
+
+// R7 (PHP-Parität-Schuld): zusätzliche Konstanten-Spiegel für die Slices, die NACH M.1
+// hinzukamen — ohne diese Spiegel kann die PHP-Seite die Slices nicht bit-exakt nachbauen
+// und das Konformanz-Gate kein 🟢 melden. Reine Lese-Bindung, kein Verhaltens-Eingriff.
+//
+// UC-TA Slice #6.1 — Offline-Peer-Trust-Adjustment (learnTrustAdjustments).
+export const LEARN_CONSTANTS = Object.freeze({
+  demoteLimitedThreshold: _DS.demoteLimitedThreshold,
+  demoteUntrustedThreshold: _DS.demoteUntrustedThreshold,
+  trustAdjustMinEvidence: _DS.trustAdjustMinEvidence,
+});
+// UC-AD Slice #6.3 + R5/R6 — Zugriffs-basiertes Decay + Lösch-Schwelle (decayPass).
+// Werte sind Integer (Tage/Promille/Divisor) — kein Float, keine Lokal-Abhängigkeit.
+export const DECAY_RECALL_CONSTANTS = Object.freeze({
+  decayPerPeriod: Object.freeze({ ..._DS.decayPerPeriod }),
+  deleteThreshold: _DS.deleteThreshold,
+  quarantineThreshold: _DS.quarantineThreshold,
+  recallProtectionDays: _DS.recallProtectionDays,
+  recallDecayDivisor: _DS.recallDecayDivisor,
 });

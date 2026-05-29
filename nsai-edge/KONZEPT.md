@@ -718,6 +718,20 @@ Aus dem Threat-Model + Adversarial-Review der PHP-Gegenseite (ai-bundle, `docs/K
 
 Nachweis: eigener Test-Block in `test/engine-federation.test.mjs`; alle Bestands-Tests bleiben grün (Bindung greift nur am echten Verify-Pfad, Live-Deckel ist No-op solange `confidence==asserted`).
 
+### §G.2 — PHP-Parität-Schuld (R7, offen)
+
+Die PHP-Gegenseite (`ai-bundle/graph-federation`) ist Stand 2026-05 NICHT auf die Slices #6.1 / #6.3 + R5/R6 nachgezogen. Solange das offen ist, kann das Konformanz-Gate kein 🟢 (`phpVerified=true`) liefern, denn ein realer `phpRunner` würde sofort auf folgenden Pfaden divergieren. Schuld wird hier dokumentiert, damit die PHP-Seite im nächsten ai-bundle-Slice gezielt nachziehen kann:
+
+| Bereich | Node-Stand | PHP-Spiegel benötigt | Bit-exakte Vorgabe |
+|---|---|---|---|
+| `LEARN_CONSTANTS` (UC-TA / Slice #6.1) | `conformance.mjs` exportiert frozen | identische Konstanten + `learnTrustAdjustments`-Algorithmus (Vorschlags-Modus, kein Auto-Apply) | `demoteLimitedThreshold`, `demoteUntrustedThreshold`, `trustAdjustMinEvidence`; Reject-Rate-Berechnung in **Promille**, Integer-Truncation gegen Null; Cap `SUGG_CAP=50` + `truncated`-Flag (Wire-frei) |
+| `DECAY_RECALL_CONSTANTS` (UC-AD / Slice #6.3 + R5/R6) | `conformance.mjs` exportiert frozen | `decayPass` mit Recall-Bonus + R6-Phasen-Reihenfolge | `recallProtectionDays`, `recallDecayDivisor`; **strikte Ungleichung** `(now − last_recalled_at) < recallProtectionMs`; Integer-Division `reduction = trunc(reduction / divisor)`; **Phase B (propagateRetraction) VOR Phase A**; Counter-Drift-Fix (`info.changes` der Phase-A-UPDATEs); `markRecalled` zählt nur **distinkte** Hashes |
+| `markRecalled`-Wire-Parität (AC-21.8) | `last_recalled_at` NICHT in `_edgeToWire`/`exportSince` | identisches Wire-Strip-Verhalten | Lokales Feld, nicht-föderiert; kein Wire-v2-Bruch |
+| R6 / AC-9.9 (TMS-Cascade dominiert) | engine.mjs + Vektor `decay-recall-cascade` | gleiche Phasen-Reihenfolge + `WHERE local_status='active'`-Filter | siehe R6-Konvention oben (AC-9.9, AC-9.10) |
+| Trifecta-Egress-Allowlist (additive Output-Felder via Wrap-Pattern) | MCP-Tool-Descriptions tragen alle additiven Felder (R9: `mcp-doc-drift-gate`-Gate) | identische Tool-Descriptions/-Allowlists wenn PHP eigene MCP-Tools exponiert | additive Felder MÜSSEN in der Description erwähnt sein (Consumer-Sycophancy-Schutz) |
+
+**Vorgehen:** sobald ein `phpRunner` verfügbar ist, fügt `test/engine-federation.test.mjs` Vektoren `decay-recall-bonus` und `decay-recall-cascade` hinzu, der `checkConformance({phpRunner})`-Lauf muss dann `phpVerified: true` + `allPass: true` melden. Bis dahin: Schuld dokumentiert, Node-Seite blockt nicht.
+
 ## §H — Forschungs-fundierte Verfeinerungen (Roadmap)
 
 Aus einem Quellenvergleich (Neuro-symbolische KI / Kautz-Taxonomie; Truth-Maintenance Doyle JTMS + de Kleer ATMS; AGM-Belief-Revision + epistemische Entrenchment; Defeasible Reasoning / Pollock-Defeater; MYCIN-Certainty-Factor-Kritik; NS-Mem 3-Schichten-Gedächtnis; GraphRAG hybrid retrieval) abgeleitet. Ziel-Anker: das ai-bundle-Goal **„erklärbares, halluzinationsfreies Reasoning"** + NSAI-Edge als revidierbares Gedächtnis.
