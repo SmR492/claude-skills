@@ -17,6 +17,22 @@ export function runVector(vector, { spec } = {}) {
     const hashes = vector.recall.map((t) => tripleHash(t.subject, t.predicate, t.object));
     e.markRecalled(hashes);
   }
+  // R12 (Wurzelursache K1/K2): Quorum-Verhaltens-Vektor. Der als „PHP-spiegelbar" deklarierte
+  // Quorum-Pfad (`clusterContribution = trustRank × effTier`, AUTH_FLOOR/Q-Schwellen) hatte bis R12
+  // KEINEN Conformance-Vektor — Drift in `sourceTier` (K1) oder der Schwellen-Arithmetik (K2) war
+  // für das Gate strukturell unsichtbar. `op:'quorum'` schließt das: Endorsements aufnehmen, dann
+  // `_quorumFor` integer-exakt prüfen (weighted_support/cluster_count/verdict). Self-Endorsement
+  // (origin=self=full) ist hermetisch und übt sourceTier × quorumTrustRank × AUTH_FLOOR direkt aus.
+  if (vector.op === 'quorum') {
+    for (const en of vector.endorsements ?? []) e.endorseTriple(en);
+    const out = {};
+    for (const ex of vector.expected) {
+      const hash = tripleHash(ex.subject, ex.predicate, ex.object);
+      const q = e._quorumFor(hash, { as_of: vector.as_of ?? null });
+      out[hash] = { weighted_support: q.weighted_support, cluster_count: q.cluster_count, verdict: q.verdict };
+    }
+    return out;
+  }
   if (vector.op === 'decay') e.decayPass();
   else if (vector.op === 'infer') e.infer();
   const out = {};
@@ -28,12 +44,19 @@ export function runVector(vector, { spec } = {}) {
   return out;
 }
 
-export function checkConformance(vectors, { spec, phpRunner = null, requiredOps = ['decay', 'infer'] } = {}) {
+// R12: `quorum` ist jetzt Pflicht-Coverage — der Quorum-Pfad ist als PHP-spiegelbar deklariert,
+// also muss das Gate ihn fordern (sonst bleibt die Klasse K1/K2 unsichtbar, s. runVector).
+export function checkConformance(vectors, { spec, phpRunner = null, requiredOps = ['decay', 'infer', 'quorum'] } = {}) {
   const results = vectors.map((v) => {
     const actual = runVector(v, { spec });
+    // Feld-generischer Vergleich: jede `expected`-Eigenschaft außer s/p/o muss integer-exakt
+    // stimmen — funktioniert für {confidence,status} (decay/infer) UND
+    // {weighted_support,cluster_count,verdict} (quorum), ohne Op-Spezialfall.
     const pass = v.expected.every((ex) => {
       const a = actual[tripleHash(ex.subject, ex.predicate, ex.object)];
-      return a && a.confidence === ex.confidence && (!ex.status || a.status === ex.status);
+      if (!a) return false;
+      return Object.entries(ex).every(([k, want]) =>
+        ['subject', 'predicate', 'object'].includes(k) || a[k] === want);
     });
     return { name: v.name, pass };
   });
@@ -51,10 +74,16 @@ export function checkConformance(vectors, { spec, phpRunner = null, requiredOps 
 
 // UC-MS Slice #M.1: Quorum-Konstanten-Spiegel für PHP-Parität (Auditor 🟡-1).
 // Beide Seiten lesen denselben Konstanten-Vektor; eine Drift-PR-Diff wäre damit sofort sichtbar.
+// R12 (Wurzelursache K1): `sourceTier` + `trustTierCap` aufgenommen — sie sind die `tier`-Eingabe
+// der Formel `clusterContribution = trustRank × min(sourceTier, trustTierCap)` und gehörten von
+// Anfang an in den als PHP-spiegelbar deklarierten Quorum-Vertrag. Ihr Fehlen war die Konstanten-
+// Spiegel-Hälfte der K1-Wurzelursache (die Verhaltens-Hälfte schließt der `op:'quorum'`-Vektor).
 export const QUORUM_CONSTANTS = Object.freeze({
   quorumAuthFloor: _DS.quorumAuthFloor,
   quorumMulti: _DS.quorumMulti,
   quorumTrustRank: Object.freeze({ ..._DS.quorumTrustRank }),
+  sourceTier: Object.freeze({ ..._DS.sourceTier }),
+  trustTierCap: Object.freeze({ ..._DS.trustTierCap }),
 });
 
 // R7 (PHP-Parität-Schuld): zusätzliche Konstanten-Spiegel für die Slices, die NACH M.1

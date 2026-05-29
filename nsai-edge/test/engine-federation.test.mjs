@@ -404,6 +404,9 @@ test('AC-10.2: Conformance-Vektoren bestehen Node-seitig; PHP unverified ohne Ru
   const vectors = [
     { name: 'decay-temporal', input: [{ subject: 'Wetter', predicate: 'ist', object: 'Regen', confidence: 800, temporality: 'temporal' }], op: 'decay', expected: [{ subject: 'Wetter', predicate: 'ist', object: 'Regen', confidence: 750, status: 'active' }] },
     { name: 'infer-glaette', input: [{ subject: 'Glatteis', predicate: 'ist_ein', object: 'Strassengefahr', confidence: 900 }, { subject: 'Temperatur', predicate: 'zustand', object: 'unter_null', confidence: 900 }], op: 'infer', expected: [{ subject: 'Fahrbahn', predicate: 'zustand', object: 'gefaehrlich', confidence: 810, status: 'active' }] },
+    // R12: Quorum-Verhaltens-Vektor (Wurzelursache K1/K2). Self-Endorsement behoerde:
+    // full(1000) × min(sourceTier.behoerde=5, trustTierCap.full=6) = 5000 ≥ AUTH_FLOOR=4500 → supported.
+    { name: 'quorum-behoerde-supported', input: [{ subject: 'Akte', predicate: 'verlangt', object: 'Pruefung', confidence: 700 }], endorsements: [{ subject: 'Akte', predicate: 'verlangt', object: 'Pruefung', source_type: 'behoerde' }], op: 'quorum', expected: [{ subject: 'Akte', predicate: 'verlangt', object: 'Pruefung', weighted_support: 5000, cluster_count: 1, verdict: 'supported' }] },
   ];
   const r = checkConformance(vectors);
   assert.equal(r.allPass, true);
@@ -414,6 +417,7 @@ test('AC-10.4: Conformance ist Node-seitig reproduzierbar/deterministisch (Anti-
   const vectors = [
     { name: 'decay', input: [{ subject: 'Wetter', predicate: 'ist', object: 'Regen', confidence: 800, temporality: 'temporal' }], op: 'decay', expected: [{ subject: 'Wetter', predicate: 'ist', object: 'Regen', confidence: 750, status: 'active' }] },
     { name: 'infer', input: [{ subject: 'Glatteis', predicate: 'ist_ein', object: 'Strassengefahr', confidence: 900 }, { subject: 'Temperatur', predicate: 'zustand', object: 'unter_null', confidence: 900 }], op: 'infer', expected: [{ subject: 'Fahrbahn', predicate: 'zustand', object: 'gefaehrlich', confidence: 810, status: 'active' }] },
+    { name: 'quorum', input: [{ subject: 'Akte', predicate: 'verlangt', object: 'Pruefung', confidence: 700 }], endorsements: [{ subject: 'Akte', predicate: 'verlangt', object: 'Pruefung', source_type: 'behoerde' }], op: 'quorum', expected: [{ subject: 'Akte', predicate: 'verlangt', object: 'Pruefung', weighted_support: 5000, cluster_count: 1, verdict: 'supported' }] },
   ];
   const r1 = checkConformance(vectors); const r2 = checkConformance(vectors);
   assert.equal(r1.allPass, true);
