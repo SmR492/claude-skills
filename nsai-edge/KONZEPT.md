@@ -1092,6 +1092,8 @@ Priorität: `retracted` (TMS-Cascade) gewinnt gegen `superseded` (eigener Decay)
 **Wire-Vertrag intakt:** Endorsement-Wire ist eine Erweiterung von `wire_version` — wir nutzen den **gleichen** signingString-Aufbau wie für Tripel (gleiches Format `[wire_version, triple_hash, ...]`), nur mit `endorsement=true`-Marker. PHP-NSAI-Bundle erhält additiv die `triple_endorsements`-Tabelle; alte PHP-Peers ohne MS-Wissen empfangen weiter via `_edgeToWire` die single-row-Projektion.
 
 > **Slice #M.1 (erledigt):** Quorum-Endorsement Phase 1 — Schema, Engine-Aggregation, MCP-Tool `graph__endorse_triple`. **Deferred** zu #M.2: dynamisches Cluster-Inference, Endorsement-Decay über Recency-Achse, Endorsement-Revocation.
+>
+> **Slice #M.2 (Lösungs-Richtung festgelegt, §I.3-C3):** Das Cluster-Korrelations-Restrisiko (🔴-2/AC-15.16) + die Self-Endorsement-Eskalation (STRIDE-EoP) werden via **MeritRank** (Sybil-**Toleranz** durch Connectivity-/Transitivity-Decay auf dem Trust-Walk) geschlossen — NICHT durch einen fragilen Cluster-Detector. Renutzt die PPR/EigenTrust-Maschine (H1, synergetisch mit I.3-C1). **Wichtig:** das vorhandene Zeit-Decay schützt NICHT gegen Sybil — die richtige Achse ist der Connectivity-Decay. Dynamische Cluster-Inferenz (SmartMTD) ist ein nachgelagertes Sub-Slice.
 
 ### UC-CR — Corrective Retrieval (Eskalations-Loop, Slice #R1)
 
@@ -1420,7 +1422,7 @@ Ergebnis der wissenschaftlichen Evaluation `docs/evaluation-erweiterungen-2026-0
 - **H2 — `user_rejected_at` ist ungenutztes, konfabulations-freies Trainingssignal:** sauber von System-Aktionen getrennt (Slice #6.1, R1-Cleanup); lokaler, exchangeable Kalibrierungs-Datensatz für I.3-D1/D2/D3. Vorbedingung Empirie: Größenordnung muss erreicht sein (§I.8).
 - **H3 — Hand-kalibrierte „magische Konstanten":** `contestedThreshold=150`, `quorumAuthFloor=4500`, `quarantineThreshold=300`, `beliefSharpness=3`, `demoteLimitedThreshold=500`, `demoteUntrustedThreshold=800`. I.3-D1 Conformal könnte sie datengetrieben ablösen, falls Stefan-Empirie-Schwelle erreicht.
 
-### I.3 Kandidaten (14 Sub-Blöcke A1…E5 in 5 Dimensionen A–E, je 1 Status-Block)
+### I.3 Kandidaten (15 Sub-Blöcke A1…E5 in 5 Dimensionen A–E, je 1 Status-Block)
 
 #### I.3-A1 — Defeasible-Argumentation (grounded extension, ASPIC⁺/Dung-light)
 
@@ -1486,9 +1488,35 @@ Ergebnis der wissenschaftlichen Evaluation `docs/evaluation-erweiterungen-2026-0
   - AC-C1.5 Keine Mutation an `peerTrust`-Tabelle (reine Lese-Linse).
   - AC-C1.6 Determinismus über Engine-Neustart (feste Iter-Reihenfolge über `peer_id`-Sortierung).
   - AC-C1.7 DoS-Cap: Endorsement-Graph max. 1000 Edges für Iteration (sonst fail-closed mit `INVALID_PARAMETER_FORMAT`).
-- **Wert ●●● · Aufwand ●● · Risiko ●●** — Top Föderation; **aber Wertbeleg fraglich bei kleinem Peer-Set** (Vorbedingung §I.8).
+- **Wert ●●● · Aufwand ●● · Risiko ●●** — Top Föderation; **aber Wertbeleg fraglich bei kleinem Peer-Set** (Vorbedingung §I.8). **Synergie:** C1 + C3 (MeritRank-Decay) = Sybil-tolerante Trust-Linse ohne fragilen Cluster-Detector (s. I.3-C3).
 - **Quelle:** Stanford EigenTrust; EigenTrust++ 2012.
 - **Status:** `evaluated_pending`.
+
+#### I.3-C3 — MeritRank: Sybil-Toleranz statt -Detektion (Slice #M.2-Lösung)
+
+- **Bezug:** **löst den vertagten Slice #M.2** (UC-MS Cluster-Korrelations-Restrisiko 🔴-2 + Self-Endorsement-Eskalation, STRIDE-EoP-Zeile). Nutzt H1 (gewichteter Random-Walk = vorhandene PPR-Maschine).
+- **Idee:** Statt korrelierte Cluster zu *detektieren* (fragiler Detector, „Sippenhaft"-Einwand aus Retro 0012), begrenzt MeritRank deterministisch den **Gewinn** aus Sybil/Kollusion über Decay auf dem Trust-Walk:
+  - **Connectivity-Decay:** wertet Beiträge ab, die nur über eine **einzelne Brücke** zum Pre-Trust-Seed hängen — exakt der Korrelations-/Default-Cluster-Fall (M3/AC-15.16), ohne einen Cluster zu „beschuldigen".
+  - **Transitivity-Decay:** dämpft Beiträge mit Distanz zum Seed.
+- **Konformität:** zero-dep ✅ · Offline ✅ · Parität ✅ (lokale Lese-Linse, kein Wire/CRDT-Eingriff) · CRDT ✅.
+- **Stefan-Barriere:**
+  - Determinismus ✅ (gewichteter Walk mit fixer Iter-Reihenfolge + Tol-Cap, wie `search`/C1).
+  - **Constraint #4 Bias-Schutz** ✅ — Sybil-**Toleranz** (Gewinn-Begrenzung) ist strukturell schonender als ein Detector, der Peers aktiv abwertet; keine Lern-Aktion, reine Lese-Linse.
+  - **Forschungs-Warnung (übernommen):** **Epoch-/Zeit-Decay verbessert die Sybil-Toleranz NICHT** — das vorhandene Recency-/Decay-System schützt also *nicht* gegen Sybil. MeritRanks Connectivity-/Transitivity-Decay ist die richtige Achse, NICHT das bestehende Zeit-Decay. (Anti-Missverständnis-Leitplanke.)
+  - **Decentralized-Reputation-Trilemma (ehrliche Deklaration):** MeritRank opfert **Unabhängigkeit vom Pre-Trust-Seed** (seed-verankert) zugunsten von Sybil-Toleranz + Determinismus. Diese Opferung wird im Slice-Konzept explizit deklariert.
+- **AC-Skizze:**
+  - AC-C3.1 `_meritWalk(seed)` als read-only Methode (renutzt H1, gemeinsame Power-Iteration mit C1).
+  - AC-C3.2 Connectivity-Decay: ein Beitrag über genau eine Brücke zum Seed wird um Faktor `β_conn` (Integer-Promille, Default in `spec`) abgewertet.
+  - AC-C3.3 Transitivity-Decay: Beitrag · `β_trans^Distanz` (Integer-Promille-Potenz, trunc).
+  - AC-C3.4 Determinismus über Engine-Neustart (feste Walk-Reihenfolge über `peer_id`/`triple_hash`).
+  - AC-C3.5 keine Mutation an `peers`/`triple_endorsements` (reine Lese-Linse).
+  - AC-C3.6 DoS-Cap: Walk-Schritte/Edges geklemmt (wie C1 AC-C1.7).
+  - AC-C3.7 Single-Bridge-Sybil-Szenario: N Sybil-Endorsements hinter einer Brücke heben das Quorum NICHT proportional (Gewinn ist Connectivity-decay-begrenzt) — Gegen-Test zu AC-15.16.
+- **Ergänzend (zweite Welle):** **Truth-Discovery Copying/Dependence-Detection** (SmartMTD) als statistische Basis, um `peers.cluster_id` *dynamisch aus Verhalten* zu inferieren statt manuell — ersetzt langfristig die manuelle Cluster-Zuweisung von #M.1. Eigenes Sub-Slice, höheres Risiko (Verhaltens-Inferenz → Constraint #4 prüfen).
+- **Wert ●●● · Aufwand ●● · Risiko ●●** — schließt das #M.1-Restrisiko architektur-sauber.
+- **Vorbedingung:** C1-Maschine (gemeinsame Power-Iteration) bevorzugt zuerst; §I.8 Frage 2 (Peer-Set-Größe) — bei ≤3 Peers ist auch MeritRank von geringem Wert.
+- **Quelle:** MeritRank arXiv 2207.09950; SybilFuse arXiv 1803.06772; SmartMTD arXiv 1708.02018; Decentralized-Reputation-Trilemma.
+- **Status:** `evaluated_pending` (ist die designierte #M.2-Lösung — ersetzt den ursprünglich offenen „Cluster-Detector"-Ansatz).
 
 #### I.3-C2 — Subjective Logic / evidenz-theoretische Fusion
 
@@ -1609,14 +1637,14 @@ Ergebnis der wissenschaftlichen Evaluation `docs/evaluation-erweiterungen-2026-0
 
 | Kandidat | Invariante berührt | Abweichung? | Vorteils-Überhang? | Stefan-Barriere | **Re-Eval-Trigger** |
 |---|---|---|---|---|---|
-| A2, B1, C1, D1, D3, E1, E2, E5 | keine | Nein (lokale Linse / read-only / Anker) | konform | – | Stefan-Empirie §I.8 |
+| A2, B1, C1, C3, D1, D3, E1, E2, E5 | keine | Nein (lokale Linse / read-only / Anker) | konform | – | Stefan-Empirie §I.8 |
 | A1 Defeasible-Arg. | keine | Nein | konform, aber UC-Bedarf offen | – | echte User-Anfrage nach Attack-Set-Visualisierung |
 | B2 Schema-Induktion | „nie raten" | ja, falls auto-asserted | nur als Vorschlags-Modus | Constraint #4 verlangt explizite Endorsement-Aktion | Aliasing-Pattern in `user_rejected_at` (E1) erkennbar |
 | C2 Subjective Logic | Parität + Output | ja (neue Repräsentation) | NEIN, derzeit nicht | Belief-Repräsentations-Bruch — abgelehnt | UC-PR-Wechsel (externe Partner liefern SL-Daten) — sonst nie |
 | D2 / E4-Retention | Wire-Signatur | ja, falls Wire-Feld mutiert | nur lokale Linse | `effective_temporality` separat, signiert bleibt unberührt | UC-04-Churn-Variance über 30 Tage > 50 % **OR** §I.8 Frage 6 endorsed (was zuerst eintritt) |
 | E3 Embeddings | zero-dep + Determinismus | ja (Dep + Probabilistik) | nur eingehegt | drei Auflagen: außerhalb Kern, Cache, Kandidaten-only | B1 PMI Recall@5 < 0,7 nach ≥200 echten Suchanfragen |
 
-**Konzept-Lehre:** Die wertvollsten Kandidaten (D1, C1, B1, A2, E1, E5) verlangen **keine** Konzept-Abweichung — sie verlängern das tragende Muster „Trust/Belief/Temporalität = lokale Lese-Linsen über dem konvergenten Wire-Wert".
+**Konzept-Lehre:** Die wertvollsten Kandidaten (D1, C1, C3, B1, A2, E1, E5) verlangen **keine** Konzept-Abweichung — sie verlängern das tragende Muster „Trust/Belief/Temporalität = lokale Lese-Linsen über dem konvergenten Wire-Wert". Insbesondere **C3 MeritRank** schließt das letzte offene Föderations-Restrisiko (Sybil/Cluster, #M.2) als lokale Lese-Linse, ohne Wire/CRDT zu berühren.
 
 ### I.5 Anti-Pattern (bewusst NICHT)
 
@@ -1667,6 +1695,7 @@ Stefan-Constraints sind **Barrieren, keine Sperren** — sie warnen + bremsen, b
 | R15 | I.3-A2 Abduktion | `evaluated_pending` → `on_roadmap` |
 | R16 | I.3-D1 Conformal | `evaluated_pending` → `on_roadmap` (gated) |
 | R17 | I.3-C1 EigenTrust | `evaluated_pending` → `on_roadmap` (gated) |
+| R17a | I.3-C3 MeritRank (Slice #M.2) | `evaluated_pending` → `on_roadmap` (direkt nach C1, geteilte Maschine) |
 | R18 | I.3-E1 Meta-Kognition | `evaluated_pending` → `on_roadmap` |
 | R19 | I.3-E2 RFC-8785-Anker | `evaluated_pending` → `on_roadmap` |
 
@@ -1676,7 +1705,8 @@ Stefan-Constraints sind **Barrieren, keine Sperren** — sie warnen + bremsen, b
 - **R13 vor R16:** Retrieval-Aliasing-Lücke (B1) ist als UX sichtbarer als Verifikations-Kalibrierung (D1).
 - **R14 vor R15:** Active Learning (D3) braucht nur bestehende Status (siehe AC-D3.5 pre-D1 Proxy); A2 (Abduktion) braucht eine Output-Wrapper-Entscheidung (§I.8 Frage 4).
 - **R15 vor R16:** A2 nutzt den `unknown`-Pfad, D1 kalibriert den `unknown`-Set — A2-Output muss existieren, bevor D1 ihn kalibrieren kann.
-- **R17 nur wenn §I.8 Frage 2 antwortet „≥10 Peers":** sonst wird R17 in die zweite Welle verschoben.
+- **R17 nur wenn §I.8 Frage 2 antwortet „≥10 Peers":** sonst werden R17 (C1) UND R17a (C3) in die zweite Welle verschoben.
+- **R17a direkt nach R17:** C3 (MeritRank) teilt die Power-Iterations-Maschine mit C1 (H1) — sequenziell auf derselben Code-Basis am günstigsten; schließt #M.2 (Sybil/Cluster-Restrisiko). Gleiches Peer-Set-Gate wie R17.
 - **R18 NACH D1+D3:** E1 ist Aggregat-Lese-Schicht über deren Outputs.
 - **R19 parallel:** E2 RFC-8785-Anker ist Test-Härtung, hat keine Reihenfolgen-Abhängigkeit; jederzeit zwischen R12–R18 einschiebbar.
 
@@ -1705,7 +1735,7 @@ Konzept-First; Code nur nach quantitativer Vorbedingungsklärung. Default-Pfade 
 | Pflicht | Erfüllung |
 |---|---|
 | Use-Case-Bezug | jeder Kandidat referenziert konkreten UC + bestehende Stelle; **neue UCs** (UC-MK für E1, UC-Sicherheits-Härtung für E5) werden mit ihrem Slice-Konzept formell als UC angelegt — Status `evaluated_pending` macht den UC-Konstrukt-Status legal |
-| AC-Tabelle / Skizze | **A2, B1, C1, D1, D3, E1, E2, E5** mit AC-Skizzen; A1 bewusst ohne (Status `deferred`, AC nachgezogen wenn Re-Eval-Trigger eintritt); B2/C2/D2/E3/E4 ohne AC (Status `deferred`/`rejected`) |
+| AC-Tabelle / Skizze | **A2, B1, C1, C3, D1, D3, E1, E2, E5** mit AC-Skizzen; A1 bewusst ohne (Status `deferred`, AC nachgezogen wenn Re-Eval-Trigger eintritt); B2/C2/D2/E3/E4 ohne AC (Status `deferred`/`rejected`) |
 | Quellen-Provenienz | jede Idee mit arXiv/RFC/Whitepaper-Link + Anker auf `docs/evaluation-erweiterungen-2026-05.md` als Eval-Dossier |
 | Stefan-Barriere | jeder Kandidat referenziert relevante Barrieren aus §I.6 explizit |
 | Anti-Pattern | §I.5 mit NotebookLM-Tilgung (§I.5-NB1) |
@@ -1713,5 +1743,5 @@ Konzept-First; Code nur nach quantitativer Vorbedingungsklärung. Default-Pfade 
 | Vorbedingungen | §I.8 — Empirie vor Code, mit Default-Pfaden bei Stefan-Nicht-Antwort |
 | Determinismus-Gate | alle Kandidaten außer E3 sind deterministisch verifizierbar; E3 nur eingehegt (außerhalb Kern, Cache, Kandidaten-only) |
 | Wire-Vertrag | alle Kandidaten lokale Linsen oder Test-Härtung; C2 abgelehnt wegen Bruch |
-| Adversarial-Reserve | 🔴-Auditor-pflichtig: E5 (Sicherheits-Pfad), C1 (Sybil-Risiko), D1 (Bias-Risiko); 🟡-Auditor-empfohlen: A2 (Output-Surface-Erweiterung mit Trifecta-Schnittfläche, Hypothesen könnten als Assertionen fehlinterpretiert werden) |
+| Adversarial-Reserve | 🔴-Auditor-pflichtig: E5 (Sicherheits-Pfad), C1 (Sybil-Risiko), C3 (Sybil-Toleranz-Walk — Gewinn-Begrenzung muss adversarial gegen Single-Bridge-Sybil geprüft werden, AC-C3.7), D1 (Bias-Risiko); 🟡-Auditor-empfohlen: A2 (Output-Surface-Erweiterung mit Trifecta-Schnittfläche, Hypothesen könnten als Assertionen fehlinterpretiert werden) |
 | Re-Eval-Lebendigkeit | jede Negativ-Entscheidung (B2/C2/E3/D2-E4) hat einen Re-Eval-Trigger im Ledger §I.4 — Ablehnungen veralten nicht still |
