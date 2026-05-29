@@ -65,9 +65,13 @@ test('AC-5d.4: Migration ist idempotent — zweiter DB-Open verändert nichts', 
 });
 
 test('AC-5d.5: _recencyFactor nutzt UTC-Z-Form (Offset-Fakt = Z-Fakt bei semantischer Identität)', () => {
+  // Zeit gefroren, damit der Test nicht über Mikrosekunden-Differenzen zwischen zwei Engine-
+  // Instanzen flaky wird (kein _recencyFactor-Verhalten geprüft, sondern UTC-Z-Normalisierungs-Identität).
+  const FIXED = Date.parse('2026-05-29T00:00:00Z');
   const e1 = new Engine();
   const e2 = new Engine();
-  const PAST = '2019-01-01T00:00:00Z';
+  e1._now = () => FIXED;
+  e2._now = () => FIXED;
   const h1 = e1.storeTriple({ subject: 'AA', predicate: 'ist', object: 'BB', confidence: 800, asserted_at: '2024-06-01T12:00:00+02:00' }).triple_hash;
   const h2 = e2.storeTriple({ subject: 'AA', predicate: 'ist', object: 'BB', confidence: 800, asserted_at: '2024-06-01T10:00:00Z' }).triple_hash;
   const w1 = e1._withinWeight(e1._getEdge(h1));
