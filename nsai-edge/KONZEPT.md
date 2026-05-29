@@ -1005,8 +1005,8 @@ Deferred-Verfeinerungen: Slice #1b (OUT→IN-Reaktivierung + Multi-Justification
 - *Sybil-Defense* (FoolsGold/FedSybil 2026): trust-gewichtete Aggregation > naive Stimmenzahl. **Konzept übernommen**, Sybil bei uns ohnehin durch manuelle `trust_level`-Vergabe weitgehend eingedämmt (untrusted → tier 0 → kein Belief-Gewicht).
 
 **Daten-Modell (Schema-Eingriff, additiv):**
-- `triple_endorsements(triple_hash, origin_peer_id, source_cluster_id, source_type, asserted_confidence, asserted_at, asserted_at_norm, signature, PRIMARY KEY (triple_hash, origin_peer_id))` — eine Zeile pro (Tripel, Origin). Wire bleibt: jedes Endorsement ist eine eigene signierte Wire-Nachricht (kein Wire-v2).
-- `peers.cluster_id TEXT` — optionale Cluster-Markierung; Default: `cluster_id = peer_id` (jeder als eigener Cluster, konservativ). Manuelle Cluster-Zuweisung wie heute `trust_level`.
+- `triple_endorsements(triple_hash, origin_peer_id, source_type, asserted_confidence, asserted_at, asserted_at_norm, signature, PRIMARY KEY (triple_hash, origin_peer_id))` — eine Zeile pro (Tripel, Origin). Wire bleibt: jedes Endorsement ist eine eigene signierte Wire-Nachricht (kein Wire-v2).
+- `peers.cluster_id TEXT` — optionale Cluster-Markierung; Default: `cluster_id = peer_id` (jeder als eigener Cluster, konservativ). Manuelle Cluster-Zuweisung wie heute `trust_level`. Der Cluster eines Endorsements wird zur Lese-Zeit über `_clusterIdOf(origin_peer_id)` aufgelöst (Join auf `peers`) — **keine denormalisierte Spalte** in `triple_endorsements`, damit eine spätere Cluster-Anpassung in `peers` automatisch durchschlägt.
 
 **Wertebereiche (zitiert aus §B):** `trustRank ∈ {0 untrusted, 500 limited, 1000 full, 1500 authoritative}`; `tier ∈ {0..6}` (llm/manual=0, sensor=1, web=2, fachquelle=3, behoerde=4, gesetz=5, audit=6). Die Aggregation rechnet in dieser Integer-Promille-Skala.
 
@@ -1359,6 +1359,13 @@ Deferred-Verfeinerungen: Slice #1b (OUT→IN-Reaktivierung + Multi-Justification
 
 **Wire-Vertrag intakt:** `last_recalled_at` ist eine reine Lokal-Spalte. PHP-Bundle muss nicht spiegeln.
 
-**Bias-Schutz (Adversarial 🟡-5):** `markRecalled` verschiebt die lokale Konfidenz konkurrierender Aussagen — wer ein Tripel oft markiert, hilft ihm gegen Decay. Bei zwei konkurrierenden Aussagen (z. B. `kind_of red` vs. `kind_of blue`) kann das nach mehreren `decayPass`-Runden die Belief-Reihenfolge kippen. Das ist **beabsichtigt** (aktiv-genutzte Konfidenz dominiert nach Föderations-Merge), aber ein MCP-Client mit Zugriff auf `graph__mark_recalled` kann unbemerkt einseitig Belief verschieben — analog zur #6.1-Diskussion ein Bias-Vektor, der **bewusst gewählt** ist (sonst gäbe es das Feature gar nicht). Der Schutz liegt auf der Client-Ebene: `markRecalled` sollte nur für Tripel aufgerufen werden, die tatsächlich konsultiert wurden — nicht als Belief-Manipulation.
+**Bias-Schutz — semantische Klassifizierung (R3-Entscheidung, ADR 0018):** `markRecalled` ist **keine Wert-Aussage** wie `peerTrust` oder `reject`, sondern eine **Telemetrie-Aktion** — eine Beobachtung über Zugriffsverhalten, kein Urteil über Wahrheit. Damit gilt Constraint #4 (Bias-Schutz für Lern-Aktionen) hier strukturell anders:
 
-> **Slice #6.3 (in Bearbeitung):** explizites `markRecalled` + Recall-Bonus in `decayPass`. **Deferred:** echte Ebbinghaus-Kurve (1/log(t)), Adaptiver Recall-Bonus basierend auf Recall-Frequenz, Episoden-Recall-Tracking.
+- **Direkter Belief-Hebel:** `peerTrust` (trustFactor in Belief) + `reject` (local_status → kein Belief-Beitrag). **markRecalled hat keinen direkten Belief-Hebel** — nur indirekt über mehrere `decayPass`-Zyklen modulierte lokale Konfidenz.
+- **Wahrheitsanker unangetastet:** `asserted_confidence` (signiert, im Wire) bleibt unverändert. Nur die lokale Live-`confidence` wird langsam moduliert.
+- **Föderations-Heilung:** `confidence` ist CRDT-max. Ein boshaft markierender Knoten verschiebt maximal seinen lokalen Wert — beim Föderations-Merge gewinnt die ehrliche Mehrheit über CRDT-max, oder umgekehrt (beides konsistent mit „aktiv-genutzte Konfidenz dominiert").
+- **Vorschlags-Modus wäre overkill:** für eine Telemetrie-Aktion wäre die UX-Last von „erst Vorschlag, dann Bestätigung" disproportional zum Risiko.
+
+Daher: `markRecalled` bleibt Direct-Write — die fehlende Symmetrie zu `peerTrust`/`reject` ist hier *strukturell richtig*, nicht eine Inkonsistenz. Der praktische Schutz liegt im **Audit-Pfad** (Backlog: `recall_count INTEGER`-Spalte + `learnRecallAnomalies({since, threshold})` als Detection-statt-Prevention-Tool, analog `learnTrustAdjustments`).
+
+> **Slice #6.3 (erledigt):** explizites `markRecalled` + Recall-Bonus in `decayPass`. **Deferred:** echte Ebbinghaus-Kurve (1/log(t)), Adaptiver Recall-Bonus basierend auf Recall-Frequenz, Episoden-Recall-Tracking, `recall_count`-Spalte + `learnRecallAnomalies` (Audit-Pfad-Backlog, R3-Entscheidung).
