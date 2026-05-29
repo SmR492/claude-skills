@@ -644,14 +644,16 @@ export class Engine {
     if (hashes.length > 200) throw new EngineError('INVALID_PARAMETER_FORMAT', 'maximal 200 hashes pro Aufruf');
     if (hashes.length === 0) return { recalled: 0 };
     const nowZ = new Date(this._now()).toISOString();
-    let count = 0;
     const stmt = this.db.prepare("UPDATE knowledge_edges SET last_recalled_at=? WHERE triple_hash=? AND local_status='active'");
+    // R5 (Audit 🟡-6): `recalled` zählt DISTINKTE Tripel, nicht UPDATE-Operationen — sonst lügt
+    // der Counter wenn derselbe Hash mehrfach in `hashes` vorkommt. Set vor der Schleife.
+    const seen = new Set();
     for (const h of hashes) {
-      if (typeof h !== 'string' || h.length === 0) continue;
+      if (typeof h !== 'string' || h.length === 0 || seen.has(h)) continue;
       const info = stmt.run(nowZ, h);
-      if (info.changes > 0) count++;
+      if (info.changes > 0) seen.add(h);
     }
-    return { recalled: count };
+    return { recalled: seen.size };
   }
 
   reject(hash) {
