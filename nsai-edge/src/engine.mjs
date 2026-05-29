@@ -129,7 +129,9 @@ export class Engine {
         // local_status BLEIBT unberührt (UC-EP: kein OUT→IN durch Re-Assert, das ist Slice #1b).
         this.db.prepare("UPDATE knowledge_edges SET confidence=?, asserted_confidence=?, source_type=?, asserted_at=?, asserted_at_norm=?, origin_peer_id=?, relayed_by=?, signature=?, vector_clock=?, updated_at=datetime('now') WHERE triple_hash=?")
           .run(Math.max(existing.confidence, confidence), asserted, source_type, ts, tsNorm, this.peerId, this.peerId, t.signature, JSON.stringify(vc), hash);
-        result = { triple_hash: hash, confidence: Math.max(existing.confidence, confidence), status: existing.local_status, created: false };
+        // R4 (Sec-Audit F6): temporality im Response echoen — der Aufrufer sieht ob seine Annahme
+        // bzgl. Default (oder existierende Edge) griff. Bei idempotenten Treffern: existierender Wert.
+        result = { triple_hash: hash, confidence: Math.max(existing.confidence, confidence), status: existing.local_status, temporality: existing.temporality, created: false };
       } else {
         const sId = this._ensureNode(subject); const oId = this._ensureNode(object);
         const t = this._signSelf({ hash, subject, predicate, object, asserted_confidence: confidence, source_type, asserted_at: ts, temporality, vector_clock: clock, derived_from: null });
@@ -137,7 +139,7 @@ export class Engine {
           `INSERT INTO knowledge_edges (triple_hash, subject_id, predicate, object_id, confidence, asserted_confidence, source_type, asserted_at, asserted_at_norm, temporality, local_status, origin_peer_id, relayed_by, signature, vector_clock, derived_from, context_slug)
            VALUES (?,?,?,?,?,?,?,?,?,?, 'active', ?,?,?,?, NULL, ?)`,
         ).run(hash, sId, predicate, oId, confidence, confidence, source_type, ts, tsNorm, temporality, this.peerId, this.peerId, t.signature, JSON.stringify(clock), context_slug);
-        result = { triple_hash: hash, confidence, status: 'active', created: true };
+        result = { triple_hash: hash, confidence, status: 'active', temporality, created: true };
       }
       // UC-EP: Konsolidierungs-Link in DERSELBEN Transaktion (atomar). Episode muss existieren,
       // sonst Link überspringen (Tripel bleibt gültig). Status-unabhängiger Audit-Trail.
@@ -296,7 +298,11 @@ export class Engine {
         evidence,
       });
     }
-    return { suggestions, since: sinceNorm, min_evidence: minEv };
+    // R4 (Sec-Audit F5): Vorschlags-Anzahl hart cappen (50) gegen Response-Explosion bei Sybil-Schwärmen.
+    // Suggestions sind deterministisch nach origin_peer_id sortiert — Truncation deterministisch.
+    const SUGG_CAP = 50;
+    const truncated = suggestions.length > SUGG_CAP;
+    return { suggestions: suggestions.slice(0, SUGG_CAP), truncated, since: sinceNorm, min_evidence: minEv };
   }
   _recencyFactor(assertedAt, temporality = 'stable') {
     const half = this.spec.recencyHalflifeDays[temporality] ?? this.spec.recencyHalflifeDays.default ?? 3650;
@@ -769,6 +775,14 @@ export class Engine {
   recordEpisode({ content, source_type = 'llm', occurred_at = null, context_slug = null } = {}) {
     if (typeof content !== 'string' || content.length < 1 || content.length > 8000) {
       throw new EngineError('INVALID_PARAMETER_FORMAT', 'content leer oder > 8000 Zeichen');
+    }
+    // R4 (Sec-Audit F1): Format-/Längen-Validierung für source_type und context_slug.
+    // Schließt DB-Bloat + FTS-Index-Wachstum durch beliebig große Werte aus.
+    if (typeof source_type !== 'string' || !/^[a-z_]{1,64}$/.test(source_type)) {
+      throw new EngineError('INVALID_PARAMETER_FORMAT', 'source_type ungültig (Regex ^[a-z_]{1,64}$)');
+    }
+    if (context_slug != null && (typeof context_slug !== 'string' || !/^[a-z0-9_-]{1,128}$/.test(context_slug))) {
+      throw new EngineError('INVALID_PARAMETER_FORMAT', 'context_slug ungültig (Regex ^[a-z0-9_-]{1,128}$)');
     }
     let ts = occurred_at ?? new Date(this._now()).toISOString();
     if (Date.parse(ts) > this._now() || Number.isNaN(Date.parse(ts))) ts = new Date(this._now()).toISOString();
