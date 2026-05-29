@@ -757,6 +757,8 @@ Umpriorisiert nach Recherche-Runde 2 (2026-Frontier-Validierung): neuro-symbolis
 
 Deferred-Verfeinerungen: Slice #1b (OUT→IN-Reaktivierung + Multi-Justification), #2b (LLM-Extraktion, frequenz-bewusste GC), #3b (Episoden als Kontextknoten im Retrieval, Vektor-Ähnlichkeit).
 
+> **Phase-2-Brücke (§I):** Slice #3b (Vektor-Ähnlichkeit) wird in Phase 2 nicht direkt, sondern zweistufig adressiert — **§I.3-B1 (PMI/SOC-PMI, deterministisch, zero-dep)** als Erst-Versuch; **§I.3-E3 (Vektor-Embeddings, eingehegt)** nur als Backup, falls B1 die Aliasing-Lücke nicht schließt (Recall@5 < 0,7 nach ≥200 Suchanfragen). Damit bleibt das Zero-Dep-Gate gewahrt bis empirisch widerlegt.
+
 ### UC-TMS — Justification-basierte Belief-Revision (Slice #1)
 
 **Akteur:** System (deterministisch, Tier 1, **kein LLM**) · **Route:** intern, getriggert durch Status-Änderungen · **Scope-Schnitt (Review-Runde 1):** nur die **Retraktions-Richtung** (IN→OUT); Re-Aktivierung (OUT→IN) und Multi-Justification sind **Slice #1b** (H.2). Single-Justification (eine `derived_from`-Liste je Edge) ist akzeptiert.
@@ -1391,3 +1393,317 @@ Priorität: `retracted` (TMS-Cascade) gewinnt gegen `superseded` (eigener Decay)
 Daher: `markRecalled` bleibt Direct-Write — die fehlende Symmetrie zu `peerTrust`/`reject` ist hier *strukturell richtig*, nicht eine Inkonsistenz. Der praktische Schutz liegt im **Audit-Pfad** (Backlog: `recall_count INTEGER`-Spalte + `learnRecallAnomalies({since, threshold})` als Detection-statt-Prevention-Tool, analog `learnTrustAdjustments`).
 
 > **Slice #6.3 (erledigt):** explizites `markRecalled` + Recall-Bonus in `decayPass`. **Deferred:** echte Ebbinghaus-Kurve (1/log(t)), Adaptiver Recall-Bonus basierend auf Recall-Frequenz, Episoden-Recall-Tracking, `recall_count`-Spalte + `learnRecallAnomalies` (Audit-Pfad-Backlog, R3-Entscheidung).
+
+## §I — Erweiterungs-Roadmap Phase 2 (Eval 2026-05-29)
+
+Ergebnis der wissenschaftlichen Evaluation `docs/evaluation-erweiterungen-2026-05.md` (2026-05-29). §I überführt das Dossier in den Konzept-Rahmen — strukturierte Roadmap mit Konzept-Konformitäts-Check, Stefan-Barriere-Schicht, AC-Skizzen, Vorbedingungen. Status hier ist `evaluated_pending` bis je Kandidat ein Slice-Konzept mit AC-Tabelle nach CDP5 erstellt + endorsed ist; Code-Beginn erst danach.
+
+### I.1 Methode & Provenienz
+
+- **Grundlage:** vollständige Lektüre `KONZEPT.md` v2.4, Engine-Konstanten/Regel-Spec, Code-Inventur (299 Tests / 19 UCs nach R10), 18 Retros, 13 Websuchen + 4 Primärquellen-Fetches (2025/2026). Bewertung je Kandidat: Neuheit, Konzept-Konformität, Aufwand, Risiko, Wert (●●● hoch · ●● mittel · ● gering).
+- **Eval-Dossier-Anker:** Voll-Bericht in `docs/evaluation-erweiterungen-2026-05.md`. Pro Kandidat in §I.3 sind die Original-Bewertungs-Sektionen (3.A1 ff., NotebookLM-Verfeinerungen, Abweichungs-Ledger) dort als Re-Verifikations-Quelle abrufbar. Migration der Dossier-Inhalte in den Graph (`feedback-knowledge-into-nsai-edge`-Doktrin) folgt nach Stefan-Endorsement-Runde (§I.8 Frage 7).
+- **NotebookLM-Integration:** zwei NotebookLM-Berichte (2026-05-29) sind als KI-Quelle behandelt — nur durch Stefan-Barriere bestätigte Punkte (✅) übernommen; abgelehnte mit Begründung in §I.5 verzeichnet. Folgt `feedback-websearch-in-concept-phase`-Doktrin: nie blind übernehmen.
+- **Vier Kern-Invarianten:** zero-dependency · Offline-Autonomie · Node↔PHP-Fixed-Point-Parität · CRDT-Konvergenz. Eine Abweichung benötigt dokumentierten Vorteils-Überhang (Ledger §I.4).
+- **Status-Lexikon:** `evaluated_pending` = bewertet, kein Slice · `on_roadmap` = Slice-Konzept freigegeben, Code offen · `deferred` = bewusst zurückgestellt mit Bedingung · `rejected` = ausgeschlossen mit Re-Eval-Trigger · `done` = Code + Tests gemerged. **Aktueller Stand:** alle Kandidaten in `evaluated_pending`, `deferred` oder `rejected`; Wechsel zu `on_roadmap` per Slice-Konzept + Stefan-Endorsement (siehe §I.8 Frage 7); kein Kandidat `done` (Phase-2 startet erst).
+
+### I.2 Strukturelle Hebel (Hebel-Ankerpunkte)
+
+- **H1 — Geteilte deterministische Power-Iteration:** PPR-Maschine (feste Summationsordnung über `triple_hash`) in `engine.mjs::search` trägt auch EigenTrust (I.3-C1) ohne neue Numerik-Achse. Doppelnutzen.
+- **H2 — `user_rejected_at` ist ungenutztes, konfabulations-freies Trainingssignal:** sauber von System-Aktionen getrennt (Slice #6.1, R1-Cleanup); lokaler, exchangeable Kalibrierungs-Datensatz für I.3-D1/D2/D3. Vorbedingung Empirie: Größenordnung muss erreicht sein (§I.8).
+- **H3 — Hand-kalibrierte „magische Konstanten":** `contestedThreshold=150`, `quorumAuthFloor=4500`, `quarantineThreshold=300`, `beliefSharpness=3`, `demoteLimitedThreshold=500`, `demoteUntrustedThreshold=800`. I.3-D1 Conformal könnte sie datengetrieben ablösen, falls Stefan-Empirie-Schwelle erreicht.
+
+### I.3 Kandidaten (14 Sub-Blöcke A1…E5 in 5 Dimensionen A–E, je 1 Status-Block)
+
+#### I.3-A1 — Defeasible-Argumentation (grounded extension, ASPIC⁺/Dung-light)
+
+- **Bezug:** UC-TMS-Erweiterung; Erklärbarkeits-Aufsatz über `resolveBelief`/`query`.
+- **Idee:** Rebut/Undercut als explizite Attack-Edges; grounded extension (eindeutig, polynomiell).
+- **Konformität:** zero-dep ✅ · Offline ✅ · Parität ✅ (lokale Linse) · CRDT ✅.
+- **Stefan-Barriere:** Determinismus ✅ (eindeutige grounded extension); Output-Surface +1 (Attack-Edge-Set) → Wrapper-Pattern.
+- **Wert ●● · Aufwand ●●● · Risiko ●** — mittlere Priorität.
+- **Vorbedingung:** UC-Bedarf für strukturierte Attack-Begründung jenseits des aktuellen `query(explain=true)`-Proof-Trees klären; aktuelle Erklärbarkeits-AC (AC-9.x in §UC-TMS) decken den UC bereits ab. **Re-Eval-Trigger:** echte User-Anfrage nach Attack-Set-Visualisierung oder Polynomial-Komplexitäts-Beleg, dass grounded extension das aktuelle Proof-Tree-Lesemodell überholt.
+- **Quelle:** arXiv 2309.12731.
+- **Status:** `deferred` — bis Re-Eval-Trigger (Reife-Schliff verschoben in die zweite Welle gemäß §I.7).
+
+#### I.3-A2 — Abduktives Backward-Chaining
+
+- **Bezug:** UC-V-Erweiterung; bei `verify→unknown` deterministische Hypothesen-Liste.
+- **Idee:** minimale fehlende Prämissen als **quarantined**-Hypothesen ausgeben (Open-World-sicher; keine Assertion).
+- **Konformität:** zero-dep ✅ · Offline ✅ · Parität ✅ · CRDT ✅.
+- **Stefan-Barriere:** Determinismus ✅ (Backward-Walk + Suchtiefen-Cap, kein LLM); „nie raten" ✅ (Hypothesen werden EXPLIZIT als `quarantined` markiert, nicht assertiert); Open-World ✅.
+- **AC-Skizze:** AC-A2.1 `verify({…, explain_unknown:true})`-Pfad existiert; AC-A2.2 Suchtiefe ≤ 3 Hops; AC-A2.3 Hypothesen-Set ist **set-wertig** (mehrere alternative minimale Prämissen-Mengen); AC-A2.4 alle Hypothesen-Tripel referenzieren reale Regeln aus `spec.inferenceRules`; AC-A2.5 leeres Set ist legal (Open-World); AC-A2.6 DoS-Cap auf Hypothesen-Anzahl.
+- **Wert ●●● · Aufwand ●● · Risiko ●** — starker Kandidat (UX-Lücke des aktuellen `corrective_hints`).
+- **Vorbedingung:** UX-Entscheidung — Output-Format als Wrapper (additives Feld `unknown_because: [{hypothesis_triples, via_rule}]`).
+- **Quelle:** arXiv 2510.11462, 2512.07218.
+- **Status:** `evaluated_pending`.
+
+#### I.3-B1 — Embedding-freie Semantik via PMI/SOC-PMI
+
+- **Bezug:** UC-HR/Slice #3b-Erweiterung; Alias-/Stemming-Lücke schließen.
+- **Idee:** sparse PPMI aus Tripel-Ko-Okkurrenz + Episoden-Termen; deterministisch, integer-kompatibel, zero-dep.
+- **Konformität:** zero-dep ✅ (reine SQL/JS) · Offline ✅ · Parität ✅ · CRDT ✅.
+- **Stefan-Barriere:** Determinismus ✅ (Integer-PPMI mit fester Summationsordnung); Aliasing-Lücke ist real (Empirie-Vorbedingung: Stefan-Beispiel oder „nie aufgefallen").
+- **AC-Skizze:**
+  - AC-B1.1 **Score-Formel:** SOC-PMI(x,y) = Σ_{w ∈ top-β(x)} max(0, PPMI(w,y))^γ + Σ_{w ∈ top-β(y)} max(0, PPMI(w,x))^γ; mit PPMI(a,b) = max(0, log₂(p(a,b) / (p(a)·p(b)))) und Defaults **β=20, γ=3** (Islam/Inkpen 2008-Defaults, deterministisch reproduzierbar).
+  - AC-B1.2 **Integer-Rounding:** Integer-Promille via `Math.floor(score · 1000)` (Node ↔ PHP byte-identisch via PHP `intval(score*1000)`; kein round-half-even-Drift).
+  - AC-B1.3 Determinismus über Engine-Neustart (Hash-stabil: PPMI nutzt nur deterministische Episoden- und Tripel-Termcounts).
+  - AC-B1.4 PMI ist **ergänzende** Seed-Quelle für `search`, ersetzt **nicht** den LIKE-Pfad (Open-World: PMI-Miss ≠ kein Match).
+  - AC-B1.5 DoS-Cap: PMI-Cache max. 100k Term-Paare; bei Overflow: LRU-Eviction über deterministische Hash-Reihenfolge.
+- **Wert ●●● · Aufwand ●● · Risiko ●** — Top Retrieval, schließt Slice #3b.
+- **Vorbedingung:** Empirie (Stefan-Antwort): existiert die Aliasing-Lücke spürbar?
+- **Quelle:** SOC-PMI; arXiv 2007.13273.
+- **Status:** `evaluated_pending`.
+
+#### I.3-B2 — Schema-Abstraktion / Regel-Induktion (Vorschlags-Modus)
+
+- **Bezug:** UC-03-Erweiterung; Frequent-Pattern-Mining über Tripel-Co-Occurrences schlägt potentielle `inferenceRules` vor.
+- **Konformität:** zero-dep ✅ · Offline ✅ · Parität ✅ (sofern nicht auto-asserted) · CRDT ✅.
+- **Stefan-Barriere:** **Constraint #4 Bias-Schutz** ⚠️⚠️ — Pattern-Mining verstärkt häufige Patterns überproportional („Inference-Bias durch Frequenz"). Verpflichtende Gegenmaßnahme: NIE auto-assert, NUR Vorschlags-Modus mit expliziter Endorsement-Aktion (analog UC-TA Slice #6.1). „Nie raten" ✅ wenn Vorschläge als `quarantined` gespeichert werden bis Endorsement.
+- **Wert ●● · Aufwand ●● · Risiko ●●●**.
+- **Re-Eval-Trigger:** Aliasing-Pattern in `user_rejected_at`-Daten erkennbar (E1 Drift-Monitor zeigt häufige falsch-positive Pfade).
+- **Quelle:** Klassisches FP-Growth (Han et al. 2000) für Regel-Pattern-Discovery in KG.
+- **Status:** `deferred` — Vorbedingung: Vorschlags-Modus-AC-Schliff + Stefan-Endorsement, frühestens nach D3+E1.
+
+#### I.3-C1 — EigenTrust-Linse (transitiver Trust)
+
+- **Bezug:** UC-09-Erweiterung; nutzt H1 (PPR-Maschine wiederverwenden).
+- **Idee:** Power-Iteration über Endorsement-Graph, seed-verankert am lokalen Pre-Trust; bleibt lokale Lese-Linse, CRDT/Wire unberührt.
+- **Konformität:** zero-dep ✅ · Offline ✅ · Parität ✅ (lokale Linse) · CRDT ✅.
+- **Stefan-Barriere:** Determinismus ✅ (fixe Iter-Reihenfolge, Tol-Cap wie in `search`); **Constraint #4 Bias-Schutz** ⚠️ — transitiver Trust verstärkt potenziell Echo-Kammern (A trusts B trusts A). Gegenmaßnahme verpflichtend: seed-Verankerung + Damping-Faktor wie EigenTrust++ (Anti-Sybil).
+- **AC-Skizze:**
+  - AC-C1.1 `_eigenTrust(peer)` als read-only Methode (renutzt H1 Power-Iteration aus `search`).
+  - AC-C1.2 Konvergenz bei Tol ≤ 1e-6 oder max_iter=200 (hart geklemmt wie in `search`, DoS-Schutz).
+  - AC-C1.3 Pre-Trust-Seed = direkter `peerTrust` (lokale Verankerung verhindert Free-Riding).
+  - AC-C1.4 **Damping-Faktor α ∈ {0,15 (Anti-Sybil-Default, EigenTrust++ 2012), 0,85 (PageRank-Standard)}; Default α = 0,15** in `spec.eigenTrustDamping` überschreibbar. **α = 1,0 verboten** (kein Pre-Trust-Anker → Konvergenz auf reine Konnektivität, Sybil-anfällig).
+  - AC-C1.5 Keine Mutation an `peerTrust`-Tabelle (reine Lese-Linse).
+  - AC-C1.6 Determinismus über Engine-Neustart (feste Iter-Reihenfolge über `peer_id`-Sortierung).
+  - AC-C1.7 DoS-Cap: Endorsement-Graph max. 1000 Edges für Iteration (sonst fail-closed mit `INVALID_PARAMETER_FORMAT`).
+- **Wert ●●● · Aufwand ●● · Risiko ●●** — Top Föderation; **aber Wertbeleg fraglich bei kleinem Peer-Set** (Vorbedingung §I.8).
+- **Quelle:** Stanford EigenTrust; EigenTrust++ 2012.
+- **Status:** `evaluated_pending`.
+
+#### I.3-C2 — Subjective Logic / evidenz-theoretische Fusion
+
+- **Bezug:** alternative Belief-Repräsentation; Opinion ⟨belief, disbelief, uncertainty⟩ mit expliziter Ignoranz-Masse.
+- **Konformität:** zero-dep ✅ · Offline ✅ · **Parität ❌** (neue Belief-Repräsentation = Wire-Bruch wenn föderiert) · CRDT ⚠️ (DST-Kombinationsregel ist nicht trivial-konvergent).
+- **Stefan-Barriere:** **Wire-Vertrag v1** ❌ — eine Subjective-Logic-Opinion müsste entweder als zusätzliches Wire-Feld geführt werden (Wire-v2-Bruch) oder rein lokal — dann verliert sie die Föderations-Eigenschaft, die ihr Mehrwert wäre. Belief-Repräsentations-Bruch im aktuellen Modell nicht gerechtfertigt.
+- **Wert (derzeit) ●** — Vorteils-Überhang über die bestehende Belief-Softmax + UC-MS-Quorum nicht belegt.
+- **Re-Eval-Trigger:** UC-PR-Wechsel (z.B. wenn externe Partner subjective-logic-Daten liefern wollten) — sonst nie.
+- **Quelle:** Jøsang 2016 (Subjective Logic), arXiv 2508.08075.
+- **Status:** `rejected` (Re-Eval-Trigger oben).
+
+#### I.3-D1 — Conformal Prediction für `verify()`
+
+- **Bezug:** UC-V-Erweiterung; nutzt H2 (`user_rejected_at` als Kalibrierungsmenge).
+- **Idee:** Schwelle = ⌈α(ℓ+1)⌉-kleinster Nichtkonformitäts-Score; set-wertiges, kategorisches Verdikt mit Coverage-Garantie 1−α.
+- **Konformität:** zero-dep ✅ (reine Sortier-/Index-Op) · Offline ✅ · Parität ✅ · CRDT ✅.
+- **Stefan-Barriere:** Determinismus ✅ (non-parametric, voll deterministisch); Open-World ✅ (leeres Set → `unknown`, kein Default-Assertion); **Constraint #4 Bias-Schutz** ⚠️⚠️ — `user_rejected_at` ist „was Stefan abgelehnt **hat**", nicht „was abgelehnt **gehört**" → Confirmation-Bias-Verstärkung möglich. Gegenmaßnahme verpflichtend: minimaler ℓ_min-Cap (≥30 reject-Beispiele für Coverage-Konvergenz; bei ℓ<ℓ_min → `phpVerified`-artiges `calibrated:false`-Flag im Output, fall-back zur unkalibrierten Linse).
+- **AC-Skizze:**
+  - AC-D1.1 Score-Funktion = trust-diskontierte Konfidenz (bestehend, Z319 `_originTrust * confidence`-Linse).
+  - AC-D1.2 Kalibrierungsmenge = aktive Edges mit `user_rejected_at IS NOT NULL` (Slice #6.1 H2-Datenquelle).
+  - AC-D1.3 Schwelle in Integer-Promille (`Math.floor`-Quantil, kein Float-Drift).
+  - AC-D1.4 **ℓ_min = ⌈k/α⌉ mit k=3, α=0,1 → ℓ_min=30** (Vovk 2005: Coverage-Konvergenz braucht ℓ ≥ ⌈k/α⌉ mit k≥3 für stabile Quantil-Schätzung; ℓ_min als `spec.calibrationFloor` Default-Konstante überschreibbar). Bei `ℓ < ℓ_min` → unkalibriert-Fallback mit Output-Flag `calibrated:false`.
+  - AC-D1.5 Coverage-Logging (1−α-Schätzung pro Lauf; bei Drift > 5pp → E1-Monitor-Trigger).
+  - AC-D1.6 Keine Float-Arithmetik im Hot-Pfad (auch `_recencyFactor` muss bis dahin auf Integer-Promille umgestellt sein, sonst Float-Bias-Pfad in D1).
+  - AC-D1.7 Wenn D1 aktiv (`calibrated:true`), löst H3 (§I.2) hand-kalibrierte `contestedThreshold`/`quarantineThreshold` aus der Default-Spec ab (datengetriebene Schwellen).
+- **Wert ●●● · Aufwand ●● · Risiko ●●** — „Flagschiff", aber Empirie-Gated (siehe §I.8).
+- **Vorbedingung:** Stefan-Empirie — Größenordnung `user_rejected_at`-Volumen. Bei <30: D1 nicht starten.
+- **Quelle:** arXiv 2510.24754, 2605.08077.
+- **Status:** `evaluated_pending` (empirie-gated).
+
+#### I.3-D2 — Selbst-kalibrierende Temporalität (lokal)
+
+- **Bezug:** UC-04-Erweiterung; Decay-Klasse aus beobachteter Churn-Rate.
+- **Idee:** lokale `effective_temporality`-Linse — niemals Wire-Feld `temporality` mutieren.
+- **Konformität:** zero-dep ✅ · Offline ✅ · Parität ✅ (sofern lokal) · CRDT ✅.
+- **Stefan-Barriere:** Wire-Vertrag v1 ✅ (lokal); **Komplexitäts-Risiko ⚠️** — zweiter Decay-Pfad (signiert vs. effektiv) erhöht Konzept-Last; Stefan-Entscheidung gefragt (§I.8 Frage 6).
+- **Wert ●● · Aufwand ●●** — zweite Welle.
+- **Quelle:** FadeMem arXiv 2601.18642.
+- **Status:** `deferred` bis Stefan-Entscheidung zur effective_temporality-Achse.
+
+#### I.3-D3 — Kalibriertes Active Learning (Review-Priorisierung)
+
+- **Bezug:** UC-05-Erweiterung; read-only Methode `priorityForReview()`.
+- **Idee:** rangordnet contested/quarantined nach Unsicherheit × PPR-Einfluss; schlägt informationsreichste Review zuerst vor.
+- **Konformität:** zero-dep ✅ · Offline ✅ · Parität ✅ · CRDT ✅.
+- **Stefan-Barriere:** Determinismus ✅; **Constraint #4** ✅ (rein Lese-Priorisierung, keine Lern-Aktion).
+- **AC-Skizze:**
+  - AC-D3.1 Methode liefert `[{triple_hash, priority_score, why}]`.
+  - AC-D3.2 limit-Cap (Default 20, DoS-Schutz).
+  - AC-D3.3 Integer-Score in Promille.
+  - AC-D3.4 Determinismus über Engine-Neustart.
+  - AC-D3.5 **pre-D1 Unsicherheits-Proxy:** `uncertainty = |contestedSupport - contestedOpposition| / (contestedSupport + contestedOpposition + 1)` in Integer-Promille (kein Float, +1 verhindert Div-by-Zero). Nach D1 ersetzbar durch Conformal-Set-Größe (löst Dependenz-Mismatch R14 vor R16 in §I.7).
+  - AC-D3.6 priority_score = uncertainty · pprInfluence (beides Integer-Promille; Truncate-Multiplikation).
+- **Wert ●● · Aufwand ●** — niedrigster Aufwand, gute UX-Lücke. Schleifenschluss für I.3-D1/E1.
+- **Quelle:** arXiv 2510.03162.
+- **Status:** `evaluated_pending`.
+
+#### I.3-E1 — Meta-Kognition / Self-Monitoring (Kalibrierungs-Drift)
+
+- **Bezug:** neuer UC-MK; Brier/ECE-Score auf Integer-Promille, vergleicht Belief vs. `user_rejected_at`-Wahrheit; löst D1-Re-Kalibrierung / D3-Review aus.
+- **Konformität:** zero-dep ✅ · Offline ✅ · Parität ✅ (lokal) · CRDT ✅.
+- **Stefan-Barriere:** Determinismus ✅; **Constraint #4** ⚠️ — nutzt dasselbe `user_rejected_at`-Signal wie D1 → kumulative Bias-Verstärkung. Gegenmaßnahme: Drift-Monitor ist read-only Report, nicht auto-applizierend; jede Re-Kalibrierung braucht explizite Endorsement-Aktion.
+- **Pushback (Konzept-Marketing-Risiko):** „narratives Zentrum/Dach" ist organisatorisch; Code-mäßig sind D1+D3+C1+E1 separate Slices. E1 NICHT als Slice-Vorlauf bauen, sondern erst NACH D1+D3 als Aggregat-Lese-Schicht.
+- **AC-Skizze:** AC-E1.1 Brier-Score in Integer-Promille; AC-E1.2 ECE-Bucketing über Tier-Klassen; AC-E1.3 Drift-Triggerschwelle als Spec-Konstante; AC-E1.4 read-only Report, kein State-Wechsel.
+- **Wert ●●● · Aufwand ●● · Risiko ●●**.
+- **Vorbedingung:** D1 + D3 vorher gebaut.
+- **Quelle:** Zylos 2026; ASU Neuro-Symbolic Metacognition; Metagent-P ACL 2025.
+- **Status:** `evaluated_pending` (Aggregat — nach D1+D3).
+
+#### I.3-E2 — Cross-Language-Determinismus (RFC 8785 + MET)
+
+- **Bezug:** UC-10-Härtung; RFC 8785 JCS als normativer Anker; MET-artige CRDT-Permutationstests.
+- **Konformität:** zero-dep ✅ · Offline ✅ · Parität ✅ (verstärkt sie) · CRDT ✅.
+- **Stefan-Barriere:** Determinismus ✅; Wire ✅ (rein Test-Härtung); **Memory `feedback-knowledge-into-nsai-edge`** — Conformance-Test-Vektoren KÖNNTEN als Graph-Tripel gepflegt werden (statt MD), Pflicht aber zurückgestellt.
+- **AC-Skizze:** AC-E2.1 `canonical.mjs` JSON-Output ist byte-identisch zu RFC 8785 JCS; AC-E2.2 Permutationstest über mergeIncoming-Reihenfolgen; AC-E2.3 negative Coverage gegen Float-Drift.
+- **Wert ●● · Aufwand ●●** — Anti-Drift-Anker.
+- **Quelle:** RFC 8785; CBOR Determinism; MET arXiv 2204.14129.
+- **Status:** `evaluated_pending`.
+
+#### I.3-E3 — Vektor-Embeddings (kontrollierte Abweichung)
+
+- **Bezug:** Slice #3b-Backup falls B1 PMI Aliasing nicht löst.
+- **Konformität:** zero-dep ❌ (importiert ML-Dependency) · Offline ⚠️ (nur falls Modell lokal) · Parität ❌ (nicht-deterministisch) · CRDT ✅ (nur Kandidatenfilter).
+- **Stefan-Barriere:** **Constraint Zero-Dep verletzt** → nur erlaubt unter drei Auflagen: (1) agentenseitig **außerhalb** des Engine-Kerns, (2) deterministischer Cache mit Hash-Stable-Key, (3) liefert nur Kandidaten — `verify()` entscheidet (VectorOWL-Muster). Nie in Wire/Signatur/Belief.
+- **Pushback:** Bevor E3, **B1 PMI bauen + messen**. Wenn B1 das Aliasing löst, E3 unnötig.
+- **Re-Eval-Trigger:** B1 PMI Recall@5 < 0,7 nach ≥200 echten Suchanfragen (E1-Monitor liefert Recall-Statistik).
+- **Quelle:** WJAETS 2025 (Hybrid Neuro-Symbolic / Embeddings), VectorOWL-Muster.
+- **Status:** `deferred` — Vorbedingung: B1 implementiert und Aliasing-Lücke quantifizierbar offen.
+
+#### I.3-E4 — Zwei orthogonale Decay-Achsen
+
+- **Bezug:** UC-04 / UC-AD-Klärung; trennt epistemische Achse (Volatilität = D2) von Retentions-Achse (Abruf = FSRS-artig).
+- **Konformität:** zero-dep ✅ · Offline ✅ · Parität ✅ (lokal) · CRDT ✅.
+- **Stefan-Barriere:** Determinismus ✅; **Bias-Schutz** ✅ (Retention ist keine Werteaussage, wie markRecalled in R3 geklärt).
+- **NotebookLM-Verfeinerung (✅ übernommen):** **Promotion-Gate episodisch→prozedural via `verify()=supported`** — Wissen wandert in den permanenten Speicher nur, wenn formal erdbar. Verhindert Belief-Inflation durch reine Abrufhäufigkeit.
+- **Wert ●● · Aufwand ●● · Risiko ●**.
+- **Vorbedingung:** D2-Entscheidung (Stefan §I.8 Frage 6).
+- **Quelle:** FadeMem arXiv 2601.18642.
+- **Status:** `evaluated_pending` (nach D2).
+
+#### I.3-E5 — MCP-Governance / Policy-Enforcement (Runtime-Interceptor)
+
+- **Bezug:** UC-Sicherheits-Härtung; schließt offene Trifecta-Schicht. Komplementär zu R9 `mcp-doc-drift-gate` (Pre-Merge) — E5 ist Runtime.
+- **Idee:** deklarative Allow/Block-Policy (JSON-Datei oder Graph-Tripel) → deterministischer Interceptor in `mcp-server.mjs` vor jedem Tool-Call; lückenloses Audit-Log.
+- **Konformität:** zero-dep ✅ (Policy-Eval in JS) · Offline ✅ · Parität ✅ · CRDT ✅.
+- **Stefan-Barriere:**
+  - Determinismus ✅ (Allow/Block-Tabelle ist Lookup).
+  - **NotebookLM-Verfeinerung (✅ übernommen):** SMT-Solver NUR Build-/CI-Zeit erlaubt (Policy-Konsistenz vor Deploy beweisen); im Runtime nur die kompilierte Tabelle — `Constraint Zero-Dep` bleibt gewahrt.
+  - **Memory `feedback-knowledge-into-nsai-edge`** → Stefan-Entscheidung §I.8 Frage 5: Policy-Heimat (File / Graph / Beides).
+  - Lethal-Trifecta-Doku §7.1 weist E5 als die fehlende Egress-Allowlist-Schicht aus.
+- **AC-Skizze:** AC-E5.1 Policy ist deklarativ (JSON-Schema oder Triple-Schema im Graph); AC-E5.2 Interceptor vor jedem Tool-Call; AC-E5.3 ALLOW/BLOCK/ESCALATE-Trichotomie; AC-E5.4 Audit-Log unveränderbar; AC-E5.5 fail-closed bei Policy-Lücke; AC-E5.6 Build-time SMT-Konsistenz-Check (optional, CI-Gate).
+- **Wert ●●● · Aufwand ●● · Risiko ●●**.
+- **Vorbedingung:** Stefan-Entscheidung zur Policy-Heimat (§I.8 Frage 5).
+- **Quelle:** DX Heroes 2026; NSA CSI MCP; arXiv 2604.05969, 2511.20920.
+- **Status:** `evaluated_pending` (sicherheits-priorisiert in §I.7).
+
+### I.4 Abweichungs-Ledger (Vorteils-Überhang gegen Invarianten)
+
+| Kandidat | Invariante berührt | Abweichung? | Vorteils-Überhang? | Stefan-Barriere | **Re-Eval-Trigger** |
+|---|---|---|---|---|---|
+| A2, B1, C1, D1, D3, E1, E2, E5 | keine | Nein (lokale Linse / read-only / Anker) | konform | – | Stefan-Empirie §I.8 |
+| A1 Defeasible-Arg. | keine | Nein | konform, aber UC-Bedarf offen | – | echte User-Anfrage nach Attack-Set-Visualisierung |
+| B2 Schema-Induktion | „nie raten" | ja, falls auto-asserted | nur als Vorschlags-Modus | Constraint #4 verlangt explizite Endorsement-Aktion | Aliasing-Pattern in `user_rejected_at` (E1) erkennbar |
+| C2 Subjective Logic | Parität + Output | ja (neue Repräsentation) | NEIN, derzeit nicht | Belief-Repräsentations-Bruch — abgelehnt | UC-PR-Wechsel (externe Partner liefern SL-Daten) — sonst nie |
+| D2 / E4-Retention | Wire-Signatur | ja, falls Wire-Feld mutiert | nur lokale Linse | `effective_temporality` separat, signiert bleibt unberührt | UC-04-Churn-Variance über 30 Tage > 50 % **OR** §I.8 Frage 6 endorsed (was zuerst eintritt) |
+| E3 Embeddings | zero-dep + Determinismus | ja (Dep + Probabilistik) | nur eingehegt | drei Auflagen: außerhalb Kern, Cache, Kandidaten-only | B1 PMI Recall@5 < 0,7 nach ≥200 echten Suchanfragen |
+
+**Konzept-Lehre:** Die wertvollsten Kandidaten (D1, C1, B1, A2, E1, E5) verlangen **keine** Konzept-Abweichung — sie verlängern das tragende Muster „Trust/Belief/Temporalität = lokale Lese-Linsen über dem konvergenten Wire-Wert".
+
+### I.5 Anti-Pattern (bewusst NICHT)
+
+- **❌ ML-Embeddings im Kern.** B1 PMI ist der konforme Ersatz; E3 nur eingehegt.
+- **❌ Mutation signierter Wire-Felder** (`temporality`/`asserted_at`/`asserted_confidence`). Selbst-Kalibrierung nur als lokale Linse.
+- **❌ Numerische Belief/Quorum-Werte im Output.** Conformal-Verdikte bleiben kategorisch (`supported/contradicted/unknown` + optional `calibrated:bool`).
+- **❌ Auto-Assert gelernter Regeln (B2).** Nur Vorschlags-Modus mit Endorsement-Pflicht.
+
+**§I.5-NB1 — Aus NotebookLM abgelehnt:**
+- **❌ SMT-Solver (Z3) im Runtime** — externe Dependency, bräche zero-dep. Nur Build-/CI-Gate zulässig (siehe I.3-E5).
+- **❌ PN-Counter (CRDT) für Trust/Belief** — Up/Down-Zähler IST die Anzahl-Inflation, gegen die das System designt ist (Leitplanke „Anzahl zählt nie"; Echo-Kammer-Neutralisierung §UC-MS). Höchstens für nicht-epistemische Ressourcen-Metrik.
+- **❌ OAuth-Proxy via Cloudflare Workers/KV (DCR-Problem)** — Konzept-Scope „Nicht enthalten: Cloud-Hosting"; lokaler stdio-MCP-Server hat kein OAuth/DCR-Problem.
+- **❌ „FF-Layers als Key-Value-Memories"** — beschreibt Transformer-Interna eines LLM, nicht die symbolische SQLite-Engine. Kategorienfehler.
+- **❌ Unbelegte Kennzahlen ohne `(Größenordnung berichtet)`-Suffix** (z.B. „Instruction-Drift 8–12 %") — nur als „berichtete Größenordnung" behandeln, nie als Fakt zitieren — sonst importiert man genau die Konfabulation, gegen die das System gebaut ist (`feedback-websearch-in-concept-phase`-Doktrin).
+
+### I.6 Stefan-Barriere-Schicht (zentrale Übersicht)
+
+Stefan-Constraints sind **Barrieren, keine Sperren** — sie warnen + bremsen, blocken aber nicht zwingend. Eine Barriere-Verletzung erfordert **dokumentierten Vorteils-Überhang** im Ledger (§I.4). Die Barrieren bündeln verstreute Vereinbarungen aus Memory + bestehenden Retros zu einem zentralen Gate-Set:
+
+| Barriere | Quelle | Bedeutung | Was gilt als Verletzung | **Operationalisierung (auditor-prüfbar)** |
+|---|---|---|---|---|
+| **Determinismus-Gate** | CDP5 §32.9 | keine LLM/nicht-deterministische Logik in der Engine | Float-Drift, Mikrosekunden-Abhängigkeit, externe ML-Lib | `node --test` über zwei Engine-Runs liefert byte-identische `crypto.createHash`-Outputs aller Edge-Tupel |
+| **Wire-Vertrag v1** | KONZEPT §6 + ADR 0003 | signierte Wire-Felder unangetastet | Mutation an `asserted_*`/`temporality`/`signature`/`vector_clock` | Diff gegen `WIRE_FIELDS_v1`-Konstante im Slice-PR; AC-Test `_edgeToWire` Output-Feldnamen exakt |
+| **Open-World absolut** | UC-V Slice #4 | Abwesenheit ≠ Widerspruch | `unknown` darf nie zu `contradicted` werden ohne expliziten Pfad | AC-Test `verify(unbekanntes-Tripel) === 'unknown'` Pflicht in jedem Slice, der `verify` berührt |
+| **Zero-Dep** | KONZEPT §3 + Memory | keine npm-Runtime-Dependency außerhalb `node:`-Built-ins | jeder neue Import, der nicht `node:*` ist | `package.json::dependencies === {}` als CI-Gate; `grep -E "^import .* from '(?!node:)" src/*.mjs` muss leer sein |
+| **Bias-Schutz Constraint #4** | Z1384 + ADR 0018 + Stefan-Memory | Lern-Aktionen brauchen Vorschlags-Modus oder strukturellen Schutz | Auto-Apply ohne Endorsement; reine Frequenz-Verstärkung | Lern-Aktionen tragen `proposed_at IS NOT NULL`-Flag in der Tabelle; Endorsement-Aktion setzt `endorsed_at` |
+| **Knowledge-in-Graph-DB** | `feedback-knowledge-into-nsai-edge` (2026-05-27) | Erkenntnisse → Graph statt Wiki/MD | dauerhafte MDs für Konzept-Konsens (Übergangs-MDs OK) | `wiki-lint` warnt bei neuen dauerhaften `.md` in `docs/`; Konzept-Doku in `KONZEPT.md` ist legitim (Konzept ≠ Erkenntnis) |
+| **GitHub-Issues-Workflow** | `feedback-github-issues-workflow` | bei GitHub-Gegenstelle: Issues + PR (Closes #N) | Branch ohne Issue/PR-Verknüpfung bei GitHub-Slices | Slice-Branch trägt Issue-Nummer im Namen oder PR-Body enthält `Closes #N` |
+| **Pushback erwünscht** | `feedback-pushback-welcome` | externe KI-Entwürfe nur Startmaterial | blinde Übernahme von NotebookLM/WebSearch ohne Filter | jede NotebookLM/WebSearch-Übernahme hat einen Eintrag in §I.5-NB1 oder dem entsprechenden ADR (✅ übernommen / ❌ abgelehnt + Begründung) |
+| **Grüne Tests ≠ sicher** | `feedback-green-tests-bypass-security` | gegnerischer Review vor Merge bei 🔴-Slices | Slice mit Sicherheits-Kanten ohne `adversarial-auditor`-Lauf | Pre-Merge: `cdp5-agents:adversarial-auditor`-Output im PR-Body verlinkt + Verdict-Zeile (safe JA/NEIN/mit-Einschränkung) |
+
+**Verfahren bei Barriere-Berührung:**
+1. **Warnen:** Konzept-Block markiert die Barriere explizit (Tabellen-Zeile + Stefan-Barriere-Feld pro Kandidat).
+2. **Bremsen:** Slice darf nicht ohne Stefan-Endorsement starten (Vorbedingung-Feld im Kandidat).
+3. **Dokumentieren:** Vorteils-Überhang ins Ledger (§I.4), Begründung in Slice-Konzept.
+4. **Adversarial-Auditor** Pflicht bei 🔴-Slices (Trifecta, Belief-Pfad, Wire-Naheliegen).
+
+### I.7 Synergie-Roadmap (priorisiert, Eval-Empfehlung modifiziert)
+
+**R-Nummer ↔ Kandidaten-Mapping** (Lesehilfe):
+
+| R-# | Kandidat | Status-Übergang nach Slice |
+|---|---|---|
+| R11 | §I-Konzept (das hier) | Stefan-Endorsement → R12 startfähig |
+| R12 | I.3-E5 MCP-Governance | `evaluated_pending` → `on_roadmap` |
+| R13 | I.3-B1 PMI/SOC-PMI | `evaluated_pending` → `on_roadmap` |
+| R14 | I.3-D3 Active Learning | `evaluated_pending` → `on_roadmap` |
+| R15 | I.3-A2 Abduktion | `evaluated_pending` → `on_roadmap` |
+| R16 | I.3-D1 Conformal | `evaluated_pending` → `on_roadmap` (gated) |
+| R17 | I.3-C1 EigenTrust | `evaluated_pending` → `on_roadmap` (gated) |
+| R18 | I.3-E1 Meta-Kognition | `evaluated_pending` → `on_roadmap` |
+| R19 | I.3-E2 RFC-8785-Anker | `evaluated_pending` → `on_roadmap` |
+
+**Reihenfolge-Begründungen** (nicht implizit, Reviewer L7):
+
+- **R12 vor R13:** Sicherheit (E5) deckt alle nachfolgenden Slices ab. Selbstbeobachtung (R18 E1) eines unsicheren Systems liefert verlässliche Beobachtung eines unsicheren Systems — daher E5 **vor** E1.
+- **R13 vor R16:** Retrieval-Aliasing-Lücke (B1) ist als UX sichtbarer als Verifikations-Kalibrierung (D1).
+- **R14 vor R15:** Active Learning (D3) braucht nur bestehende Status (siehe AC-D3.5 pre-D1 Proxy); A2 (Abduktion) braucht eine Output-Wrapper-Entscheidung (§I.8 Frage 4).
+- **R15 vor R16:** A2 nutzt den `unknown`-Pfad, D1 kalibriert den `unknown`-Set — A2-Output muss existieren, bevor D1 ihn kalibrieren kann.
+- **R17 nur wenn §I.8 Frage 2 antwortet „≥10 Peers":** sonst wird R17 in die zweite Welle verschoben.
+- **R18 NACH D1+D3:** E1 ist Aggregat-Lese-Schicht über deren Outputs.
+- **R19 parallel:** E2 RFC-8785-Anker ist Test-Härtung, hat keine Reihenfolgen-Abhängigkeit; jederzeit zwischen R12–R18 einschiebbar.
+
+> **R20+ Vergabe-Regel:** R-Nummern werden in der **ersten Welle (R12–R19)** vergeben; **A1**, **D2** und **E4** sind die ersten Kandidaten der zweiten Welle, ihre R-Position wird nach §I.8-Frage-6-Endorsement (D2/E4) bzw. Re-Eval-Trigger (A1) vergeben.
+
+**Zweite Welle (Konzept-Sub-Slices, nach Daten):**
+- D2 (`deferred`) + E4 (`evaluated_pending`) — zwei Decay-Achsen, Code-Start blockiert bis §I.8 Frage 6 beantwortet ist. **E4 bleibt `evaluated_pending` ohne R-Nummer**, weil R-Position erst post-D2-Entscheidung vergeben werden kann.
+- A1 (`deferred`) — Argumentations-Erklärung, Code-Start blockiert bis Re-Eval-Trigger (User-Anfrage nach Attack-Set-Visualisierung).
+
+**Zurückgestellt:** E3 Embeddings (nach B1-Bewertung) · C2 Subjective Logic (Belief-Repräsentation; aktuell kein Überhang) · B2 Auto-Schema (Bias-Risiko).
+
+### I.8 Empirie-Vorbedingungen (Stefan-Inputs)
+
+Konzept-First; Code nur nach quantitativer Vorbedingungsklärung. Default-Pfade angegeben.
+
+1. **D1/E1-Empirie — `user_rejected_at`-Volumen:** Größenordnung deiner reject-Aktionen. Bei `<30` blockiert D1 (Coverage-Garantie statistisch leer); bei `30–100` D1 mit `calibrated:false`-Fallback; bei `>100` D1 voll. **Default ohne Antwort:** D1 nicht starten.
+2. **C1-Empirie — Peer-Föderations-Größe:** ≤3 / 4–10 / 10+. Bei ≤3 C1 deferred (UC-Wert fraglich). **Default:** deferred.
+3. **B1-Empirie — Aliasing-Lücke:** konkrete Stefan-Beispiele (Suchterme, die hätten matchen sollen, nicht matchten) ODER „nie aufgefallen". **Default:** B1 deferred bis ein konkretes Beispiel existiert.
+4. **A2 UX-Format:** zusätzliches `verify()`-Output-Feld `unknown_because: [{hypothesis_triples, via_rule}]` (Wrapper-Pattern) — ja/nein/erst Konzept-Schliff. **Default:** Wrapper-Pattern (`evaluated_pending` mit AC-A2.1-Skizze).
+5. **E5 Policy-Heimat:** (a) File im Repo (versionierbar, git-blame-fähig) · (b) Im Graph selbst (Henne-Ei: Graph-Zugriff via MCP, dessen Policy im Graph steht) · (c) Beides (Bootstrap im File, Erweiterungen im Graph). **Default ohne Antwort:** **(a) — File im Repo.** Begründung: Policy ist **kein epistemisches Wissen**, sondern Konfigurations-Code → File-Heimat konsistent mit Wire-Vertrag-Konstanten (`conformance.mjs`). `feedback-knowledge-into-nsai-edge` greift nicht für Konfiguration. (c) ist die teuerste Variante mit zwei Persistenz-Schichten + Migrations-Pfad → Pushback gegen Komplexität. **Re-Eval-Trigger zu (c):** Policy-Pflege > 10 Einträge/Monat.
+6. **D2/E4 effective_temporality:** lokale Override-Linse — ja/nein. **Default:** nein (Komplexität nicht gerechtfertigt ohne klaren UC).
+7. **Eval-Konsens:** §I-Block gilt als „evaluiert + auf Roadmap" (kein Code ohne Slice-Konzept), nicht als „akzeptiert für Implementation". Jeder Kandidat wechselt via Slice-Konzept + Stefan-Endorsement von `evaluated_pending` zu `on_roadmap`. **Default:** wie oben — kein Code-Start ohne Slice-Konzept.
+
+### I.9 Konzept-Konformitäts-Check (CDP5 §32.1)
+
+| Pflicht | Erfüllung |
+|---|---|
+| Use-Case-Bezug | jeder Kandidat referenziert konkreten UC + bestehende Stelle; **neue UCs** (UC-MK für E1, UC-Sicherheits-Härtung für E5) werden mit ihrem Slice-Konzept formell als UC angelegt — Status `evaluated_pending` macht den UC-Konstrukt-Status legal |
+| AC-Tabelle / Skizze | **A2, B1, C1, D1, D3, E1, E2, E5** mit AC-Skizzen; A1 bewusst ohne (Status `deferred`, AC nachgezogen wenn Re-Eval-Trigger eintritt); B2/C2/D2/E3/E4 ohne AC (Status `deferred`/`rejected`) |
+| Quellen-Provenienz | jede Idee mit arXiv/RFC/Whitepaper-Link + Anker auf `docs/evaluation-erweiterungen-2026-05.md` als Eval-Dossier |
+| Stefan-Barriere | jeder Kandidat referenziert relevante Barrieren aus §I.6 explizit |
+| Anti-Pattern | §I.5 mit NotebookLM-Tilgung (§I.5-NB1) |
+| Ledger | §I.4 Abweichungs-Tabelle mit Vorteils-Überhang + **Re-Eval-Trigger** pro Negativ-Entscheidung |
+| Vorbedingungen | §I.8 — Empirie vor Code, mit Default-Pfaden bei Stefan-Nicht-Antwort |
+| Determinismus-Gate | alle Kandidaten außer E3 sind deterministisch verifizierbar; E3 nur eingehegt (außerhalb Kern, Cache, Kandidaten-only) |
+| Wire-Vertrag | alle Kandidaten lokale Linsen oder Test-Härtung; C2 abgelehnt wegen Bruch |
+| Adversarial-Reserve | 🔴-Auditor-pflichtig: E5 (Sicherheits-Pfad), C1 (Sybil-Risiko), D1 (Bias-Risiko); 🟡-Auditor-empfohlen: A2 (Output-Surface-Erweiterung mit Trifecta-Schnittfläche, Hypothesen könnten als Assertionen fehlinterpretiert werden) |
+| Re-Eval-Lebendigkeit | jede Negativ-Entscheidung (B2/C2/E3/D2-E4) hat einen Re-Eval-Trigger im Ledger §I.4 — Ablehnungen veralten nicht still |
