@@ -566,7 +566,6 @@ export class Engine {
   decayPass({ dryRun = false } = {}) {
     const edges = this.db.prepare("SELECT * FROM knowledge_edges WHERE local_status='active'").all();
     const plan = []; // { hash, newConf, supersede }
-    let decayed = 0, superseded = 0;
     // UC-AD Slice #6.3: Recall-Bonus innerhalb recallProtectionDays.
     const recallProtMs = (this.spec.recallProtectionDays ?? 30) * 86400000;
     const recallDivisor = Math.max(1, Math.trunc(this.spec.recallDecayDivisor ?? 2));
@@ -587,19 +586,46 @@ export class Engine {
       }
       const newConf = Math.max(0, e.confidence - reduction);
       const supersede = newConf < this.spec.deleteThreshold;
-      if (supersede) superseded++; else decayed++;
       plan.push({ hash: e.triple_hash, newConf, supersede });
     }
-    if (dryRun) return { decayed, superseded, retracted: 0, dryRun };
-    // 🔴-2: Decay-/Supersede-Writes UND Retraktions-Propagation in EINER Transaktion (fail-closed,
-    // kein Zwischenzustand „Prämisse weg, Schlussfolgerung noch aktiv").
+    // dryRun: Counter aus dem Plan ableiten (kein State-Wechsel — kein TMS-Cascade-Sub-Count).
+    if (dryRun) {
+      let pDecayed = 0, pSuperseded = 0;
+      for (const p of plan) if (p.supersede) pSuperseded++; else pDecayed++;
+      return { decayed: pDecayed, superseded: pSuperseded, retracted: 0, dryRun };
+    }
+    // 🔴-2 + R6 Audit-Trail-Race: Decay-Writes UND Retraktions-Propagation in EINER Transaktion
+    // (fail-closed, kein Zwischenzustand „Prämisse weg, Schlussfolgerung noch aktiv").
+    //
+    // R6: Phase B (propagateRetraction) läuft VOR Phase A (Decay-UPDATEs) — sonst überschreibt
+    // ein gleichzeitiger eigener Decay einer Konklusion ihren TMS-Retraction-Status, weil der
+    // BFS in _propagateRetraction nur `local_status='active'` sieht und die in Phase A schon
+    // auf 'superseded' gesetzte Konklusion überspringt. Folgewirkung: GC würde fälschlich die
+    // K als 'superseded' physisch löschen (§8.4), obwohl sie als TMS-Tombstone erhalten bleiben
+    // müsste. Reihenfolge:
+    //   1. _propagateRetraction für jeden plan-supersede-Hash (K bekommt 'retracted' falls
+    //      Prämisse weg).
+    //   2. Decay-UPDATEs mit `AND local_status='active'` — bereits-retraktierte Edges aus
+    //      Phase 1 werden nicht zurück auf 'superseded' gezogen.
+    // Audit-Trail-Wahrheit: K wurde wegen Prämisse weg retracted, nicht wegen eigenem Decay
+    // supersededt.
+    // R6 Adversarial 🟡-1 (Counter-Drift): `decayed`/`superseded` werden aus den effektiven
+    // `info.changes` von Phase A abgeleitet, NICHT aus dem Plan-Aufbau. Eine in Phase B durch
+    // TMS-Cascade auf `retracted` gesetzte Konklusion zählt sonst doppelt (einmal im Plan-
+    // `superseded`-Counter, einmal im `retracted`-Counter) und Reporting würde lügen.
+    let decayed = 0, superseded = 0;
     const retracted = this._tx(() => {
       let r = 0;
-      for (const p of plan) {
-        if (p.supersede) this.db.prepare("UPDATE knowledge_edges SET confidence=?, local_status='superseded', updated_at=datetime('now') WHERE triple_hash=?").run(p.newConf, p.hash);
-        else this.db.prepare("UPDATE knowledge_edges SET confidence=?, updated_at=datetime('now') WHERE triple_hash=?").run(p.newConf, p.hash);
-      }
       for (const p of plan) if (p.supersede) r += this._propagateRetraction(p.hash);
+      for (const p of plan) {
+        const sql = p.supersede
+          ? "UPDATE knowledge_edges SET confidence=?, local_status='superseded', updated_at=datetime('now') WHERE triple_hash=? AND local_status='active'"
+          : "UPDATE knowledge_edges SET confidence=?, updated_at=datetime('now') WHERE triple_hash=? AND local_status='active'";
+        const info = this.db.prepare(sql).run(p.newConf, p.hash);
+        if (info.changes > 0) {
+          if (p.supersede) superseded++; else decayed++;
+        }
+      }
       return r;
     });
     return { decayed, superseded, retracted, dryRun };

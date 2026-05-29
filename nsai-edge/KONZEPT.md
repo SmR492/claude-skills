@@ -766,6 +766,12 @@ Deferred-Verfeinerungen: Slice #1b (OUT→IN-Reaktivierung + Multi-Justification
 
 **Trigger:** am Ende von `decayPass` (Edge → `superseded`), `reject`, `quarantine`, sowie im `mergeIncoming`/supersede-Pfad: `_propagateRetraction(hash)` für den geänderten Hash.
 
+**R6 — TMS-Cascade dominiert eigenen Decay-Supersede (decayPass-Phasen-Reihenfolge):** fallen in **einem** `decayPass`-Lauf eine Prämisse P **und** eine darauf gegründete Konklusion K beide unter `deleteThreshold`, müssen die Phasen so geordnet sein, dass K's TMS-Retraction-Status nicht von ihrem eigenen Decay-Supersede überschrieben wird (sonst Audit-Trail-Verlust + GC würde K als `superseded` fälschlich physisch entfernen, §8.4 — K müsste als `retracted`-Tombstone erhalten bleiben). Reihenfolge in der TX:
+1. **Phase B zuerst** — `_propagateRetraction(p.hash)` für jeden plan-Supersede-Hash (K bekommt `retracted`, falls Prämisse weg).
+2. **Phase A danach** — Decay-/Supersede-UPDATEs mit `AND local_status='active'`, sodass eine in Phase B bereits retraktierte K nicht zurück auf `superseded` gezogen wird.
+
+Priorität: `retracted` (TMS-Cascade) gewinnt gegen `superseded` (eigener Decay) — der wahrere Inaktivierungs-Grund bleibt sichtbar.
+
 **Erklärbarkeit:** `query(explain=true)` liefert die `derived_from`-Kette eines IN-Fakts als Proof-Tree (BackwardChaining-Parität) — vorhandenes `explain`, hier nur verankert.
 
 | AC | Kriterium | Test-Typ | Status |
@@ -778,6 +784,8 @@ Deferred-Verfeinerungen: Slice #1b (OUT→IN-Reaktivierung + Multi-Justification
 | AC-9.6 | Minimalität (A2): ein selbst-behaupteter Edge (kein `derived_from`) wird durch Propagation NIE retracted. | unit | offen |
 | AC-9.7 | Determinismus: Endstatus aller Edges ist unabhängig von der Trigger-/BFS-Reihenfolge. | unit | offen |
 | AC-9.8 | Föderations-Parität: signierte Origin-Aussage/`asserted_confidence`/Wire-Vertrag unberührt; `retracted` wird NICHT exportiert (nur `active`). | unit | offen |
+| AC-9.9 (R6) | Fallen P (Prämisse) und K (Konklusion) im **selben** `decayPass` beide unter `deleteThreshold`, ist K nach dem Lauf `retracted` (TMS-Cascade), nicht `superseded` (eigener Decay) — Audit-Trail-Wahrheit + GC-Integrität. | unit | erledigt (R6) |
+| AC-9.10 (R6 Adversarial 🟡-1) | `decayPass`-Counter sind drift-frei: eine via TMS-Cascade auf `retracted` überschriebene Konklusion wird NICHT zusätzlich im `superseded`/`decayed`-Counter mitgezählt (Reporting-Wahrheit). Counter werden aus `info.changes` der Phase-A-UPDATEs abgeleitet, nicht aus dem Plan-Aufbau. | unit | erledigt (R6) |
 
 **Fehlerfälle (UC-TMS):** zyklus-bildende `derived_from` → von `infer()` abgewiesen (AC-9.3), Propagation terminiert per `visited`-Set; fehlende Prämisse (Hash nicht (mehr) vorhanden, z.B. GC) → wie nicht-IN behandelt (undercutting, `retracted`); Propagation während Föderations-Merge → dieselbe Transaktion, sonst Rollback.
 
