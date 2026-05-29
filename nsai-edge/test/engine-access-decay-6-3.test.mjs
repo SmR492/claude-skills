@@ -175,6 +175,29 @@ test('AC-21.15 (Adversarial 🟡-3): markRecalled mit > 200 Hashes → INVALID_P
   assert.throws(() => e.markRecalled(hashes), /INVALID_PARAMETER_FORMAT/);
 });
 
+test('R5 (Audit-🟡-6): `recalled` zählt DISTINKTE Tripel, nicht UPDATE-Operationen', () => {
+  const e = new Engine();
+  const a = e.storeTriple({ subject: 'Distinct-A', predicate: 'ist', object: 'wahr', confidence: 700 });
+  const b = e.storeTriple({ subject: 'Distinct-B', predicate: 'ist', object: 'wahr', confidence: 700 });
+  // 5x derselbe Hash + 1x anderer Hash → erwartet recalled=2 (nicht 6)
+  const out = e.markRecalled([a.triple_hash, a.triple_hash, a.triple_hash, a.triple_hash, a.triple_hash, b.triple_hash]);
+  assert.equal(out.recalled, 2, 'duplikate Hashes dürfen den Counter nicht aufblähen');
+});
+
+test('R5: 200x derselbe Hash → recalled=1', () => {
+  const e = new Engine();
+  const r = e.storeTriple({ subject: 'OneHash-S', predicate: 'ist', object: 'wahr', confidence: 700 });
+  const out = e.markRecalled(Array(200).fill(r.triple_hash));
+  assert.equal(out.recalled, 1);
+});
+
+test('R5: gemischt mit unbekanntem Hash — distinct + nur die existierenden', () => {
+  const e = new Engine();
+  const r = e.storeTriple({ subject: 'Mix-S', predicate: 'ist', object: 'wahr', confidence: 700 });
+  const out = e.markRecalled([r.triple_hash, r.triple_hash, 'sha256:nicht-da', '']);
+  assert.equal(out.recalled, 1);
+});
+
 test('markRecalled idempotent — zweiter Aufruf aktualisiert Timestamp', () => {
   const e = new Engine();
   const r = e.storeTriple({ subject: 'Idem-S', predicate: 'ist', object: 'wahr', confidence: 800 });
