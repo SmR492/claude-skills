@@ -317,6 +317,9 @@ export class Engine {
   // Belief-Verteilung über die DISTINKTEN Objekte auf. Softmax über max-Score je Objekt
   // → anzahl-unabhängig. Gibt nach Belief absteigend sortierte Kandidaten + Gewinner.
   resolveBelief(subject, predicate, { as_of = null } = {}) {
+    // R2 Re-Audit 🔴-2: fail-closed wie `search`/`supersedeTemporally`/`assertClaims` — silent
+    // fallback "jetzt" bei kaputtem Input ist die gefährlichste Variante (Konfabulationsquelle).
+    if (as_of != null && !this._validIso(as_of)) throw new EngineError('INVALID_PARAMETER_FORMAT', 'as_of kein ISO-Datum');
     const sNode = this.db.prepare('SELECT id FROM knowledge_nodes WHERE name = ?').get(subject);
     if (!sNode) return null;
     const vc = this._validClause(as_of); // UC-BT: as-of-Linse konjunktiv zu active
@@ -387,7 +390,10 @@ export class Engine {
   // Default-valid_from = asserted_at via COALESCE; halb-offenes Intervall [from, to).
   // UTC-Z-Normalisierung (🟡-5): lexikografischer SQLite-Vergleich ist nur korrekt, wenn alle
   // Zeitstempel UTC-Z sind. null bleibt null; ungültig → null (vom Aufrufer vorher validiert).
-  _normIso(x) { if (x == null) return null; const t = Date.parse(x); return Number.isNaN(t) ? null : new Date(t).toISOString(); }
+  // R2 Re-Audit 🔴-1/-3: Type-Guard gegen silent-Coercion. Number `42` → Date.parse(42) wäre
+  // ein valider Timestamp 1970 → silent in den Lese-Pfad. typeof-Check macht Schluss damit.
+  // Defense-in-Depth zu den expliziten _validIso-Würfen in den öffentlichen Pfaden.
+  _normIso(x) { if (x == null) return null; if (typeof x !== 'string') return null; const t = Date.parse(x); return Number.isNaN(t) ? null : new Date(t).toISOString(); }
   _validClause(asOf) {
     const t = this._normIso(asOf) ?? new Date(this._now()).toISOString(); // Default „jetzt", normalisiert
     // UC-5d: lexikografischer SQL-Vergleich nur korrekt über UTC-Z-Form (asserted_at_norm).
@@ -396,6 +402,7 @@ export class Engine {
   }
 
   query(term, { maxDepth = 1, explain = false, as_of = null } = {}) {
+    if (as_of != null && !this._validIso(as_of)) throw new EngineError('INVALID_PARAMETER_FORMAT', 'as_of kein ISO-Datum'); // R2 Re-Audit 🔴-2 fail-closed
     let depth = Number.isInteger(maxDepth) ? maxDepth : 1;
     depth = Math.max(1, Math.min(3, depth));
     const start = this.db.prepare('SELECT id FROM knowledge_nodes WHERE name = ?').get(term);
@@ -792,6 +799,9 @@ export class Engine {
   // Slice #R3/UC-VS: bei `term` läuft die Suche über `episodes_fts` MATCH+BM25 — relevantere
   // Episoden zuerst (BM25-Score ASC), Tie-Break nach `id`. Term wird via `_sanitizeFtsQuery` entschärft.
   recallEpisodes({ context_slug = null, term = null, since = null, until = null, limit = 25 } = {}) {
+    // R2 Re-Audit 🔴-3: fail-closed gegen Type-Drift. since/until=42 → 2041, alle Episoden silent.
+    if (since != null && !this._validIso(since)) throw new EngineError('INVALID_PARAMETER_FORMAT', 'since kein ISO-Datum');
+    if (until != null && !this._validIso(until)) throw new EngineError('INVALID_PARAMETER_FORMAT', 'until kein ISO-Datum');
     const cap = Math.min(Number.isInteger(limit) && limit > 0 ? limit : 25, 100);
     const where = []; const args = [];
     if (context_slug) { where.push('e.context_slug = ?'); args.push(context_slug); }
@@ -950,6 +960,7 @@ export class Engine {
 
   _verifyCore({ subject, predicate, object, as_of = null } = {}) {
     validateTriple(subject, predicate, object);
+    if (as_of != null && !this._validIso(as_of)) throw new EngineError('INVALID_PARAMETER_FORMAT', 'as_of kein ISO-Datum'); // R2 Re-Audit 🔴-2
     const base = { subject, predicate, object };
     // UC-MS Slice #M.1: Trust-Quorum-Pfad hat Vorrang vor Single-Source-Belief — ABER
     // der Konflikt-Check muss BEIDE Linsen einbeziehen (Adversarial 🔴-2): wenn das gefragte
