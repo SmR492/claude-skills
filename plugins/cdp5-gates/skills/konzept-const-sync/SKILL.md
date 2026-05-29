@@ -36,6 +36,7 @@ Die Spec muss `export const DEFAULT_SPEC = {...}` führen (dynamic import). `con
 - **Tunables** (`recallProtectionDays`, `recallDecayDivisor`, `reinforceDelta`, `demote*`, `trustAdjustMinEvidence`) werden NUR in Annotationsform `KEY(N)` geprüft — eine bare `recallProtectionDays = 0`-Zeile ist im Konzept ein **AC-Szenario** („=0 deaktiviert das Feature"), keine Default-Behauptung.
 - **trustFactor** (`authoritative`=1000) wird NICHT in Deklarationsform geprüft (kollidiert mit `quorumTrustRank.authoritative`=1500); nur die Annotationsform der Quorum-Domäne gilt.
 - **`recencyHalflifeDays`** (mit `∞`) wird nicht numerisch geprüft.
+- **Autoren-Konvention (bewusst, nicht im Gate aufgeweicht):** wer einen FALSCHEN Wert als Beispiel beschreibt (Drift-Demo, „vorher/nachher"), schreibt ihn NICHT in `name=N`-/`name: N`-Deklarationsform — sonst flaggt das Gate ihn korrekt als Drift. Stattdessen Prosa-Form ohne `=`/`:`: „`behoerde` auf 4 statt 5". Das Gate bleibt strikt (fängt echte Drift zuverlässig); die Disziplin liegt beim Text.
 - Bedeutungs-/Wortlaut-Korrektheit bleibt Judgment (`konzept-reviewer`). Befunde sind Hinweise, die der Main-Agent verifiziert (CDP5 §10.6).
 
 ## Warum dediziert (nicht in `konzept-model-api`)
