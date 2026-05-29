@@ -903,6 +903,9 @@ export class Engine {
     tol = (Number.isFinite(tol) && tol > 0) ? tol : 1e-6;
     if (!this._validIso(as_of)) throw new EngineError('INVALID_PARAMETER_FORMAT', 'as_of kein ISO-Datum'); // UC-BT (Slice #5b)
     if (typeof term !== 'string' || term.trim().length < 2) return { seeds: [], results: [], episodes: [], converged: true, truncated: false };
+    // R10 DoS-Cap: super-lange Terms erzeugen exponentielle LIKE-Kosten + leeren BM25 — fail-closed
+    // statt stiller Slow-Path. Schwelle 256 ist deutlich über sinnvollen Such-Längen (LongTail-Phrasen).
+    if (term.length > 256) throw new EngineError('INVALID_PARAMETER_FORMAT', 'term zu lang (>256 Zeichen)');
     const like = `%${term.replace(/[\\%_]/g, (m) => `\\${m}`)}%`;
     const seeds = this.db.prepare("SELECT id, name FROM knowledge_nodes WHERE name LIKE ? ESCAPE '\\' ORDER BY name").all(like);
     if (!seeds.length) return { seeds: [], results: [], episodes: this.recallEpisodes({ term, until: as_of }).episodes, converged: true, truncated: false };

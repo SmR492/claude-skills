@@ -70,6 +70,8 @@ CREATE INDEX IF NOT EXISTS idx_endorsements_origin ON triple_endorsements(origin
 CREATE INDEX IF NOT EXISTS idx_edges_status ON knowledge_edges(local_status);
 CREATE INDEX IF NOT EXISTS idx_edges_subject ON knowledge_edges(subject_id);
 CREATE INDEX IF NOT EXISTS idx_edges_object ON knowledge_edges(object_id);
+-- R10-Indizes (asserted_at_norm, user_rejected_at, last_recalled_at) werden NACH den Migrations
+-- angelegt (applyPostMigrationIndexes), da die Spalten erst dort sicher existieren.
 
 -- Episodische Schicht (UC-EP, NS-Mem). LOKAL/peer-privat — NICHT im Wire-Vertrag.
 CREATE TABLE IF NOT EXISTS episodes (
@@ -90,6 +92,7 @@ CREATE TABLE IF NOT EXISTS episode_triples (
 CREATE INDEX IF NOT EXISTS idx_episodes_occurred ON episodes(occurred_at);
 CREATE INDEX IF NOT EXISTS idx_episodes_context ON episodes(context_slug);
 CREATE INDEX IF NOT EXISTS idx_episode_triples_hash ON episode_triples(triple_hash);
+-- R10-Index occurred_at_norm: post-migration (s. applyPostMigrationIndexes).
 
 -- UC-VS Slice #R3: FTS5 contentless-Index für Episoden-Volltext (BM25). Tokenizer mit Umlaut-Toleranz.
 -- contentless: episodes ist die Quelle; episodes_fts speichert nur den invertierten Index.
@@ -147,6 +150,19 @@ CREATE INDEX idx_edges_subject ON knowledge_edges(subject_id);
 CREATE INDEX idx_edges_object ON knowledge_edges(object_id);
 `;
 
+// R10 Performance-Haertung: Indizes auf Spalten, die erst durch Migrations eingefuehrt wurden.
+// Idempotent via IF NOT EXISTS; muss NACH allen ALTER TABLE-Migrationen laufen, damit die
+// referenzierten Spalten sicher existieren. Schliesst die heissen Lesepfade: UC-BT as_of/since/until,
+// UC-AD Recall-Bonus in decayPass, UC-TA user_rejected_at-Lernen, UC-EP since/until-Filter.
+function applyPostMigrationIndexes(db) {
+  db.exec(
+    "CREATE INDEX IF NOT EXISTS idx_edges_asserted_norm ON knowledge_edges(asserted_at_norm);" +
+    "CREATE INDEX IF NOT EXISTS idx_edges_user_rejected_at ON knowledge_edges(user_rejected_at);" +
+    "CREATE INDEX IF NOT EXISTS idx_edges_last_recalled_at ON knowledge_edges(last_recalled_at);" +
+    "CREATE INDEX IF NOT EXISTS idx_episodes_occurred_norm ON episodes(occurred_at_norm);",
+  );
+}
+
 export function openDb(path = ':memory:') {
   const db = new DatabaseSync(path);
   db.exec(SCHEMA);
@@ -157,6 +173,7 @@ export function openDb(path = ':memory:') {
   migrateUserRejectedAt(db);
   migrateLastRecalledAt(db);
   migrateEpisodesFts(db);
+  applyPostMigrationIndexes(db);
   return db;
 }
 
