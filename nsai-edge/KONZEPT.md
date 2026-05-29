@@ -729,7 +729,7 @@ Die PHP-Gegenseite (`ai-bundle/graph-federation`) ist Stand 2026-05 NICHT auf di
 | Bereich | Node-Stand | PHP-Spiegel benötigt | Bit-exakte Vorgabe |
 |---|---|---|---|
 | **Quorum-Pfad (UC-MS / Slice #M.1) — R12 Wurzelursache K1/K2** | `QUORUM_CONSTANTS` spiegelt jetzt zusätzlich `sourceTier` + `trustTierCap`; `conformance.mjs` hat den Verhaltens-Vektor `op:'quorum'`, Default-`requiredOps` fordert ihn | identische Tier-Skala + `_quorumFor`-Arithmetik | `clusterContribution = quorumTrustRank(trust) × min(sourceTier(source_type), trustTierCap(trust))`; `weighted_support = Σ MAX-pro-Cluster`; `supported ⇔ ∃ clusterContribution ≥ AUTH_FLOOR=4500 ODER (cluster_count≥2 ∧ weighted_support ≥ Q=2000)`. Golden-Vektoren: `behoerde→5000/supported`, `fachquelle→3000/unknown` |
-| `LEARN_CONSTANTS` (UC-TA / Slice #6.1) | `conformance.mjs` exportiert frozen | identische Konstanten + `learnTrustAdjustments`-Algorithmus (Vorschlags-Modus, kein Auto-Apply) | `demoteLimitedThreshold`, `demoteUntrustedThreshold`, `trustAdjustMinEvidence`; Reject-Rate-Berechnung in **Promille**, Integer-Truncation gegen Null; Cap `SUGG_CAP=50` + `truncated`-Flag (Wire-frei) |
+| `LEARN_CONSTANTS` (UC-TA / Slice #6.1) — **lokaler Op (AC-20.12); Spiegel nur bindend, wenn die PHP-Seite ein EIGENES `learnTrustAdjustments` anbietet** | `conformance.mjs` exportiert frozen — F-1: jetzt inkl. `suggestionCap`/`suggestionEvidenceCap` (aus dem Spec, kein Magic-Literal) | identische Konstanten + `learnTrustAdjustments`-Algorithmus (Vorschlags-Modus, kein Auto-Apply) | `demoteLimitedThreshold`, `demoteUntrustedThreshold`, `trustAdjustMinEvidence`; Reject-Rate in **Promille**, Integer-Truncation gegen Null; `suggestionCap=50` (+ `truncated`-Flag) + `suggestionEvidenceCap=20`, Wire-frei |
 | `DECAY_RECALL_CONSTANTS` (UC-AD / Slice #6.3 + R5/R6) | `conformance.mjs` exportiert frozen | `decayPass` mit Recall-Bonus + R6-Phasen-Reihenfolge | `recallProtectionDays`, `recallDecayDivisor`; **strikte Ungleichung** `(now − last_recalled_at) < recallProtectionMs`; Integer-Division `reduction = trunc(reduction / divisor)`; **Phase B (propagateRetraction) VOR Phase A**; Counter-Drift-Fix (`info.changes` der Phase-A-UPDATEs); `markRecalled` zählt nur **distinkte** Hashes |
 | `markRecalled`-Wire-Parität (AC-21.8) | `last_recalled_at` NICHT in `_edgeToWire`/`exportSince` | identisches Wire-Strip-Verhalten | Lokales Feld, nicht-föderiert; kein Wire-v2-Bruch |
 | R6 / AC-9.9 (TMS-Cascade dominiert) | engine.mjs + Vektor `decay-recall-cascade` | gleiche Phasen-Reihenfolge + `WHERE local_status='active'`-Filter | siehe R6-Konvention oben (AC-9.9, AC-9.10) |
@@ -799,14 +799,14 @@ Priorität: `retracted` (TMS-Cascade) gewinnt gegen `superseded` (eigener Decay)
 
 | AC | Kriterium | Test-Typ | Status |
 |---|---|---|---|
-| AC-9.1 | Inferierter Fakt mit Prämissen p1,p2: wird p1 `superseded` → Fakt wird `retracted` (OUT), in einer Transaktion. | unit | offen (Slice #1) |
-| AC-9.2 | Transitive Kette A→B→C: Retraktion der Prämisse von A propagiert bis C. | unit | offen |
-| AC-9.3 | `infer()` verbietet zyklus-bildende Justification (DAG-Invariante); Propagation terminiert per `visited`. | unit | offen |
-| AC-9.4 | Strikter Fakt (`temporality='eternal'`) wird durch Prämissen-Verlust NICHT relabelt (A5). | unit | offen |
-| AC-9.5 | Propagation schreibt nur `local_status`; Live-`confidence` und `vector_clock` bleiben unverändert (🟡-3). | unit | offen |
-| AC-9.6 | Minimalität (A2): ein selbst-behaupteter Edge (kein `derived_from`) wird durch Propagation NIE retracted. | unit | offen |
-| AC-9.7 | Determinismus: Endstatus aller Edges ist unabhängig von der Trigger-/BFS-Reihenfolge. | unit | offen |
-| AC-9.8 | Föderations-Parität: signierte Origin-Aussage/`asserted_confidence`/Wire-Vertrag unberührt; `retracted` wird NICHT exportiert (nur `active`). | unit | offen |
+| AC-9.1 | Inferierter Fakt mit Prämissen p1,p2: wird p1 `superseded` → Fakt wird `retracted` (OUT), in einer Transaktion. | unit | grün (engine-tms) |
+| AC-9.2 | Transitive Kette A→B→C: Retraktion der Prämisse von A propagiert bis C. | unit | grün (engine-tms) |
+| AC-9.3 | `infer()` verbietet zyklus-bildende Justification (DAG-Invariante); Propagation terminiert per `visited`. | unit | grün (engine-tms, 9.3a/9.3b) |
+| AC-9.4 | Strikter Fakt (`temporality='eternal'`) wird durch Prämissen-Verlust NICHT relabelt (A5). | unit | grün (engine-tms) |
+| AC-9.5 | Propagation schreibt nur `local_status`; Live-`confidence` und `vector_clock` bleiben unverändert (🟡-3). | unit | grün (engine-tms) |
+| AC-9.6 | Minimalität (A2): ein selbst-behaupteter Edge (kein `derived_from`) wird durch Propagation NIE retracted. | unit | grün (engine-tms) |
+| AC-9.7 | Determinismus: Endstatus aller Edges ist unabhängig von der Trigger-/BFS-Reihenfolge. | unit | grün (engine-tms) |
+| AC-9.8 | Föderations-Parität: signierte Origin-Aussage/`asserted_confidence`/Wire-Vertrag unberührt; `retracted` wird NICHT exportiert (nur `active`). | unit | grün (engine-tms) |
 | AC-9.9 (R6) | Fallen P (Prämisse) und K (Konklusion) im **selben** `decayPass` beide unter `deleteThreshold`, ist K nach dem Lauf `retracted` (TMS-Cascade), nicht `superseded` (eigener Decay) — Audit-Trail-Wahrheit + GC-Integrität. | unit | erledigt (R6) |
 | AC-9.10 (R6 Adversarial 🟡-1) | `decayPass`-Counter sind drift-frei: eine via TMS-Cascade auf `retracted` überschriebene Konklusion wird NICHT zusätzlich im `superseded`/`decayed`-Counter mitgezählt (Reporting-Wahrheit). Counter werden aus `info.changes` der Phase-A-UPDATEs abgeleitet, nicht aus dem Plan-Aufbau. | unit | erledigt (R6) |
 
@@ -838,18 +838,18 @@ Priorität: `retracted` (TMS-Cascade) gewinnt gegen `superseded` (eigener Decay)
 
 | AC | Kriterium | Test-Typ | Status |
 |---|---|---|---|
-| AC-10.1 | `recordEpisode` persistiert Roh-Episode + gibt `episode_id`; `occurred_at` in der Zukunft wird auf jetzt geklemmt. | unit | offen (Slice #2) |
-| AC-10.2 | `storeTriple` mit `episode_id` legt genau einen `episode_triples`-Link an (in derselben Tx wie der Tripel-Write); ohne `episode_id` keinen. | unit | offen |
-| AC-10.3 | Konsolidierung inflationiert die Konfidenz NICHT: dieselbe Aussage aus N Episoden → Konfidenz wie bei einem Re-Assert (kein Count-Boost, A4). | unit | offen |
-| AC-10.4 | Recency-Refresh: `storeTriple` mit `episode_id` aktualisiert `asserted_at` des Ziel-Tripels (messbar), ohne Konfidenz-Boost. | unit | offen |
-| AC-10.5 | `recallEpisodes` recency-geordnet (occurred_at DESC) + respektiert context/term/since; `limit` hart bei 100 gekappt + `truncated`. | unit | offen |
-| AC-10.6 | `episodesForTriple` liefert verknüpfte Episoden + Tripel-Status; status-unabhängig (auch für `retracted` Tripel). | unit | offen |
-| AC-10.7 | Status-Unabhängigkeit: `storeTriple(episode_id)` auf ein `retracted` Tripel legt den Link an, lässt `local_status='retracted'` (keine Reaktivierung, #1b). | unit | offen |
-| AC-10.8 | `episodicGc` entfernt alte Episoden + Links + verwaiste Links; semantische Tripel unangetastet. | unit | offen |
-| AC-10.9 | Verwaister Link (Ziel-Tripel per GC weg) → `episodesForTriple`/`recallEpisodes` crashen nicht, behandeln ihn definiert. | unit | offen |
-| AC-10.10 | Föderations-Parität: Episoden nicht im Wire — `exportSince` enthält keine Episoden-Daten; Links beeinflussen `vector_clock`/Signatur nicht. | unit | offen |
-| AC-10.11 | Additive Migration: bestehende DB ohne `episodes`-Tabellen → Tabellen werden angelegt, Bestandsdaten unberührt. | unit | offen |
-| AC-10.12 | Fehlerfall: leerer/>8000-Zeichen-`content` → fail-closed (kein Schreiben); nicht-existente `episode_id` → Tripel-Write bleibt committet, Link übersprungen. | unit | offen |
+| AC-10.1 | `recordEpisode` persistiert Roh-Episode + gibt `episode_id`; `occurred_at` in der Zukunft wird auf jetzt geklemmt. | unit | grün (engine-episodic) |
+| AC-10.2 | `storeTriple` mit `episode_id` legt genau einen `episode_triples`-Link an (in derselben Tx wie der Tripel-Write); ohne `episode_id` keinen. | unit | grün (engine-episodic) |
+| AC-10.3 | Konsolidierung inflationiert die Konfidenz NICHT: dieselbe Aussage aus N Episoden → Konfidenz wie bei einem Re-Assert (kein Count-Boost, A4). | unit | grün (engine-episodic) |
+| AC-10.4 | Recency-Refresh: `storeTriple` mit `episode_id` aktualisiert `asserted_at` des Ziel-Tripels (messbar), ohne Konfidenz-Boost. | unit | grün (engine-episodic) |
+| AC-10.5 | `recallEpisodes` recency-geordnet (occurred_at DESC) + respektiert context/term/since; `limit` hart bei 100 gekappt + `truncated`. | unit | grün (engine-episodic) |
+| AC-10.6 | `episodesForTriple` liefert verknüpfte Episoden + Tripel-Status; status-unabhängig (auch für `retracted` Tripel). | unit | grün (engine-episodic) |
+| AC-10.7 | Status-Unabhängigkeit: `storeTriple(episode_id)` auf ein `retracted` Tripel legt den Link an, lässt `local_status='retracted'` (keine Reaktivierung, #1b). | unit | grün (engine-episodic) |
+| AC-10.8 | `episodicGc` entfernt alte Episoden + Links + verwaiste Links; semantische Tripel unangetastet. | unit | grün (engine-episodic) |
+| AC-10.9 | Verwaister Link (Ziel-Tripel per GC weg) → `episodesForTriple`/`recallEpisodes` crashen nicht, behandeln ihn definiert. | unit | grün (engine-episodic) |
+| AC-10.10 | Föderations-Parität: Episoden nicht im Wire — `exportSince` enthält keine Episoden-Daten; Links beeinflussen `vector_clock`/Signatur nicht. | unit | grün (engine-episodic) |
+| AC-10.11 | Additive Migration: bestehende DB ohne `episodes`-Tabellen → Tabellen werden angelegt, Bestandsdaten unberührt. | unit | offen (Migration in db-migration.test.mjs; dediziertes AC-10.11 fehlt — Test-Lücke) |
+| AC-10.12 | Fehlerfall: leerer/>8000-Zeichen-`content` → fail-closed (kein Schreiben); nicht-existente `episode_id` → Tripel-Write bleibt committet, Link übersprungen. | unit | grün (engine-episodic) |
 
 **Fehlerfälle (UC-EP):** leerer/überlanger `content` → fail-closed (AC-10.12); `episode_id` auf nicht-existente Episode → Link übersprungen + geloggt, Tripel bleibt gültig (AC-10.12); verwaister Link nach Tripel-GC → definiert (AC-10.9); `recallEpisodes` mit kaputtem `since` → leeres Ergebnis/Fehlerquittung; `episodicGc` läuft nie über semantische Tripel (AC-10.8); `DATABASE_LOCKED` → Retry/fail-closed (Bestands-Verhalten).
 
@@ -888,16 +888,16 @@ Priorität: `retracted` (TMS-Cascade) gewinnt gegen `superseded` (eigener Decay)
 
 | AC | Kriterium | Test-Typ | Status |
 |---|---|---|---|
-| AC-11.1 | `search` findet ein relevantes Tripel über einen Multi-Hop-Pfad (innerhalb `max_hops`), das eine Tiefe-1-`query` nicht liefert. | unit | offen (Slice #3) |
-| AC-11.2 | Seeds rein lexikalisch (LIKE+ESCAPE, Sonderzeichen literal); kein Treffer → leeres Ergebnis (kein Crash, kein globaler Fallback). | unit | offen |
-| AC-11.3 | Konfidenz-Gewichtung: bei sonst gleicher Topologie rankt das höher-konfidente Nachbar-Tripel vor dem schwächeren. | unit | offen |
-| AC-11.4 | **Determinismus:** identische Tripel in **umgekehrter Insert-Reihenfolge** → identisches Ranking (fixe Knoten-+Kanten-Summationsordnung + stabiler Tie-Break). | unit | offen |
-| AC-11.5 | Konvergenz/Terminierung: Abbruch bei `tol` ODER `max_iter`; Dangling lecken keine Masse: `|Σr − 1| < 1e-9`. | unit | offen |
-| AC-11.6 | Nur `active`-Tripel: `retracted`/`superseded`/`quarantined` sind weder Seed noch im Subgraph/PPR. | unit | offen |
-| AC-11.7 | `limit` hart bei 50 gekappt + `truncated`-Flag. | unit | offen |
-| AC-11.8 | read-only: keine Schreibwirkung, kein Wire, kein `vector_clock`-Tick, keine Konfidenz-/Status-Änderung. | unit | offen |
-| AC-11.9 | k-Hop-Begrenzung: ein Tripel jenseits `max_hops` von jedem Seed ist NICHT im Ergebnis (Perf-/Hub-Schranke). | unit | offen |
-| AC-11.10 | erreicht PPR `max_iter` ohne Konvergenz → Ergebnis wird trotzdem geliefert mit `converged=false`. | unit | offen |
+| AC-11.1 | `search` findet ein relevantes Tripel über einen Multi-Hop-Pfad (innerhalb `max_hops`), das eine Tiefe-1-`query` nicht liefert. | unit | grün (engine-search) |
+| AC-11.2 | Seeds rein lexikalisch (LIKE+ESCAPE, Sonderzeichen literal); kein Treffer → leeres Ergebnis (kein Crash, kein globaler Fallback). | unit | grün (engine-search) |
+| AC-11.3 | Konfidenz-Gewichtung: bei sonst gleicher Topologie rankt das höher-konfidente Nachbar-Tripel vor dem schwächeren. | unit | grün (engine-search) |
+| AC-11.4 | **Determinismus:** identische Tripel in **umgekehrter Insert-Reihenfolge** → identisches Ranking (fixe Knoten-+Kanten-Summationsordnung + stabiler Tie-Break). | unit | grün (engine-search) |
+| AC-11.5 | Konvergenz/Terminierung: Abbruch bei `tol` ODER `max_iter`; Dangling lecken keine Masse: `|Σr − 1| < 1e-9`. | unit | grün (engine-search) |
+| AC-11.6 | Nur `active`-Tripel: `retracted`/`superseded`/`quarantined` sind weder Seed noch im Subgraph/PPR. | unit | grün (engine-search) |
+| AC-11.7 | `limit` hart bei 50 gekappt + `truncated`-Flag. | unit | grün (engine-search) |
+| AC-11.8 | read-only: keine Schreibwirkung, kein Wire, kein `vector_clock`-Tick, keine Konfidenz-/Status-Änderung. | unit | grün (engine-search) |
+| AC-11.9 | k-Hop-Begrenzung: ein Tripel jenseits `max_hops` von jedem Seed ist NICHT im Ergebnis (Perf-/Hub-Schranke). | unit | grün (engine-search) |
+| AC-11.10 | erreicht PPR `max_iter` ohne Konvergenz → Ergebnis wird trotzdem geliefert mit `converged=false`. | unit | grün (engine-search) |
 | AC-11.11 | **(Slice #5b)** `as_of=T` filtert nicht-zu-T-gültige Kanten aus dem Subgraphen (konjunktiv zu `active`); halb-offen `[from,to)`. | unit | erfüllt (engine-search.test.mjs: „AC-11.11 (Slice #5b)") |
 | AC-11.12 | **(Slice #5b)** ungültiges `as_of` (kein ISO-Datum) → `INVALID_PARAMETER_FORMAT` (fail-closed, keine stille „jetzt"-Antwort). | unit | erfüllt (engine-search.test.mjs: „AC-11.12 (Slice #5b)" + mcp.test.mjs: „graph__search as_of …") |
 | AC-11.13 | **(Slice #5b)** Lese-Linsen-Vertrag (per Kante, **kein** objekt-bezogener Subset): keine zu T außerhalb-gültige Kante taucht in `search` oder `query` auf — beide Linsen tragen dieselbe SQL-Klausel. Hinweis (🟡-B Adversarial): `search ⊆ query` ist NICHT der Vertrag, weil Topologie-Reichweiten (LIKE+k-Hop vs. exact+1-Hop) sich unterscheiden. | unit | erfüllt (engine-search.test.mjs: „AC-11.13 (Slice #5b): Lese-Linsen-Vertrag …") |
@@ -934,17 +934,17 @@ Priorität: `retracted` (TMS-Cascade) gewinnt gegen `superseded` (eigener Decay)
 
 | AC | Kriterium | Test-Typ | Status |
 |---|---|---|---|
-| AC-12.1 | Aktive Aussage, die Belief-Gewinner ist → `supported` (+ Belief). | unit | offen (Slice #4) |
-| AC-12.2 | `(s,p)` mit dominantem Objekt X, geprüft wird Y≠X → `contradicted` (+ `dominant=X`). | unit | offen |
-| AC-12.3 | **Open-World:** unbekanntes `(s,p)` (keine aktive Aussage) → `unknown`, **niemals** `contradicted`. | unit | offen |
-| AC-12.4 | Mehrwert-Prädikat (`hat_tag`): vorhandenes Objekt → `supported`; nicht vorhandenes → `unknown` (kein Widerspruch). | unit | offen |
-| AC-12.5 | Belief-unterlegene, aber präsente Kante (Y aktiv, aber X dominiert) → `contradicted` mit `present:true, dominant:X`. | unit | offen |
-| AC-12.6 | Nur `active` zählt: ein `retracted`/`superseded`/`quarantined` Objekt gilt nicht als Stützung; ist es das einzige → `unknown`. | unit | offen |
-| AC-12.7 | `supported` einer abgeleiteten Aussage liefert die Begründung (`derived_from`/Stützung) mit (Erklärbarkeit). | unit | offen |
-| AC-12.9 | **Open-World (allZero):** multi-candidate mit `rb.winner===null` (alle Top-Kandidaten Gewicht 0 / nur untrusted) → `unknown`, **niemals** `contradicted`. | unit | offen |
-| AC-12.10 | Belief-Gewinner mit Zweitplatziertem ≥ `contestedThreshold` → `supported` MIT `contested:true` (Verdikt bleibt supported). | unit | offen |
-| AC-12.11 | Projektion: `verify` nutzt ausschließlich `resolveBelief` (keine eigene Belief-Logik) — Verdikt folgt der trust-primären Linse ohne Divergenz. | unit | offen |
-| AC-12.8 | read-only: keine DB-/Konfidenz-/Status-/`vector_clock`-Änderung durch `verify`. | unit | offen |
+| AC-12.1 | Aktive Aussage, die Belief-Gewinner ist → `supported` (+ Belief). | unit | grün (engine-verify) |
+| AC-12.2 | `(s,p)` mit dominantem Objekt X, geprüft wird Y≠X → `contradicted` (+ `dominant=X`). | unit | grün (engine-verify) |
+| AC-12.3 | **Open-World:** unbekanntes `(s,p)` (keine aktive Aussage) → `unknown`, **niemals** `contradicted`. | unit | grün (engine-verify) |
+| AC-12.4 | Mehrwert-Prädikat (`hat_tag`): vorhandenes Objekt → `supported`; nicht vorhandenes → `unknown` (kein Widerspruch). | unit | grün (engine-verify) |
+| AC-12.5 | Belief-unterlegene, aber präsente Kante (Y aktiv, aber X dominiert) → `contradicted` mit `present:true, dominant:X`. | unit | offen (Test-Lücke; present:true-Pfad ungetestet) |
+| AC-12.6 | Nur `active` zählt: ein `retracted`/`superseded`/`quarantined` Objekt gilt nicht als Stützung; ist es das einzige → `unknown`. | unit | grün (engine-verify) |
+| AC-12.7 | `supported` einer abgeleiteten Aussage liefert die Begründung (`derived_from`/Stützung) mit (Erklärbarkeit). | unit | grün (engine-verify) |
+| AC-12.9 | **Open-World (allZero):** multi-candidate mit `rb.winner===null` (alle Top-Kandidaten Gewicht 0 / nur untrusted) → `unknown`, **niemals** `contradicted`. | unit | grün (engine-verify) |
+| AC-12.10 | Belief-Gewinner mit Zweitplatziertem ≥ `contestedThreshold` → `supported` MIT `contested:true` (Verdikt bleibt supported). | unit | grün (engine-verify) |
+| AC-12.11 | Projektion: `verify` nutzt ausschließlich `resolveBelief` (keine eigene Belief-Logik) — Verdikt folgt der trust-primären Linse ohne Divergenz. | unit | grün (engine-verify) |
+| AC-12.8 | read-only: keine DB-/Konfidenz-/Status-/`vector_clock`-Änderung durch `verify`. | unit | grün (engine-verify) |
 
 **Fehlerfälle (UC-V):** ungültiges s/p/o-Format → Fehler, kein Verdikt; **Abwesenheit von Wissen → `unknown`, nie `contradicted`** (open-world, die zentrale Gefahr); Mehrwert-Prädikat-Abwesenheit → `unknown`; `verify` ist read-only (keine Sperre).
 
@@ -976,19 +976,19 @@ Priorität: `retracted` (TMS-Cascade) gewinnt gegen `superseded` (eigener Decay)
 
 | AC | Kriterium | Test-Typ | Status |
 |---|---|---|---|
-| AC-13.1 | `valid_from` default = `asserted_at`; ohne `valid_to` gilt der Fakt „jetzt" (offen). | unit | offen (Slice #5) |
-| AC-13.2 | `as_of=T` liefert nur zu T gültige Fakten (halb-offen `[from,to)`); ein vor T beendeter Fakt fehlt, ein nach T begonnener fehlt. | unit | offen |
-| AC-13.3 | `supersedeTemporally` schließt den alten Fakt (`valid_to=as_of`) + legt neuen (`valid_from=as_of`) an; **beide bleiben `active`** (nicht gelöscht). | unit | offen |
-| AC-13.4 | as-of in der Vergangenheit liefert den ALTEN Fakt, as-of „jetzt" den NEUEN (nicht-destruktive Historie). | unit | offen |
-| AC-13.5 | `resolveBelief(s,p,{as_of:T})` wählt den Gewinner nur unter den zu T gültigen Fakten. | unit | offen |
-| AC-13.6 | `setValidity` mit `valid_to ≤ valid_from` → Fehler (leeres Intervall); ungültiges ISO → Fehler. | unit | offen |
-| AC-13.7 | Föderations-/Wire-Parität: `valid_from/valid_to` sind nicht im Wire/`signingString`; `exportSince` + Signatur unverändert; bit-identisch mit/ohne Validitäts-Daten. | unit | offen |
-| AC-13.8 | Additive Migration: Bestands-DB ohne `valid_*`-Spalten → Spalten ergänzt, Bestandsdaten + Tripel unberührt; idempotent. | unit | offen |
-| AC-13.9 | Open-World/Determinismus: fehlende Validitäts-Info = „gültig/offen" (Bestandszeile mit `valid_from=NULL` via COALESCE in jeder as_of-Abfrage sichtbar); `as_of`-Filter deterministisch + read-only. | unit | offen |
-| AC-13.10 | `as_of`-Filter ist **konjunktiv zu `active`**: ein abgelaufener-aber-`active` Fakt zählt im „jetzt"-Belief NICHT doppelt; ein `retracted`/`superseded` Fakt erscheint auch historisch nicht. | unit | offen |
-| AC-13.11 | `supersedeTemporally` auf ein Mehrwert-Prädikat → abgewiesen/nicht anwendbar (nur single-value); existierender Hash → idempotent (`valid_from` gesetzt, kein Duplikat). | unit | offen |
-| AC-13.12 | Zukunfts-`valid_from` (> jetzt) ist erlaubt; der Fakt erscheint erst ab `valid_from` in „jetzt"-Abfragen. | unit | offen |
-| AC-13.13 | Migrations-Robustheit: `valid_*` sind in `SCHEMA` **und** `EDGES_REBUILD`; ein `retracted`-Rebuild NACH gesetzter Validität erhält `valid_from/valid_to` (kein Spaltenverlust). | unit | offen |
+| AC-13.1 | `valid_from` default = `asserted_at`; ohne `valid_to` gilt der Fakt „jetzt" (offen). | unit | grün (engine-bitemporal) |
+| AC-13.2 | `as_of=T` liefert nur zu T gültige Fakten (halb-offen `[from,to)`); ein vor T beendeter Fakt fehlt, ein nach T begonnener fehlt. | unit | grün (engine-bitemporal) |
+| AC-13.3 | `supersedeTemporally` schließt den alten Fakt (`valid_to=as_of`) + legt neuen (`valid_from=as_of`) an; **beide bleiben `active`** (nicht gelöscht). | unit | grün (engine-bitemporal) |
+| AC-13.4 | as-of in der Vergangenheit liefert den ALTEN Fakt, as-of „jetzt" den NEUEN (nicht-destruktive Historie). | unit | grün (engine-bitemporal) |
+| AC-13.5 | `resolveBelief(s,p,{as_of:T})` wählt den Gewinner nur unter den zu T gültigen Fakten. | unit | grün (engine-bitemporal) |
+| AC-13.6 | `setValidity` mit `valid_to ≤ valid_from` → Fehler (leeres Intervall); ungültiges ISO → Fehler. | unit | grün (engine-bitemporal) |
+| AC-13.7 | Föderations-/Wire-Parität: `valid_from/valid_to` sind nicht im Wire/`signingString`; `exportSince` + Signatur unverändert; bit-identisch mit/ohne Validitäts-Daten. | unit | grün (engine-bitemporal) |
+| AC-13.8 | Additive Migration: Bestands-DB ohne `valid_*`-Spalten → Spalten ergänzt, Bestandsdaten + Tripel unberührt; idempotent. | unit | grün (db-migration) |
+| AC-13.9 | Open-World/Determinismus: fehlende Validitäts-Info = „gültig/offen" (Bestandszeile mit `valid_from=NULL` via COALESCE in jeder as_of-Abfrage sichtbar); `as_of`-Filter deterministisch + read-only. | unit | grün (engine-bitemporal) |
+| AC-13.10 | `as_of`-Filter ist **konjunktiv zu `active`**: ein abgelaufener-aber-`active` Fakt zählt im „jetzt"-Belief NICHT doppelt; ein `retracted`/`superseded` Fakt erscheint auch historisch nicht. | unit | grün (engine-bitemporal) |
+| AC-13.11 | `supersedeTemporally` auf ein Mehrwert-Prädikat → abgewiesen/nicht anwendbar (nur single-value); existierender Hash → idempotent (`valid_from` gesetzt, kein Duplikat). | unit | grün (engine-bitemporal) |
+| AC-13.12 | Zukunfts-`valid_from` (> jetzt) ist erlaubt; der Fakt erscheint erst ab `valid_from` in „jetzt"-Abfragen. | unit | grün (engine-bitemporal) |
+| AC-13.13 | Migrations-Robustheit: `valid_*` sind in `SCHEMA` **und** `EDGES_REBUILD`; ein `retracted`-Rebuild NACH gesetzter Validität erhält `valid_from/valid_to` (kein Spaltenverlust). | unit | grün (db-migration) |
 
 **Fehlerfälle (UC-BT):** leeres/negatives Intervall (`valid_to ≤ valid_from`) → Fehler; ungültiges ISO-Datum → Fehler; unbekannter Hash bei `setValidity` → `null` (kein Schreiben); `as_of` ohne Treffer → leeres Ergebnis (kein Crash); `supersedeTemporally` ohne offenen Vorgänger → legt nur den neuen Fakt an (kein Fehler); Mehrwert-Prädikat bei `supersedeTemporally` → nicht anwendbar; fehlende `valid_*` = offen gültig (open-world); `DATABASE_LOCKED` → Retry/fail-closed.
 
@@ -1072,22 +1072,22 @@ Priorität: `retracted` (TMS-Cascade) gewinnt gegen `superseded` (eigener Decay)
 **AC-Tabelle:**
 | AC | Kriterium | Test-Typ | Status |
 |---|---|---|---|
-| AC-15.1 | Mehrere Endorsements aus **unterschiedlichen Clustern** mit `trust=full` heben das Verdikt von `unknown` auf `supported` (Quorum erreicht). | unit | offen |
-| AC-15.2 | Mehrere Endorsements aus **gleichem Cluster** wirken NICHT doppelt (Max-Aggregation je Cluster) — kein Echo-Verstärken. | unit | offen |
-| AC-15.3 | Ein einzelnes `authoritative`-Endorsement schaltet `supported` (kein Quorum nötig). | unit | offen |
-| AC-15.4 | 100 untrusted-Endorsements bewegen das Verdikt NICHT (tier=0 → Beitrag=0); Verdikt bleibt `unknown` — Sybil neutralisiert. | unit | offen |
-| AC-15.5 | Open-World: kein Endorsement + keine konkurrierende Aussage → `unknown` (NIEMALS `vermutlich` oder probabilistische Aussage). | unit | offen |
-| AC-15.6 | Determinismus: gleiche Endorsement-Menge in beliebiger Empfangs-Reihenfolge → gleiches Verdikt + gleiche Candidate-Reihenfolge (lexikografisch sortiert). | unit | offen |
-| AC-15.7 | Konkurrierende Objekte aus verschiedenen vertrauten Clustern → `contested:true` + beide candidates sichtbar; `verify` liefert `contradicted` für nicht-dominante Objekte und `supported`+`contested` für das dominante. | unit | offen |
-| AC-15.8 | Wire-Kompatibilität: alte Peers konsumieren `_edgeToWire`-Projektion (Single-Row pro Hash) ohne Endorsement-Wissen — Signatur bleibt prüfbar, Determinismus-Gate intakt. | unit | offen |
-| AC-15.9 | Föderations-Parität: zwei Knoten mit gleicher Endorsement-Menge ergeben gleiches Quorum-Verdikt (deterministische Aggregations-Funktion). | unit | offen |
-| AC-15.10 | Idempotenz: zweimaliger `endorseTriple` desselben (triple, origin) führt zu einer (nicht zwei) Endorsement-Zeile. | unit | offen |
-| AC-15.11 | UTC-Z-Konsistenz: Endorsement-`asserted_at_norm` wird wie in UC-5d gepflegt (gleiche Migration). | unit | offen |
-| AC-15.12 | Status-Konjunktion: ein `retracted`/`quarantined` Tripel zählt **kein** Endorsement (Quorum gilt nur auf `active`-Tripeln). | unit | offen |
-| AC-15.13 | **Probabilistik-Leak-Test (🟡-2):** Verdikt-Felder von `verify`/`resolveBelief`/`graph__endorse_triple` enthalten **keine** Float-Werte, keine `%`/`vermutlich`/`believe_pct`-Ausdrücke; der Schema-Validator wirft sonst. | unit | offen |
-| AC-15.14 | **Föderations-Race-Recovery (🔴-3):** ein für unbekannten Hash rejected-Endorsement wird nach Edge-Eintreffen **idempotent** ein zweites Mal angenommen (Endorser-Re-Push) → genau eine Zeile in `triple_endorsements`. | unit | offen |
-| AC-15.15 | **Replay-Schutz revozierter Peers (🟡-5):** ein Endorsement, dessen Origin nach `asserted_at` `peer_revoke`-d wurde, wird abgelehnt; bestehende Endorsements desselben Origin werden nach Revoke aus dem `weighted_support` ausgenommen (Decay-konjunktiv zu trust). | unit | offen |
-| AC-15.16 | **Default-Cluster-Restrisiko (🔴-2 dokumentiert):** drei `trust=full`-Peers ohne explizite Cluster-Zuweisung werden als drei unabhängige Cluster gezählt — das ist das deklarierte Restrisiko von #M.1 und wird durch das Slice ausdrücklich akzeptiert, bis #M.2 dynamisches Clustering liefert. | doc | offen |
+| AC-15.1 | Mehrere Endorsements aus **unterschiedlichen Clustern** mit `trust=full` heben das Verdikt von `unknown` auf `supported` (Quorum erreicht). | unit | grün (engine-quorum-m1) |
+| AC-15.2 | Mehrere Endorsements aus **gleichem Cluster** wirken NICHT doppelt (Max-Aggregation je Cluster) — kein Echo-Verstärken. | unit | grün (engine-quorum-m1) |
+| AC-15.3 | Ein einzelnes `authoritative`-Endorsement schaltet `supported` (kein Quorum nötig). | unit | grün (engine-quorum-m1) |
+| AC-15.4 | 100 untrusted-Endorsements bewegen das Verdikt NICHT (tier=0 → Beitrag=0); Verdikt bleibt `unknown` — Sybil neutralisiert. | unit | grün (engine-quorum-m1) |
+| AC-15.5 | Open-World: kein Endorsement + keine konkurrierende Aussage → `unknown` (NIEMALS `vermutlich` oder probabilistische Aussage). | unit | grün (engine-quorum-m1) |
+| AC-15.6 | Determinismus: gleiche Endorsement-Menge in beliebiger Empfangs-Reihenfolge → gleiches Verdikt + gleiche Candidate-Reihenfolge (lexikografisch sortiert). | unit | grün (engine-quorum-m1) |
+| AC-15.7 | Konkurrierende Objekte aus verschiedenen vertrauten Clustern → `contested:true` + beide candidates sichtbar; `verify` liefert `contradicted` für nicht-dominante Objekte und `supported`+`contested` für das dominante. | unit | grün (engine-quorum-m1) |
+| AC-15.8 | Wire-Kompatibilität: alte Peers konsumieren `_edgeToWire`-Projektion (Single-Row pro Hash) ohne Endorsement-Wissen — Signatur bleibt prüfbar, Determinismus-Gate intakt. | unit | offen (Test-Lücke) |
+| AC-15.9 | Föderations-Parität: zwei Knoten mit gleicher Endorsement-Menge ergeben gleiches Quorum-Verdikt (deterministische Aggregations-Funktion). | unit | offen (Test-Lücke; deterministische Aggregation via AC-15.6 belegt, 2-Knoten-Replikation ungetestet) |
+| AC-15.10 | Idempotenz: zweimaliger `endorseTriple` desselben (triple, origin) führt zu einer (nicht zwei) Endorsement-Zeile. | unit | grün (engine-quorum-m1) |
+| AC-15.11 | UTC-Z-Konsistenz: Endorsement-`asserted_at_norm` wird wie in UC-5d gepflegt (gleiche Migration). | unit | offen (Test-Lücke) |
+| AC-15.12 | Status-Konjunktion: ein `retracted`/`quarantined` Tripel zählt **kein** Endorsement (Quorum gilt nur auf `active`-Tripeln). | unit | grün (engine-quorum-m1) |
+| AC-15.13 | **Probabilistik-Leak-Test (🟡-2):** Verdikt-Felder von `verify`/`resolveBelief`/`graph__endorse_triple` enthalten **keine** Float-Werte, keine `%`/`vermutlich`/`believe_pct`-Ausdrücke; der Schema-Validator wirft sonst. | unit | grün (engine-quorum-m1) |
+| AC-15.14 | **Föderations-Race-Recovery (🔴-3):** ein für unbekannten Hash rejected-Endorsement wird nach Edge-Eintreffen **idempotent** ein zweites Mal angenommen (Endorser-Re-Push) → genau eine Zeile in `triple_endorsements`. | unit | grün (engine-quorum-m1) |
+| AC-15.15 | **Replay-Schutz revozierter Peers (🟡-5):** ein Endorsement, dessen Origin nach `asserted_at` `peer_revoke`-d wurde, wird abgelehnt; bestehende Endorsements desselben Origin werden nach Revoke aus dem `weighted_support` ausgenommen (Decay-konjunktiv zu trust). | unit | offen (deferred #M.2: Endorsement-Revocation, lt. UC-MS-Deferred-Notiz) |
+| AC-15.16 | **Default-Cluster-Restrisiko (🔴-2 dokumentiert):** drei `trust=full`-Peers ohne explizite Cluster-Zuweisung werden als drei unabhängige Cluster gezählt — das ist das deklarierte Restrisiko von #M.1 und wird durch das Slice ausdrücklich akzeptiert, bis #M.2 dynamisches Clustering liefert. | doc | grün (engine-quorum-m1; Restrisiko dokumentiert, #M.2/MeritRank I.3-C3) |
 
 **Fehlerfälle (UC-MS):** Endorsement mit unverifizierter Signatur → rejected; Endorsement für unbekannten triple_hash → rejected (kein Auto-Materialisieren — der Edge muss separat ankommen); Endorsement von eigener Identität → akzeptiert wie Selbst-Aussage (gleiche `_signSelf`-Logik); ungültiges ISO im Endorsement → rejected; `peers.cluster_id` NULL → Fallback `cluster_id = peer_id` (konservativ).
 
@@ -1166,20 +1166,20 @@ Priorität: `retracted` (TMS-Cascade) gewinnt gegen `superseded` (eigener Decay)
 **AC-Tabelle:**
 | AC | Kriterium | Test-Typ | Status |
 |---|---|---|---|
-| AC-17.1 | Bulk-verify über N Claims liefert pro Claim das gleiche Verdikt wie ein einzelner `verify`-Aufruf (Korrektheits-Identität). | unit | offen |
-| AC-17.2 | Aggregat `all_supported` ⇔ alle Claims supported. | unit | offen |
-| AC-17.3 | Aggregat `any_contradicted` ⇔ mindestens ein contradicted (höchste Priorität). | unit | offen |
-| AC-17.3b | **(Adversarial 🔴-5)** Aggregat `any_contested` ⇔ kein contradicted, mindestens ein supported mit `contested:true`. `contested` wird NIE als `all_supported` maskiert. | unit | offen |
-| AC-17.4 | Aggregat `any_unknown` ⇔ keiner der höheren Stufen, mindestens ein unknown. | unit | offen |
-| AC-17.5 | Leere Claim-Liste → `all_supported` (vacuously) + `count: 0`. | unit | offen |
-| AC-17.6 | Mehr als 50 Claims → `INVALID_PARAMETER_FORMAT` (DoS-Schutz, deterministischer Cap). | unit | offen |
-| AC-17.7 | Determinismus: gleiche Claim-Liste in gleicher Reihenfolge → identische Verdikt-Reihenfolge. | unit | offen |
-| AC-17.8 | Output bleibt **kategorisch** — keine Float-Aggregate, keine Prozent-Zahlen, kein „vermutlich"-Feld. Insbesondere KEINE numerischen Provenienz-Felder (`belief`, `weighted_support`, `cluster_count`, `contributions`) im per-Claim-Result — diese sind Wahrscheinlichkeits-Repräsentationen (Adversarial 🔴-1/4). | unit | offen |
-| AC-17.9 | UC-BT-Verträglichkeit: pro-Claim `as_of` wird respektiert. | unit | offen |
-| AC-17.10 | MCP-Tool `graph__assert_claims` reicht die Output-Struktur 1:1 durch. | unit | offen |
-| AC-17.11 | Ungültige Claim-Struktur (fehlende s/p/o) → `INVALID_PARAMETER_FORMAT`, kein partielles Ergebnis. | unit | offen |
-| AC-17.12 | **(Adversarial 🟡-2)** Ungültiges `as_of` in einem Claim → `INVALID_PARAMETER_FORMAT` (fail-closed, KEINE stille Coercion auf jetzt). | unit | offen |
-| AC-17.13 | **(Adversarial 🟡-3)** `assertClaims` läuft in einer Read-Transaktion — alle Per-Claim-`verify` sehen einen konsistenten Snapshot, selbst wenn parallel Schreibungen einlaufen würden. | unit | offen |
+| AC-17.1 | Bulk-verify über N Claims liefert pro Claim das gleiche Verdikt wie ein einzelner `verify`-Aufruf (Korrektheits-Identität). | unit | grün (engine-self-critique-r2) |
+| AC-17.2 | Aggregat `all_supported` ⇔ alle Claims supported. | unit | grün (engine-self-critique-r2) |
+| AC-17.3 | Aggregat `any_contradicted` ⇔ mindestens ein contradicted (höchste Priorität). | unit | grün (engine-self-critique-r2) |
+| AC-17.3b | **(Adversarial 🔴-5)** Aggregat `any_contested` ⇔ kein contradicted, mindestens ein supported mit `contested:true`. `contested` wird NIE als `all_supported` maskiert. | unit | grün (engine-self-critique-r2) |
+| AC-17.4 | Aggregat `any_unknown` ⇔ keiner der höheren Stufen, mindestens ein unknown. | unit | grün (engine-self-critique-r2) |
+| AC-17.5 | Leere Claim-Liste → `all_supported` (vacuously) + `count: 0`. | unit | grün (engine-self-critique-r2) |
+| AC-17.6 | Mehr als 50 Claims → `INVALID_PARAMETER_FORMAT` (DoS-Schutz, deterministischer Cap). | unit | grün (engine-self-critique-r2) |
+| AC-17.7 | Determinismus: gleiche Claim-Liste in gleicher Reihenfolge → identische Verdikt-Reihenfolge. | unit | grün (engine-self-critique-r2) |
+| AC-17.8 | Output bleibt **kategorisch** — keine Float-Aggregate, keine Prozent-Zahlen, kein „vermutlich"-Feld. Insbesondere KEINE numerischen Provenienz-Felder (`belief`, `weighted_support`, `cluster_count`, `contributions`) im per-Claim-Result — diese sind Wahrscheinlichkeits-Repräsentationen (Adversarial 🔴-1/4). | unit | grün (engine-self-critique-r2) |
+| AC-17.9 | UC-BT-Verträglichkeit: pro-Claim `as_of` wird respektiert. | unit | grün (engine-self-critique-r2) |
+| AC-17.10 | MCP-Tool `graph__assert_claims` reicht die Output-Struktur 1:1 durch. | unit | grün (mcp) |
+| AC-17.11 | Ungültige Claim-Struktur (fehlende s/p/o) → `INVALID_PARAMETER_FORMAT`, kein partielles Ergebnis. | unit | grün (engine-self-critique-r2) |
+| AC-17.12 | **(Adversarial 🟡-2)** Ungültiges `as_of` in einem Claim → `INVALID_PARAMETER_FORMAT` (fail-closed, KEINE stille Coercion auf jetzt). | unit | grün (engine-self-critique-r2) |
+| AC-17.13 | **(Adversarial 🟡-3)** `assertClaims` läuft in einer Read-Transaktion — alle Per-Claim-`verify` sehen einen konsistenten Snapshot, selbst wenn parallel Schreibungen einlaufen würden. | unit | grün (engine-self-critique-r2) |
 
 **Fehlerfälle (UC-SC):** leere Claim-Liste → `all_supported` mit `count: 0` (vacuously true); >50 Claims → `INVALID_PARAMETER_FORMAT`; ungültige Claim-Struktur → wirft auf dem ersten ungültigen Claim, kein partielles Ergebnis.
 
@@ -1225,18 +1225,18 @@ Priorität: `retracted` (TMS-Cascade) gewinnt gegen `superseded` (eigener Decay)
 **AC-Tabelle:**
 | AC | Kriterium | Test-Typ | Status |
 |---|---|---|---|
-| AC-18.1 | `recallEpisodes(term)` mit Mehrwort-Term liefert relevantere Episoden zuerst (BM25-Score ASC). | unit | offen |
-| AC-18.2 | `_sanitizeFtsQuery` entfernt alle FTS5-Operatoren — ein Term mit `-`/`+`/`"`/`(` etc. erzeugt KEINE SQL-Exception, sondern eine sanitisierte MATCH-Query. | unit | offen |
-| AC-18.3 | Umlaut-Toleranz: Suche nach „suess" findet Episode mit „Süß" (remove_diacritics 2). | unit | offen |
-| AC-18.4 | Trigger-Sync: nach `recordEpisode` ist die Episode sofort über FTS5 auffindbar (gleiche Transaktion). | unit | offen |
-| AC-18.5 | DELETE: nach `episodicGc` ist die gelöschte Episode NICHT mehr im FTS5-Index. | unit | offen |
-| AC-18.6 | Idempotente Migration: zweiter DB-Open ohne neue Episoden ändert nichts; Erst-Build über Bestand füllt nur fehlende Einträge. | unit | offen |
-| AC-18.7 | Determinismus: gleicher Index-Stand + gleicher Term → identische Reihenfolge (BM25-Score deterministisch, Tie-Break nach `id`). | unit | offen |
-| AC-18.8 | Output-Schema unverändert: `recallEpisodes` liefert dieselben Felder wie vor #R3 (Konsumenten-Kompatibilität). | unit | offen |
-| AC-18.9 | Ohne `term`: Fallback auf occurred_at_norm-DESC-Sortierung (UC-5d-konform). | unit | offen |
-| AC-18.10 | Föderation/Wire unverändert: FTS5-Index ist rein lokal, nicht im Wire, nicht in Signatur. | unit | offen |
-| AC-18.11 | UC-BT-Verträglichkeit: `since`/`until`-Filter kombinieren sich mit FTS5-MATCH (WHERE-Bedingung konjunktiv). | unit | offen |
-| AC-18.12 | Open-World-Verträglichkeit: Term ohne Treffer → leeres Ergebnis (kein „nearby"-Konfabulations-Match). | unit | offen |
+| AC-18.1 | `recallEpisodes(term)` mit Mehrwort-Term liefert relevantere Episoden zuerst (BM25-Score ASC). | unit | grün (engine-bm25-r3) |
+| AC-18.2 | `_sanitizeFtsQuery` entfernt alle FTS5-Operatoren — ein Term mit `-`/`+`/`"`/`(` etc. erzeugt KEINE SQL-Exception, sondern eine sanitisierte MATCH-Query. | unit | grün (engine-bm25-r3) |
+| AC-18.3 | Umlaut-Toleranz: Suche nach „suess" findet Episode mit „Süß" (remove_diacritics 2). | unit | grün (engine-bm25-r3) |
+| AC-18.4 | Trigger-Sync: nach `recordEpisode` ist die Episode sofort über FTS5 auffindbar (gleiche Transaktion). | unit | grün (engine-bm25-r3) |
+| AC-18.5 | DELETE: nach `episodicGc` ist die gelöschte Episode NICHT mehr im FTS5-Index. | unit | grün (engine-bm25-r3) |
+| AC-18.6 | Idempotente Migration: zweiter DB-Open ohne neue Episoden ändert nichts; Erst-Build über Bestand füllt nur fehlende Einträge. | unit | grün (engine-bm25-r3) |
+| AC-18.7 | Determinismus: gleicher Index-Stand + gleicher Term → identische Reihenfolge (BM25-Score deterministisch, Tie-Break nach `id`). | unit | grün (engine-bm25-r3) |
+| AC-18.8 | Output-Schema unverändert: `recallEpisodes` liefert dieselben Felder wie vor #R3 (Konsumenten-Kompatibilität). | unit | grün (engine-bm25-r3) |
+| AC-18.9 | Ohne `term`: Fallback auf occurred_at_norm-DESC-Sortierung (UC-5d-konform). | unit | grün (engine-bm25-r3) |
+| AC-18.10 | Föderation/Wire unverändert: FTS5-Index ist rein lokal, nicht im Wire, nicht in Signatur. | unit | grün (engine-bm25-r3) |
+| AC-18.11 | UC-BT-Verträglichkeit: `since`/`until`-Filter kombinieren sich mit FTS5-MATCH (WHERE-Bedingung konjunktiv). | unit | grün (engine-bm25-r3) |
+| AC-18.12 | Open-World-Verträglichkeit: Term ohne Treffer → leeres Ergebnis (kein „nearby"-Konfabulations-Match). | unit | grün (engine-bm25-r3) |
 
 **Fehlerfälle (UC-VS):** leerer Term nach Sanitization → leeres Ergebnis (kein MATCH-Aufruf); FTS5-Index inkonsistent (Trigger-Bug) → DB-Open repariert via Initial-Build (idempotent); ungültiges ISO in since/until → wie bisher in recallEpisodes ignoriert/normalisiert.
 
@@ -1267,16 +1267,16 @@ Priorität: `retracted` (TMS-Cascade) gewinnt gegen `superseded` (eigener Decay)
 **AC-Tabelle:**
 | AC | Kriterium | Test-Typ | Status |
 |---|---|---|---|
-| AC-19.1 | nach `reject(hash)` liefert `verify(s,p,o)` für das rejected Tripel `verdict: 'contradicted'` + `physical_status: 'superseded'`. | unit | offen |
-| AC-19.2 | Verdikt-Stabilität: kein bestehender Verdikt-Pfad ändert sich; das Feld ist rein additiv. | unit | offen |
-| AC-19.3 | Open-World absolut: das gefragte Tripel existiert nicht physisch → `physical_status` ist NICHT im Output (Abwesenheit durch Feld-Fehlen). | unit | offen |
-| AC-19.4 | `physical_status: 'active'` bei einem konkurrierenden-aber-existierenden Tripel. | unit | offen |
-| AC-19.5 | `retracted`/`quarantined`-Stati werden korrekt durchgereicht. | unit | offen |
-| AC-19.6 | Föderation/Wire: `physical_status` taucht NIE in `_edgeToWire`/`exportSince` auf. | unit | offen |
-| AC-19.7 | UC-BT-Verträglichkeit: bei `as_of=T` reflektiert `physical_status` den Status **aktuell** (nicht zum Zeitpunkt T) — Status ist nicht bi-temporal (#R2-Lehre). | unit | offen |
-| AC-19.8 | Output bleibt **kategorisch** — keine numerischen Werte, keine Wahrscheinlichkeits-Felder im Erweiterungs-Output. | unit | offen |
-| AC-19.9 | Determinismus: gleicher Graph + gleiche Anfrage → identischer Output (Feld-Existenz + identischer String-Wert). | unit | offen |
-| AC-19.10 | `assertClaims`-Strip-Allowlist erweitert: `physical_status` darf im Self-Critique-Output erscheinen (kategorischer String, kein Probabilistik-Leak). | unit | offen |
+| AC-19.1 | nach `reject(hash)` liefert `verify(s,p,o)` für das rejected Tripel `verdict: 'contradicted'` + `physical_status: 'superseded'`. | unit | grün (engine-verify-physical-status-r4) |
+| AC-19.2 | Verdikt-Stabilität: kein bestehender Verdikt-Pfad ändert sich; das Feld ist rein additiv. | unit | grün (engine-verify-physical-status-r4) |
+| AC-19.3 | Open-World absolut: das gefragte Tripel existiert nicht physisch → `physical_status` ist NICHT im Output (Abwesenheit durch Feld-Fehlen). | unit | grün (engine-verify-physical-status-r4) |
+| AC-19.4 | `physical_status: 'active'` bei einem konkurrierenden-aber-existierenden Tripel. | unit | grün (engine-verify-physical-status-r4) |
+| AC-19.5 | `retracted`/`quarantined`-Stati werden korrekt durchgereicht. | unit | grün (engine-verify-physical-status-r4) |
+| AC-19.6 | Föderation/Wire: `physical_status` taucht NIE in `_edgeToWire`/`exportSince` auf. | unit | grün (engine-verify-physical-status-r4) |
+| AC-19.7 | UC-BT-Verträglichkeit: bei `as_of=T` reflektiert `physical_status` den Status **aktuell** (nicht zum Zeitpunkt T) — Status ist nicht bi-temporal (#R2-Lehre). | unit | grün (engine-verify-physical-status-r4) |
+| AC-19.8 | Output bleibt **kategorisch** — keine numerischen Werte, keine Wahrscheinlichkeits-Felder im Erweiterungs-Output. | unit | grün (engine-verify-physical-status-r4) |
+| AC-19.9 | Determinismus: gleicher Graph + gleiche Anfrage → identischer Output (Feld-Existenz + identischer String-Wert). | unit | grün (engine-verify-physical-status-r4) |
+| AC-19.10 | `assertClaims`-Strip-Allowlist erweitert: `physical_status` darf im Self-Critique-Output erscheinen (kategorischer String, kein Probabilistik-Leak). | unit | grün (engine-verify-physical-status-r4) |
 
 **Klarstellung `present` vs. `physical_status` (Adversarial 🟡-2):** Beide Felder beschreiben **unterschiedliche Lese-Linsen** und können gleichzeitig im Output erscheinen. `present` antwortet auf „Ist das gefragte Objekt ein Kandidat im resolveBelief-Pfad?" (Belief-Linse). `physical_status` antwortet auf „Existiert das Tripel als Edge im Graphen, und wie ist sein lokaler Status?" (Edge-Linse). Beispiel nach `reject`: `verdict:'contradicted'`, `present:false` (kein active-Kandidat im rb), `physical_status:'superseded'` (Edge existiert weiter, aber nicht aktiv) — alles konsistent, jeweils eine andere Frage.
 
@@ -1324,22 +1324,22 @@ Priorität: `retracted` (TMS-Cascade) gewinnt gegen `superseded` (eigener Decay)
 **AC-Tabelle:**
 | AC | Kriterium | Test-Typ | Status |
 |---|---|---|---|
-| AC-20.1 | Peer mit reject-Rate ≥ 800‰ wird zu `untrusted` vorgeschlagen. | unit | offen |
-| AC-20.2 | Peer mit reject-Rate ≥ 500‰ und < 800‰ wird zu `limited` vorgeschlagen. | unit | offen |
-| AC-20.3 | Peer mit reject-Rate < 500‰ erhält keinen Vorschlag. | unit | offen |
-| AC-20.4 | Peer mit `total < min_evidence` erhält keinen Vorschlag (Sybil-Schutz). | unit | offen |
-| AC-20.5 | `authoritative`-Peer erhält keinen Vorschlag (Autoritäts-Setzung ist explizit). | unit | offen |
-| AC-20.6 | Self-Peer wird übersprungen. | unit | offen |
-| AC-20.7 | KEIN Auto-Apply: nach `learnTrustAdjustments` ist kein `peers.trust_level` verändert. | unit | offen |
-| AC-20.8 | Audit-Belege: je Vorschlag bis 20 jüngste rejected `triple_hash`-Werte, deterministisch sortiert. | unit | offen |
-| AC-20.9 | Determinismus: gleicher Graph → identische Vorschlags-Liste in identischer Reihenfolge. | unit | offen |
-| AC-20.10 | Integer-Promille im Output: `reject_rate_promille` ist Integer 0–1000, keine Floats. | unit | offen |
-| AC-20.11 | `since`-Filter: nur Aussagen mit `updated_at >= since` werden gezählt (`updated_at_norm` falls vorhanden, UC-5d-konform). | unit | offen |
-| AC-20.12 | Wire/PHP-Parität: `learn_trust_adjustments` ist eine lokale Lese-Op, kein Wire-Inhalt; PHP-Bundle muss nicht spiegeln. | unit | offen |
-| AC-20.13 | **(Adversarial 🔴-1)** System-Quarantänen (low-conf inference, default-quarantine bei untrusted-Clone, peerRevoke) zählen NICHT als reject — der Vorschlag entsteht nur bei `user_rejected_at IS NOT NULL`. | unit | offen |
-| AC-20.14 | **(Adversarial 🔴-2)** Decay-Supersede zählt NICHT als reject (kein `user_rejected_at`). Ein Peer, dessen Aussagen veralten, wird NICHT herabgestuft vorgeschlagen. | unit | offen |
-| AC-20.15 | **(Adversarial 🟡-4)** Peer, der in `knowledge_edges` als origin auftaucht aber NICHT in `peers` registriert ist, erhält `current_level: 'unknown'` (nicht stillschweigend `untrusted`). | unit | offen |
-| AC-20.16 | **(Re-Audit 🟡-B)** `promote(hash)` löscht `user_rejected_at` — nach Un-Reject zählt das Tripel nicht mehr im Trust-Lerner; der Peer wird aus der Vorschlags-Liste herausgenommen (wenn dadurch die Schwelle unterschritten ist). | unit | offen |
+| AC-20.1 | Peer mit reject-Rate ≥ 800‰ wird zu `untrusted` vorgeschlagen. | unit | grün (engine-trust-adjust-6-1) |
+| AC-20.2 | Peer mit reject-Rate ≥ 500‰ und < 800‰ wird zu `limited` vorgeschlagen. | unit | grün (engine-trust-adjust-6-1) |
+| AC-20.3 | Peer mit reject-Rate < 500‰ erhält keinen Vorschlag. | unit | grün (engine-trust-adjust-6-1) |
+| AC-20.4 | Peer mit `total < min_evidence` erhält keinen Vorschlag (Sybil-Schutz). | unit | grün (engine-trust-adjust-6-1) |
+| AC-20.5 | `authoritative`-Peer erhält keinen Vorschlag (Autoritäts-Setzung ist explizit). | unit | grün (engine-trust-adjust-6-1) |
+| AC-20.6 | Self-Peer wird übersprungen. | unit | grün (engine-trust-adjust-6-1) |
+| AC-20.7 | KEIN Auto-Apply: nach `learnTrustAdjustments` ist kein `peers.trust_level` verändert. | unit | grün (engine-trust-adjust-6-1) |
+| AC-20.8 | Audit-Belege: je Vorschlag bis 20 jüngste rejected `triple_hash`-Werte, deterministisch sortiert. | unit | grün (engine-trust-adjust-6-1) |
+| AC-20.9 | Determinismus: gleicher Graph → identische Vorschlags-Liste in identischer Reihenfolge. | unit | grün (engine-trust-adjust-6-1) |
+| AC-20.10 | Integer-Promille im Output: `reject_rate_promille` ist Integer 0–1000, keine Floats. | unit | grün (engine-trust-adjust-6-1) |
+| AC-20.11 | `since`-Filter: nur Aussagen mit `updated_at >= since` werden gezählt (`updated_at_norm` falls vorhanden, UC-5d-konform). | unit | grün (engine-trust-adjust-6-1) |
+| AC-20.12 | Wire/PHP-Parität: `learn_trust_adjustments` ist eine lokale Lese-Op, kein Wire-Inhalt; PHP-Bundle muss nicht spiegeln. | unit | grün (engine-trust-adjust-6-1) |
+| AC-20.13 | **(Adversarial 🔴-1)** System-Quarantänen (low-conf inference, default-quarantine bei untrusted-Clone, peerRevoke) zählen NICHT als reject — der Vorschlag entsteht nur bei `user_rejected_at IS NOT NULL`. | unit | grün (engine-trust-adjust-6-1) |
+| AC-20.14 | **(Adversarial 🔴-2)** Decay-Supersede zählt NICHT als reject (kein `user_rejected_at`). Ein Peer, dessen Aussagen veralten, wird NICHT herabgestuft vorgeschlagen. | unit | grün (engine-trust-adjust-6-1) |
+| AC-20.15 | **(Adversarial 🟡-4)** Peer, der in `knowledge_edges` als origin auftaucht aber NICHT in `peers` registriert ist, erhält `current_level: 'unknown'` (nicht stillschweigend `untrusted`). | unit | grün (engine-trust-adjust-6-1) |
+| AC-20.16 | **(Re-Audit 🟡-B)** `promote(hash)` löscht `user_rejected_at` — nach Un-Reject zählt das Tripel nicht mehr im Trust-Lerner; der Peer wird aus der Vorschlags-Liste herausgenommen (wenn dadurch die Schwelle unterschritten ist). | unit | grün (engine-trust-adjust-6-1) |
 
 **Fehlerfälle (UC-TA):** keine bekannten Origin-Peers → leeres Array (kein Fehler); ungültiges `since` (kein ISO) → `INVALID_PARAMETER_FORMAT`; `min_evidence < 1` → `INVALID_PARAMETER_FORMAT`.
 
@@ -1372,22 +1372,22 @@ Priorität: `retracted` (TMS-Cascade) gewinnt gegen `superseded` (eigener Decay)
 **AC-Tabelle:**
 | AC | Kriterium | Test-Typ | Status |
 |---|---|---|---|
-| AC-21.1 | `markRecalled([h])` setzt `last_recalled_at` auf ISO-UTC-Z (≈ now). | unit | offen |
-| AC-21.2 | Unbekannte Hashes in `markRecalled` werden ignoriert (kein Crash, kein neuer Row). | unit | offen |
-| AC-21.3 | `decayPass` reduziert kürzlich abgerufene Tripel um `decayPerPeriod / recallDecayDivisor` (Integer-Division). | unit | offen |
-| AC-21.4 | `decayPass` reduziert nicht-kürzlich-abgerufene Tripel um vollen `decayPerPeriod` (unverändert). | unit | offen |
-| AC-21.5 | Edges mit `last_recalled_at = NULL` erhalten vollen Decay. | unit | offen |
-| AC-21.6 | Edges mit `last_recalled_at` älter als `recallProtectionDays` → voller Decay. | unit | offen |
-| AC-21.7 | KEINE impliziten Side-Effects: `query`/`verify`/`resolveBelief` ändern `last_recalled_at` NICHT. | unit | offen |
-| AC-21.8 | Wire/PHP-Parität: `last_recalled_at` taucht NICHT in `_edgeToWire`/`exportSince` auf. | unit | offen |
-| AC-21.9 | Determinismus: gleicher Graph + gleiche `_now()` → identische Decay-Werte. | unit | offen |
-| AC-21.10 | `dryRun=true` in `decayPass` schreibt nichts (auch bei recall-protection-Edges). | unit | offen |
-| AC-21.11 | Migration idempotent: Spalte additiv via ALTER ADD COLUMN. | unit | offen |
-| AC-21.12 | **(Adversarial 🟡-1)** `markRecalled` schreibt NUR auf active Edges — retracted/quarantined/superseded Edges werden NICHT markiert (sonst Lüge im `recalled`-Counter, da der Bonus später nie wirkt). | unit | offen |
-| AC-21.13 | **(Adversarial 🟡-1)** `promote(hash)` setzt `last_recalled_at = NULL` zurück (Un-Recall analog Un-Reject — sonst Decay-Bonus aus der Quarantäne-/Reject-Phase). | unit | offen |
-| AC-21.14 | **(Adversarial 🟡-2)** `recallProtectionDays = 0` deaktiviert das Feature (kein Bonus für irgendein Edge, identisch zum Pre-Slice-Verhalten). | unit | offen |
-| AC-21.15 | **(Adversarial 🟡-3)** `markRecalled` mit > 200 Hashes → `INVALID_PARAMETER_FORMAT` (DoS-Schutz, deterministischer Cap). | unit | offen |
-| AC-21.16 | **(Re-Audit K3 — Divisor-Unterlauf)** Fällt `trunc(decayPerPeriod[temporality] / recallDecayDivisor)` auf 0 (z. B. `stable`=5 ‰ / Divisor 2 = 2; aber `decayPerPeriod`=1 / 2 = 0), gilt das Edge in dieser Periode als **vollständig geschützt** (`continue`, kein Decay) — das ist bewusstes, dokumentiertes Verhalten, KEIN stiller Stillstand-Bug. Determinismus-invariant über Engines. | unit | offen |
+| AC-21.1 | `markRecalled([h])` setzt `last_recalled_at` auf ISO-UTC-Z (≈ now). | unit | grün (engine-access-decay-6-3) |
+| AC-21.2 | Unbekannte Hashes in `markRecalled` werden ignoriert (kein Crash, kein neuer Row). | unit | grün (engine-access-decay-6-3) |
+| AC-21.3 | `decayPass` reduziert kürzlich abgerufene Tripel um `decayPerPeriod / recallDecayDivisor` (Integer-Division). | unit | grün (engine-access-decay-6-3) |
+| AC-21.4 | `decayPass` reduziert nicht-kürzlich-abgerufene Tripel um vollen `decayPerPeriod` (unverändert). | unit | grün (engine-access-decay-6-3) |
+| AC-21.5 | Edges mit `last_recalled_at = NULL` erhalten vollen Decay. | unit | grün (engine-access-decay-6-3) |
+| AC-21.6 | Edges mit `last_recalled_at` älter als `recallProtectionDays` → voller Decay. | unit | grün (engine-access-decay-6-3) |
+| AC-21.7 | KEINE impliziten Side-Effects: `query`/`verify`/`resolveBelief` ändern `last_recalled_at` NICHT. | unit | grün (engine-access-decay-6-3) |
+| AC-21.8 | Wire/PHP-Parität: `last_recalled_at` taucht NICHT in `_edgeToWire`/`exportSince` auf. | unit | grün (engine-access-decay-6-3) |
+| AC-21.9 | Determinismus: gleicher Graph + gleiche `_now()` → identische Decay-Werte. | unit | grün (engine-access-decay-6-3) |
+| AC-21.10 | `dryRun=true` in `decayPass` schreibt nichts (auch bei recall-protection-Edges). | unit | grün (engine-access-decay-6-3) |
+| AC-21.11 | Migration idempotent: Spalte additiv via ALTER ADD COLUMN. | unit | grün (engine-access-decay-6-3) |
+| AC-21.12 | **(Adversarial 🟡-1)** `markRecalled` schreibt NUR auf active Edges — retracted/quarantined/superseded Edges werden NICHT markiert (sonst Lüge im `recalled`-Counter, da der Bonus später nie wirkt). | unit | grün (engine-access-decay-6-3) |
+| AC-21.13 | **(Adversarial 🟡-1)** `promote(hash)` setzt `last_recalled_at = NULL` zurück (Un-Recall analog Un-Reject — sonst Decay-Bonus aus der Quarantäne-/Reject-Phase). | unit | grün (engine-access-decay-6-3) |
+| AC-21.14 | **(Adversarial 🟡-2)** `recallProtectionDays = 0` deaktiviert das Feature (kein Bonus für irgendein Edge, identisch zum Pre-Slice-Verhalten). | unit | grün (engine-access-decay-6-3) |
+| AC-21.15 | **(Adversarial 🟡-3)** `markRecalled` mit > 200 Hashes → `INVALID_PARAMETER_FORMAT` (DoS-Schutz, deterministischer Cap). | unit | grün (engine-access-decay-6-3) |
+| AC-21.16 | **(Re-Audit K3 — Divisor-Unterlauf)** Fällt `trunc(decayPerPeriod[temporality] / recallDecayDivisor)` auf 0 (z. B. `stable`=5 ‰ / Divisor 2 = 2; aber `decayPerPeriod`=1 / 2 = 0), gilt das Edge in dieser Periode als **vollständig geschützt** (`continue`, kein Decay) — das ist bewusstes, dokumentiertes Verhalten, KEIN stiller Stillstand-Bug. Determinismus-invariant über Engines. | unit | offen (Test-Lücke; Verhalten im Code + dokumentiert, expliziter Unterlauf-Test fehlt) |
 
 **Fehlerfälle (UC-AD):** `markRecalled([])` → no-op; ungültiger Hash-String → wie unbekannt (silent skip).
 

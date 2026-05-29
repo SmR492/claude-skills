@@ -286,7 +286,7 @@ export class Engine {
         FROM knowledge_edges
         WHERE origin_peer_id = ? AND user_rejected_at IS NOT NULL AND user_rejected_at >= ?
         ORDER BY user_rejected_at DESC, triple_hash
-        LIMIT 20
+        LIMIT ${Math.max(1, Math.trunc(this.spec.suggestionEvidenceCap ?? 20))}
       `).all(r.origin_peer_id, sinceNorm);
       suggestions.push({
         peer_id: r.origin_peer_id,
@@ -298,9 +298,10 @@ export class Engine {
         evidence,
       });
     }
-    // R4 (Sec-Audit F5): Vorschlags-Anzahl hart cappen (50) gegen Response-Explosion bei Sybil-Schwärmen.
-    // Suggestions sind deterministisch nach origin_peer_id sortiert — Truncation deterministisch.
-    const SUGG_CAP = 50;
+    // R4 (Sec-Audit F5) + F-1: Vorschlags-Anzahl hart cappen gegen Response-Explosion bei Sybil-
+    // Schwärmen. Cap aus dem Spec (kein Magic-Literal mehr → kein K1-artiger Drift), in
+    // LEARN_CONSTANTS gespiegelt. Suggestions deterministisch nach origin_peer_id sortiert.
+    const SUGG_CAP = Math.max(1, Math.trunc(this.spec.suggestionCap ?? 50));
     const truncated = suggestions.length > SUGG_CAP;
     return { suggestions: suggestions.slice(0, SUGG_CAP), truncated, since: sinceNorm, min_evidence: minEv };
   }

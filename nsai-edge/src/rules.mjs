@@ -51,6 +51,11 @@ export const DEFAULT_SPEC = {
   demoteUntrustedThreshold: 800,
   // Mindest-Anzahl Aussagen damit ein Peer überhaupt in die Auswertung eingeht (Sybil-Schutz).
   trustAdjustMinEvidence: 5,
+  // R4 (Sec-Audit F5) + F-1: Response-Caps gegen Explosion bei Sybil-Schwärmen — deterministisch
+  // (Suggestions nach origin_peer_id sortiert). Aus dem Spec gelesen (kein Magic-Literal in der
+  // Engine → kein Drift wie K1/SUGG_CAP). Wird in LEARN_CONSTANTS gespiegelt.
+  suggestionCap: 50,           // max. Anzahl Trust-Adjustment-Vorschläge; darüber `truncated:true`
+  suggestionEvidenceCap: 20,   // max. Evidenz-Tripel je Vorschlag
   // UC-AD Slice #6.3 — Zugriffs-basiertes Decay (Spaced-Repetition).
   // Innerhalb recallProtectionDays seit dem letzten markRecalled wird decayPerPeriod[temporality]
   // durch recallDecayDivisor geteilt (Integer-Division). Default: Halbierung über 30 Tage.

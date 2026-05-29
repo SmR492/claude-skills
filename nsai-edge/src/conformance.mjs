@@ -95,6 +95,11 @@ export const LEARN_CONSTANTS = Object.freeze({
   demoteLimitedThreshold: _DS.demoteLimitedThreshold,
   demoteUntrustedThreshold: _DS.demoteUntrustedThreshold,
   trustAdjustMinEvidence: _DS.trustAdjustMinEvidence,
+  // F-1: Response-Caps mitspiegeln (§G.2 nennt sie parität-relevant). Hinweis: `learnTrustAdjustments`
+  // ist ein LOKALER Lese-Op (AC-20.12, kein Wire-Inhalt) — dieser Spiegel ist nur dann bindend, wenn
+  // die PHP-Seite ein EIGENES learnTrustAdjustments anbietet; dann müssen die Caps bit-identisch sein.
+  suggestionCap: _DS.suggestionCap,
+  suggestionEvidenceCap: _DS.suggestionEvidenceCap,
 });
 // UC-AD Slice #6.3 + R5/R6 — Zugriffs-basiertes Decay + Lösch-Schwelle (decayPass).
 // Werte sind Integer (Tage/Promille/Divisor) — kein Float, keine Lokal-Abhängigkeit.
