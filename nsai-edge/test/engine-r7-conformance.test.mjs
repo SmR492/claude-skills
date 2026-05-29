@@ -14,6 +14,15 @@ test('AC-R7.1: LEARN_CONSTANTS spiegeln rules.mjs::DEFAULT_SPEC bit-exakt + sind
   assert.ok(Object.isFrozen(LEARN_CONSTANTS), 'LEARN_CONSTANTS muss frozen sein (PHP-Drift-Schutz)');
 });
 
+test('AC-R7.13 (F-1): LEARN_CONSTANTS spiegelt die Response-Caps (suggestionCap/-EvidenceCap) aus dem Spec', () => {
+  // F-1: §G.2 nennt den Cap parität-relevant, LEARN_CONSTANTS enthielt ihn nicht (gleiche
+  // Omissions-Klasse wie K1/sourceTier). Jetzt aus dem Spec gespiegelt statt Magic-Literal in engine.mjs.
+  assert.equal(LEARN_CONSTANTS.suggestionCap, DEFAULT_SPEC.suggestionCap);
+  assert.equal(LEARN_CONSTANTS.suggestionEvidenceCap, DEFAULT_SPEC.suggestionEvidenceCap);
+  assert.equal(DEFAULT_SPEC.suggestionCap, 50, 'F-1-Pin: suggestionCap=50');
+  assert.equal(DEFAULT_SPEC.suggestionEvidenceCap, 20, 'F-1-Pin: suggestionEvidenceCap=20');
+});
+
 test('AC-R7.2: DECAY_RECALL_CONSTANTS spiegeln rules.mjs::DEFAULT_SPEC bit-exakt + sind eingefroren', () => {
   assert.deepEqual(DECAY_RECALL_CONSTANTS.decayPerPeriod, DEFAULT_SPEC.decayPerPeriod);
   assert.equal(DECAY_RECALL_CONSTANTS.deleteThreshold, DEFAULT_SPEC.deleteThreshold);
