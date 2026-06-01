@@ -46,6 +46,8 @@ belief(obj)      = withinWeight(obj)^beliefSharpness / Σ_top withinWeight(j)^be
 - **Float-Hinweis:** Scoring/Belief sind eine **lokale** Float-Lese-Linse — nicht föderiert, nicht conformance-relevant; die signierten/föderierten Werte bleiben Integer-exakt.
 - Vorbild: NN-Attention (Relevanz-Gewichte statt Zählen) + BEWA (Bayesian Epistemology with Weighted Authority: Autorität + temporaler Decay + revidierbare Überzeugungen).
 
+> **Was das System NICHT leistet — Wahrheits-Verifikation (Ehrlichkeits-Leitplanke, Tarski; ADR 0019):** NSAI-Edge unterscheidet **vertrauenswürdig / widersprochen / unbekannt / veraltet** — NICHT **wahr / falsch**. Es hat kein internes Wahrheits-Orakel; ein `is_true`-Feld ist verboten, `verify()` ist eine Falsifikations-/Konsistenz-Maschine, kein Wahrheits-Beweiser. Wahrheit ist intern nur *approximierbar* (Korrespondenz/Kohärenz/Konsens), nie *definierbar*. **Harte Grenze:** eine konsistente, *unwidersprochene* Lüge einer vertrauten Quelle ist orakel-frei unentdeckbar — erreichbar ist nur: *keine Lüge überlebt, der verfügbare unabhängige Evidenz widerspricht.* Trust **driftet mit adjudizierter Evidenz**, ist kein Wahrheits-Sensor; das Rating akkumuliert die Urteile des Adjudikators, erzeugt keine Wahrheit. Ab ADR 0019 ist Autorität **defeasibel** (Widerlegungs-Schwelle, kein terminales Verdikt) — siehe `docs/retro/0019-belief-defeasible-entrenchment-adr.md`.
+
 ### C. Neue/erweiterte UCs
 
 - **UC-12 `resolveBelief(subject, predicate)`** — gewichtete Belief-Verteilung über konkurrierende Objekte; Gewinner + Kandidaten mit `belief` (0–1000) + `contested`. MCP-Tool `graph__resolve_belief`.
@@ -1721,6 +1723,13 @@ Stefan-Constraints sind **Barrieren, keine Sperren** — sie warnen + bremsen, b
 - A1 (`deferred`) — Argumentations-Erklärung, Code-Start blockiert bis Re-Eval-Trigger (User-Anfrage nach Attack-Set-Visualisierung).
 
 **Zurückgestellt:** E3 Embeddings (nach B1-Bewertung) · C2 Subjective Logic (Belief-Repräsentation; aktuell kein Überhang) · B2 Auto-Schema (Bias-Risiko).
+
+### I.7-DE — Defeasible Entrenchment (ADR 0019, eigener Strang)
+Belief-Kern-Re-Fundierung „terminale Autorität → defeasible Entrenchment" (Trust = Widerlegungs-Schwelle, Impuls-Ledger über dem Provenienz-DAG). Vollständige Spezifikation + Parameter (O1–O6) + AC + Threat-Model: **`docs/retro/0019-belief-defeasible-entrenchment-adr.md`** (Reife 9,45→≥9,5). Slices:
+- **S1 Substrat** (🟡, additiv, non-breaking): Event-Store + Fold-Projektor (Direkt+Quelle+Recency+Band+Dampener), `resolveBelief` unberührt. → in Umsetzung.
+- **S2 Fold→resolveBelief** (🔴): Präzedenz tier-primär→entrenchment-gewichtet, Eltern-Attribuierung+`trust_ext`, `eternal`=Floor. **Stopp-Grenze: nicht autonom** — eigene Migrations-/Wire-Entscheidung (12k Bestands-Edges) + Stefan-Bestätigung.
+- **S3 Domäne** (🟡), **S4 Defeater/Contestation** (🔴), **S5 Modus-Achse/Fiktion** (🟡, additiv).
+- **Offene Review-Flags** (ADR §Kopf): [F-λmin], [F-Demut], [F-Local], [F-eternal], [F-contest].
 
 ### I.8 Empirie-Vorbedingungen (Stefan-Inputs)
 
