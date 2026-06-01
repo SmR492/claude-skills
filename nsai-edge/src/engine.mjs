@@ -7,7 +7,7 @@
 //   Objekte mit score = authority(source_type) × recency(asserted_at) × confidence.
 //   Anzahl der Quellen zählt nie (max je Objekt). Veraltetes/Falsches sinkt im Belief
 //   gegen 0, bleibt aber auditierbar + revidierbar (non-monoton, BEWA-Stil).
-import { randomUUID } from 'node:crypto';
+import { randomUUID, createHash } from 'node:crypto';
 import { openDb } from './db.mjs';
 import { tripleHash } from './canonical.mjs';
 import { createIdentity, signTriple, verifyTriple, fingerprint } from './identity.mjs';
@@ -681,6 +681,73 @@ export class Engine {
       if (info.changes > 0) seen.add(h);
     }
     return { recalled: seen.size };
+  }
+
+  // ---- ADR 0019 Slice S1a: Impuls-Ledger-Trust (lokale Lese-Linse) -------------------
+  // Append-only Adjudikations-Event. delta_promille ∈ [-1000,1000] (Tripel-Zerlegung-Ergebnis;
+  // N=0 → der Aufrufer darf kein NaN/Out-of-Range liefern, sonst fail-closed). KEIN Wire-Inhalt.
+  recordAdjudication({ target_id, source_id = null, adj_class, delta, dedup_hash = null, domain = null } = {}) {
+    const CLASSES = new Set(['human_endorse', 'human_reject', 'oracle_higher_tier', 'auto_corroborate']);
+    if (typeof target_id !== 'string' || target_id.length === 0) throw new EngineError('INVALID_PARAMETER_FORMAT', 'target_id fehlt');
+    if (!CLASSES.has(adj_class)) throw new EngineError('INVALID_PARAMETER_FORMAT', 'adj_class ungültig');
+    if (!Number.isInteger(delta) || delta < -1000 || delta > 1000) throw new EngineError('INVALID_PARAMETER_FORMAT', 'delta außerhalb [-1000,1000] oder kein Integer');
+    // 🔴-2: auto_corroborate MUSS einen dedup_hash tragen (Inhalts-/Herkunfts-Hash) — sonst zählen
+    // N identische Korroborationen N-fach (Anzahl-Falle, Invariante 6). Mensch/Orakel = distinkte Akte.
+    if (adj_class === 'auto_corroborate' && (typeof dedup_hash !== 'string' || dedup_hash.length === 0)) {
+      throw new EngineError('INVALID_PARAMETER_FORMAT', 'auto_corroborate erfordert dedup_hash');
+    }
+    const ts = new Date(this._now()).toISOString();
+    // event_hash KLASSEN-GETRENNT:
+    // - auto_corroborate: INHALTS-deterministisch (kein seq) → idempotenter Dedup (gewollt) + replay-/
+    //   knoten-stabiler Tie-Break (🔴-B). INSERT OR IGNORE collabiert identische Korroborationen.
+    // - human/oracle: DISTINKTER Akt — darf NIE verschluckt werden (sonst Datenverlust, 3.-Audit-🔴).
+    //   Eindeutigkeit via monotonem seq; das beeinflusst die kommutative S1a-Summe NICHT (non-auto wird
+    //   nicht dedupt), und bei Total-Ordnung fallen nur Gleich-ts-Akte auf den seq-Tiebreak (selbe Periode).
+    let event_hash, insertSql;
+    if (adj_class === 'auto_corroborate') {
+      event_hash = createHash('sha256').update(JSON.stringify(['auto', target_id, source_id, delta, dedup_hash, domain, ts])).digest('hex').slice(0, 32);
+      insertSql = `INSERT OR IGNORE INTO trust_events (event_hash, target_id, source_id, adj_class, delta_promille, dedup_hash, domain, occurred_at_norm) VALUES (?,?,?,?,?,?,?,?)`;
+    } else {
+      const seq = this.db.prepare('SELECT COUNT(*) c FROM trust_events').get().c;
+      event_hash = createHash('sha256').update(JSON.stringify([adj_class, target_id, source_id, delta, domain, ts, seq])).digest('hex').slice(0, 32);
+      insertSql = `INSERT INTO trust_events (event_hash, target_id, source_id, adj_class, delta_promille, dedup_hash, domain, occurred_at_norm) VALUES (?,?,?,?,?,?,?,?)`;
+    }
+    this.db.prepare(insertSql).run(event_hash, target_id, source_id, adj_class, delta, dedup_hash, domain, ts);
+    return { event_hash };
+  }
+
+  // Trust eines Knotens als deterministische Fold-Projektion über die Events (integer-Promille 0..1000).
+  // S1a: Direkt-Beitrag (target_id) voll + Quell-Beitrag (source_id) gedämpft (w_src); Beta-Reputation;
+  // auto_corroborate ohne externen Anker bei `trustAutoCorroborateCap` gedeckelt; Hash-Dedup korrelierter
+  // auto_corroborate. KEINE Recency/Eltern-Attribuierung (S1b/S2). Reine Lese-Op (kein Write, kein Wire).
+  trustOf(id) {
+    if (typeof id !== 'string' || id.length === 0) throw new EngineError('INVALID_PARAMETER_FORMAT', 'id fehlt');
+    const sw = Math.max(0, Math.trunc(this.spec.trustSourceWeight ?? 400));
+    let alpha = (this.spec.trustPriorAlpha ?? 3) * 1000;
+    let beta = (this.spec.trustPriorBeta ?? 7) * 1000;
+    let anchored = false;
+    const seenDedup = new Set();
+    const apply = (rows, weight, isDirect) => {
+      for (const r of rows) {
+        if (r.adj_class === 'auto_corroborate') {
+          if (seenDedup.has(r.dedup_hash)) continue; seenDedup.add(r.dedup_hash); // dedup_hash ist Pflicht (s. recordAdjudication)
+        } else if (isDirect && (r.adj_class === 'human_endorse' || r.adj_class === 'oracle_higher_tier') && r.delta_promille > 0) {
+          // 🔴-A: Uncap ist Eigenschaft des DIREKT adjudizierten Knotens (item-bezogen, O5). NUR ein
+          // positiver externer Anker DIREKT auf den Knoten hebt die auto-Kappe — ein Quell-Anker auf
+          // ein FREMDES Item hebt sie NICHT (sonst Cap-Bypass). human_reject/neg. delta senkt nur β.
+          anchored = true;
+        }
+        const m = Math.trunc(Math.abs(r.delta_promille) * weight / 1000);
+        if (r.delta_promille >= 0) alpha += m; else beta += m;
+      }
+    };
+    // 🟡-1/🔴-B: deterministische Total-Ordnung (occurred_at_norm, event_hash); event_hash ist
+    // inhalts-deterministisch → Dedup-Tie-Break knoten-/replay-stabil (Invariante 3).
+    apply(this.db.prepare('SELECT adj_class, delta_promille, dedup_hash FROM trust_events WHERE target_id=? ORDER BY occurred_at_norm, event_hash').all(id), 1000, true);
+    apply(this.db.prepare('SELECT adj_class, delta_promille, dedup_hash FROM trust_events WHERE source_id=? AND target_id<>? ORDER BY occurred_at_norm, event_hash').all(id, id), sw, false);
+    let score = Math.trunc((1000 * alpha) / (alpha + beta));
+    if (!anchored) score = Math.min(score, Math.trunc(this.spec.trustAutoCorroborateCap ?? 600));
+    return Math.max(0, Math.min(1000, score));
   }
 
   reject(hash) {
