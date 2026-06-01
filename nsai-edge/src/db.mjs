@@ -89,6 +89,24 @@ CREATE TABLE IF NOT EXISTS episode_triples (
   PRIMARY KEY (episode_id, triple_hash),
   FOREIGN KEY(episode_id) REFERENCES episodes(id) ON DELETE CASCADE
 );
+-- ADR 0019 Slice S1a: append-only Impuls-Ledger (LOKAL, Read-Lens — NICHT im Wire/Signatur).
+-- Trust ist kein gespeicherter Zustand: trustOf(id) foldet diese Events deterministisch (integer-‰).
+CREATE TABLE IF NOT EXISTS trust_events (
+  event_hash TEXT PRIMARY KEY NOT NULL,
+  target_id TEXT NOT NULL,
+  source_id TEXT,
+  adj_class TEXT NOT NULL CHECK(adj_class IN ('human_endorse','human_reject','oracle_higher_tier','auto_corroborate')),
+  delta_promille INTEGER NOT NULL CHECK(delta_promille BETWEEN -1000 AND 1000),
+  dedup_hash TEXT,
+  domain TEXT,
+  occurred_at_norm TEXT NOT NULL,
+  created_at TEXT DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_trust_events_target ON trust_events(target_id);
+CREATE INDEX IF NOT EXISTS idx_trust_events_source ON trust_events(source_id);
+-- append-only HART erzwingen (nicht nur Konvention): UPDATE/DELETE abbrechen (AC-T.6).
+CREATE TRIGGER IF NOT EXISTS trust_events_no_update BEFORE UPDATE ON trust_events BEGIN SELECT RAISE(ABORT, 'trust_events ist append-only'); END;
+CREATE TRIGGER IF NOT EXISTS trust_events_no_delete BEFORE DELETE ON trust_events BEGIN SELECT RAISE(ABORT, 'trust_events ist append-only'); END;
 CREATE INDEX IF NOT EXISTS idx_episodes_occurred ON episodes(occurred_at);
 CREATE INDEX IF NOT EXISTS idx_episodes_context ON episodes(context_slug);
 CREATE INDEX IF NOT EXISTS idx_episode_triples_hash ON episode_triples(triple_hash);

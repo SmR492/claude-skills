@@ -56,6 +56,12 @@ export const DEFAULT_SPEC = {
   // Engine → kein Drift wie K1/SUGG_CAP). Wird in LEARN_CONSTANTS gespiegelt.
   suggestionCap: 50,           // max. Anzahl Trust-Adjustment-Vorschläge; darüber `truncated:true`
   suggestionEvidenceCap: 20,   // max. Evidenz-Tripel je Vorschlag
+  // ADR 0019 Slice S1a — defeasible Entrenchment / Impuls-Ledger-Trust (lokale Lese-Linse).
+  // Beta-Reputation-Prior Beta(3,7) → Score trunc(1000·α/(α+β)) = 300‰ (skeptischer Kaltstart, k=10).
+  trustPriorAlpha: 3,
+  trustPriorBeta: 7,
+  trustSourceWeight: 400,         // w_src: gedämpfter Quell-Beitrag (Promille) ggü. Direkt-Beitrag
+  trustAutoCorroborateCap: 600,   // auto_corroborate ohne externen Anker max. dieses Band (O5)
   // UC-AD Slice #6.3 — Zugriffs-basiertes Decay (Spaced-Repetition).
   // Innerhalb recallProtectionDays seit dem letzten markRecalled wird decayPerPeriod[temporality]
   // durch recallDecayDivisor geteilt (Integer-Division). Default: Halbierung über 30 Tage.
