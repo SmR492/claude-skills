@@ -76,6 +76,11 @@ export const DEFAULT_SPEC = {
   // Massen-Bound der Anzahl-Achse (Milli, k=100): auto darf keine unbeschränkte Beta-Masse aufbauen
   // (sonst zähe Mean-Reversion = Sleeper, und Mensch-Akte ersaufen). Pegel (Ratio) bleibt unberührt.
   trustMassMax: 100000,
+  // ADR 0019 Slice S2a — entrenchment-gewichtete Präzedenz (Modell C, §4.6). Die effektive
+  // Autoritäts-Stufe in resolveBelief wird mit der Entrenchment (trustOf des Tripels) moduliert:
+  // bandShift = clamp(trunc((trustOf − prior)/Step), −K, +K); eternal floort negativen Shift auf 0.
+  trustEntrenchmentBandK: 2,      // max. Stufen-Verschiebung (±) durch Entrenchment
+  trustEntrenchmentBandStep: 200, // trustOf-Promille je verschobener Stufe
   // UC-AD Slice #6.3 — Zugriffs-basiertes Decay (Spaced-Repetition).
   // Innerhalb recallProtectionDays seit dem letzten markRecalled wird decayPerPeriod[temporality]
   // durch recallDecayDivisor geteilt (Integer-Division). Default: Halbierung über 30 Tage.
