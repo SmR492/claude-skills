@@ -160,6 +160,16 @@ export class Engine {
   _trustTierCap(trust) { return this.spec.trustTierCap[trust] ?? -1; }
   // Effektive Autoritäts-Stufe: source_type-Tier, gekappt durch Origin-Trust (Fix 🔴1).
   _effTier(edge) { return Math.min(this._sourceTier(edge.source_type), this._trustTierCap(this._originTrust(edge.origin_peer_id))); }
+  // ADR 0019 S2a (§4.6, Modell C): Entrenchment-Band-Shift = clamp(trunc((trustOf(triple)−prior)/STEP), −K, +K).
+  // Hebt/senkt die effektive Stufe proportional zur adjudizierten Entrenchment. trunc gegen Null → negativer
+  // Shift bottomt bei −1 (trustOf≥0), positiver erreicht +K → Widerlegung konservativ, Sybil-/auto-Bound (Kappe 600 → ≤+1).
+  _entrenchBandShift(edge) {
+    const K = Math.max(0, Math.trunc(this.spec.trustEntrenchmentBandK ?? 2));
+    const STEP = Math.max(1, Math.trunc(this.spec.trustEntrenchmentBandStep ?? 200));
+    const A0 = this.spec.trustPriorAlpha ?? 3, B0 = this.spec.trustPriorBeta ?? 7;
+    const prior = Math.trunc((1000 * A0) / (A0 + B0));
+    return Math.max(-K, Math.min(K, Math.trunc((this.trustOf(edge.triple_hash) - prior) / STEP)));
+  }
 
   // ---- UC-MS Slice #M.1: Trust-Quorum-Endorsement -----
   _clusterIdOf(peerId) {
@@ -346,7 +356,15 @@ export class Engine {
     const byObject = new Map();
     for (const e of edges) {
       const obj = this._nodeName(e.object_id);
-      const cand = { object: obj, trustRank: rankOf(e.origin_peer_id), tier: this._effTier(e), weight: this._withinWeight(e), source_type: e.source_type, asserted_at: e.asserted_at, confidence: e.confidence, origin_peer_id: e.origin_peer_id };
+      // S2a (§4.6): effektive Stufe entrenchment-moduliert. eternal = institutioneller Floor (AC-T.12):
+      // ein NEGATIVER Shift senkt die Stufe NICHT, sondern wird nur als `proposedDemotion` ausgewiesen
+      // (Vollzug nur mit Mensch-Endorsement). Positiver Shift gilt auch für eternal.
+      const rawShift = this._entrenchBandShift(e);
+      const floored = e.temporality === 'eternal' && rawShift < 0;
+      const baseTier = this._effTier(e);
+      const tier = Math.max(0, Math.min(6, baseTier + (floored ? 0 : rawShift)));
+      const cand = { object: obj, trustRank: rankOf(e.origin_peer_id), tier, weight: this._withinWeight(e), source_type: e.source_type, asserted_at: e.asserted_at, confidence: e.confidence, origin_peer_id: e.origin_peer_id };
+      if (floored) cand.proposedDemotion = Math.max(0, Math.min(6, baseTier + rawShift));
       const cur = byObject.get(obj);
       if (!cur || better(cand, cur)) byObject.set(obj, cand);
     }

@@ -90,6 +90,15 @@ Nur `human_*`/`oracle_higher_tier` erzeugen signifikante Verschiebungen. `auto_c
 ### 4.5 Tags = Kaltstart-Prior (statisch)
 Tag-komponierter Beta-Prior für neue Quellen; sobald eigene adjudizierte Events vorliegen, **dominiert der Fold den Prior vollständig.** Tags oszillieren nicht.
 
+### 4.6 Entrenchment-gewichtete Präzedenz (S2a, Modell C — Stefan-Entscheid 2026-06-01)
+`resolveBelief` rankte bisher hart-lexikografisch `trustRank(Peer) → tier(sourceTier) → weight`. **S2a moduliert die effektive Autoritäts-Stufe mit der Entrenchment** (`trustOf` des Tripels), statt sie hart zu fixieren — „tier-primär → entrenchment-**gewichtet**":
+- `bandShift(triple) = clamp( trunc((trustOf(triple_hash) − prior) / STEP) , −K , +K )` (Default `K=2`, `STEP=200`, `prior=300`).
+- `effTierEntrenched(e) = clamp( effTier(e) + bandShift(e) , 0 , 6 )`. Dieser Wert ersetzt `tier` im Kandidaten (Präzedenz, Tier-Gruppierung, Tiebreak, query-Output). **`trustOf` (gemergt) + `_effTier` (Quorum/Conformance) bleiben unberührt.**
+- **`trustRank(Peer)` bleibt primärer Gate** (Föderations-/Sybil-Resistenz): Entrenchment moduliert NUR die Tier-Achse, nicht den Peer-Trust. Ein auto-gepumptes Item (Kappe 600 → bandShift ≤ +1..+2) kann ein Gesetz NICHT überholen (sim-belegt).
+- **eternal = institutioneller Floor [F-eternal]:** für `temporality='eternal'` wird ein NEGATIVER `bandShift` auf 0 geklemmt — ein negativer Fold **senkt die Stufe NICHT**, sondern wird nur als **Vorschlag** (`proposedDemotion`) im Ergebnis ausgewiesen; Vollzug nur mit Mensch-Endorsement (AC-T.12). Positiver Shift gilt auch für eternal.
+- **Safe-by-default / keine Regression:** nach Wipe ist `trustOf`=Prior(300) → `bandShift=0` → exakt heutiges Tier-Verhalten. Determinismus bleibt (trustOf ist deterministisch). Konstanten `trustEntrenchmentBandK`,`trustEntrenchmentBandStep` in `rules.mjs`.
+- Simulations-Beleg (alle Modelle verglichen): C ist Sybil-sicher + eternal-haltbar; defeasibel v.a. innerhalb/zwischen benachbarten Tiers + Same-Tier-Tiebreak; große Tier-Gaps bleiben autoritäts-dominiert außer bei Extrem-Widerlegung. **S2b** (Eltern-Attribuierung `trust_ext`/`blame`, T.7–T.9) ist eine eigene, additive Folge-Slice.
+
 ## 5. Fixierte Parameter (O1–O6 — 08-Resolution 2026-06-01, bindend)
 | # | Entscheidung |
 |---|---|
@@ -132,7 +141,8 @@ Contestation kippt Top-Tier auf **`contested`** (Read-Verdikt), **nie `contradic
 |---|---|---|---|---|
 | **S1a Substrat** (✅ geliefert + 4. Audit safe-JA) | Event-Store (lokal, append-only Trigger-gehärtet) + Fold-Projektor **Direkt+Quelle+Band+Hash-Dedup** (integer-promille, total-geordnet, safe-by-default). **Klassen-getrennter event_hash:** `auto_corroborate` inhalts-deterministisch + `INSERT OR IGNORE` (idempotenter Dedup gewollt); `human/oracle` mit monotonem seq + plain `INSERT` (distinkte Akte kollabieren NIE — Audit-3-Datenverlust geschlossen). **KEINE Recency/Dampener** (→ S1b), **KEINE Eltern-Attribuierung/`trust_ext`** (→ S2). `resolveBelief` unberührt. Cap-Uncap NUR durch positiven externen Anker DIREKT auf den Knoten (item-bezogen). | T.1–T.6,T.10 | 🟢 | nein (additiv) |
 | **S1b Recency/Dampener** | `λ_eff`-Recency/Mean-Reversion + Pro-Periode-Delta-Clamp. **Perioden-Modell entschieden 2026-06-01: B (Epochen-Zähler) + Cron-Hybrid** (§4.3) — Epochen-Stempel je Event, `trustOf` wall-clock-frei/conformance-fähig. Algorithmus + Referenz-Simulation in §4.3. **[F-tiebreak]** (4.-Audit-🟡): bei gleichem `dedup_hash` + gleichem ts + divergierendem delta gewinnt heute der kleinste `event_hash` (vom §4.4-„ein Signal"-Kontrakt gedeckt, durch ≤600-Kappe folgenarm); sobald hier Stärke/Recency zählt, sollte der Tie-Break auf „stärkstes \|delta\| gewinnt" umgestellt werden. | T.11,T.13 | 🟡 | nein (additiv) |
-| **S2 Fold→resolveBelief** | Präzedenz tier-primär → entrenchment-gewichtet; Eltern-Attribuierung + `trust_ext`; `eternal`=Floor. | T.7–T.9,T.12 | 🔴 | ja |
+| **S2a Entrenchment-Präzedenz** (✅ geliefert, Audit safe-JA) | Modell C (§4.6): `resolveBelief` moduliert die effektive Tier-Stufe mit `trustOf` (bandShift ±K, K=2); `eternal`=Floor (negativer Shift→`proposedDemotion`, kein Vollzug ohne Endorsement, AC-T.12); Peer-Trust bleibt primärer Gate; safe-by-default (Prior→shift 0, kein Regress). | T.12 | 🔴 | nein (additiv, Prior-neutral) |
+| **S2b Eltern-Attribuierung** | Eltern-Propagation (§4.2 Beitrag 3) + `trust_ext` + `blame` über `derived_from`; populiert `trust_events` bei Widerlegung abgeleiteter Fakten (zirkel-frei). Additiv auf S2a. | T.7–T.9 | 🔴 | teilw. |
 | **S3 Domäne** | (Quelle×Thema)-Projektion + globaler Fallback | — | 🟡 | nein |
 | **S4 Defeater/Contestation** | akkumulierende offene Anfechtung + `contested`-Fold-Verdikt | — | 🔴 | teilw. |
 | **S5 Modus-Achse** | `assertion_mode` + Welt-Scopes (Fiktion), `verify` ignoriert | — | 🟡 | nein (additiv) |
