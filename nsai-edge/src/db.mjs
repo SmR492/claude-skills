@@ -106,7 +106,11 @@ CREATE VIRTUAL TABLE IF NOT EXISTS episodes_fts USING fts5(
 CREATE TRIGGER IF NOT EXISTS episodes_ai AFTER INSERT ON episodes BEGIN
   INSERT INTO episodes_fts(rowid, content) VALUES (new.rowid, new.content);
 END;
-CREATE TRIGGER IF NOT EXISTS episodes_au AFTER UPDATE ON episodes BEGIN
+-- WHEN-Guard: NUR re-indexieren, wenn sich der indexierte content aendert. Ein reiner
+-- occurred_at_norm-/context_slug-Backfill (Nicht-Content-Update) fasst den FTS-Index dann NICHT an
+-- und kann keinen FTS5-delete-mismatch (malformed database) ausloesen, auch nicht bei einem (aus
+-- anderem Grund) desynchronisierten Index. Siehe migrateEpisodesFtsTrigger fuer Bestands-DBs.
+CREATE TRIGGER IF NOT EXISTS episodes_au AFTER UPDATE ON episodes WHEN old.content IS NOT new.content BEGIN
   INSERT INTO episodes_fts(episodes_fts, rowid, content) VALUES ('delete', old.rowid, old.content);
   INSERT INTO episodes_fts(rowid, content) VALUES (new.rowid, new.content);
 END;
@@ -166,6 +170,7 @@ function applyPostMigrationIndexes(db) {
 export function openDb(path = ':memory:') {
   const db = new DatabaseSync(path);
   db.exec(SCHEMA);
+  migrateEpisodesFtsTrigger(db);   // MUSS vor migrateUtcZNormalization laufen (s. Funktions-Doku)
   migrateRetractedStatus(db);
   migrateValidityColumns(db);
   migrateUtcZNormalization(db);
@@ -175,6 +180,26 @@ export function openDb(path = ':memory:') {
   migrateEpisodesFts(db);
   applyPostMigrationIndexes(db);
   return db;
+}
+
+// R-Fix (FTS-Migrations-Bug): den `episodes_au`-Trigger auf Bestands-DBs mit dem content-WHEN-Guard
+// nachrüsten. MUSS vor migrateUtcZNormalization laufen — sonst feuert dessen occurred_at_norm-Backfill
+// den alten (ungeguardeten) Trigger und crasht bei desynchronisiertem FTS-Index mit „database disk
+// image is malformed" (genau dieser Bug ließ den MCP-Server beim Startup crashen). DROP+CREATE ist
+// idempotent: neue DBs tragen den Guard schon aus SCHEMA, hier wird er identisch neu gesetzt.
+function migrateEpisodesFtsTrigger(db) {
+  // Adversarial 🟡-2: DROP+CREATE atomar — kein Fenster, in dem der Trigger gedroppt aber nicht
+  // neu angelegt ist (sonst liefe der Index bei einem Crash dazwischen auf Schreibungen auseinander).
+  db.exec('BEGIN IMMEDIATE');
+  try {
+    db.exec(
+      'DROP TRIGGER IF EXISTS episodes_au;' +
+      'CREATE TRIGGER episodes_au AFTER UPDATE ON episodes WHEN old.content IS NOT new.content BEGIN ' +
+      "INSERT INTO episodes_fts(episodes_fts, rowid, content) VALUES ('delete', old.rowid, old.content); " +
+      'INSERT INTO episodes_fts(rowid, content) VALUES (new.rowid, new.content); END;',
+    );
+    db.exec('COMMIT');
+  } catch (e) { db.exec('ROLLBACK'); throw e; }
 }
 
 // UC-VS Slice #R3: idempotenter Initial-Build des FTS5-Index.
