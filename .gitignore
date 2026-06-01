@@ -2,3 +2,9 @@ node_modules/
 .DS_Store
 *.log
 .tmp/
+
+# Exploration-Quellmaterial (NICHT committen): urheberrechtlich geschützte E-Book-PDFs
+# + NotebookLM-Rohdumps sind Ingest-Quellen — Wissen gehört in die nsai-edge-Graph-DB,
+# nicht als Binärlast/Copyright-Risiko in die (ggf. öffentliche) Repo-Historie.
+docs/Exploration/Books/
+docs/Exploration/NotebookLM/
