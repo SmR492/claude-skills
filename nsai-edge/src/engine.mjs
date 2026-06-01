@@ -627,6 +627,9 @@ export class Engine {
           if (p.supersede) superseded++; else decayed++;
         }
       }
+      // ADR 0019 S1b: eine Periode = ein decayPass(). Globalen Decay-Epochen-Zähler atomar mit den
+      // Decay-Writes erhöhen → trustOf rechnet Recency wall-clock-frei über verstrichene Epochen.
+      this.db.prepare('UPDATE trust_meta SET epoch = epoch + 1 WHERE id=1').run();
       return r;
     });
     return { decayed, superseded, retracted, dryRun };
@@ -703,51 +706,126 @@ export class Engine {
     // - human/oracle: DISTINKTER Akt — darf NIE verschluckt werden (sonst Datenverlust, 3.-Audit-🔴).
     //   Eindeutigkeit via monotonem seq; das beeinflusst die kommutative S1a-Summe NICHT (non-auto wird
     //   nicht dedupt), und bei Total-Ordnung fallen nur Gleich-ts-Akte auf den seq-Tiebreak (selbe Periode).
+    // S1b: aktuelle Decay-Epoche stempeln (Perioden-Modell B). event_hash bleibt epoche-FREI
+    // (Epoche ist Metadatum, nicht Identität) → S1a-Dedup/Determinismus unberührt.
+    const epoch = this._trustEpoch();
     let event_hash, insertSql;
     if (adj_class === 'auto_corroborate') {
       event_hash = createHash('sha256').update(JSON.stringify(['auto', target_id, source_id, delta, dedup_hash, domain, ts])).digest('hex').slice(0, 32);
-      insertSql = `INSERT OR IGNORE INTO trust_events (event_hash, target_id, source_id, adj_class, delta_promille, dedup_hash, domain, occurred_at_norm) VALUES (?,?,?,?,?,?,?,?)`;
+      insertSql = `INSERT OR IGNORE INTO trust_events (event_hash, target_id, source_id, adj_class, delta_promille, dedup_hash, domain, occurred_at_norm, epoch) VALUES (?,?,?,?,?,?,?,?,?)`;
     } else {
       const seq = this.db.prepare('SELECT COUNT(*) c FROM trust_events').get().c;
       event_hash = createHash('sha256').update(JSON.stringify([adj_class, target_id, source_id, delta, domain, ts, seq])).digest('hex').slice(0, 32);
-      insertSql = `INSERT INTO trust_events (event_hash, target_id, source_id, adj_class, delta_promille, dedup_hash, domain, occurred_at_norm) VALUES (?,?,?,?,?,?,?,?)`;
+      insertSql = `INSERT INTO trust_events (event_hash, target_id, source_id, adj_class, delta_promille, dedup_hash, domain, occurred_at_norm, epoch) VALUES (?,?,?,?,?,?,?,?,?)`;
     }
-    this.db.prepare(insertSql).run(event_hash, target_id, source_id, adj_class, delta, dedup_hash, domain, ts);
-    return { event_hash };
+    this.db.prepare(insertSql).run(event_hash, target_id, source_id, adj_class, delta, dedup_hash, domain, ts, epoch);
+    return { event_hash, epoch };
+  }
+
+  // S1b: aktuelle globale Decay-Epoche (wall-clock-frei). Eine Periode = ein decayPass().
+  _trustEpoch() {
+    const row = this.db.prepare('SELECT epoch FROM trust_meta WHERE id=1').get();
+    return row ? row.epoch : 0;
   }
 
   // Trust eines Knotens als deterministische Fold-Projektion über die Events (integer-Promille 0..1000).
   // S1a: Direkt-Beitrag (target_id) voll + Quell-Beitrag (source_id) gedämpft (w_src); Beta-Reputation;
-  // auto_corroborate ohne externen Anker bei `trustAutoCorroborateCap` gedeckelt; Hash-Dedup korrelierter
-  // auto_corroborate. KEINE Recency/Eltern-Attribuierung (S1b/S2). Reine Lese-Op (kein Write, kein Wire).
-  trustOf(id) {
+  //   auto_corroborate ohne externen Anker bei `trustAutoCorroborateCap` gedeckelt; Hash-Dedup.
+  // S1b (additiv, §4.3): Epochen-Replay [min_event_epoch … asOf=current_epoch] mit λ-Mean-Reversion
+  //   (Anti-Sleeper, λ_min>0) + Pro-Perioden-Clamp (NUR reine auto/Quell-Epochen — eine Epoche mit
+  //   direktem human/oracle-Akt ist clamp-frei: Autoritäts-Achse > Anzahl-Achse). Wall-clock-frei →
+  //   replay-/conformance-deterministisch. Reine Lese-Op (kein Write, kein Wire). resolveBelief unberührt.
+  trustOf(id, { asOf = null } = {}) {
     if (typeof id !== 'string' || id.length === 0) throw new EngineError('INVALID_PARAMETER_FORMAT', 'id fehlt');
     const sw = Math.max(0, Math.trunc(this.spec.trustSourceWeight ?? 400));
-    let alpha = (this.spec.trustPriorAlpha ?? 3) * 1000;
-    let beta = (this.spec.trustPriorBeta ?? 7) * 1000;
-    let anchored = false;
-    const seenDedup = new Set();
-    const apply = (rows, weight, isDirect) => {
+    const A0 = (this.spec.trustPriorAlpha ?? 3) * 1000;
+    const B0 = (this.spec.trustPriorBeta ?? 7) * 1000;
+    const baseCap = Math.trunc(this.spec.trustAutoCorroborateCap ?? 600);
+    const vouchCap = Math.trunc(this.spec.trustVouchCap ?? 800);
+    const massMax = Math.max(A0 + B0, Math.trunc(this.spec.trustMassMax ?? 100000));
+    const lamBase = Math.max(0, Math.trunc(this.spec.trustLambdaBase ?? 300));
+    const lamMin = Math.max(1, Math.trunc(this.spec.trustLambdaMin ?? 30)); // λ_min>0 [F-λmin]
+    const clamp = Math.max(0, Math.trunc(this.spec.trustPerPeriodClamp ?? 150));
+    const prior = Math.trunc((1000 * A0) / (A0 + B0));
+
+    // Total-Ordnung (epoch, occurred_at_norm, event_hash): Epoche ist die äußere Periode, der Rest
+    // bricht innerhalb der Epoche (kommutativ → folgenlos für die additive Summe).
+    const direct = this.db.prepare('SELECT adj_class, delta_promille, dedup_hash, epoch FROM trust_events WHERE target_id=? ORDER BY epoch, occurred_at_norm, event_hash').all(id);
+    const source = this.db.prepare('SELECT adj_class, delta_promille, dedup_hash, epoch FROM trust_events WHERE source_id=? AND target_id<>? ORDER BY epoch, occurred_at_norm, event_hash').all(id, id);
+    if (direct.length === 0 && source.length === 0) return prior; // safe-by-default
+
+    const curEpoch = asOf == null ? this._trustEpoch() : Math.trunc(asOf);
+    const byEpoch = new Map();
+    let lastEventEpoch = 0;
+    const bucket = (rows, isDirect) => {
       for (const r of rows) {
-        if (r.adj_class === 'auto_corroborate') {
-          if (seenDedup.has(r.dedup_hash)) continue; seenDedup.add(r.dedup_hash); // dedup_hash ist Pflicht (s. recordAdjudication)
-        } else if (isDirect && (r.adj_class === 'human_endorse' || r.adj_class === 'oracle_higher_tier') && r.delta_promille > 0) {
-          // 🔴-A: Uncap ist Eigenschaft des DIREKT adjudizierten Knotens (item-bezogen, O5). NUR ein
-          // positiver externer Anker DIREKT auf den Knoten hebt die auto-Kappe — ein Quell-Anker auf
-          // ein FREMDES Item hebt sie NICHT (sonst Cap-Bypass). human_reject/neg. delta senkt nur β.
-          anchored = true;
-        }
-        const m = Math.trunc(Math.abs(r.delta_promille) * weight / 1000);
-        if (r.delta_promille >= 0) alpha += m; else beta += m;
+        if (!byEpoch.has(r.epoch)) byEpoch.set(r.epoch, { d: [], s: [] });
+        (isDirect ? byEpoch.get(r.epoch).d : byEpoch.get(r.epoch).s).push(r);
+        if (r.epoch > lastEventEpoch) lastEventEpoch = r.epoch;
       }
     };
-    // 🟡-1/🔴-B: deterministische Total-Ordnung (occurred_at_norm, event_hash); event_hash ist
-    // inhalts-deterministisch → Dedup-Tie-Break knoten-/replay-stabil (Invariante 3).
-    apply(this.db.prepare('SELECT adj_class, delta_promille, dedup_hash FROM trust_events WHERE target_id=? ORDER BY occurred_at_norm, event_hash').all(id), 1000, true);
-    apply(this.db.prepare('SELECT adj_class, delta_promille, dedup_hash FROM trust_events WHERE source_id=? AND target_id<>? ORDER BY occurred_at_norm, event_hash').all(id, id), sw, false);
-    let score = Math.trunc((1000 * alpha) / (alpha + beta));
-    if (!anchored) score = Math.min(score, Math.trunc(this.spec.trustAutoCorroborateCap ?? 600));
-    return Math.max(0, Math.min(1000, score));
+    bucket(direct, true); bucket(source, false);
+    const minEpoch = Math.min(direct[0]?.epoch ?? curEpoch, source[0]?.epoch ?? curEpoch);
+
+    let alpha = A0, beta = B0, vouch = 0; // vouch: SEPARATE, abklingende Vouch-Stärke (0..1000) → effCap
+    const seenDedup = new Set();
+    const remix = (target) => { const M = alpha + beta; alpha = Math.trunc((target * M) / 1000); beta = M - alpha; };
+    // Massen-Bound: Anzahl-Achse darf keine unbeschränkte Beta-Masse aufbauen (Pegel/Ratio bleibt).
+    const setMass = (Mt) => { const M = alpha + beta; if (M <= Mt) return; alpha = Math.trunc((alpha * Mt) / M); beta = Mt - alpha; };
+    const foldDelta = (d, weight) => { const m = Math.trunc((Math.abs(d) * weight) / 1000); if (d >= 0) alpha += m; else beta += m; };
+    const foldAuto = (r, weight) => { if (seenDedup.has(r.dedup_hash)) return; seenDedup.add(r.dedup_hash); foldDelta(r.delta_promille, weight); };
+
+    for (let ep = minEpoch; ep <= curEpoch; ep++) {
+      const tStart = Math.trunc((1000 * alpha) / (alpha + beta)); // Fold-Stand am Periodenanfang → λ-Quelle
+      // 1. Decay/Mean-Reversion des (α,β)-Überschusses zum Prior (λ aus tStart) UND der Vouch-Stärke
+      //    (λ_v aus der EIGENEN Vouch-Stärke → nicht zirkulär an der auto-getriebenen Gesamt-Trust).
+      const lam = Math.max(lamMin, Math.trunc((lamBase * (1000 - tStart)) / 1000));
+      alpha = A0 + Math.trunc(((alpha - A0) * (1000 - lam)) / 1000);
+      beta = B0 + Math.trunc(((beta - B0) * (1000 - lam)) / 1000);
+      const lamV = Math.max(lamMin, Math.trunc((lamBase * (1000 - vouch)) / 1000));
+      vouch = Math.trunc((vouch * (1000 - lamV)) / 1000);
+      // 2a. AUTORITÄTS-ACHSE: direkte human/oracle frei (beide Richtungen, kein Clamp); ein positiver
+      //     Akt hebt die abklingende Vouch-Stärke ∝ delta (Trivial-Endorse delta=1 hebt kaum).
+      const e = byEpoch.get(ep);
+      let epAnchored = false;
+      if (e) {
+        for (const r of e.d) if (r.adj_class !== 'auto_corroborate') {
+          if ((r.adj_class === 'human_endorse' || r.adj_class === 'oracle_higher_tier') && r.delta_promille > 0) {
+            // NICHT-akkumulierend: Vouch-Stärke = STÄRKSTER (abgeklungener) Einzelakt, NICHT Summe/Frequenz.
+            // Sonst hebt ein billiger Dauer-Trickle (delta=50/Epoche) über einen Akkumulations-Fixpunkt die
+            // Decke und parkt die Anzahl-Achse im soliden Band (gegnerisch gefunden, „Anker-STÄRKE zählt").
+            epAnchored = true; vouch = Math.min(1000, Math.max(vouch, r.delta_promille));
+          }
+          foldDelta(r.delta_promille, 1000);
+        }
+      }
+      const tAuth = Math.trunc((1000 * alpha) / (alpha + beta)); // Baseline NACH Autorität, VOR Anzahl
+      // 3. Gehobene, abklingende Decke: effCap aus Vouch-Stärke (base..vouchCap); capCeil = max(tAuth, effCap)
+      //    — Autorität ist Boden und wird NIE gekappt (Mensch/Orakel darf über die auto-Decke hinaus).
+      //    Da die Vouch-Stärke abklingt, fällt die Decke wieder auf base → KEIN permanenter Sleeper.
+      const effCap = baseCap + Math.trunc(((vouchCap - baseCap) * vouch) / 1000);
+      const capCeil = Math.max(tAuth, effCap);
+      // 2b. ANZAHL-ACHSE: direkte auto_corroborate + ALLE Quell-Events (gedämpft, w_src; auto-dedupt).
+      if (e) {
+        for (const r of e.d) if (r.adj_class === 'auto_corroborate') foldAuto(r, 1000);
+        for (const r of e.s) { if (r.adj_class === 'auto_corroborate') foldAuto(r, sw); else foldDelta(r.delta_promille, sw); }
+      }
+      // 4. Cap (Pegel) auf capCeil. 5. Pro-Perioden-Clamp (Rate, T.13) um tAuth — NUR ohne frischen Vouch
+      //    (ein frischer Vouch legitimiert die akkumulierte auto-Evidenz sofort bis zur gehobenen Decke).
+      let raw = Math.trunc((1000 * alpha) / (alpha + beta));
+      if (raw > capCeil) { remix(capCeil); raw = capCeil; }
+      if (!epAnchored) {
+        let target = raw;
+        if (raw - tAuth > clamp) target = tAuth + clamp;
+        else if (tAuth - raw > clamp) target = tAuth - clamp;
+        if (target !== raw) remix(target);
+      }
+      // 6. Massen-Bound der Anzahl (gegen zähe Reversion = Sleeper + Ersaufen künftiger Mensch-Akte).
+      setMass(massMax);
+      // Konvergenz-Abbruch: nach dem letzten Event ist alles reiner Decay; am Prior bleibt es Prior.
+      if (ep >= lastEventEpoch && alpha === A0 && beta === B0) break;
+    }
+    return Math.max(0, Math.min(1000, Math.trunc((1000 * alpha) / (alpha + beta))));
   }
 
   reject(hash) {

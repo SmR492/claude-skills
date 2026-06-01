@@ -109,7 +109,11 @@ test('AC-T.5b (🔴-2): auto_corroborate OHNE dedup_hash → INVALID_PARAMETER_F
 test('AC-T.10d (🔴-1): ein FREMDER negativer Anker (human_reject, Knoten nur source_id) hebt die Kappe NICHT', () => {
   const e = new Engine();
   for (let i = 0; i < 50; i++) e.recordAdjudication({ target_id: 'T', adj_class: 'auto_corroborate', delta: 1000, dedup_hash: `h${i}` });
-  assert.equal(e.trustOf('T'), 600, 'auto allein gedeckelt');
+  // S1b-Verfeinerung (additiv): der Pro-Perioden-Clamp dämpft den Genesis-auto-Schwall — der Pegel-Cap
+  // (≤600) gilt weiter, aber in EINER Epoche ist der Exaktwert der Clamp-Deckel (Prior+Clamp), nicht 600
+  // (ein „Ingestion-Schwall" wird auch beim Import rate-begrenzt; T.13/ADR §4.3). Intention unverändert:
+  // ein FREMDER Anker (Knoten nur als source_id) hebt die Kappe nie.
+  assert.equal(e.trustOf('T'), PRIOR + (e.spec.trustPerPeriodClamp ?? 150), `auto-Schwall ist rate-geklemmt ≤Kappe: ${e.trustOf('T')}`);
   e.recordAdjudication({ target_id: 'OTHER', source_id: 'T', adj_class: 'human_reject', delta: -1000 });
   assert.ok(e.trustOf('T') <= 600, `negativer Fremd-Anker darf die Kappe nicht sprengen: ${e.trustOf('T')}`);
 });
