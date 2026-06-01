@@ -100,6 +100,7 @@ CREATE TABLE IF NOT EXISTS trust_events (
   dedup_hash TEXT,
   domain TEXT,
   occurred_at_norm TEXT NOT NULL,
+  epoch INTEGER NOT NULL DEFAULT 0,            -- ADR 0019 S1b: Decay-Epoche bei Insert (Perioden-Modell B)
   created_at TEXT DEFAULT (datetime('now'))
 );
 CREATE INDEX IF NOT EXISTS idx_trust_events_target ON trust_events(target_id);
@@ -107,6 +108,10 @@ CREATE INDEX IF NOT EXISTS idx_trust_events_source ON trust_events(source_id);
 -- append-only HART erzwingen (nicht nur Konvention): UPDATE/DELETE abbrechen (AC-T.6).
 CREATE TRIGGER IF NOT EXISTS trust_events_no_update BEFORE UPDATE ON trust_events BEGIN SELECT RAISE(ABORT, 'trust_events ist append-only'); END;
 CREATE TRIGGER IF NOT EXISTS trust_events_no_delete BEFORE DELETE ON trust_events BEGIN SELECT RAISE(ABORT, 'trust_events ist append-only'); END;
+-- ADR 0019 S1b: globaler, monotoner Decay-Epochen-Zähler (eine Zeile). Wall-clock-frei →
+-- trustOf bleibt replay-/conformance-deterministisch (§4.3). decayPass() inkrementiert ihn.
+CREATE TABLE IF NOT EXISTS trust_meta (id INTEGER PRIMARY KEY CHECK(id=1), epoch INTEGER NOT NULL DEFAULT 0);
+INSERT OR IGNORE INTO trust_meta (id, epoch) VALUES (1, 0);
 CREATE INDEX IF NOT EXISTS idx_episodes_occurred ON episodes(occurred_at);
 CREATE INDEX IF NOT EXISTS idx_episodes_context ON episodes(context_slug);
 CREATE INDEX IF NOT EXISTS idx_episode_triples_hash ON episode_triples(triple_hash);
@@ -195,9 +200,18 @@ export function openDb(path = ':memory:') {
   migrateClusterId(db);
   migrateUserRejectedAt(db);
   migrateLastRecalledAt(db);
+  migrateTrustEventsEpoch(db);
   migrateEpisodesFts(db);
   applyPostMigrationIndexes(db);
   return db;
+}
+
+// ADR 0019 S1b: `epoch`-Spalte auf trust_events für Bestands-DBs nachrüsten (Bestands-Events → Epoche 0).
+// ALTER TABLE ADD COLUMN ist kein Row-UPDATE → der append-only-Trigger feuert nicht. trust_meta wird
+// bereits durch SCHEMA (CREATE IF NOT EXISTS + INSERT OR IGNORE) auf jedem openDb idempotent angelegt.
+function migrateTrustEventsEpoch(db) {
+  const cols = new Set(db.prepare("PRAGMA table_info('trust_events')").all().map((r) => r.name));
+  if (!cols.has('epoch')) db.exec('ALTER TABLE trust_events ADD COLUMN epoch INTEGER NOT NULL DEFAULT 0');
 }
 
 // R-Fix (FTS-Migrations-Bug): den `episodes_au`-Trigger auf Bestands-DBs mit dem content-WHEN-Guard

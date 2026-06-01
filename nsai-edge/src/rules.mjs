@@ -62,6 +62,20 @@ export const DEFAULT_SPEC = {
   trustPriorBeta: 7,
   trustSourceWeight: 400,         // w_src: gedämpfter Quell-Beitrag (Promille) ggü. Direkt-Beitrag
   trustAutoCorroborateCap: 600,   // auto_corroborate ohne externen Anker max. dieses Band (O5)
+  // ADR 0019 Slice S1b — Recency/Dampener (Perioden-Modell B: Epoche = ein decayPass; §4.3).
+  // λ_eff(trust) = max(λ_min, trunc(λ_base·(1000−trust)/1000)). Hoher Trust → langsamer Fade
+  // (Verankerung); λ_min>0 garantiert Rückdrift auch bei trust=1000 (Anti-Sleeper, [F-λmin]).
+  // Mean-Reversion des (α,β)-Überschusses zum Prior je Epoche.
+  trustLambdaBase: 300,           // λ_base (Promille): Reversions-Stärke skaliert mit (1000−trust)
+  trustLambdaMin: 30,             // λ_min>0 (Promille): Boden gegen ewige Sleeper
+  trustPerPeriodClamp: 150,       // Pro-Perioden-Clamp ±‰ (T.13); NUR ohne frischen Vouch
+  // „Gehobene, abklingende Decke": ein positiver human/oracle-Vouch hebt die auto-Kappe von
+  // baseCap (trustAutoCorroborateCap=600) bis trustVouchCap, proportional zu einer SEPARATEN,
+  // abklingenden Vouch-Stärke → kein permanenter Sleeper (Decke fällt mit dem Vouch auf 600 zurück).
+  trustVouchCap: 800,             // gehobene auto-Decke bei vollem Vouch (solide-Band, nie „verifiziert" via auto)
+  // Massen-Bound der Anzahl-Achse (Milli, k=100): auto darf keine unbeschränkte Beta-Masse aufbauen
+  // (sonst zähe Mean-Reversion = Sleeper, und Mensch-Akte ersaufen). Pegel (Ratio) bleibt unberührt.
+  trustMassMax: 100000,
   // UC-AD Slice #6.3 — Zugriffs-basiertes Decay (Spaced-Repetition).
   // Innerhalb recallProtectionDays seit dem letzten markRecalled wird decayPerPeriod[temporality]
   // durch recallDecayDivisor geteilt (Integer-Division). Default: Halbierung über 30 Tage.
