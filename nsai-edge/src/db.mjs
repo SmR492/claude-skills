@@ -95,7 +95,7 @@ CREATE TABLE IF NOT EXISTS trust_events (
   event_hash TEXT PRIMARY KEY NOT NULL,
   target_id TEXT NOT NULL,
   source_id TEXT,
-  adj_class TEXT NOT NULL CHECK(adj_class IN ('human_endorse','human_reject','oracle_higher_tier','auto_corroborate')),
+  adj_class TEXT NOT NULL CHECK(adj_class IN ('human_endorse','human_reject','oracle_higher_tier','auto_corroborate','derived_blame')),
   delta_promille INTEGER NOT NULL CHECK(delta_promille BETWEEN -1000 AND 1000),
   dedup_hash TEXT,
   domain TEXT,
@@ -201,6 +201,7 @@ export function openDb(path = ':memory:') {
   migrateUserRejectedAt(db);
   migrateLastRecalledAt(db);
   migrateTrustEventsEpoch(db);
+  migrateTrustEventsBlameClass(db);
   migrateEpisodesFts(db);
   applyPostMigrationIndexes(db);
   return db;
@@ -212,6 +213,36 @@ export function openDb(path = ':memory:') {
 function migrateTrustEventsEpoch(db) {
   const cols = new Set(db.prepare("PRAGMA table_info('trust_events')").all().map((r) => r.name));
   if (!cols.has('epoch')) db.exec('ALTER TABLE trust_events ADD COLUMN epoch INTEGER NOT NULL DEFAULT 0');
+}
+
+// ADR 0019 S2b: die 5. adj_class `derived_blame` in den CHECK aufnehmen. SQLite kann CHECK nicht per
+// ALTER ändern → Tabelle rebuilden (nur falls der CHECK sie noch nicht erlaubt; idempotent). Append-only-
+// Trigger feuern bei DROP/INSERT-SELECT nicht (kein Row-UPDATE/DELETE auf Bestand). Trigger + Indizes
+// danach neu setzen. Nur nötig für Bestands-DBs ohne Wipe; frische DBs tragen den CHECK aus SCHEMA.
+function migrateTrustEventsBlameClass(db) {
+  const sql = db.prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name='trust_events'").get()?.sql ?? '';
+  if (sql.includes('derived_blame')) return; // CHECK bereits aktuell
+  db.exec('BEGIN IMMEDIATE');
+  try {
+    db.exec(
+      'DROP TRIGGER IF EXISTS trust_events_no_update;' +
+      'DROP TRIGGER IF EXISTS trust_events_no_delete;' +
+      `CREATE TABLE trust_events_new (
+         event_hash TEXT PRIMARY KEY NOT NULL, target_id TEXT NOT NULL, source_id TEXT,
+         adj_class TEXT NOT NULL CHECK(adj_class IN ('human_endorse','human_reject','oracle_higher_tier','auto_corroborate','derived_blame')),
+         delta_promille INTEGER NOT NULL CHECK(delta_promille BETWEEN -1000 AND 1000),
+         dedup_hash TEXT, domain TEXT, occurred_at_norm TEXT NOT NULL, epoch INTEGER NOT NULL DEFAULT 0,
+         created_at TEXT DEFAULT (datetime('now')));` +
+      'INSERT INTO trust_events_new SELECT event_hash, target_id, source_id, adj_class, delta_promille, dedup_hash, domain, occurred_at_norm, epoch, created_at FROM trust_events;' +
+      'DROP TABLE trust_events;' +
+      'ALTER TABLE trust_events_new RENAME TO trust_events;' +
+      'CREATE INDEX IF NOT EXISTS idx_trust_events_target ON trust_events(target_id);' +
+      'CREATE INDEX IF NOT EXISTS idx_trust_events_source ON trust_events(source_id);' +
+      "CREATE TRIGGER trust_events_no_update BEFORE UPDATE ON trust_events BEGIN SELECT RAISE(ABORT, 'trust_events ist append-only'); END;" +
+      "CREATE TRIGGER trust_events_no_delete BEFORE DELETE ON trust_events BEGIN SELECT RAISE(ABORT, 'trust_events ist append-only'); END;",
+    );
+    db.exec('COMMIT');
+  } catch (e) { db.exec('ROLLBACK'); throw e; }
 }
 
 // R-Fix (FTS-Migrations-Bug): den `episodes_au`-Trigger auf Bestands-DBs mit dem content-WHEN-Guard

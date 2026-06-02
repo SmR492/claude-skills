@@ -81,6 +81,9 @@ export const DEFAULT_SPEC = {
   // bandShift = clamp(trunc((trustOf − prior)/Step), −K, +K); eternal floort negativen Shift auf 0.
   trustEntrenchmentBandK: 2,      // max. Stufen-Verschiebung (±) durch Entrenchment
   trustEntrenchmentBandStep: 200, // trustOf-Promille je verschobener Stufe
+  // ADR 0019 Slice S2b — Eltern-Attribuierung (Reject-Blame-Propagation, §4.2). Distanz-Decay γ je
+  // Ebene tiefer in der derived_from-Kette: blame(P,d) = trunc(|delta|·γ^d·(1000−trust_ext(P))/1000/n).
+  trustBlameGamma: 500,           // γ (Promille): Blame halbiert je Ableitungs-Hop
   // UC-AD Slice #6.3 — Zugriffs-basiertes Decay (Spaced-Repetition).
   // Innerhalb recallProtectionDays seit dem letzten markRecalled wird decayPerPeriod[temporality]
   // durch recallDecayDivisor geteilt (Integer-Division). Default: Halbierung über 30 Tage.
