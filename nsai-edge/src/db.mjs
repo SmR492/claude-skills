@@ -112,6 +112,25 @@ CREATE TRIGGER IF NOT EXISTS trust_events_no_delete BEFORE DELETE ON trust_event
 -- trustOf bleibt replay-/conformance-deterministisch (§4.3). decayPass() inkrementiert ihn.
 CREATE TABLE IF NOT EXISTS trust_meta (id INTEGER PRIMARY KEY CHECK(id=1), epoch INTEGER NOT NULL DEFAULT 0);
 INSERT OR IGNORE INTO trust_meta (id, epoch) VALUES (1, 0);
+-- ADR 0019 S4: Contestation-Ledger (Modell H). Eigene append-only Achse, GETRENNT vom trust_events-Ledger
+-- → eine Anfechtung kann den Trust strukturell nicht senken (Paragraph 6: senkt NIE Trust). Read-time gefoldet
+-- zu einem contested-Verdikt; der Gewinner haelt (nie contradicted). contest_type: empirisch (Auto-Defeater)
+-- vs institutionell (Akt-Defeater, gegen eternal nur Vorschlag). Kein Backtick in diesem Block (S5a-Lehre).
+CREATE TABLE IF NOT EXISTS contestation_events (
+  event_hash TEXT PRIMARY KEY NOT NULL,
+  target_id TEXT NOT NULL,
+  contester_id TEXT,
+  contest_type TEXT NOT NULL CHECK(contest_type IN ('empirical','institutional')),
+  weight_promille INTEGER NOT NULL CHECK(weight_promille BETWEEN 0 AND 1000),
+  reason TEXT,
+  dedup_hash TEXT,
+  epoch INTEGER NOT NULL DEFAULT 0,
+  occurred_at_norm TEXT NOT NULL,
+  created_at TEXT DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_contestation_events_target ON contestation_events(target_id);
+CREATE TRIGGER IF NOT EXISTS contestation_events_no_update BEFORE UPDATE ON contestation_events BEGIN SELECT RAISE(ABORT, 'contestation_events ist append-only'); END;
+CREATE TRIGGER IF NOT EXISTS contestation_events_no_delete BEFORE DELETE ON contestation_events BEGIN SELECT RAISE(ABORT, 'contestation_events ist append-only'); END;
 -- ADR 0019 S5a (Modus-Achse/Fiktion): PHYSISCH SEPARATER Sandbox-Store für suspendierte/fiktive Tripel
 -- (assertion_mode=suspended). Isolation by Default: die Fakt-Lese-Pfade (resolveBelief/query/verify) lesen
 -- NUR knowledge_edges → sehen die Sandbox NIE (kein Filter, den man vergessen kann; stärkste Tarski-

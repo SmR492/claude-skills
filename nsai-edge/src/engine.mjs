@@ -363,7 +363,7 @@ export class Engine {
       const floored = e.temporality === 'eternal' && rawShift < 0;
       const baseTier = this._effTier(e);
       const tier = Math.max(0, Math.min(6, baseTier + (floored ? 0 : rawShift)));
-      const cand = { object: obj, trustRank: rankOf(e.origin_peer_id), tier, weight: this._withinWeight(e), source_type: e.source_type, asserted_at: e.asserted_at, confidence: e.confidence, origin_peer_id: e.origin_peer_id };
+      const cand = { object: obj, trustRank: rankOf(e.origin_peer_id), tier, weight: this._withinWeight(e), source_type: e.source_type, asserted_at: e.asserted_at, confidence: e.confidence, origin_peer_id: e.origin_peer_id, triple_hash: e.triple_hash, temporality: e.temporality };
       if (floored) cand.proposedDemotion = Math.max(0, Math.min(6, baseTier + rawShift));
       const cur = byObject.get(obj);
       if (!cur || better(cand, cur)) byObject.set(obj, cand);
@@ -378,7 +378,7 @@ export class Engine {
       const c = cands[0]; c.weight = Math.round(c.weight);
       const enforceable = c.tier >= 0 && c.trustRank > 0;
       c.belief = enforceable ? 1000 : 0;
-      return { subject, predicate, winner: enforceable ? c.object : null, contested: false, candidates: [c] };
+      return this._augmentContestation({ subject, predicate, winner: enforceable ? c.object : null, contested: false, candidates: [c] }, as_of);
     }
     // HARTE Autoritäts-Dominanz: nur die höchste Tier-Stufe konkurriert um den Belief;
     // niedrigere Stufen → belief 0 (sichtbar als disputed). Innerhalb der Top-Stufe:
@@ -407,7 +407,44 @@ export class Engine {
     cands.sort((a, b) => (b.belief - a.belief) || (b.tier - a.tier) || (a.object < b.object ? -1 : a.object > b.object ? 1 : 0));
     const winner = allZero ? null : cands[0].object;
     const contested = cands.length > 1 && cands[1].belief >= this.spec.contestedThreshold;
-    return { subject, predicate, winner, contested, candidates: cands };
+    return this._augmentContestation({ subject, predicate, winner, contested, candidates: cands }, as_of);
+  }
+
+  // ---- ADR 0019 Slice S4: Contestation-Read-Verdikt (separater Ledger, Modell H) -------------------
+  // Reichert ein resolveBelief-Ergebnis um die Anfechtungs-Achse an. §6-Invariante: der GEWINNER HÄLT
+  // (winner wird NIE verändert/zu contradicted) — Anfechtung kippt nur das `contested`-Read-Verdikt und
+  // hängt ein `contestation`-Detailobjekt an. Safe-by-default: ohne Anfechtungs-Events (accAll==0) bleibt
+  // das Ergebnis byte-identisch (kein contestation-Feld, contested unverändert) → ein zusätzlicher billiger
+  // SUM-Query im Normalfall, der teure trustOf-Fold läuft NUR bei tatsächlich vorhandener Anfechtung.
+  _augmentContestation(res, asOf = null) {
+    if (!res || res.winner == null || res.multiValue) return res;
+    // S4b deferred: Contestation ist noch nicht zeit-skopiert (Epochen-Linse). Für eine historische
+    // as-of-Sicht wird das contested-Verdikt fail-safe AUSGELASSEN, statt anachronistisch die heutige
+    // Anfechtung auf einen vergangenen Belief zu projizieren. Live-Sicht (as_of=null) augmentiert normal.
+    if (asOf != null) return res;
+    const wc = res.candidates.find((c) => c.object === res.winner);
+    if (!wc || !wc.triple_hash) return res;
+    const accAll = this.contestationOf(wc.triple_hash);
+    if (accAll <= 0) return res; // kein Rauschen, kein Regress
+    const wt = this.trustOf(wc.triple_hash);
+    const thr = this._contestThreshold(wt);
+    const isEternal = wc.temporality === 'eternal';
+    // eternal-Floor (AC-T.12-Parität): eine INSTITUTIONELLE Anfechtung vollzieht NICHT automatisch — sie
+    // wird nur als proposedContested ausgewiesen (Endorsement-pflichtig). Nur EMPIRISCHE Last zählt dann
+    // zum Auto-Verdikt. Nicht-eternal: alle Typen zählen.
+    const accEff = isEternal ? this.contestationOf(wc.triple_hash, { type: 'empirical' }) : accAll;
+    const over = accEff >= thr;
+    const contestation = { accumulated: accAll, effective: accEff, threshold: thr, winnerTrust: wt, overThreshold: over };
+    if (over) {
+      res.contested = true; // Gewinner HÄLT (winner unverändert) — nur das Read-Verdikt kippt
+      contestation.escalation = { fromTier: wc.tier, neededTier: Math.min(6, wc.tier + 1) }; // §6: eine Tier-Stufe hoch
+    }
+    if (isEternal) {
+      const instAcc = this.contestationOf(wc.triple_hash, { type: 'institutional' });
+      if (instAcc >= thr && !over) contestation.proposedContested = true; // Akt-Defeater: nur Vorschlag
+    }
+    res.contestation = contestation;
+    return res;
   }
 
   // ---- UC-02: Abfragen (Subgraph + Belief-Anreicherung) --------------
@@ -748,6 +785,67 @@ export class Engine {
   _trustEpoch() {
     const row = this.db.prepare('SELECT epoch FROM trust_meta WHERE id=1').get();
     return row ? row.epoch : 0;
+  }
+
+  // ---- ADR 0019 Slice S4: Defeater/Contestation (separater Ledger, Modell H) -------------------
+  // Anfechtung gegen einen geglaubten (Gewinner-)Edge. Eigener append-only Ledger (contestation_events) —
+  // schreibt NIE in trust_events → kann den Trust strukturell nicht senken (§6: Gewinner hält, Anfechtung
+  // akkumuliert offen). Beweislast beim Anfechter: das contested-Verdikt fällt erst, wenn die akkumulierte
+  // Last die trustOf(Gewinner)-skalierte Schwelle überschreitet (_contestThreshold). Defeater-Typen getrennt
+  // (O6): empirisch = Evidenz-Defeater (auto); institutionell = Akt-Defeater (gegen eternal nur Vorschlag).
+  // Speichern ist reine append-only Protokollierung: IMMER eine distinkte Zeile (monotone seq) — NIE
+  // INSERT OR IGNORE. Damit kann keine fremde Zeile je verdrängt werden → Suppression strukturell unmöglich
+  // (Audit-R4-🔴-2). Der gesamte Inflations-/Frequenz-Schutz liegt im trust-peer-gegateten MAX-pro-Herkunft-
+  // Fold (contestationOf), NICHT im Storage — daher braucht es hier weder dedup_hash-Pflicht noch
+  // Identitäts-Normalisierung (das war das Unicode-/Kollisions-Whack-a-Mole der Runden R1–R4). contester_id
+  // wird roh gespeichert; ob sie zählt, entscheidet allein die authentifizierte Peer-Registry im Fold.
+  contest(target_id, { contester_id = null, contest_type = 'empirical', weight = 1000, reason = null, dedup_hash = null } = {}) {
+    if (typeof target_id !== 'string' || target_id.length === 0) throw new EngineError('INVALID_PARAMETER_FORMAT', 'target_id fehlt');
+    if (contest_type !== 'empirical' && contest_type !== 'institutional') throw new EngineError('INVALID_PARAMETER_FORMAT', 'contest_type muss empirical|institutional sein');
+    if (!Number.isInteger(weight) || weight < 0 || weight > 1000) throw new EngineError('INVALID_PARAMETER_FORMAT', 'weight außerhalb [0,1000] oder kein Integer');
+    if (contester_id != null && typeof contester_id !== 'string') throw new EngineError('INVALID_PARAMETER_FORMAT', 'contester_id muss string|null sein');
+    if (!this._getEdge(target_id)) throw new EngineError('INVALID_PARAMETER_FORMAT', 'target_id unbekannt (kein Edge)');
+    const ts = new Date(this._now()).toISOString();
+    const epoch = this._trustEpoch();
+    const seq = this.db.prepare('SELECT COUNT(*) c FROM contestation_events').get().c;
+    const event_hash = createHash('sha256').update(JSON.stringify(['contest', target_id, contester_id, contest_type, weight, reason, dedup_hash, ts, seq])).digest('hex').slice(0, 32);
+    this.db.prepare('INSERT INTO contestation_events (event_hash, target_id, contester_id, contest_type, weight_promille, reason, dedup_hash, occurred_at_norm, epoch) VALUES (?,?,?,?,?,?,?,?,?)')
+      .run(event_hash, target_id, contester_id, contest_type, weight, reason, dedup_hash, ts, epoch);
+    return { event_hash, epoch, accumulated: this.contestationOf(target_id) };
+  }
+
+  // Read-time Fold: akkumulierte offene Anfechtungs-Last (‰; darf 1000 überschreiten → echte Akkumulation
+  // ist gewollt, damit genügend ECHTE Gegenevidenz auch hoch Verankertes kippt — Defeasibility bleibt).
+  // STÄRKE-PRO-HERKUNFT + TRUST-PEER-GATE (Stefan-Entscheid, Audit R2+R4): es zählen NUR Anfechtungen
+  // registrierter, VERTRAUTER Peers (`_originTrust !== 'untrusted'`; self=full zählt) — pro Peer nur dessen
+  // STÄRKSTE Anfechtung (MAX), nicht Frequenz/Summe (trustOf-vouch-Disziplin „Anker-Stärke, nicht Anzahl").
+  // Anonyme/untrusted Herkunft hat KEIN Standing → trägt 0 bei (Zeile bleibt als Audit-Spur erhalten). So
+  // ist Identität an die authentifizierte Peer-Registry gebunden, NICHT an einen frei wählbaren String:
+  // String-Tricks (Unicode/Pseudonyme/Whitespace) erzeugen keine Herkünfte mehr (schließt R1–R4 an der
+  // Wurzel statt per Normalisierung); das Fälschen vieler vertrauter Identitäten erfordert peerAdd+peerTrust
+  // (gegatete Akte = Trust-Boundary). Read-time projiziert den AKTUELLEN Trust (peerRevoke senkt rückwirkend
+  // — gewollt, konsistent zur Read-Lens-Natur). Reine Lese-Op, integer-only, deterministisch (kein Write/Wire).
+  contestationOf(target_id, { type = null, asOf = null } = {}) {
+    if (typeof target_id !== 'string' || target_id.length === 0) throw new EngineError('INVALID_PARAMETER_FORMAT', 'target_id fehlt');
+    let sql = 'SELECT contester_id, weight_promille w FROM contestation_events WHERE target_id=?';
+    const args = [target_id];
+    if (type != null) { sql += ' AND contest_type=?'; args.push(type); }
+    if (asOf != null) { sql += ' AND epoch<=?'; args.push(Math.trunc(asOf)); }
+    const maxByPeer = new Map();
+    for (const r of this.db.prepare(sql).all(...args)) {
+      if (r.contester_id == null || this._originTrust(r.contester_id) === 'untrusted') continue; // kein Standing
+      const cur = maxByPeer.get(r.contester_id) ?? 0;
+      if (r.w > cur) maxByPeer.set(r.contester_id, r.w);
+    }
+    let s = 0; for (const v of maxByPeer.values()) s += v;
+    return s;
+  }
+
+  // Beweislast-Schwelle: skaliert mit der Verankerung des Gewinners. thr = base + trunc(trust·slope/1000).
+  _contestThreshold(winnerTrust) {
+    const base = Math.max(0, Math.trunc(this.spec.trustContestBase ?? 300));
+    const slope = Math.max(0, Math.trunc(this.spec.trustContestSlope ?? 1000));
+    return base + Math.trunc((Math.max(0, Math.min(1000, winnerTrust)) * slope) / 1000);
   }
 
   // ---- ADR 0019 Slice S2b: Eltern-Attribuierung (Reject-Blame-Propagation, §4.2) -------------------
