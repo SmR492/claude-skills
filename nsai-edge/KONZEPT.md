@@ -1731,7 +1731,8 @@ Belief-Kern-Re-Fundierung „terminale Autorität → defeasible Entrenchment" (
 - **S2a Entrenchment-Präzedenz** (✅ geliefert, Audit safe-JA): `resolveBelief` moduliert die effektive Tier-Stufe mit `trustOf` (Modell C, bandShift ±2); `eternal`=Floor (AC-T.12, negativer Shift→`proposedDemotion`); Peer-Trust primärer Gate; safe-by-default (Prior→shift 0, kein Regress). Migration via **Wipe** (Testdaten) entschieden; Injektions-Gating durch **MCP-only**-Zugriff durchgesetzt. Konstanten: `trustEntrenchmentBandK=2`,`trustEntrenchmentBandStep=200`.
 - **S2b Eltern-Attribuierung** (✅ geliefert, Audit safe-JA): `propagateRejectBlame` über `derived_from` → 5. adj_class `derived_blame` (rebut: transitiv γ^d/n/trust_ext-gedämpft; undercut: Regel-Knoten); zirkel-frei via DAG-Invariante; foldet als neg. Autoritäts-Impuls (kein anchored/auto-Cap). Konstante `trustBlameGamma=500`. **Harte Vorbedingung (S1b-Audit) bleibt:** bevor Ingest/MCP `recordAdjudication`/`propagateRejectBlame` verdrahtet, müssen `human_*`/`oracle_higher_tier` nicht-remote-injizierbar sein (Stefan-Gate).
 - **S3a Domäne** (✅ geliefert): `trustOf(id,{domain})` (Quelle×Thema, domain=Thema∨null) + Hart-Schwellen-Fallback auf global bei dünner Zelle (`trustDomainMinEvidence=5`); Substrat, resolveBelief unberührt (kein Regress). **S3b** (Themen-Bestimmung im Belief-Pfad: Prädikat/Tag) deferred.
-- **S4 Defeater/Contestation** (🔴), **S5 Modus-Achse/Fiktion** (🟡, additiv).
+- **S5a Modus-Achse/Fiktion** (✅ geliefert): separater `sandbox_edges`-Store (Isolation by Default — Fakt-Pfade sehen Fiktion nie); `storeFiction`/`recallWorld` (Welt-Opt-In)/`promoteFiction` (Löschen + frische Ingestion → Trust-Prior). **S5b** (Ingest-Heuristik llm/web+Trigger→Sandbox) deferred.
+- **S4 Defeater/Contestation** (🔴, offen, [F-contest]).
 - **Offene Review-Flags** (ADR §Kopf): [F-λmin], [F-Demut], [F-Local], [F-eternal], [F-contest].
 
 ### I.8 Empirie-Vorbedingungen (Stefan-Inputs)

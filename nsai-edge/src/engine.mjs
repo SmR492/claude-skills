@@ -653,9 +653,13 @@ export class Engine {
     return { decayed, superseded, retracted, dryRun };
   }
   // GC: alte superseded-Tombstones + Waisen-Knoten physisch entfernen (KONZEPT §8.4).
+  // 🔴-Fix (S5a-Audit): user-REJECTED Tombstones (`user_rejected_at` gesetzt) werden NIE physisch
+  // gelöscht — sie sind die dauerhafte Resurrection-Sperre. Sonst könnte nach GC eine frische
+  // Ingestion (storeTriple ODER promoteFiction) den explizit abgelehnten Fakt wieder als aktiv
+  // anlegen (Tarski §B: ein abgelehnter Fakt wird nie resurrected; gegnerisch gefunden).
   gc({ maxAgeDays = 30 } = {}) {
     const cutoff = new Date(this._now() - maxAgeDays * 86400000).toISOString().replace('T', ' ').slice(0, 19);
-    const edges = this.db.prepare("DELETE FROM knowledge_edges WHERE local_status='superseded' AND updated_at < ?").run(cutoff);
+    const edges = this.db.prepare("DELETE FROM knowledge_edges WHERE local_status='superseded' AND updated_at < ? AND user_rejected_at IS NULL").run(cutoff);
     const nodes = this.db.prepare('DELETE FROM knowledge_nodes WHERE id NOT IN (SELECT subject_id FROM knowledge_edges UNION SELECT object_id FROM knowledge_edges)').run();
     return { edgesDeleted: edges.changes, nodesDeleted: nodes.changes };
   }
@@ -797,6 +801,57 @@ export class Engine {
     };
     walk(targetHash, 1000, 1);
     return { propagated: targets.length, targets };
+  }
+
+  // ---- ADR 0019 Slice S5a: Modus-Achse / Fiktion (separater Sandbox-Store) -------------------
+  // Suspendierte/fiktive Tripel (assertion_mode=suspended) leben in `sandbox_edges`, PHYSISCH getrennt
+  // vom Faktengraphen. resolveBelief/query/verify lesen ausschließlich knowledge_edges → sehen Fiktion
+  // NIE (Isolation by Default; kein Filter, den man vergessen kann — stärkste Tarski-Garantie). `world` =
+  // benannte Welt (Lewis-Operator). Fiktion ist NICHT falsch — sie ist modus-verschoben (§B).
+  storeFiction({ subject, predicate, object, world, confidence = 700, source_type = 'llm', temporality = 'stable', asserted_at = null }) {
+    validateTriple(subject, predicate, object);
+    if (typeof world !== 'string' || world.length === 0) throw new EngineError('INVALID_PARAMETER_FORMAT', 'world (benannte Welt) erforderlich');
+    if (!Number.isInteger(confidence) || confidence < 0 || confidence > 1000) throw new EngineError('INVALID_PARAMETER_FORMAT', 'confidence außerhalb 0–1000');
+    if (!TEMPORALITIES.has(temporality)) throw new EngineError('INVALID_PARAMETER_FORMAT', 'temporality ungültig');
+    let ts = asserted_at ?? new Date(this._now()).toISOString();
+    if (Date.parse(ts) > this._now()) ts = new Date(this._now()).toISOString();
+    const hash = tripleHash(subject, predicate, object);
+    this.db.prepare('INSERT OR REPLACE INTO sandbox_edges (world, triple_hash, subject, predicate, object, confidence, source_type, temporality, asserted_at, origin_peer_id) VALUES (?,?,?,?,?,?,?,?,?,?)')
+      .run(world, hash, subject, predicate, object, confidence, source_type, temporality, ts, this.peerId);
+    return { triple_hash: hash, world, assertion_mode: 'suspended' };
+  }
+
+  // Welt-Scope-Lesen (explizites Opt-In, Lewis „in Welt f gilt A"). Default reine Sandbox-Sicht;
+  // includeFacts=true → temporäre UnionRead Sandbox(world) + Faktengraph (nur im Bedarfsfall).
+  recallWorld(world, { subject = null, includeFacts = false } = {}) {
+    if (typeof world !== 'string' || world.length === 0) throw new EngineError('INVALID_PARAMETER_FORMAT', 'world erforderlich');
+    const rows = subject
+      ? this.db.prepare('SELECT subject, predicate, object, confidence, source_type, temporality, asserted_at FROM sandbox_edges WHERE world=? AND subject=?').all(world, subject)
+      : this.db.prepare('SELECT subject, predicate, object, confidence, source_type, temporality, asserted_at FROM sandbox_edges WHERE world=?').all(world);
+    const fiction = rows.map((r) => ({ ...r, assertion_mode: 'suspended', world }));
+    if (!includeFacts) return { world, fiction };
+    return { world, fiction, facts: (subject ? this.query(subject).edges : []) };
+  }
+
+  // Promotion (Stefan-Entscheid): reife Fiktion verlässt die Sandbox + wird FRISCHE Ingestion im
+  // Faktengraphen → sammelt ihre ersten Trust-Impulse neu (kein Flag-Mutieren). storeTriple zuerst
+  // (eigene TX), dann Sandbox-Löschung → schlimmstenfalls Fakt + Sandbox-Rest (kein Datenverlust).
+  promoteFiction(world, triple_hash) {
+    const row = this.db.prepare('SELECT * FROM sandbox_edges WHERE world=? AND triple_hash=?').get(world, triple_hash);
+    if (!row) return null;
+    // 🔴-Fix (S5a-Audit): Promotion ist FRISCHE Ingestion — NIE ein Merge in einen bestehenden Fakt.
+    // Existiert das Tripel bereits (aktiv ODER superseded/rejected), bleibt der Fakt-Pfad BYTE-GENAU
+    // unberührt (Tarski §B: Fiktion mutiert NIE einen Fakt; ein abgelehnter Fakt wird nicht resurrected) —
+    // die redundante Fiktion verlässt nur die Sandbox. Ohne diesen Check träfe storeTriple seinen
+    // idempotenten Merge-Zweig und überschriebe confidence/source_type des Fakts mit Fiktions-Inhalt.
+    const existing = this._getEdge(triple_hash);
+    if (existing) {
+      this.db.prepare('DELETE FROM sandbox_edges WHERE world=? AND triple_hash=?').run(world, triple_hash);
+      return { promoted: false, alreadyFact: true, world, triple_hash, status: existing.local_status };
+    }
+    const fact = this.storeTriple({ subject: row.subject, predicate: row.predicate, object: row.object, confidence: row.confidence, temporality: row.temporality, source_type: row.source_type });
+    this.db.prepare('DELETE FROM sandbox_edges WHERE world=? AND triple_hash=?').run(world, triple_hash);
+    return { promoted: true, world, ...fact };
   }
 
   // Trust eines Knotens als deterministische Fold-Projektion über die Events (integer-Promille 0..1000).
