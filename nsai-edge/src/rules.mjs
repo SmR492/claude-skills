@@ -87,6 +87,12 @@ export const DEFAULT_SPEC = {
   // ADR 0019 Slice S3a — domain-skopierter Trust (Quelle×Thema, O3). Hat ein Knoten für ein Thema
   // weniger als so viele themen-spezifische Events, ist die Zelle zu dünn → globaler Fallback.
   trustDomainMinEvidence: 5,
+  // ADR 0019 Slice S4 — Contestation (defeasible Anfechtung, Modell H: eigener append-only Ledger,
+  // senkt strukturell NIE den Trust). Beweislast beim Anfechter: das contested-Verdikt fällt erst, wenn
+  // die akkumulierte Anfechtungs-Last die trustOf(Gewinner)-skalierte Schwelle überschreitet:
+  //   thr = trustContestBase + trunc(trustOf · trustContestSlope / 1000).
+  trustContestBase: 300,          // Mindest-Last (‰), die selbst ein prior-schwaches Item überstehen muss
+  trustContestSlope: 1000,        // lineare Skalierung der Schwelle mit der Verankerung des Gewinners
   // UC-AD Slice #6.3 — Zugriffs-basiertes Decay (Spaced-Repetition).
   // Innerhalb recallProtectionDays seit dem letzten markRecalled wird decayPerPeriod[temporality]
   // durch recallDecayDivisor geteilt (Integer-Division). Default: Halbierung über 30 Tage.
