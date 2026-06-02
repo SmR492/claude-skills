@@ -37,7 +37,7 @@ belief(obj)      = withinWeight(obj)^beliefSharpness / Σ_top withinWeight(j)^be
 - **Trust-Deckel** (`trustTierCap`): ein Origin kann keine höhere Stufe behaupten, als sein Trust erlaubt (`limited` → max. Web-Stufe, `untrusted` → ausgeschlossen). So kann sich ein limited-Peer kein `gesetz` erschleichen (kein source_type-Spoofing).
 - **Aktualität entscheidet nur INNERHALB derselben Stufe** (Recency-Decay, temporalitäts-gekoppelt) — Aktualität kann Autorität nie überstimmen.
 - **Zukunfts-`asserted_at`** wird lokal geklemmt und föderiert (pull/clone) abgelehnt — keine Recency-Manipulation.
-- **Trust-primäre Präzedenz auf BEIDEN Pfaden (Schreiben + Lesen):** sowohl die Provenienz-Übernahme im Merge (`mergeIncoming`) als auch die Belief-Auflösung (`resolveBelief`) ordnen lexikografisch nach `(Origin-Trust-Rang, effektive Stufe, …)`. Ein niedriger-vertrautes Incoming/Kandidat kann ein höher-vertrautes Edge weder in der Provenienz kapern noch im Belief auf 0 drücken — auch nicht per effTier-Sprung. **Innerhalb derselben Trust-Stufe dominiert die Autorität** (Gesetz schlägt Web), und die Live-Konfidenz wird nur durch full/authoritative-Beiträge angehoben. Damit ist die Klasse „untrusted/limited beeinflusst Belief-Werte eines höher-vertrauten Edges" auf allen Achsen (Tier, Konfidenz, Recency, Provenienz) und allen Pfaden geschlossen. Eigene Inferenz (self=full) ist geschützt.
+- **Trust-primäre Präzedenz auf BEIDEN Pfaden (Schreiben + Lesen):** sowohl die Provenienz-Übernahme im Merge (`mergeIncoming`) als auch die Belief-Auflösung (`resolveBelief`) ordnen lexikografisch nach `(Origin-Trust-Rang, effektive Stufe, …)`. Ein niedriger-vertrautes Incoming/Kandidat kann ein höher-vertrautes Edge weder in der Provenienz kapern noch im Belief auf 0 drücken — auch nicht per effTier-Sprung. **Innerhalb derselben Trust-Stufe dominiert die Autorität** (Gesetz schlägt Web), und die Live-Konfidenz wird nur durch full/authoritative-Beiträge angehoben. Damit ist die Klasse „untrusted/limited beeinflusst Belief-Werte eines höher-vertrauten Edges" auf allen Achsen (Tier, Konfidenz, Recency, Provenienz) auf BEIDEN genannten Pfaden (Merge + Belief-Auflösung) geschlossen. Eigene Inferenz (self=full) ist geschützt. **MCP-Boundary (S6a, präzise):** autonome Fremd-Edge-Mutation an der MCP-Boundary (`_callTool`) ist gegatet — kein rein-über-MCP erreichbarer Pfad (einzeln oder in Sequenz) kann ohne Mensch-`approve` einen fremden Edge in Belief/Validity/Status/Provenienz/Trust herabstufen/unterdrücken/löschen oder per Elimination den `resolveBelief`-Gewinner auf eine andere Antwort kippen (`store_triple`/`set_validity`/`supersede_temporally`-Origin-Guard, `decay_pass` dry_run-erzwungen, `contest` self/null-Guard, `endorse`/`corroborate` auto-Cap, gefährliche Mutationen über Two-Door propose→approve). Self-Edges (origin null/eigene peerId) darf Claude verwalten (bewusste, präzedenz-gedeckelte Grenze).
 - **Determinismus:** bei Belief-Gleichstand entscheidet ein wertbasierter Tiebreak (lexikografisch nach object) → föderationsweit gleicher Gewinner, unabhängig von der Ingest-Reihenfolge. Fällt die oberste Trust/Stufe komplett auf Gewicht 0, greift die nächste nicht-leere. (Hinweis: Recency allein wird nie exakt 0 — `2^(−Alter)` bleibt minimal positiv —, der Fallthrough greift praktisch nur bei `confidence=0`. „Aktualität überstimmt Autorität nie" ist damit auch im Grenzfall gewahrt: eine höher-vertraute/höher-autoritative, aber alte Quelle dominiert eine frische niedrigere weiterhin.)
 - **Provenienz-Präzedenz trust-primär:** beim Merge desselben Hashes ist die Reihenfolge `(Origin-Trust-Rang, effektive Stufe, asserted_confidence, origin_id)`. Ein niedriger-vertrauter Origin übernimmt NIE den Record eines höher-vertrauten — auch nicht durch einen effTier-Sprung via source_type-Anspruch. (Die Belief-Auflösung zwischen VERSCHIEDENEN Objekten bleibt autoritäts-primär — andere Operation.)
 - **Lokale Trust-Projektion (bewusst nicht-konvergent, wie `local_status`):** die gespeicherten Provenienz-Felder `origin_peer_id`/`source_type`/`asserted_at` können zwischen Knoten mit gespiegelten Trust-Zuweisungen abweichen (jeder Knoten behält den nach SEINEM Trust präzedenten Record). Der einzige deklariert-konvergente Föderationswert ist die Live-`confidence` (CRDT-max, trust-unabhängig); das signierte Wire bleibt überall identisch re-verifizierbar.
@@ -62,7 +62,7 @@ Lokales Re-Erfassen (UC-01 gleicher Hash) und der Föderations-Merge nutzen **CR
 Diese betreffen die **PHP-Gegenseite** und sind aus dem Node-Repo nicht baubar (separate Symfony-Arbeit):
 - **`nsai:graph:ingest` / `nsai:graph:export`** im PHP-Bundle existieren noch nicht. Die **Node-Hälfte der Brücke ist fertig + sicher getestet**: HTTP-Transport (Node↔Node, real) + `bundleAdapter` (docker exec via `execFile`-Argument-Array, kein Shell-String, Container-Name validiert, SyncSkipped bei Nichterreichbarkeit). Sobald die zwei PHP-Commands stehen, ist die Bundle-Föderation ohne Node-Änderung lauffähig.
 - **Cross-Language-Conformance (UC-10)** läuft Node-seitig; `phpVerified` bleibt `false`, bis ein `phpRunner` (docker exec) die identischen Vektoren in der PHP-Engine rechnet. Das Anti-Drift-Gate ist konstruiert, aber erst halbseitig verifiziert.
-- **MCP-Föderations-Tools** (`pull`/`push`/`clone`) sind über CLI/HTTP-Transport nutzbar, aber noch nicht als in-session-MCP-Tools exponiert (async-Lifecycle). `peer_add`/`peer_trust` + alle Lese-/Schreib-Tools sind als MCP-Tools verfügbar.
+- **MCP-Föderations-Tools** (`pull`/`push`/`clone`) sind über CLI/HTTP-Transport nutzbar, aber noch nicht als in-session-MCP-Tools exponiert (async-Lifecycle). `graph__peer_add` + alle Lese-/Schreib-Tools sind als MCP-Tools verfügbar; die **Trust-Vergabe** ist S6a-bedingt eine Mensch-Tür (`graph__propose_peer_trust` → CLI `peer-trust`/`approve`), kein direktes MCP-Tool.
 
 Diese Punkte mindern die lokale Produktivnutzung (Ziele 1/2/4/5) nicht; sie betreffen die vollständige bidirektionale Bundle-Föderation (Ziel 3).
 
@@ -276,11 +276,13 @@ Gegen echten Quellcode geprüft (frischer Checkout, Mai 2026):
 
 ### UC-04: Decay & Reinforcement (zeitbasiert, Integer)
 
-**Akteur:** `System` · **Route/MCP-Tool:** `graph__decay_pass`
+**Akteur:** `System` · **Echte Lauf-Tür (CLI):** `nsai-edge decay` (`engine.decayPass({dryRun:false})`) · **MCP-Tool:** `graph__decay_pass` — über MCP **dry_run-ERZWUNGEN** (read-only Vorschau, das `dry_run`-Arg wird ignoriert).
+
+> **Origin-Guard (S6a-Final-Pass):** Ein echter Decay decayt AUCH fremde Edges und kann sie unter die Lösch-Schwelle auf `superseded` setzen — ein MCP-Sturm könnte so einen fremden authoritative-Gewinner AUTONOM eliminieren. Decay ist daher System/Mensch-Wartung und läuft nur über die CLI-Tür; das MCP-Tool liefert ausschließlich die `dryRun`-Vorschau (mutiert nichts). Die Engine-Methode `decayPass({dryRun})` bleibt unverändert — der Guard sitzt an der MCP-Boundary (`_callTool`), interne Aufrufer + CLI bleiben frei.
 
 #### Verhalten
 
-1. Periodischer Lauf (Session-Start-Hook): reduziert `confidence`-Promille je `temporality` gemäß Integer-Halbwertszeit-Tabelle der Spec.
+1. Periodischer Lauf (CLI/System-Wartung, z. B. Session-Start-Hook): reduziert `confidence`-Promille je `temporality` gemäß Integer-Halbwertszeit-Tabelle der Spec. (Über MCP nur Vorschau.)
 2. `eternal` unverändert; `ephemeral` zerfällt am schnellsten.
 3. Konfidenz unter Lösch-Schwelle → `superseded` (nicht physisch gelöscht bis synchronisiert + GC, §8.4).
 4. Reinforcement (§5, normativ): `confidence = min(confidence + reinforce_delta, 1000)` bei erneutem Store/Pull mit gleichem `triple_hash` (Default-Delta 50 ‰).
@@ -418,12 +420,12 @@ Gegen echten Quellcode geprüft (frischer Checkout, Mai 2026):
 
 ### UC-09: Peer-Trust & Identität
 
-**Akteur:** `Developer` · **Route/MCP-Tools:** `graph__peer_add`, `graph__peer_trust`, `graph__peer_rotate`, `graph__peer_revoke`
+**Akteur:** `Developer` · **MCP-Tools:** `graph__peer_add`, `graph__propose_peer_trust` (NUR Vorschlag — Trust-Vergabe ist ein Autoritäts-Akt) · **Mensch-Tür (CLI):** `nsai-edge peer-trust <peer_id> <level>` / `approve <id>`, `peer-rotate`, `peer-revoke` (S6a: das ungegatete `graph__peer_trust`-MCP-Tool wurde entfernt)
 
 #### Verhalten
 
 1. `peer_add`: registriert Peer (Public Key + Endpoint), Trust-Level initial `untrusted`. **TOFU**: Engine zeigt den Key-Fingerprint, Developer bestätigt out-of-band.
-2. `peer_trust`: hebt Trust-Level (`untrusted`/`limited`/`full`/`authoritative`) bewusst an.
+2. **Trust-Vergabe (Mensch-Tür):** Claude kann via MCP nur `graph__propose_peer_trust(peer_id, level)` einen VORSCHLAG erzeugen — die Vergabe selbst vollzieht der Mensch über die CLI (`nsai-edge peer-trust <peer_id> <level>` bzw. `approve <id>`) und hebt das Trust-Level (`untrusted`/`limited`/`full`/`authoritative`) bewusst an. Es gibt KEIN ungegatetes `graph__peer_trust`-MCP-Tool (S6a).
 3. Trust steuert **lokal** (nie den gemergten Föderationswert, §4/UC-08): `untrusted` → `trust_factor`=0, alle Fakten Quarantäne, kein Merge-Beitrag; `limited` → `trust_factor`<1000 (effektive Konfidenz lokal gedämpft); `full` → `trust_factor`=1000, direkter Merge; `authoritative` → `trust_factor`=1000 + gewinnt lokale Widerspruch-Auflösung (nur Bundle).
 4. `peer_rotate`: ersetzt den Public Key eines Peers nach erneuter Fingerprint-Bestätigung (legitime Rotation ≠ `PEER_EXISTS`-Block).
 5. `peer_revoke`: sperrt Peer (Trust→`untrusted`); bereits gemergte Fakten dieses Peers → Quarantäne zur Re-Review; künftige Push/Pull des revozierten Peers werden hart abgewiesen (UC-06 Fehlerfall).

@@ -152,6 +152,21 @@ CREATE TABLE IF NOT EXISTS sandbox_edges (
   PRIMARY KEY (world, triple_hash)
 );
 CREATE INDEX IF NOT EXISTS idx_sandbox_world ON sandbox_edges(world);
+-- ADR 0019 Slice S6a (Two-Door-Approval-Gate): veraenderliche Steuer-Queue fuer gefaehrliche
+-- Mutationen, die der MCP-Agent (Claude-Tuer) nur VORSCHLAEGT. Der Mensch (CLI-Tuer) approved/rejected.
+-- Bewusst KEINE append-only-Trigger (das ist kein Trust-Ledger): Zeilen wechseln pending->approved/rejected.
+-- Kein Backtick in diesem Block (S5a/S2b-Lehre: Backtick im Kommentar killt das Template-Literal).
+CREATE TABLE IF NOT EXISTS pending_actions (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  kind TEXT NOT NULL CHECK(kind IN ('reject','promote_fiction','authority_endorse','peer_trust','set_validity','supersede_temporal')),
+  payload TEXT NOT NULL,
+  preview TEXT,
+  status TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending','approved','rejected')),
+  proposed_by TEXT,
+  created_at TEXT DEFAULT (datetime('now')),
+  resolved_at TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_pending_actions_status ON pending_actions(status);
 CREATE INDEX IF NOT EXISTS idx_episodes_occurred ON episodes(occurred_at);
 CREATE INDEX IF NOT EXISTS idx_episodes_context ON episodes(context_slug);
 CREATE INDEX IF NOT EXISTS idx_episode_triples_hash ON episode_triples(triple_hash);
@@ -242,9 +257,39 @@ export function openDb(path = ':memory:') {
   migrateLastRecalledAt(db);
   migrateTrustEventsEpoch(db);
   migrateTrustEventsBlameClass(db);
+  migratePendingActionsKind(db);
   migrateEpisodesFts(db);
   applyPostMigrationIndexes(db);
   return db;
+}
+
+// Origin-Guard-Pass (MCP-Boundary): die zwei neuen pending-kinds 'set_validity' und 'supersede_temporal'
+// in den CHECK von pending_actions aufnehmen. SQLite kann CHECK nicht per ALTER aendern -> Tabelle
+// rebuilden (nur falls der CHECK sie noch nicht erlaubt; idempotent). pending_actions hat KEINE
+// append-only-Trigger (Steuer-Queue, kein Ledger), darum kein Trigger-Handling noetig. Index danach neu.
+// Nur noetig fuer Bestands-DBs ohne Wipe; frische DBs tragen den CHECK aus SCHEMA.
+function migratePendingActionsKind(db) {
+  const sql = db.prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name='pending_actions'").get()?.sql ?? '';
+  if (sql.includes('set_validity')) return; // CHECK bereits aktuell
+  db.exec('BEGIN IMMEDIATE');
+  try {
+    db.exec(
+      `CREATE TABLE pending_actions_new (
+         id INTEGER PRIMARY KEY AUTOINCREMENT,
+         kind TEXT NOT NULL CHECK(kind IN ('reject','promote_fiction','authority_endorse','peer_trust','set_validity','supersede_temporal')),
+         payload TEXT NOT NULL,
+         preview TEXT,
+         status TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending','approved','rejected')),
+         proposed_by TEXT,
+         created_at TEXT DEFAULT (datetime('now')),
+         resolved_at TEXT);` +
+      'INSERT INTO pending_actions_new SELECT id, kind, payload, preview, status, proposed_by, created_at, resolved_at FROM pending_actions;' +
+      'DROP TABLE pending_actions;' +
+      'ALTER TABLE pending_actions_new RENAME TO pending_actions;' +
+      'CREATE INDEX IF NOT EXISTS idx_pending_actions_status ON pending_actions(status);',
+    );
+    db.exec('COMMIT');
+  } catch (e) { db.exec('ROLLBACK'); throw e; }
 }
 
 // ADR 0019 S1b: `epoch`-Spalte auf trust_events für Bestands-DBs nachrüsten (Bestands-Events → Epoche 0).
