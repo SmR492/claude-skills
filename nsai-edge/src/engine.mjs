@@ -772,7 +772,8 @@ export class Engine {
       let v = Math.trunc((mag * factorMilli) / 1000);
       v = Math.trunc((v * (1000 - this.trustOf(id))) / 1000);
       v = Math.trunc(v / Math.max(1, n));
-      if (v > 0) { this.recordAdjudication({ target_id: id, adj_class: 'derived_blame', delta: -v, domain: 'blame' }); targets.push({ id, blame: v }); }
+      // domain=null (global): derived_blame ist KEIN themen-spezifischer Akt → zählt in ALLE Themen-Scopes (S3a).
+      if (v > 0) { this.recordAdjudication({ target_id: id, adj_class: 'derived_blame', delta: -v }); targets.push({ id, blame: v }); }
     };
     if (attribution === 'undercut') {
       let df; try { df = JSON.parse(root.derived_from); } catch { df = {}; }
@@ -805,7 +806,11 @@ export class Engine {
   //   (Anti-Sleeper, λ_min>0) + Pro-Perioden-Clamp (NUR reine auto/Quell-Epochen — eine Epoche mit
   //   direktem human/oracle-Akt ist clamp-frei: Autoritäts-Achse > Anzahl-Achse). Wall-clock-frei →
   //   replay-/conformance-deterministisch. Reine Lese-Op (kein Write, kein Wire). resolveBelief unberührt.
-  trustOf(id, { asOf = null } = {}) {
+  // S3a (additiv, O3): `domain` skopiert auf ein Thema — Fold über (domain=Thema ODER domain IS NULL),
+  //   wobei nicht-themen-spezifische Impulse (domain=null, z.B. derived_blame) global in ALLE Themen
+  //   zählen. Dünne Zelle (< trustDomainMinEvidence themen-spezifische Events) → globaler Fallback
+  //   (Hart-Schwelle). domain=null → exakt bisheriges Verhalten (kein Regress).
+  trustOf(id, { asOf = null, domain = null } = {}) {
     if (typeof id !== 'string' || id.length === 0) throw new EngineError('INVALID_PARAMETER_FORMAT', 'id fehlt');
     const sw = Math.max(0, Math.trunc(this.spec.trustSourceWeight ?? 400));
     const A0 = (this.spec.trustPriorAlpha ?? 3) * 1000;
@@ -820,8 +825,16 @@ export class Engine {
 
     // Total-Ordnung (epoch, occurred_at_norm, event_hash): Epoche ist die äußere Periode, der Rest
     // bricht innerhalb der Epoche (kommutativ → folgenlos für die additive Summe).
-    const direct = this.db.prepare('SELECT adj_class, delta_promille, dedup_hash, epoch FROM trust_events WHERE target_id=? ORDER BY epoch, occurred_at_norm, event_hash').all(id);
-    const source = this.db.prepare('SELECT adj_class, delta_promille, dedup_hash, epoch FROM trust_events WHERE source_id=? AND target_id<>? ORDER BY epoch, occurred_at_norm, event_hash').all(id, id);
+    // S3a: dünne Themen-Zelle → globaler Fallback (Hart-Schwelle). Zählt NUR themen-spezifische Events
+    // (domain=Thema, nicht die globalen domain=null) auf dem Knoten; darunter ist die Zelle nicht belastbar.
+    if (domain != null) {
+      const cell = this.db.prepare('SELECT COUNT(*) c FROM trust_events WHERE (target_id=? OR source_id=?) AND domain=?').get(id, id, domain).c;
+      if (cell < Math.max(1, Math.trunc(this.spec.trustDomainMinEvidence ?? 5))) return this.trustOf(id, { asOf });
+    }
+    const domClause = domain != null ? ' AND (domain=? OR domain IS NULL)' : '';
+    const domArgs = domain != null ? [domain] : [];
+    const direct = this.db.prepare(`SELECT adj_class, delta_promille, dedup_hash, epoch FROM trust_events WHERE target_id=?${domClause} ORDER BY epoch, occurred_at_norm, event_hash`).all(id, ...domArgs);
+    const source = this.db.prepare(`SELECT adj_class, delta_promille, dedup_hash, epoch FROM trust_events WHERE source_id=? AND target_id<>?${domClause} ORDER BY epoch, occurred_at_norm, event_hash`).all(id, id, ...domArgs);
     if (direct.length === 0 && source.length === 0) return prior; // safe-by-default
 
     const curEpoch = asOf == null ? this._trustEpoch() : Math.trunc(asOf);
