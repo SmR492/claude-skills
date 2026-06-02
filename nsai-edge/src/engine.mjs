@@ -79,6 +79,17 @@ export class Engine {
   }
   _nodeName(id) { return this.db.prepare('SELECT name FROM knowledge_nodes WHERE id = ?').get(id)?.name; }
   _getEdge(hash) { return this.db.prepare('SELECT * FROM knowledge_edges WHERE triple_hash = ?').get(hash); }
+  // READ-ONLY: Edge zu einem (subject,predicate,object) auflösen (gleicher triple_hash wie storeTriple
+  // bildet, Z.124) — für den MCP-Boundary-Origin-Guard von graph__store_triple. Kein Schreibeffekt;
+  // gibt den Edge-Row oder null zurück. Ungültige/leere Eingaben → null (Guard prüft nur Existenz).
+  findEdgeBySPO(subject, predicate, object) {
+    if (subject == null || predicate == null || object == null) return null;
+    return this._getEdge(tripleHash(subject, predicate, object)) ?? null;
+  }
+  // Origin-Guard (MCP-Boundary): "Self" = origin_peer_id NULL ODER == eigene peerId; jeder andere
+  // registrierte Peer ist "Fremd". Über MCP darf Claude einen FREMDEN Edge nicht autonom in
+  // Belief/Validity/Status mutieren — nur via propose→Mensch-approve (Two-Door). Reine Lese-Prüfung.
+  _isForeignOrigin(originPeerId) { return originPeerId != null && originPeerId !== this.peerId; }
   _peer(peerId) { return this.db.prepare('SELECT * FROM peers WHERE peer_id = ?').get(peerId); }
   _tick() { this._clock += 1; return { [this.peerId]: this._clock }; }
   _tx(fn) { this.db.exec('BEGIN IMMEDIATE'); try { const r = fn(); this.db.exec('COMMIT'); return r; } catch (e) { this.db.exec('ROLLBACK'); throw e; } }
@@ -160,15 +171,24 @@ export class Engine {
   _trustTierCap(trust) { return this.spec.trustTierCap[trust] ?? -1; }
   // Effektive Autoritäts-Stufe: source_type-Tier, gekappt durch Origin-Trust (Fix 🔴1).
   _effTier(edge) { return Math.min(this._sourceTier(edge.source_type), this._trustTierCap(this._originTrust(edge.origin_peer_id))); }
-  // ADR 0019 S2a (§4.6, Modell C): Entrenchment-Band-Shift = clamp(trunc((trustOf(triple)−prior)/STEP), −K, +K).
-  // Hebt/senkt die effektive Stufe proportional zur adjudizierten Entrenchment. trunc gegen Null → negativer
-  // Shift bottomt bei −1 (trustOf≥0), positiver erreicht +K → Widerlegung konservativ, Sybil-/auto-Bound (Kappe 600 → ≤+1).
+  // ADR 0019 S2a (§4.6, Modell C): Entrenchment-Band-Shift — AUTORITÄTS-VERANKERT (Adversarial-🔴-Härtung).
+  // POSITIVER Shift (Präzedenz-Aufstieg) greift erst OBERHALB des auto-Caps (trustAutoCorroborateCap=600):
+  //   shift = +min(K, trunc((t−cap)/STEP)).  Das auto_corroborate-Band ist auf ≤cap gedeckelt (O5) → reine
+  //   Korroboration (Anzahl-Achse, MCP-`endorse`/`corroborate`) kann den Gewinner NIE autonom kippen; nur
+  //   Autorität (human_endorse/oracle_higher_tier hebt t über cap) verschiebt die Präzedenz nach oben.
+  // NEGATIVER Shift (Blame/Demotion) UNVERÄNDERT: shift = −min(K, trunc((prior−t)/STEP)) für t<prior;
+  //   trunc gegen Null → konservative Widerlegung. eternal-Floor (in resolveBelief) bleibt unberührt.
+  // [prior..cap] = reine Korroborations-Zone → KEIN Shift. Effekt: 600→0, 800→+1, 1000→+2, 500→0, 300→0, 100→−1.
   _entrenchBandShift(edge) {
     const K = Math.max(0, Math.trunc(this.spec.trustEntrenchmentBandK ?? 2));
     const STEP = Math.max(1, Math.trunc(this.spec.trustEntrenchmentBandStep ?? 200));
     const A0 = this.spec.trustPriorAlpha ?? 3, B0 = this.spec.trustPriorBeta ?? 7;
     const prior = Math.trunc((1000 * A0) / (A0 + B0));
-    return Math.max(-K, Math.min(K, Math.trunc((this.trustOf(edge.triple_hash) - prior) / STEP)));
+    const cap = Math.trunc(this.spec.trustAutoCorroborateCap ?? 600);
+    const t = this.trustOf(edge.triple_hash);
+    if (t > cap) return Math.min(K, Math.trunc((t - cap) / STEP));       // POSITIV: nur Autorität (>Cap) hebt Präzedenz
+    if (t < prior) return -Math.min(K, Math.trunc((prior - t) / STEP));  // NEGATIV: Blame/Demotion (UNVERÄNDERT)
+    return 0;                                                            // [prior..cap]: reine Korroborations-Zone
   }
 
   // ---- UC-MS Slice #M.1: Trust-Quorum-Endorsement -----
@@ -781,6 +801,20 @@ export class Engine {
     return { event_hash, epoch };
   }
 
+  // ---- ADR 0019 Slice S6a: Claude-Tür (intent-verengte, SICHERE Endorse-Variante) ------------------
+  // corroborate ist der EINZIGE Trust-Schreib-Pfad, den der MCP-Agent (Claude) direkt vollziehen darf.
+  // Fest auf adj_class='auto_corroborate' (Anzahl-Achse) verengt → im trustOf-Fold auf trustAutoCorroborateCap
+  // (600) gedeckelt; kann NIE Autorität setzen (das ist die Mensch-Tür über propose→approve). weight wird
+  // auf [0,1000] geklemmt (kein Werfen bei Übermaß). dedup_hash ist PFLICHT (auto_corroborate erfordert ihn
+  // ohnehin im Fold gegen die Anzahl-Falle) → wirft INVALID_PARAMETER_FORMAT wenn er fehlt.
+  corroborate({ target_id, source_id = null, weight = 500, dedup_hash, domain = null } = {}) {
+    if (typeof dedup_hash !== 'string' || dedup_hash.length === 0) {
+      throw new EngineError('INVALID_PARAMETER_FORMAT', 'corroborate erfordert dedup_hash (auto_corroborate-Anzahl-Falle)');
+    }
+    const w = Math.max(0, Math.min(1000, Math.trunc(weight)));
+    return this.recordAdjudication({ target_id, source_id, adj_class: 'auto_corroborate', delta: w, dedup_hash, domain });
+  }
+
   // S1b: aktuelle globale Decay-Epoche (wall-clock-frei). Eine Periode = ein decayPass().
   _trustEpoch() {
     const row = this.db.prepare('SELECT epoch FROM trust_meta WHERE id=1').get();
@@ -950,6 +984,134 @@ export class Engine {
     const fact = this.storeTriple({ subject: row.subject, predicate: row.predicate, object: row.object, confidence: row.confidence, temporality: row.temporality, source_type: row.source_type });
     this.db.prepare('DELETE FROM sandbox_edges WHERE world=? AND triple_hash=?').run(world, triple_hash);
     return { promoted: true, world, ...fact };
+  }
+
+  // ---- ADR 0019 Slice S6a: Two-Door-Approval-Gate (pending_actions-Queue) ------------------------
+  // GEFÄHRLICHE Mutationen (reject, promote_fiction, authority_endorse) darf der MCP-Agent (Claude-Tür)
+  // NUR VORSCHLAGEN — nie selbst vollziehen, nie approven. proposeAction berechnet eine READ-ONLY
+  // Tragweite-Vorschau (preview) OHNE zu mutieren und legt die Zeile als status='pending' ab. Die
+  // Mensch-Tür (CLI, direkt an der Engine) vollzieht via approveAction die echte Mutation mit Mensch-/
+  // Autoritäts-Provenienz. KEIN MCP-Tool ruft je approveAction/rejectAction.
+  proposeAction({ kind, payload = {}, proposed_by = 'mcp-agent' } = {}) {
+    const KINDS = new Set(['reject', 'promote_fiction', 'authority_endorse', 'peer_trust', 'set_validity', 'supersede_temporal']);
+    if (!KINDS.has(kind)) throw new EngineError('INVALID_PARAMETER_FORMAT', 'kind ∈ {reject, promote_fiction, authority_endorse, peer_trust, set_validity, supersede_temporal}');
+    let preview;
+    if (kind === 'reject') {
+      if (typeof payload.triple_hash !== 'string' || !this._getEdge(payload.triple_hash)) {
+        throw new EngineError('INVALID_PARAMETER_FORMAT', 'reject.payload.triple_hash existiert nicht als Edge');
+      }
+      const root = this._getEdge(payload.triple_hash);
+      // Direkte Abhängige: Edges, deren derived_from.from diesen Hash referenziert (bounded Scan, JSON-Parse).
+      const affected = [];
+      for (const r of this.db.prepare('SELECT triple_hash, derived_from FROM knowledge_edges WHERE derived_from IS NOT NULL').all()) {
+        let df; try { df = JSON.parse(r.derived_from); } catch { continue; }
+        const from = Array.isArray(df?.from) ? df.from : [];
+        if (from.includes(payload.triple_hash)) affected.push(r.triple_hash);
+        if (affected.length >= 200) break; // bounded
+      }
+      preview = { triple_hash: payload.triple_hash, affected_derived: affected, current_status: root.local_status };
+    } else if (kind === 'promote_fiction') {
+      const row = this.db.prepare('SELECT subject, predicate, object FROM sandbox_edges WHERE world=? AND triple_hash=?').get(payload.world, payload.triple_hash);
+      if (!row) throw new EngineError('INVALID_PARAMETER_FORMAT', 'promote_fiction.payload.world+triple_hash existiert nicht in der Sandbox');
+      preview = { subject: row.subject, predicate: row.predicate, object: row.object, already_fact: !!this._getEdge(payload.triple_hash) };
+    } else if (kind === 'authority_endorse') {
+      const AUTH = new Set(['human_endorse', 'oracle_higher_tier']);
+      if (!AUTH.has(payload.adj_class)) throw new EngineError('INVALID_PARAMETER_FORMAT', 'authority_endorse.adj_class ∈ {human_endorse, oracle_higher_tier}');
+      if (typeof payload.target_id !== 'string' || payload.target_id.length === 0) throw new EngineError('INVALID_PARAMETER_FORMAT', 'authority_endorse.target_id fehlt');
+      if (!Number.isInteger(payload.delta) || payload.delta < -1000 || payload.delta > 1000) throw new EngineError('INVALID_PARAMETER_FORMAT', 'authority_endorse.delta außerhalb [-1000,1000] oder kein Integer');
+      preview = { target_id: payload.target_id, adj_class: payload.adj_class, delta: payload.delta, current_trust: this.trustOf(payload.target_id, { domain: payload.domain ?? null }) };
+    } else if (kind === 'peer_trust') { // Trust-VERGABE ist ein Autoritäts-Akt → NUR über die Mensch-Tür (ungegateter MCP-Write entfernt, 🔴-1).
+      const LEVELS = new Set(['untrusted', 'limited', 'full', 'authoritative']);
+      if (!LEVELS.has(payload.level)) throw new EngineError('INVALID_PARAMETER_FORMAT', 'peer_trust.level ∈ {untrusted, limited, full, authoritative}');
+      if (typeof payload.peer_id !== 'string' || payload.peer_id.length === 0) throw new EngineError('INVALID_PARAMETER_FORMAT', 'peer_trust.peer_id fehlt');
+      const peer = this._peer(payload.peer_id);
+      if (!peer) throw new EngineError('INVALID_PARAMETER_FORMAT', 'peer unbekannt — erst peer_add');
+      preview = { peer_id: payload.peer_id, level: payload.level, current_level: peer.trust_level ?? null };
+    } else if (kind === 'set_validity') {
+      // Origin-Guard (MCP-Boundary): set_validity auf einem FREMDEN Edge ist ein autonomer Belief-Kipp
+      // (valid_to in die Vergangenheit → resolveBelief-Gewinner fällt weg). Nur via Mensch-Tür vollziehbar.
+      // proposeAction MUTIERT NICHT — berechnet nur die Tragweite-Vorschau (current vs. new Intervall + origin).
+      if (typeof payload.triple_hash !== 'string' || !this._getEdge(payload.triple_hash)) {
+        throw new EngineError('INVALID_PARAMETER_FORMAT', 'set_validity.payload.triple_hash existiert nicht als Edge');
+      }
+      const edge = this._getEdge(payload.triple_hash);
+      preview = {
+        triple_hash: payload.triple_hash,
+        origin_peer_id: edge.origin_peer_id,
+        current_valid_from: edge.valid_from ?? null, current_valid_to: edge.valid_to ?? null,
+        new_valid_from: payload.valid_from ?? null, new_valid_to: payload.valid_to ?? null,
+      };
+    } else { // supersede_temporal — beendet (valid_to=as_of) die offenen aktiven (s,p)-Vorgänger. Ist EINER davon FREMD,
+      // ist das ein autonomer Belief-Kipp eines Fremd-Gewinners → nur via Mensch-Tür. preview = die betroffenen Edges + origin.
+      validateTriple(payload.subject, payload.predicate, payload.object);
+      const affected = this._supersedeAffectedEdges(payload.subject, payload.predicate, payload.object, payload.as_of ?? null);
+      preview = {
+        subject: payload.subject, predicate: payload.predicate, object: payload.object,
+        as_of: payload.as_of ?? null,
+        affected_edges: affected.map((e) => ({ triple_hash: e.triple_hash, origin_peer_id: e.origin_peer_id })),
+      };
+    }
+    const info = this.db.prepare("INSERT INTO pending_actions (kind, payload, preview, status, proposed_by) VALUES (?,?,?, 'pending', ?)")
+      .run(kind, JSON.stringify(payload), JSON.stringify(preview), proposed_by);
+    return { id: Number(info.lastInsertRowid), kind, status: 'pending', preview };
+  }
+
+  // Mensch-Tür: pending-Vorschläge auflisten (payload/preview als geparste Objekte).
+  listPending({ status = 'pending' } = {}) {
+    return this.db.prepare('SELECT * FROM pending_actions WHERE status=? ORDER BY id').all(status).map((r) => ({
+      ...r,
+      payload: (() => { try { return JSON.parse(r.payload); } catch { return r.payload; } })(),
+      preview: (() => { try { return r.preview == null ? null : JSON.parse(r.preview); } catch { return r.preview; } })(),
+    }));
+  }
+
+  // Mensch-Tür: Vorschlag vollziehen. Lädt die pending-Zeile (muss status='pending' sein), führt je kind
+  // die ECHTE Mutation in einer Tx aus, markiert die Zeile als approved. Claude erreicht diese Methode NIE
+  // (kein MCP-Tool) → struktureller Two-Door-Schutz.
+  approveAction(id) {
+    const row = this.db.prepare('SELECT * FROM pending_actions WHERE id=?').get(id);
+    if (!row) throw new EngineError('INVALID_PARAMETER_FORMAT', 'pending_action id unbekannt');
+    const payload = JSON.parse(row.payload);
+    const nowZ = new Date(this._now()).toISOString();
+    // 🟡-2 CLAIM-FIRST (at-most-once): ZUERST atomar beanspruchen (pending→approved), DANN ausführen.
+    // node:sqlite (DatabaseSync) erlaubt KEINE geschachtelten Transaktionen (reject/promoteFiction
+    // wrappen sich bereits SELBST in _tx) → KEIN äußeres _tx. Die claim-first-Reihenfolge IST die
+    // Lösung: Der bedingte UPDATE (… AND status='pending') ist atomar — gewinnt genau ein Caller den
+    // Flip (changes===1). Crasht eine NICHT-idempotente Mutation (authority_endorse → frisches
+    // recordAdjudication-Event) NACH dem Claim, bleibt die Zeile 'approved'-aber-unausgeführt
+    // (at-most-once, sicheres Unter-Anwenden) statt 'pending' + Doppelzählung beim Re-Approve.
+    const claim = this.db.prepare("UPDATE pending_actions SET status='approved', resolved_at=? WHERE id=? AND status='pending'").run(nowZ, id);
+    if (claim.changes !== 1) throw new EngineError('INVALID_PARAMETER_STATE', `pending_action ${id} ist nicht mehr pending (status=${row.status})`);
+    let result;
+    if (row.kind === 'reject') {
+      const r = this.reject(payload.triple_hash);
+      let blame = null;
+      if (payload.attribution) blame = this.propagateRejectBlame(payload.triple_hash, { attribution: payload.attribution });
+      result = { retracted: r, blame };
+    } else if (row.kind === 'promote_fiction') {
+      result = this.promoteFiction(payload.world, payload.triple_hash);
+    } else if (row.kind === 'authority_endorse') {
+      result = this.recordAdjudication({ target_id: payload.target_id, adj_class: payload.adj_class, delta: payload.delta, domain: payload.domain ?? null });
+    } else if (row.kind === 'peer_trust') { // Trust-Vergabe (Autoritäts-Akt) NUR hier, an der Mensch-Tür.
+      this.peerTrust(payload.peer_id, payload.level);
+      result = { peer_id: payload.peer_id, level: payload.level };
+    } else if (row.kind === 'set_validity') { // Origin-Guard: Fremd-Edge-Validity nur an der Mensch-Tür vollziehen.
+      result = this.setValidity(payload.triple_hash, { valid_from: payload.valid_from, valid_to: payload.valid_to }) ?? { message: 'Unknown triple_hash.' };
+    } else { // supersede_temporal — Origin-Guard: beendet evtl. Fremd-Gewinner; nur an der Mensch-Tür vollziehen.
+      result = this.supersedeTemporally({ subject: payload.subject, predicate: payload.predicate, object: payload.object, as_of: payload.as_of ?? null, confidence: payload.confidence ?? 700 });
+    }
+    return { id, kind: row.kind, executed: true, result };
+  }
+
+  // Mensch-Tür: Vorschlag ablehnen (KEINE Mutation, nur Queue-Status).
+  rejectAction(id, reason = null) {
+    const row = this.db.prepare('SELECT status FROM pending_actions WHERE id=?').get(id);
+    if (!row) throw new EngineError('INVALID_PARAMETER_FORMAT', 'pending_action id unbekannt');
+    if (row.status !== 'pending') throw new EngineError('INVALID_PARAMETER_STATE', `pending_action ${id} ist nicht mehr pending (status=${row.status})`);
+    void reason; // bewusst nicht persistiert (Steuer-Queue, kein Audit-Ledger)
+    const nowZ = new Date(this._now()).toISOString();
+    this.db.prepare("UPDATE pending_actions SET status='rejected', resolved_at=? WHERE id=?").run(nowZ, id);
+    return { id, status: 'rejected' };
   }
 
   // Trust eines Knotens als deterministische Fold-Projektion über die Events (integer-Promille 0..1000).
@@ -1555,6 +1717,17 @@ export class Engine {
     if (vt != null && Date.parse(vt) <= Date.parse(effFrom)) throw new EngineError('INVALID_PARAMETER_FORMAT', 'valid_to ≤ valid_from (leeres Intervall)');
     this.db.prepare("UPDATE knowledge_edges SET valid_from=?, valid_to=?, updated_at=datetime('now') WHERE triple_hash=?").run(vf ?? null, vt ?? null, hash);
     return { triple_hash: hash, valid_from: vf ?? null, valid_to: vt ?? null };
+  }
+  // Origin-Guard-Hilfe (MCP-Boundary): bestimmt READ-ONLY die offenen aktiven (s,p)-Vorgänger-Edges,
+  // die ein supersedeTemporally(subject,predicate,object,as_of) in der Geltung BEENDEN würde (valid_to=as_of).
+  // Identische Selektion wie der `openPred`-Scan in supersedeTemporally (selber WHERE + Selbst-Hash-Filter).
+  // Mutiert NICHTS — Boundary-Guard + proposeAction-Preview nutzen denselben Befund. Bei rein additivem
+  // Supersede (kein offener Vorgänger) → [] (= alles self, direkt erlaubt).
+  _supersedeAffectedEdges(subject, predicate, object, as_of = null) {
+    const newHash = tripleHash(subject, predicate, object);
+    const sNode = this.db.prepare('SELECT id FROM knowledge_nodes WHERE name = ?').get(subject);
+    if (!sNode) return [];
+    return this.db.prepare("SELECT triple_hash, origin_peer_id, valid_from, asserted_at FROM knowledge_edges WHERE subject_id=? AND predicate=? AND local_status='active' AND valid_to IS NULL").all(sNode.id, predicate).filter((e) => e.triple_hash !== newHash);
   }
   // Nicht-destruktive temporale Supersession (nur single-value): schließt alle offenen aktiven
   // same-(s,p)-Fakten mit valid_to=as_of und legt den neuen Fakt mit valid_from=as_of an.
