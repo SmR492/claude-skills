@@ -708,7 +708,7 @@ export class Engine {
   // Append-only Adjudikations-Event. delta_promille ∈ [-1000,1000] (Tripel-Zerlegung-Ergebnis;
   // N=0 → der Aufrufer darf kein NaN/Out-of-Range liefern, sonst fail-closed). KEIN Wire-Inhalt.
   recordAdjudication({ target_id, source_id = null, adj_class, delta, dedup_hash = null, domain = null } = {}) {
-    const CLASSES = new Set(['human_endorse', 'human_reject', 'oracle_higher_tier', 'auto_corroborate']);
+    const CLASSES = new Set(['human_endorse', 'human_reject', 'oracle_higher_tier', 'auto_corroborate', 'derived_blame']);
     if (typeof target_id !== 'string' || target_id.length === 0) throw new EngineError('INVALID_PARAMETER_FORMAT', 'target_id fehlt');
     if (!CLASSES.has(adj_class)) throw new EngineError('INVALID_PARAMETER_FORMAT', 'adj_class ungültig');
     if (!Number.isInteger(delta) || delta < -1000 || delta > 1000) throw new EngineError('INVALID_PARAMETER_FORMAT', 'delta außerhalb [-1000,1000] oder kein Integer');
@@ -744,6 +744,58 @@ export class Engine {
   _trustEpoch() {
     const row = this.db.prepare('SELECT epoch FROM trust_meta WHERE id=1').get();
     return row ? row.epoch : 0;
+  }
+
+  // ---- ADR 0019 Slice S2b: Eltern-Attribuierung (Reject-Blame-Propagation, §4.2) -------------------
+  // Ein human_reject eines ABGELEITETEN Fakts K (derived_from) propagiert attenuierte NEGATIVE Blame:
+  //   - rebut (default): transitiv die Prämissen-Kette hoch, γ^d-gedämpft, /n-verdünnt, geschützt durch
+  //     trust_ext(P) = trustOf(P). „K-Pfad ausgeschlossen" ist via DAG-Invariante (infer überspringt
+  //     zyklische Justifications) garantiert: trustOf(P) liest NUR P's eigene + Quell-Events, nie das
+  //     downstream K → kein Zirkel (AC-T.9). Gut-gestütztes P (hohe trust_ext) → wenig Blame (geschont).
+  //   - undercut: nur der Regel-Knoten (rule_id) wird belastet (voller Hit, n=1), Prämissen unberührt (AC-T.8).
+  // Schreibt `derived_blame`-Events (Provenienz: abgeleitet ≠ Mensch-direkt ≠ auto). Reine Ledger-Erweiterung;
+  // trustOf foldet derived_blame als gedämpften negativen Autoritäts-Impuls (kein anchored, kein auto-Cap).
+  propagateRejectBlame(targetHash, { delta = -1000, attribution = 'rebut', maxDepth = 8 } = {}) {
+    if (typeof targetHash !== 'string' || targetHash.length === 0) throw new EngineError('INVALID_PARAMETER_FORMAT', 'targetHash fehlt');
+    if (!Number.isInteger(delta) || delta >= 0 || delta < -1000) throw new EngineError('INVALID_PARAMETER_FORMAT', 'delta muss negativ ∈ [-1000,0) sein');
+    if (attribution !== 'rebut' && attribution !== 'undercut') throw new EngineError('INVALID_PARAMETER_FORMAT', 'attribution ∈ {rebut, undercut}');
+    const root = this._getEdge(targetHash);
+    if (!root || !root.derived_from) return { propagated: 0, targets: [] }; // Basis-Fakt: keine Eltern → nichts
+    const mag = Math.abs(delta);
+    const gamma = Math.max(0, Math.min(1000, Math.trunc(this.spec.trustBlameGamma ?? 500)));
+    const targets = [];
+    const seen = new Set([targetHash]); // K selbst nie blamen; jede Wurzel ≤1× (ERSTER besuchter Pfad, DFS-
+    // Reihenfolge — NICHT zwingend kürzeste Distanz). Peer-lokal replay-stabil (derived_from.from-Reihenfolge
+    // ist ruleset-deterministisch); Trust ist Read-Lens, nicht Wire → cross-peer-Ordnungs-Divergenz tolerabel.
+    // blame = trunc(trunc(trunc(mag·factor/1000)·(1000−trust_ext)/1000)/n) — integer-promille, per-Schritt-trunc.
+    const blameAt = (id, factorMilli, n) => {
+      let v = Math.trunc((mag * factorMilli) / 1000);
+      v = Math.trunc((v * (1000 - this.trustOf(id))) / 1000);
+      v = Math.trunc(v / Math.max(1, n));
+      if (v > 0) { this.recordAdjudication({ target_id: id, adj_class: 'derived_blame', delta: -v, domain: 'blame' }); targets.push({ id, blame: v }); }
+    };
+    if (attribution === 'undercut') {
+      let df; try { df = JSON.parse(root.derived_from); } catch { df = {}; }
+      if (df.rule_id) blameAt(df.rule_id, 1000, 1); // Regel-Versagen → voller γ^0-Hit auf den Regel-Knoten
+      return { propagated: targets.length, targets };
+    }
+    // rebut: Prämissen-Kette hoch, γ je Hop. K's direkte Prämissen bekommen γ^1.
+    const walk = (hash, factorMilli, depth) => {
+      if (depth > maxDepth) return;
+      const ed = this._getEdge(hash);
+      if (!ed || !ed.derived_from) return;
+      let df; try { df = JSON.parse(ed.derived_from); } catch { return; }
+      const prem = Array.isArray(df.from) ? df.from : [];
+      if (prem.length === 0) return; // n=0 → kein Eltern-Impuls (keine Division durch 0)
+      const childFactor = Math.trunc((factorMilli * gamma) / 1000);
+      for (const P of prem) {
+        if (seen.has(P)) continue; seen.add(P);
+        blameAt(P, childFactor, prem.length);
+        walk(P, childFactor, depth + 1);
+      }
+    };
+    walk(targetHash, 1000, 1);
+    return { propagated: targets.length, targets };
   }
 
   // Trust eines Knotens als deterministische Fold-Projektion über die Events (integer-Promille 0..1000).
