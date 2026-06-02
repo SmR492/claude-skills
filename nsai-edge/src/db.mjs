@@ -112,6 +112,27 @@ CREATE TRIGGER IF NOT EXISTS trust_events_no_delete BEFORE DELETE ON trust_event
 -- trustOf bleibt replay-/conformance-deterministisch (§4.3). decayPass() inkrementiert ihn.
 CREATE TABLE IF NOT EXISTS trust_meta (id INTEGER PRIMARY KEY CHECK(id=1), epoch INTEGER NOT NULL DEFAULT 0);
 INSERT OR IGNORE INTO trust_meta (id, epoch) VALUES (1, 0);
+-- ADR 0019 S5a (Modus-Achse/Fiktion): PHYSISCH SEPARATER Sandbox-Store für suspendierte/fiktive Tripel
+-- (assertion_mode=suspended). Isolation by Default: die Fakt-Lese-Pfade (resolveBelief/query/verify) lesen
+-- NUR knowledge_edges → sehen die Sandbox NIE (kein Filter, den man vergessen kann; stärkste Tarski-
+-- Garantie „Fiktion wird nie versehentlich Fakt"). Welt-Scope (Lewis-Operator) = Spalte world. Ein Tripel
+-- kann in mehreren Welten leben -> PK (world, triple_hash). Promotion = Loeschen hier + frische Ingestion
+-- in knowledge_edges (sammelt erste Trust-Impulse neu).
+CREATE TABLE IF NOT EXISTS sandbox_edges (
+  world TEXT NOT NULL,
+  triple_hash TEXT NOT NULL,
+  subject TEXT NOT NULL,
+  predicate TEXT NOT NULL,
+  object TEXT NOT NULL,
+  confidence INTEGER NOT NULL DEFAULT 700,
+  source_type TEXT NOT NULL DEFAULT 'llm',
+  temporality TEXT NOT NULL DEFAULT 'stable',
+  asserted_at TEXT NOT NULL,
+  origin_peer_id TEXT,
+  created_at TEXT DEFAULT (datetime('now')),
+  PRIMARY KEY (world, triple_hash)
+);
+CREATE INDEX IF NOT EXISTS idx_sandbox_world ON sandbox_edges(world);
 CREATE INDEX IF NOT EXISTS idx_episodes_occurred ON episodes(occurred_at);
 CREATE INDEX IF NOT EXISTS idx_episodes_context ON episodes(context_slug);
 CREATE INDEX IF NOT EXISTS idx_episode_triples_hash ON episode_triples(triple_hash);
