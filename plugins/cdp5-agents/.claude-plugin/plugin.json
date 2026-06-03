@@ -1,6 +1,6 @@
 {
   "name": "cdp5-agents",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Projektunabhängige CDP5-Methodik-Agents (Judgment, read-only): Konzept-Review, Spec↔Code-Verifikation, gegnerischer Auditor, Threat-Modeling, MCP-Security-Review. Liefern Findings + Fix-Vorschläge, keine destruktiven Aktionen.",
   "author": { "name": "SmR492", "url": "https://github.com/SmR492" },
   "keywords": ["cdp5", "code-review", "verification", "threat-modeling", "mcp", "security"]
