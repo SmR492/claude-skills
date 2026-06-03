@@ -1,6 +1,6 @@
 {
   "name": "cdp5-gates",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Deterministische read-only T1-Skills nach CDP5 §32.9 (Skill-Determinismus-Gate): entscheidbare, wiederholte Detektoren als Node-Programme statt LLM-Agents. Jeder Skill liefert einen reproduzierbaren Report; der Main-Agent handelt darauf.",
   "author": { "name": "SmR492", "url": "https://github.com/SmR492" },
   "keywords": ["cdp5", "determinism-gate", "code-review", "drift-detection", "symfony"]
