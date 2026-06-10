@@ -7,6 +7,7 @@ Ein **Claude-Code-Plugin-Marketplace** mit projektunabhängigen, deterministisch
 ```
 /plugin marketplace add SmR492/claude-skills
 /plugin install cdp5-gates@claude-skills
+/plugin install cdp5-agents@claude-skills
 ```
 
 ## Plugin `cdp5-gates` — read-only deterministische Skills (T1)
