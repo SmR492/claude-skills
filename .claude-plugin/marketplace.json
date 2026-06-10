@@ -6,7 +6,7 @@
   },
   "metadata": {
     "description": "Deterministische CDP5-T1-Skills (read-only Detektoren/Reports) als Claude-Code-Marketplace.",
-    "version": "0.3.0"
+    "version": "0.4.0"
   },
   "plugins": [
     {
