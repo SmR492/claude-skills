@@ -85,8 +85,17 @@ try {
     }
     case 'approve': out(engine.approveAction(Number(rest[0] ?? a.id))); break;
     case 'reject': out(engine.rejectAction(Number(rest[0] ?? a.id), a.reason ?? null)); break;
+    case 'bridge': {
+      // Hybrid-Bridge ⇄ nsai-App (env NSAI_APP_ENDPOINT/NSAI_APP_KEY): Push eigener Fakten + Pull Online-Diff.
+      const { bridgeSync, bridgeConfig } = await import('../src/bridge.mjs');
+      const { openDb } = await import('../src/db.mjs');
+      const cfg = bridgeConfig();
+      if (!cfg.configured) { out({ bridge: 'inaktiv', reason: 'NSAI_APP_ENDPOINT/NSAI_APP_KEY nicht gesetzt → reiner Offline-Mode' }); break; }
+      out(await bridgeSync(engine, openDb(DB), DB, cfg));
+      break;
+    }
     default:
-      console.error('nsai-edge <cmd> — whoami | store | query | infer | decay | reinforce | quarantine | promote | peer-add | peer-trust | review | approve <id> | reject <id>');
+      console.error('nsai-edge <cmd> — whoami | store | query | infer | decay | reinforce | quarantine | promote | peer-add | peer-trust | review | approve <id> | reject <id> | bridge');
       process.exit(2);
   }
 } catch (err) {

@@ -58,6 +58,21 @@ node bin/nsai-edge.mjs peer-trust --peer=peer:bundle --level=authoritative
 
 DB + Identität liegen unter `~/.claude/nsai-edge/` (override via `NSAI_EDGE_DB`).
 
+## App-Bridge (Hybrid ⇄ nsai-App)
+
+Spiegelt Wissen **additiv** zwischen dem lokalen Graphen und einer externen **nsai-App** (Symfony `/mcp`, auch remote). Lokal bleibt **immer** die Wahrheit (Backup); ist die App nicht konfiguriert/erreichbar, ist die Bridge ein No-op.
+
+- **PUSH (Dual-Write):** eigene aktive SELF-Fakten (seit Watermark) → App (`nsai.assert`).
+- **PULL (Online-Diff):** externes App-Wissen, das lokal **fehlt**, wird lokal ergänzt (markiert via `context_slug=bridge_app`, vom Push ausgeschlossen → kein Echo-Loop).
+
+```bash
+export NSAI_APP_ENDPOINT="https://host/mcp"   # App-Endpunkt (konfigurierbar, auch remote)
+export NSAI_APP_KEY="<bearer-token>"           # Informant-Key der App
+node bin/nsai-edge.mjs bridge                   # Push + Pull (für Cron)
+```
+
+Watermark unter `~/.claude/nsai-edge/bridge-state.json`. Per Cron laufen lassen (z. B. alle 5 min). Disputed/quarantined App-Fakten werden nicht übernommen.
+
 ## Noch offen (Phase 2 — PHP-Gegenseite, bewusst deferred)
 
 Die **Node-Hälfte der Föderation ist fertig + getestet**: realer HTTP-Transport (Node↔Node) und `bundleAdapter` (docker exec via `execFile`-Argument-Array, kein Shell, Container validiert) in `src/transport.mjs`.

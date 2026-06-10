@@ -24,8 +24,8 @@
     {
       "name": "nsai-edge",
       "source": "./nsai-edge",
-      "description": "Föderierter neuro-symbolischer DEFEASIBLE-Wissensgraph als MCP-Server: persistentes Wissen (Tripel mit Konfidenz, Forward-Chaining-Inferenz, Decay, Quarantäne) + Impuls-Ledger-Trust mit defeasible Entrenchment, Contestation/Defeater, Modus-Achse (Fiktion) + P2P-Sync (CRDT/Ed25519). Sicherheit: Two-Door — Claude liest + schlägt vor (graph__*), gefährliche Trust-/Belief-Mutationen nur via graph__propose_* → Mensch-approve (CLI). Skills: nsai-init (Wissensdoktrin in CLAUDE.md), nsai-online (hybride Online/Offline-Sync-Verbindung pflegen). Benötigt Node ≥ 22.5.",
-      "version": "0.11.0"
+      "description": "Föderierter neuro-symbolischer DEFEASIBLE-Wissensgraph als MCP-Server: persistentes Wissen (Tripel mit Konfidenz, Forward-Chaining-Inferenz, Decay, Quarantäne) + Impuls-Ledger-Trust mit defeasible Entrenchment, Contestation/Defeater, Modus-Achse (Fiktion) + P2P-Sync (CRDT/Ed25519) + App-Bridge (CLI `bridge`: Dual-Write Push + Online-Diff Pull zu einer nsai-App, additiv, lokal bleibt Backup). Sicherheit: Two-Door — Claude liest + schlägt vor (graph__*), gefährliche Trust-/Belief-Mutationen nur via graph__propose_* → Mensch-approve (CLI). Skills: nsai-init (Wissensdoktrin in CLAUDE.md), nsai-online (hybride Online/Offline-Sync-Verbindung pflegen). Benötigt Node ≥ 22.5.",
+      "version": "0.12.0"
     }
   ]
 }
