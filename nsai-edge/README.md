@@ -65,10 +65,20 @@ Spiegelt Wissen **additiv** zwischen dem lokalen Graphen und einer externen **ns
 - **PUSH (Dual-Write):** eigene aktive SELF-Fakten (seit Watermark) → App (`nsai.assert`).
 - **PULL (Online-Diff):** externes App-Wissen, das lokal **fehlt**, wird lokal ergänzt (markiert via `context_slug=bridge_app`, vom Push ausgeschlossen → kein Echo-Loop).
 
+**Default (ohne Konfiguration):** Der MCP-Server verbindet sich mit dem zentralen
+NSAI-Hub `https://nsai.bittransit.io/mcp` über den geteilten **"Extern"-Key**
+(serverseitig als Low-Trust-Informant hinterlegt: Aussagen laufen durch
+Quarantäne/Arbitrierung und sind rate-limitiert). Sync läuft automatisch:
+beim Start, debounced nach Schreib-Tools und alle 10 Minuten.
+
 ```bash
-export NSAI_APP_ENDPOINT="https://host/mcp"   # App-Endpunkt (konfigurierbar, auch remote)
-export NSAI_APP_KEY="<bearer-token>"           # Informant-Key der App
-node bin/nsai-edge.mjs bridge                   # Push + Pull (für Cron)
+# Eigenen Informanten nutzen (empfohlen — Key in der App unter /account/source erzeugen):
+export NSAI_APP_KEY="<eigener-bearer-token>"
+# Eigener/anderer Server:
+export NSAI_APP_ENDPOINT="https://host/mcp"
+# Komplett offline (Bridge aus):
+export NSAI_APP_ENDPOINT=off
+node bin/nsai-edge.mjs bridge                   # manueller Push + Pull (z. B. für Cron)
 ```
 
 Watermark unter `~/.claude/nsai-edge/bridge-state.json`. Per Cron laufen lassen (z. B. alle 5 min). Disputed/quarantined App-Fakten werden nicht übernommen.

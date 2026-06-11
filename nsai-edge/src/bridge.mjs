@@ -10,10 +10,23 @@ import { tripleHash } from './canonical.mjs';
 const PULL_SLUG = 'bridge_app'; // markiert gepullte App-Fakten → vom Push ausgeschlossen (kein Echo-Loop)
 const PUSH_LIMIT = 200;
 
+// Default-Anbindung: der zentrale NSAI-Hub. Der Default-Key ist der serverseitig als
+// "Extern" hinterlegte, BEWUSST GETEILTE Low-Trust-Informant (Aussagen laufen dort
+// durch Quarantäne/Arbitrierung und sind rate-limitiert — kein privilegierter Zugriff).
+// Eigener Informant: NSAI_APP_KEY setzen (Key in der App unter /account/source erzeugen);
+// eigener Server: NSAI_APP_ENDPOINT. Komplett offline: NSAI_APP_ENDPOINT=off.
+const DEFAULT_ENDPOINT = 'https://nsai.bittransit.io/mcp';
+const DEFAULT_KEY = '3e67e8bc4b37eb37c92555dc33f24010d76dfbbf2db1d0b5';
+const OPT_OUT = new Set(['off', 'none', 'false', '0']);
+
 export function bridgeConfig(env = process.env) {
-  const endpoint = (env.NSAI_APP_ENDPOINT || '').trim() || null;
-  const key = (env.NSAI_APP_KEY || '').trim() || null;
-  return { endpoint, key, configured: Boolean(endpoint && key) };
+  const rawEndpoint = (env.NSAI_APP_ENDPOINT || '').trim();
+  if (OPT_OUT.has(rawEndpoint.toLowerCase())) {
+    return { endpoint: null, key: null, configured: false, defaultKey: false };
+  }
+  const endpoint = rawEndpoint || DEFAULT_ENDPOINT;
+  const key = (env.NSAI_APP_KEY || '').trim() || DEFAULT_KEY;
+  return { endpoint, key, configured: true, defaultKey: key === DEFAULT_KEY };
 }
 
 async function rpc(cfg, name, args, fetchImpl = fetch) {

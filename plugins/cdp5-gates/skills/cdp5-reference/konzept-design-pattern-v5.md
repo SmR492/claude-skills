@@ -138,6 +138,19 @@ Sobald etwas **unklar, nicht definiert oder nicht eindeutig aus Konzept / CONTEX
 
 Gilt für jede Stufe (Konzept · Design · Implementation · Testing · Review). Im Orchestrator-Modell (§32) bringt der Orchestrator offene Punkte sofort in die Konversation, statt sie an einen Worker durchzureichen oder selbst zu raten; ein Worker, dem Kontext fehlt, meldet die Lücke zurück (§32.8).
 
+### 1.10 Research-after-Failure — Fehlversuchsregelung (zwingend)
+
+Schlägt ein Lösungsansatz **nach dem zweiten Anlauf** fehl ODER äußert der Nutzer **Unzufriedenheit** mit dem Vorgehen: **harter Stopp des Trial-and-Error** — ab diesem Punkt ist **Recherche zwingend** (WebSearch / offizielle Doku / Issue-Tracker), bevor ein weiterer Versuch unternommen wird. Trainingswissen und weiteres Probieren sind dann per Definition NICHT die Lösung.
+
+**Warum:** *(Praxis-Lehre: Bei einem Server-Deploy lief die Lösungssuche stundenlang im Kreis — „lokal geht's, auf dem Server scheitert es" — und wurde unter Zeitdruck zunehmend destruktiv: sweeping Edits, Überschreiben von Nutzer-Änderungen, geratene Umbauten. Eine einzige WebSearch lieferte die echte Ursache — eine dokumentierte Plattform-Eigenheit des Deploy-Tools — in Minuten.)*
+
+**Regel:**
+- **Zähler:** 2 gescheiterte Anläufe für dieselbe Hypothese → Recherche-Pflicht. Nutzer-Unzufriedenheit (explizit oder erkennbar) → sofortige Recherche-Pflicht, unabhängig vom Zähler.
+- **Recherche heißt:** das exakte Fehlerbild/Symptom extern suchen (Fehlermeldung wörtlich, Tool + Kontext), offizielle Doku der beteiligten Plattform lesen, bekannte Issues prüfen — und die gefundene Ursache **belegen**, bevor erneut geändert wird.
+- **„Lokal geht's, remote nicht"** (oder umgekehrt) ist fast immer ein **Umgebungs-/Plattform-Unterschied**, kein Code-Problem — die Recherche beginnt bei der Plattform (Deploy-Tool, Proxy, Runtime), nicht im eigenen Code.
+- **Unter Druck nicht destruktiv werden:** keine sweeping Edits, kein Überschreiben fremder/eigener Nutzer-Änderungen, kein Raten-und-Pushen. Vor erneuten Eingriffen wird die belegte Ursache + der geplante Fix benannt (bei strittigen Eingriffen: bestätigen lassen, §1.9).
+- Die gefundene Ursache wird festgehalten (Memory/ADR/Retro, §32.6), damit dieselbe Schleife nicht erneut gelaufen wird.
+
 ---
 
 # Teil 2 — Der Arbeitsweg (drift-/gedächtnisverlust-frei)

@@ -16,11 +16,24 @@ function setup() {
 
 const CFG = { endpoint: 'http://app/mcp', key: 'k', configured: true };
 
-test('bridgeConfig parst env', () => {
-  assert.equal(bridgeConfig({}).configured, false);
+test('bridgeConfig: Default ist der zentrale Hub mit geteiltem Extern-Key', () => {
+  const d = bridgeConfig({});
+  assert.equal(d.configured, true);
+  assert.equal(d.endpoint, 'https://nsai.bittransit.io/mcp');
+  assert.equal(d.defaultKey, true);
+});
+
+test('bridgeConfig: Env ueberschreibt Endpoint + Key (eigener Informant)', () => {
   const c = bridgeConfig({ NSAI_APP_ENDPOINT: 'http://x/mcp', NSAI_APP_KEY: 'k' });
   assert.equal(c.configured, true);
   assert.equal(c.endpoint, 'http://x/mcp');
+  assert.equal(c.key, 'k');
+  assert.equal(c.defaultKey, false);
+});
+
+test('bridgeConfig: NSAI_APP_ENDPOINT=off deaktiviert die Bridge (reiner Offline-Mode)', () => {
+  assert.equal(bridgeConfig({ NSAI_APP_ENDPOINT: 'off' }).configured, false);
+  assert.equal(bridgeConfig({ NSAI_APP_ENDPOINT: 'NONE' }).configured, false);
 });
 
 test('push sendet eigene Fakten als nsai.assert', async () => {

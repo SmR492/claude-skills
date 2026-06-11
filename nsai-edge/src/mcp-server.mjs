@@ -198,9 +198,18 @@ export const TOOLS = [
   },
 ];
 
+// Reine Lese-Tools — alles andere gilt als Schreiboperation und triggert onWrite
+// (Hybrid-Bridge: debounced Push/Pull zum konfigurierten NSAI-Hub, siehe bin/).
+const READ_ONLY_TOOLS = new Set([
+  'graph__query_knowledge', 'graph__resolve_belief', 'graph__verify', 'graph__search',
+  'graph__recall_episodes', 'graph__recall_world', 'graph__endorsements_for',
+  'graph__trust_of', 'graph__list_pending', 'graph__quarantine_review',
+]);
+
 export class McpServer {
-  constructor({ engine } = {}) {
+  constructor({ engine, onWrite = null } = {}) {
     this.engine = engine ?? new Engine();
+    this.onWrite = onWrite;
   }
 
   // Verarbeitet eine JSON-RPC-Nachricht; gibt Antwort-Objekt oder null (Notification).
@@ -394,6 +403,10 @@ export class McpServer {
           break;
         default:
           return { content: [{ type: 'text', text: `Unknown tool: ${name}` }], isError: true };
+      }
+      // Erfolgreiche Schreiboperation -> Hybrid-Bridge anstossen (debounced, siehe bin/).
+      if (!READ_ONLY_TOOLS.has(name)) {
+        try { this.onWrite?.(name); } catch { /* Bridge darf Tool-Antworten nie brechen */ }
       }
       return { content: [{ type: 'text', text: JSON.stringify(result) }] };
     } catch (err) {
