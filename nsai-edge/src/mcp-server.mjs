@@ -5,7 +5,7 @@ import { createInterface } from 'node:readline';
 import { Engine } from './engine.mjs';
 
 const PROTOCOL_VERSION = '2024-11-05';
-const SERVER_INFO = { name: 'nsai-edge', version: '0.1.0' };
+const SERVER_INFO = { name: 'nsai-edge', version: '0.13.0' };
 
 const S = (props, required = []) => ({ type: 'object', properties: props, required });
 

@@ -1,7 +1,20 @@
 {
   "name": "nsai-edge",
-  "version": "0.12.0",
+  "version": "0.13.0",
   "description": "Föderierter neuro-symbolischer DEFEASIBLE-Wissensgraph als MCP-Server für Claude Code: persistentes Wissen (Tripel mit Fixed-Point-Konfidenz, Forward-Chaining-Inferenz, Decay, Quarantäne) + Impuls-Ledger-Trust mit defeasible Entrenchment, Contestation/Defeater, Modus-Achse (Fiktion) + P2P-Sync (CRDT, Ed25519) + App-Bridge (CLI `bridge`: Dual-Write Push + Online-Diff Pull zu einer nsai-App, additiv, lokal bleibt Backup). Sicherheit: Two-Door — Claude liest + schlägt vor (graph__query_knowledge/resolve_belief/store_triple/contest/endorse), gefährliche Trust-/Belief-Mutationen nur via graph__propose_* → Mensch-approve (CLI). Skills: nsai-init verankert die Wissensdoktrin in der CLAUDE.md; nsai-online pflegt die hybride Online/Offline-Sync-Verbindung (Status/Test/Konfig/Backlog-Flush).",
-  "author": { "name": "SmR492", "url": "https://github.com/SmR492" },
-  "keywords": ["mcp", "knowledge-graph", "neuro-symbolic", "defeasible", "trust", "memory", "crdt", "federation", "nsai"]
+  "author": {
+    "name": "SmR492",
+    "url": "https://github.com/SmR492"
+  },
+  "keywords": [
+    "mcp",
+    "knowledge-graph",
+    "neuro-symbolic",
+    "defeasible",
+    "trust",
+    "memory",
+    "crdt",
+    "federation",
+    "nsai"
+  ]
 }
