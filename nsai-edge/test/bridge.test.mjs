@@ -6,7 +6,7 @@ import { join } from 'node:path';
 import { Engine } from '../src/engine.mjs';
 import { openDb } from '../src/db.mjs';
 import { createIdentity } from '../src/identity.mjs';
-import { bridgeConfig, bridgePush, bridgePull } from '../src/bridge.mjs';
+import { bridgeConfig, bridgePush, bridgePull, resolveBridgeConfig, probeKey } from '../src/bridge.mjs';
 
 function setup() {
   const dbPath = join(mkdtempSync(join(tmpdir(), 'nsai-bridge-')), 'graph.db');
@@ -78,4 +78,35 @@ test('inaktiv ohne Konfiguration (No-op)', async () => {
   const { engine, db, dbPath } = setup();
   assert.deepEqual(await bridgePush(engine, db, dbPath, { configured: false }), { skipped: true, pushed: 0 });
   assert.deepEqual(await bridgePull(engine, db, { configured: false }), { skipped: true, added: 0 });
+});
+
+test('resolveBridgeConfig: ungueltiger eigener Key -> Fallback auf Default-Paar', async () => {
+  const custom = bridgeConfig({ NSAI_APP_ENDPOINT: 'http://x/mcp', NSAI_APP_KEY: 'kaputt' });
+  const fetchImpl = async () => ({ status: 401, ok: false, json: async () => ({}) });
+  const eff = await resolveBridgeConfig(custom, { fetchImpl });
+  assert.equal(eff.fallback, true);
+  assert.equal(eff.defaultKey, true);
+  assert.equal(eff.endpoint, 'https://nsai.bittransit.io/mcp');
+});
+
+test('resolveBridgeConfig: gueltiger eigener Key bleibt unangetastet', async () => {
+  const custom = bridgeConfig({ NSAI_APP_ENDPOINT: 'http://x/mcp', NSAI_APP_KEY: 'gueltig' });
+  const fetchImpl = async () => ({ status: 200, ok: true, json: async () => ({}) });
+  const eff = await resolveBridgeConfig(custom, { fetchImpl });
+  assert.equal(eff.fallback, undefined);
+  assert.equal(eff.key, 'gueltig');
+});
+
+test('resolveBridgeConfig: Server nicht erreichbar -> KEIN Key-Fallback (kein Falschalarm)', async () => {
+  const custom = bridgeConfig({ NSAI_APP_ENDPOINT: 'http://x/mcp', NSAI_APP_KEY: 'gueltig' });
+  const fetchImpl = async () => { throw new Error('ECONNREFUSED'); };
+  const eff = await resolveBridgeConfig(custom, { fetchImpl });
+  assert.equal(eff.key, 'gueltig');
+});
+
+test('probeKey klassifiziert 401/200/Netzfehler', async () => {
+  const cfg = { endpoint: 'http://x/mcp', key: 'k' };
+  assert.equal(await probeKey(cfg, async () => ({ status: 401, ok: false })), 'invalid');
+  assert.equal(await probeKey(cfg, async () => ({ status: 200, ok: true })), 'ok');
+  assert.equal(await probeKey(cfg, async () => { throw new Error('x'); }), 'unreachable');
 });

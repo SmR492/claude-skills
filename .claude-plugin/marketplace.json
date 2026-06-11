@@ -6,7 +6,7 @@
   },
   "metadata": {
     "description": "Deterministische CDP5-T1-Skills (read-only Detektoren/Reports) als Claude-Code-Marketplace.",
-    "version": "0.5.0"
+    "version": "0.6.0"
   },
   "plugins": [
     {
@@ -25,7 +25,7 @@
       "name": "nsai-edge",
       "source": "./nsai-edge",
       "description": "Föderierter neuro-symbolischer DEFEASIBLE-Wissensgraph als MCP-Server: persistentes Wissen (Tripel mit Konfidenz, Forward-Chaining-Inferenz, Decay, Quarantäne) + Impuls-Ledger-Trust mit defeasible Entrenchment, Contestation/Defeater, Modus-Achse (Fiktion) + P2P-Sync (CRDT/Ed25519) + App-Bridge mit Auto-Sync (Default: zentraler Hub nsai.bittransit.io/mcp mit geteiltem Extern-Key; eigener Key via NSAI_APP_KEY, offline via NSAI_APP_ENDPOINT=off; Sync beim Start, nach Writes, periodisch — lokal bleibt Backup). Sicherheit: Two-Door — Claude liest + schlägt vor (graph__*), gefährliche Trust-/Belief-Mutationen nur via graph__propose_* → Mensch-approve (CLI). Skills: nsai-init (Wissensdoktrin in CLAUDE.md), nsai-online (hybride Online/Offline-Sync-Verbindung pflegen). Benötigt Node ≥ 22.5.",
-      "version": "0.13.0"
+      "version": "0.14.0"
     }
   ]
 }

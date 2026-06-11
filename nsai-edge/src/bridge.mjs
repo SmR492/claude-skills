@@ -104,10 +104,45 @@ export async function bridgePull(engine, db, cfg, { fetchImpl } = {}) {
   return { added, fetched: rows.length };
 }
 
+/** Leichte Key-Probe (read-only, tools/list): 'ok' | 'invalid' (401/403) | 'unreachable'. */
+export async function probeKey(cfg, fetchImpl = fetch) {
+  try {
+    const res = await fetchImpl(cfg.endpoint, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${cfg.key}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/list' }),
+      signal: AbortSignal.timeout(8000),
+    });
+    if (res.status === 401 || res.status === 403) return 'invalid';
+    return res.ok ? 'ok' : 'unreachable';
+  } catch {
+    return 'unreachable';
+  }
+}
+
+/**
+ * Effektive Konfiguration: Ist ein EIGENER Key konfiguriert, aber ungueltig (401/403),
+ * faellt die Bridge auf das Default-Paar (Hub + geteilter Extern-Key) zurueck —
+ * leerer Key landet bereits in bridgeConfig() auf dem Default. Sync laeuft so IMMER
+ * weiter; der Fallback wird auf stderr gemeldet (Key still verlieren waere schlimmer).
+ */
+export async function resolveBridgeConfig(cfg = bridgeConfig(), { fetchImpl } = {}) {
+  if (!cfg.configured || cfg.defaultKey) return cfg;
+  if (await probeKey(cfg, fetchImpl) !== 'invalid') return cfg;
+
+  process.stderr.write('nsai-edge bridge: konfigurierter NSAI_APP_KEY ungueltig (401/403) → Fallback auf Default-Hub + Extern-Key.\n');
+
+  return { ...bridgeConfig({}), fallback: true };
+}
+
 export async function bridgeSync(engine, db, dbPath, cfg, opts = {}) {
+  const effective = await resolveBridgeConfig(cfg, opts);
+
   return {
-    configured: cfg.configured,
-    push: await bridgePush(engine, db, dbPath, cfg, opts),
-    pull: await bridgePull(engine, db, cfg, opts),
+    configured: effective.configured,
+    defaultKey: effective.defaultKey,
+    fallback: effective.fallback === true,
+    push: await bridgePush(engine, db, dbPath, effective, opts),
+    pull: await bridgePull(engine, db, effective, opts),
   };
 }

@@ -1,59 +1,69 @@
 ---
 name: nsai-online
-description: Pflegt die hybride Online/Offline-Sync-Verbindung eines NSAI-Systems (rocket-launch-nsai-style Symfony-App) — Status prüfen, Endpunkt+Key konfigurieren, Erreichbarkeit testen, Offline-Backlog flushen, Worker/Cron sicherstellen. Use bei „Online-Verbindung prüfen/einrichten", „Sync hängt", „Backlog synchronisieren", „NSAI offline/online".
+description: Trigger für den vollständigen Online-Sync und Key-Wechsel der NSAI-Anbindung — primär die nsai-edge-Bridge dieses Plugins (Default-Hub nsai.bittransit.io/mcp), sekundär die Symfony-App-Seite (app:nsai:online). Use bei „Online-Verbindung prüfen/einrichten", „voll synchronisieren", „Key ändern/ungültig", „Sync hängt", „NSAI offline/online".
 ---
 
-# nsai-online — Online-Sync-Verbindung pflegen
+# nsai-online — Online-Sync auslösen & Key pflegen
 
-Das NSAI-System schreibt Wissen hybrid: **Server-first** (konfigurierbarer Online-MCP-Endpunkt, asynchron via Messenger) mit **stillem Offline-Fallback** (lokaler nsai-bundle-Graph) und **Backlog-Sync**, sobald die Verbindung wieder steht. Ist kein Server eingerichtet, läuft alles offline. Sync ist **Opt-In**.
+Zwei Ebenen, klar trennen:
 
-Dieser Skill pflegt diese Verbindung über das Konsolen-Kommando `app:nsai:online` (im App-Verzeichnis ausführen).
+1. **nsai-edge-Bridge (dieses Plugin, Claude-Code-seitig)** — der lokale Wissensgraph
+   synct mit dem zentralen Hub. **Default ohne Konfiguration:** `https://nsai.bittransit.io/mcp`
+   mit dem geteilten **„Extern"-Key** (Low-Trust: serverseitig Quarantäne/Arbitrierung +
+   Rate-Limit). Auto-Sync läuft beim MCP-Start, debounced nach Schreib-Tools und alle 10 min.
+2. **Symfony-App-Seite** (rocket-launch-nsai-Installation) — deren eigener Backlog-Sync
+   zum konfigurierten Online-Store (`app:nsai:online`).
 
-## Diagnose-Reihenfolge (immer zuerst, read-only)
+## Key-Regel (fest verdrahtet, kein Eingriff nötig)
 
-```bash
-php bin/console app:nsai:online            # Status: Opt-In, Server eingerichtet?, Endpunkt, Backlog-Größe
-php bin/console app:nsai:online --test     # Erreichbarkeit + Key-Gültigkeit (HTTP tools/list-Probe)
-```
+**Leerer oder ungültiger Key ⇒ immer Fallback auf das Default-Paar (Hub + Extern-Key).**
+- Leer: `bridgeConfig()` setzt automatisch den Default ein.
+- Ungültig (401/403): `bridgeSync()` probiert den eigenen Key read-only (`probeKey`),
+  fällt bei Ablehnung aufs Default-Paar zurück und meldet das auf stderr — der Sync
+  läuft IMMER weiter. Nicht-Erreichbarkeit ist KEIN Key-Fallback (kein Falschalarm).
 
-Interpretation:
-- **Server eingerichtet = nein** → bewusster Offline-Mode (kein Mangel).
-- **--test: erreichbar + gültig** → Online-Pfad gesund.
-- **--test: 401** → Key ungültig → neu setzen.
-- **--test: nicht erreichbar** → Endpunkt/Netz prüfen; System fällt automatisch offline zurück (kein Datenverlust, Backlog wächst).
-
-## Verbindung einrichten / ändern (schreibend — Operator-Bestätigung)
-
-```bash
-php bin/console app:nsai:online --endpoint="https://host/mcp" --key="<bearer>"
-php bin/console app:nsai:online --enable       # Hybrid-Sync aktivieren (Opt-In an)
-php bin/console app:nsai:online --disable      # zurück in reinen Offline-Mode
-```
-
-Nach jeder Änderung: erneut `--test`. Der Key wird maskiert angezeigt; Klartext nur beim Setzen.
-
-## Backlog synchronisieren
+## Vollständigen Sync auslösen (der Trigger dieses Skills)
 
 ```bash
-php bin/console app:nsai:online --flush        # offline vorgemerkte Aussagen jetzt zum Online-Store schieben
-# entspricht dem Cron-Kommando:
-php bin/console app:nsai:sync
+# Im Plugin-Verzeichnis (nsai-edge/) — Push eigener Fakten + Pull Online-Diff:
+node bin/nsai-edge.mjs bridge
 ```
 
-Steht die Verbindung, wird der Backlog auch automatisch bei jedem erfolgreichen Online-Write mitgezogen.
+Ausgabe interpretieren: `push.pushed` (hochgeladene eigene Fakten), `pull.added`
+(neu übernommene Hub-Fakten), `fallback: true` = eigener Key wurde abgelehnt und
+der Default griff (→ Key prüfen/neu setzen, siehe unten).
 
-## Betrieb sicherstellen (Worker + Cron)
+## Eigenen Key einrichten / wechseln
 
-Der asynchrone Versand braucht einen laufenden **Worker**, der Backlog-Flush einen **Cron**:
+Eigener Informant statt geteiltem Extern-Key (empfohlen für zuordenbare Beiträge):
+1. Key in der App erzeugen: `https://nsai.bittransit.io/account/source` (einmalig sichtbar).
+2. Für den MCP-Server setzen — je nach Setup:
+   - **Shell/Session:** `export NSAI_APP_KEY="<bearer>"` (gilt für neu gestartete MCP-Server)
+   - **Dauerhaft (Claude Code):** in `~/.claude/settings.json` unter `env`:
+     `"NSAI_APP_KEY": "<bearer>"`
+3. Verifizieren: `node bin/nsai-edge.mjs bridge` → `fallback` darf NICHT true sein.
+
+Weitere Schalter: `NSAI_APP_ENDPOINT="https://host/mcp"` (eigener Server),
+`NSAI_APP_ENDPOINT=off` (komplett offline, Bridge aus).
+
+## Symfony-App-Seite (sekundär)
+
+Auf einer rocket-launch-nsai-Installation pflegt das Konsolen-Kommando die dortige
+Online-Verbindung (im App-Verzeichnis, read-only zuerst):
 
 ```bash
-php bin/console messenger:consume async        # Worker (dauerhaft, via supervisor/systemd/Docker-Service)
-php bin/console app:nsai:sync                   # Backlog-Flush (Cron, z. B. alle 5 min)
+php bin/console app:nsai:online            # Status: Opt-In, Endpunkt, Backlog-Größe
+php bin/console app:nsai:online --test     # Erreichbarkeit + Key-Gültigkeit
+php bin/console app:nsai:online --endpoint="https://host/mcp" --key="<bearer>"   # ändern (Operator-Freigabe)
+php bin/console app:nsai:online --flush    # Backlog jetzt schieben (Cron: app:nsai:sync)
 ```
 
-Prüfen, ob der Worker läuft: `ps aux | grep "messenger:consume"`. Im Docker-Setup laufen Worker + Cron als eigene Compose-Services (siehe `compose.yaml`: `nsai_worker`, `nsai_cron`).
+- `--test: 401` → Key dort neu setzen; nicht erreichbar → Endpunkt/Netz, System fällt
+  automatisch offline zurück (Backlog wächst, kein Datenverlust).
+- Async-Versand braucht den Worker (`messenger:consume async`), Backlog-Flush den Cron —
+  im Docker-Setup eigene Compose-Services (`nsai_worker`, `nsai_cron`).
 
 ## Leitplanken
-- **Nur `--endpoint/--key/--enable/--disable` schreiben** — und nur nach Operator-Freigabe (Mensch-Verantwortung).
-- **Niemals Keys im Klartext loggen/committen** — `--test` und Status zeigen sie maskiert.
-- Bei „Sync hängt": erst `--test` (Verbindung), dann `--flush` (Backlog), dann Worker-Status — in dieser Reihenfolge.
+- Schreibende Änderungen (Key/Endpunkt setzen) nur nach Operator-Freigabe.
+- Keys niemals im Klartext loggen/committen; Status-Ausgaben maskieren.
+- Bei „Sync hängt": erst Verbindung testen, dann voller Sync, dann Worker-Status — in dieser Reihenfolge.
