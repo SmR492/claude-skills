@@ -40,6 +40,25 @@ CREATE TABLE IF NOT EXISTS knowledge_edges (
   FOREIGN KEY(object_id) REFERENCES knowledge_nodes(id) ON DELETE CASCADE
 );
 
+-- Bridge-Direktzugriff-Outbox: bei Offline werden eigene aktive Fakten hier deterministisch
+-- gepuffert und bei (Re-)Verbindung idempotent an den Hub nachgeliefert. triple_hash = Dedup-Key
+-- (dasselbe Tripel wird NIE doppelt eingereiht/gepusht); delivered-Zeilen bleiben als Ledger
+-- liegen, damit ein bereits zugestelltes Tripel nicht erneut eingereiht wird. Rein LOKAL/peer-privat,
+-- NICHT im Wire-/Signatur-Vertrag. Additiv (nur Asserts; Retraktionen klärt die Hub-Arbitrierung).
+CREATE TABLE IF NOT EXISTS bridge_outbox (
+  triple_hash TEXT PRIMARY KEY NOT NULL,
+  subject TEXT NOT NULL,
+  predicate TEXT NOT NULL,
+  object TEXT NOT NULL,
+  confidence INTEGER NOT NULL CHECK(confidence BETWEEN 0 AND 1000),
+  status TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending','delivered')),
+  attempts INTEGER NOT NULL DEFAULT 0,
+  last_error TEXT,
+  enqueued_at TEXT DEFAULT (datetime('now')),
+  delivered_at TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_bridge_outbox_status ON bridge_outbox(status);
+
 CREATE TABLE IF NOT EXISTS peers (
   peer_id TEXT PRIMARY KEY NOT NULL,
   public_key TEXT NOT NULL,

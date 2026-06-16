@@ -26,36 +26,62 @@ const identity = existsSync(IDFILE)
 
 const engine = new Engine({ dbPath: DB, identity });
 
-// ── Hybrid-Bridge zum NSAI-Hub (Default: https://nsai.bittransit.io/mcp mit dem
-// geteilten "Extern"-Key; eigener Key/Server via NSAI_APP_KEY/NSAI_APP_ENDPOINT,
-// offline via NSAI_APP_ENDPOINT=off). Sync: beim Start, debounced nach Writes,
-// periodisch. Fehler sind still (stderr) — lokal bleibt immer die Wahrheit.
-const { bridgeConfig, bridgeSync } = await import('../src/bridge.mjs');
+// ── Direktzugriff-Bridge zum NSAI-Hub (Default: https://nsai.bittransit.io/mcp mit dem
+// geteilten "Extern"-Key; eigener Key/Server via NSAI_APP_KEY/NSAI_APP_ENDPOINT, offline via
+// NSAI_APP_ENDPOINT=off). WRITE-THROUGH: jeder Write reiht die Aussage sofort + DURABLE in die
+// lokale Outbox ein und stellt sie direkt zu. Ist der Hub offline, bleibt sie gepuffert und wird
+// beim nächsten Write/Intervall/Startup deterministisch + idempotent (triple_hash) nachgeliefert.
+// Fehler sind still (stderr) — lokal bleibt immer die Wahrheit.
+const { bridgeConfig, bridgeSync, bridgePush, resolveBridgeConfig, enqueueOutbox, outboxStats } = await import('../src/bridge.mjs');
 const { openDb } = await import('../src/db.mjs');
 const bridgeCfg = bridgeConfig();
+const bridgeDb = bridgeCfg.configured ? openDb(DB) : null; // eigene Verbindung für die Bridge-/Outbox-Schreibungen (WAL)
+let effectiveCfg = bridgeCfg;                              // key-fallback-aufgelöste Config (am Startup + Intervall aktualisiert)
 let bridgeRunning = false;
-let bridgeTimer = null;
+let pushRunning = false;
+let pushTimer = null;
+
+// Voller Sync (Startup/Intervall): Reconnect-Replay der Outbox (push) + Online-Diff (pull) + Key-Refresh.
 const runBridge = async (reason) => {
   if (!bridgeCfg.configured || bridgeRunning) return;
   bridgeRunning = true;
   try {
-    const r = await bridgeSync(engine, openDb(DB), DB, bridgeCfg);
-    process.stderr.write(`nsai-edge bridge (${reason}): push=${r.push.pushed} pull=${r.pull.added}\n`);
+    effectiveCfg = await resolveBridgeConfig(bridgeCfg);
+    const r = await bridgeSync(engine, bridgeDb, DB, bridgeCfg);
+    process.stderr.write(`nsai-edge bridge (${reason}): push=${r.push.pushed} pull=${r.pull.added} outbox=${r.outbox.pending} gepuffert\n`);
   } catch (err) {
     process.stderr.write(`nsai-edge bridge (${reason}) fehlgeschlagen: ${err.message}\n`);
   } finally {
     bridgeRunning = false;
   }
 };
-const onWrite = () => {
-  clearTimeout(bridgeTimer);
-  bridgeTimer = setTimeout(() => runBridge('write'), 5000);
-  bridgeTimer.unref?.();
+
+// Write-Through (nach jedem Write, coalesced): nur die Outbox zustellen — schnell, kein Pull.
+const runPush = async (reason) => {
+  if (!bridgeCfg.configured || pushRunning) return;
+  pushRunning = true;
+  try {
+    const r = await bridgePush(engine, bridgeDb, DB, effectiveCfg);
+    if (r.pending) process.stderr.write(`nsai-edge push (${reason}): pushed=${r.pushed}, ${r.pending} gepuffert (Hub offline?)\n`);
+  } catch (err) {
+    process.stderr.write(`nsai-edge push (${reason}) fehlgeschlagen: ${err.message}\n`);
+  } finally {
+    pushRunning = false;
+  }
 };
 
-process.stderr.write(`nsai-edge MCP-Server bereit (peer ${engine.peerId}, db ${DB}, hub ${bridgeCfg.configured ? bridgeCfg.endpoint + (bridgeCfg.defaultKey ? ' [default-key]' : ' [eigener key]') : 'offline'})\n`);
+const onWrite = () => {
+  if (!bridgeCfg.configured) return;
+  try { enqueueOutbox(engine, bridgeDb); } catch { /* DB-Lock o.ä. → der nächste Lauf reiht nach */ }
+  clearTimeout(pushTimer);
+  pushTimer = setTimeout(() => runPush('write'), 800); // direkt zustellen, rapide Writes gebündelt
+  pushTimer.unref?.();
+};
+
+const pendingAtBoot = bridgeDb ? outboxStats(bridgeDb).pending : 0;
+process.stderr.write(`nsai-edge MCP-Server bereit (peer ${engine.peerId}, db ${DB}, hub ${bridgeCfg.configured ? bridgeCfg.endpoint + (bridgeCfg.defaultKey ? ' [default-key]' : ' [eigener key]') + (pendingAtBoot ? ` [${pendingAtBoot} gepuffert]` : '') : 'offline'})\n`);
 if (bridgeCfg.configured) {
-  void runBridge('startup');
+  void runBridge('startup');                                     // Reconnect-Replay alles Gepufferten + Pull
   setInterval(() => runBridge('interval'), 10 * 60 * 1000).unref();
 }
 serveStdio(new McpServer({ engine, onWrite }));

@@ -6,7 +6,7 @@ import { join } from 'node:path';
 import { Engine } from '../src/engine.mjs';
 import { openDb } from '../src/db.mjs';
 import { createIdentity } from '../src/identity.mjs';
-import { bridgeConfig, bridgePush, bridgePull, resolveBridgeConfig, probeKey } from '../src/bridge.mjs';
+import { bridgeConfig, bridgePush, bridgePull, resolveBridgeConfig, probeKey, outboxStats, enqueueOutbox } from '../src/bridge.mjs';
 
 function setup() {
   const dbPath = join(mkdtempSync(join(tmpdir(), 'nsai-bridge-')), 'graph.db');
@@ -109,4 +109,63 @@ test('probeKey klassifiziert 401/200/Netzfehler', async () => {
   assert.equal(await probeKey(cfg, async () => ({ status: 401, ok: false })), 'invalid');
   assert.equal(await probeKey(cfg, async () => ({ status: 200, ok: true })), 'ok');
   assert.equal(await probeKey(cfg, async () => { throw new Error('x'); }), 'unreachable');
+});
+
+// ── Direktzugriff + Offline-Outbox (Write-Through → puffern → Reconnect-Replay) ──
+
+test('offline: Tripel wird durable gepuffert (Outbox), kein Verlust', async () => {
+  const { engine, db, dbPath } = setup();
+  engine.storeTriple({ subject: 'Mars', predicate: 'ist_ein', object: 'Planet', confidence: 800 });
+  const offline = async () => { throw new Error('ECONNREFUSED'); };
+
+  const r = await bridgePush(engine, db, dbPath, CFG, { fetchImpl: offline });
+  assert.equal(r.pushed, 0);
+  assert.equal(r.pending, 1);                 // gepuffert statt verloren
+  assert.equal(outboxStats(db).pending, 1);
+});
+
+test('reconnect: gepufferte Tripel werden nachgeliefert, genau einmal', async () => {
+  const { engine, db, dbPath } = setup();
+  engine.storeTriple({ subject: 'Mars', predicate: 'ist_ein', object: 'Planet', confidence: 800 });
+  await bridgePush(engine, db, dbPath, CFG, { fetchImpl: async () => { throw new Error('down'); } }); // offline
+
+  const calls = [];
+  const online = async (_url, opts) => { calls.push(JSON.parse(opts.body)); return { status: 200, json: async () => ({ result: { ok: true } }) }; };
+  const r = await bridgePush(engine, db, dbPath, CFG, { fetchImpl: online });
+  assert.equal(r.pushed, 1);
+  assert.equal(r.pending, 0);
+  assert.equal(calls.length, 1);              // genau einmal zugestellt
+  assert.equal(outboxStats(db).delivered, 1);
+});
+
+test('idempotent: zugestellte Tripel werden nie erneut gepusht', async () => {
+  const { engine, db, dbPath } = setup();
+  engine.storeTriple({ subject: 'Mars', predicate: 'ist_ein', object: 'Planet', confidence: 800 });
+  let n = 0;
+  const online = async () => { n++; return { status: 200, json: async () => ({ result: { ok: true } }) }; };
+
+  await bridgePush(engine, db, dbPath, CFG, { fetchImpl: online }); // pushed 1
+  const r = await bridgePush(engine, db, dbPath, CFG, { fetchImpl: online }); // nichts neu
+  assert.equal(r.pushed, 0);
+  assert.equal(n, 1);                         // nur der erste Lauf hat zugestellt
+});
+
+test('teilweiser Ausfall: erstes Tripel zugestellt, zweites bleibt gepuffert', async () => {
+  const { engine, db, dbPath } = setup();
+  engine.storeTriple({ subject: 'Anna', predicate: 'verbunden_mit', object: 'Bert', confidence: 700 });
+  engine.storeTriple({ subject: 'Cleo', predicate: 'verbunden_mit', object: 'Dora', confidence: 700 });
+  let i = 0;
+  const flaky = async () => { i++; if (i === 1) return { status: 200, json: async () => ({ result: { ok: true } }) }; throw new Error('down'); };
+
+  const r = await bridgePush(engine, db, dbPath, CFG, { fetchImpl: flaky });
+  assert.equal(r.pushed, 1);
+  assert.equal(r.pending, 1);                 // Rest bleibt für den nächsten Versuch
+});
+
+test('enqueue ist deterministisch idempotent (kein Doppel-Eintrag)', () => {
+  const { engine, db } = setup();
+  engine.storeTriple({ subject: 'Xenon', predicate: 'reagiert_mit', object: 'Yttrium', confidence: 700 });
+  assert.equal(enqueueOutbox(engine, db), 1);
+  assert.equal(enqueueOutbox(engine, db), 0); // schon eingereiht → nichts Neues
+  assert.equal(outboxStats(db).pending, 1);
 });

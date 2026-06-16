@@ -8,9 +8,12 @@ description: Trigger für den vollständigen Online-Sync und Key-Wechsel der NSA
 Zwei Ebenen, klar trennen:
 
 1. **nsai-edge-Bridge (dieses Plugin, Claude-Code-seitig)** — der lokale Wissensgraph
-   synct mit dem zentralen Hub. **Default ohne Konfiguration:** `https://nsai.bittransit.io/mcp`
+   synct mit dem zentralen Hub im **Direktzugriff**. **Default ohne Konfiguration:** `https://nsai.bittransit.io/mcp`
    mit dem geteilten **„Extern"-Key** (Low-Trust: serverseitig Quarantäne/Arbitrierung +
-   Rate-Limit). Auto-Sync läuft beim MCP-Start, debounced nach Schreib-Tools und alle 10 min.
+   Rate-Limit). **Write-Through:** jeder Schreib-Tool-Aufruf reiht die Aussage sofort in eine
+   **durable lokale Outbox** ein und stellt sie direkt zu. Ist der Hub offline, bleibt sie
+   gepuffert (kein Verlust) und wird beim nächsten Write/Intervall (10 min)/MCP-Start
+   **deterministisch + idempotent** (per `triple_hash`) nachgeliefert. Lokal bleibt immer die Wahrheit.
 2. **Symfony-App-Seite** (rocket-launch-nsai-Installation) — deren eigener Backlog-Sync
    zum konfigurierten Online-Store (`app:nsai:online`).
 
