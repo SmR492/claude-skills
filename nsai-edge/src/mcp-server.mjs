@@ -4,10 +4,36 @@
 import { createInterface } from 'node:readline';
 import { Engine } from './engine.mjs';
 
+// CDP5-Gates (read-only, deterministisch) — die T1-Skills des cdp5-gates-Plugins als MCP-Tools
+// (Prefix cdp5__). STATIC import (kein Side-Effect: jeder Skill ist guarded `if (import.meta.url
+// === file://argv[1])`, läuft also bei reinem Import NICHT). Reine Funktionen über node:-Builtins
+// — keine DB, kein Netz. Geteilte Export-Namen (scanText/scanRepo) werden aliasiert.
+import { scanText as piiScanText, scanRepo as piiScanRepo } from '../../plugins/cdp5-gates/skills/pii-scan/pii-scan.mjs';
+import { scanText as secretsScanText, scanRepo as secretsScanRepo } from '../../plugins/cdp5-gates/skills/secrets-scan/secrets-scan.mjs';
+import { lintKonzept } from '../../plugins/cdp5-gates/skills/konzept-lint/konzept-lint.mjs';
+import { lintMcp } from '../../plugins/cdp5-gates/skills/mcp-config-lint/mcp-config-lint.mjs';
+import { scaffold as scaffoldTestsFromAc } from '../../plugins/cdp5-gates/skills/ac-to-test-scaffold/ac-to-test-scaffold.mjs';
+import { findTestGaps } from '../../plugins/cdp5-gates/skills/test-gap/test-gap.mjs';
+import { lintWiki } from '../../plugins/cdp5-gates/skills/wiki-lint/wiki-lint.mjs';
+import { mapKonzept } from '../../plugins/cdp5-gates/skills/konzept-mapper/konzept-mapper.mjs';
+import { checkRoadmap } from '../../plugins/cdp5-gates/skills/roadmap-drift/roadmap-drift.mjs';
+import { checkLoop } from '../../plugins/cdp5-gates/skills/retro-memory-loop-check/retro-memory-loop-check.mjs';
+import { parseFrontmatter, checkKonzept, checkRepo } from '../../plugins/cdp5-gates/skills/profile-check/profile-check.mjs';
+
 const PROTOCOL_VERSION = '2024-11-05';
-const SERVER_INFO = { name: 'nsai-edge', version: '0.15.0' };
+const SERVER_INFO = { name: 'nsai-edge', version: '0.16.0' };
 
 const S = (props, required = []) => ({ type: 'object', properties: props, required });
+
+// Wirft einen für das Modell sichtbaren INVALID_PARAMETER_FORMAT-Fehler (vom _callTool-catch
+// gefangen → isError-Result), statt die guardPaths()-process.exit-Pfade der CLI zu nutzen
+// (die würden den MCP-Server beenden). Die Skill-Pfad-Gates laufen NUR im CLI-main(), nie hier.
+const reqStr = (v, name) => {
+  if (typeof v !== 'string' || v === '') {
+    throw Object.assign(new Error(`${name} muss ein nicht-leerer String sein`), { code: 'INVALID_PARAMETER_FORMAT' });
+  }
+  return v;
+};
 
 export const TOOLS = [
   {
@@ -196,6 +222,101 @@ export const TOOLS = [
     description: 'ADR-0019 Origin-Guard / Two-Door: erzeugt NUR einen menschlich zu bestätigenden VORSCHLAG einer temporalen Ablösung (subject/predicate/object, as_of, confidence), die einen oder mehrere FREMDE Vorgänger-Edges beenden würde — vollzieht NICHTS. Wenn alle Vorgänger SELF sind, nutze direkt graph__supersede_temporally. preview listet die betroffenen Edges + deren origin. Nur der menschliche Approve über die CLI-Tür beendet die Fremd-Edges und legt den neuen Fakt an.',
     inputSchema: S({ subject: { type: 'string' }, predicate: { type: 'string' }, object: { type: 'string' }, as_of: { type: 'string', description: 'Ablöse-Zeitpunkt as_of (ISO)' }, confidence: { type: 'integer', minimum: 0, maximum: 1000, description: 'confidence des neuen Fakts (Promille)' } }, ['subject', 'predicate', 'object']),
   },
+  // ===== CDP5-Gates (read-only, deterministisch) — die T1-Skills des cdp5-gates-Plugins als MCP-Tools.
+  // Alle reine Detektoren/Reports (kein LLM, kein Write, kein Hub-Push). Pfad-Varianten greifen lokal
+  // aufs Dateisystem (gleiche Vertrauensgrenze wie Claude Code) — der nsai-edge-Server ist stdio/lokal,
+  // NICHT der remote claude.ai-Endpoint. Jede inputSchema-Property MUSS in der description vorkommen
+  // (mcp-doc-drift-gate, ADR-0016-Konsumenten-Sycophancy). =====
+  {
+    name: 'cdp5__lint_concept',
+    description: 'CDP5 §32.9 konzept-lint (read-only, deterministisch): prüft den Konzept-Markdown `konzept_text` auf die ENTSCHEIDBAREN Struktur-Checks (UC-/AC-Tabellen, Fehlerfälle, Glossar, Kopf/Scope, LLM-/RAG-Pflichtfelder) und einen deterministischen Teil-Score der §4-Rubrik. Optionale `rubric_weights` (Objekt dimension→Gewicht) übersteuern die Default-Gewichte. Liefert perUC, global, dims, teilScore, strukturGap. KEIN LLM-Judgment (dafür der konzept-reviewer).',
+    inputSchema: S({
+      konzept_text: { type: 'string', description: 'der zu prüfende Konzept-Markdown-Text' },
+      rubric_weights: { type: 'object', description: 'optionale Rubrik-Gewichte (dimension→Gewicht), übersteuert die Defaults' },
+    }, ['konzept_text']),
+  },
+  {
+    name: 'cdp5__lint_mcp_config',
+    description: 'CDP5 §32.9/§33.3 mcp-config-lint (read-only): heuristische Risiko-Checks einer MCP-Server-Konfiguration `config_text` (JSON, .mcp.json / mcpServers-Block) — Tool-Description-Injection (Tool-Poisoning), ungepinnte npx-Pakete (Rug-Pull/Supply-Chain), Cleartext-Secrets in env, ungevettete Drittanbieter-Server. Liefert servers, findings (sev/server/issue), hasCritical.',
+    inputSchema: S({ config_text: { type: 'string', description: 'der MCP-Konfig-JSON-Text' } }, ['config_text']),
+  },
+  {
+    name: 'cdp5__scaffold_tests_from_ac',
+    description: 'CDP5 §11.7/§27.4 ac-to-test-scaffold (read-only): erzeugt FAILING Test-Skelette AUS den Akzeptanzkriterien-Tabellen des Konzept-Markdown `konzept_text` (TDD-First, nicht aus dem Code). `lang` wählt das Ziel-Framework (php=PHPUnit | js=node:test, Default php). Liefert count, byClass, code zum Anlegen der Dateien.',
+    inputSchema: S({
+      konzept_text: { type: 'string', description: 'Konzept-Markdown mit AC-Tabellen' },
+      lang: { type: 'string', enum: ['php', 'js'], description: 'Ziel-Sprache/-Framework (Default php)' },
+    }, ['konzept_text']),
+  },
+  {
+    name: 'cdp5__scan_pii_text',
+    description: 'CDP5 §15.6/§15.7 pii-scan (read-only, redacted): scannt den übergebenen `text` auf Klartext-PII (E-Mail, IBAN, Telefon, Kreditkarte mit Luhn-Prüfung). `file` ist nur ein Label für die Fundstellen-Ausgabe (KEIN Dateizugriff). Funde sind redigiert (nie Klartext). Hybrid — Regex-Treffer ggf. semantisch verifizieren.',
+    inputSchema: S({
+      text: { type: 'string', description: 'der auf PII zu scannende Text' },
+      file: { type: 'string', description: 'optionales Label für die Fundstellen (nur Ausgabe, kein Zugriff)' },
+    }, ['text']),
+  },
+  {
+    name: 'cdp5__scan_secrets_text',
+    description: 'CDP5 §32.9/§33.5 secrets-scan (read-only, redacted): scannt den übergebenen `text` auf Klartext-Secrets (AWS-/OpenAI-/GitHub-/Slack-/Google-Keys, Private-Keys, JWT, secret=…-Zuweisungen). `file` ist nur ein Label für die Fund-Ausgabe (KEIN Dateizugriff). Funde redigiert.',
+    inputSchema: S({
+      text: { type: 'string', description: 'der auf Secrets zu scannende Text' },
+      file: { type: 'string', description: 'optionales Label für die Funde (nur Ausgabe, kein Zugriff)' },
+    }, ['text']),
+  },
+  {
+    name: 'cdp5__scan_pii_repo',
+    description: 'CDP5 §15.6/§15.7 pii-scan (read-only, redacted) über ein lokales Verzeichnis `repo_root`: rekursiver Scan aller Text-/Code-Dateien auf Klartext-PII (E-Mail, IBAN, Telefon, Kreditkarte/Luhn); .git/node_modules/vendor übersprungen, Symlinks ignoriert. Liefert redigierte Funde (file/line/type/match). Lokaler Dateizugriff (gleiche Vertrauensgrenze wie Claude Code).',
+    inputSchema: S({ repo_root: { type: 'string', description: 'lokales Wurzelverzeichnis, das rekursiv gescannt wird' } }, ['repo_root']),
+  },
+  {
+    name: 'cdp5__scan_secrets_repo',
+    description: 'CDP5 §32.9/§33.5 secrets-scan (read-only, redacted) über ein lokales Verzeichnis `repo_root`: rekursiver Scan auf Klartext-Secrets/Keys/Tokens/Private-Keys/.env-Leaks; .git/node_modules/vendor übersprungen, Symlinks ignoriert. Liefert findings, scanned, hasSecrets (redigiert). Lokaler Dateizugriff.',
+    inputSchema: S({ repo_root: { type: 'string', description: 'lokales Wurzelverzeichnis, das rekursiv gescannt wird' } }, ['repo_root']),
+  },
+  {
+    name: 'cdp5__find_test_gaps',
+    description: 'CDP5 §32.9 test-gap (read-only): findet sicherheitskritische PHP-Klassen (Voter/StateProcessor/Authenticator) OHNE Test im lokalen `repo_root`. Liefert gaps, covered, scanned. Reine Detektion (kein Scaffolding).',
+    inputSchema: S({ repo_root: { type: 'string', description: 'lokale Repo-Wurzel mit den PHP-/Test-Dateien' } }, ['repo_root']),
+  },
+  {
+    name: 'cdp5__lint_wiki',
+    description: 'CDP5 §32.9 wiki-lint (read-only): deterministische Markdown-Wiki-Checks unter `wiki_root` — Broken internal Links, Orphan-Pages (keine eingehenden Links), Frontmatter-Konsistenz (title/type/updated). Liefert brokenLinks, orphans, frontmatterIssues, scanned.',
+    inputSchema: S({ wiki_root: { type: 'string', description: 'lokales Wiki-Wurzelverzeichnis (.md-Seiten)' } }, ['wiki_root']),
+  },
+  {
+    name: 'cdp5__map_concept',
+    description: 'CDP5 §32.9 konzept-mapper (read-only): pro UC im Konzept (`konzept_path`) — sind die in Backticks genannten Artefakte (Pfade/Klassen/Routes) im lokalen `repo_root` vorhanden? Status ✓/teilweise/fehlt/n.a. je UC + missing-Liste. Beide Argumente sind lokale Pfade.',
+    inputSchema: S({
+      konzept_path: { type: 'string', description: 'lokaler Pfad zur Konzept-Markdown-Datei' },
+      repo_root: { type: 'string', description: 'lokale Repo-Wurzel, gegen die gemappt wird' },
+    }, ['konzept_path', 'repo_root']),
+  },
+  {
+    name: 'cdp5__check_roadmap_drift',
+    description: 'CDP5 §32.9 roadmap-drift (read-only): jedes als FERTIG markierte Artefakt der Roadmap (`roadmap_path`) real im lokalen `repo_root`? Verhindert Doppelbau/Plan-Halluzination. Liefert results, missing, drift, scanned. Beide Argumente sind lokale Pfade.',
+    inputSchema: S({
+      roadmap_path: { type: 'string', description: 'lokaler Pfad zur Roadmap-Markdown-Datei' },
+      repo_root: { type: 'string', description: 'lokale Repo-Wurzel, gegen die geprüft wird' },
+    }, ['roadmap_path', 'repo_root']),
+  },
+  {
+    name: 'cdp5__check_retro_loop',
+    description: 'CDP5 §32.6/§32.9 retro-memory-loop-check (read-only): jeder in Retro-/ADR-Dokumenten unter `retro_dir` zitierte Memory-Slug ([[slug]] / feedback_/project_/reference_) muss real unter `memory_dir` existieren UND einen Pointer in MEMORY.md haben. Liefert cited, findings, broken. Beide Argumente sind lokale Verzeichnisse.',
+    inputSchema: S({
+      retro_dir: { type: 'string', description: 'lokales Verzeichnis mit Retro-/ADR-Markdown' },
+      memory_dir: { type: 'string', description: 'lokales Memory-Verzeichnis (Slug-Dateien + MEMORY.md)' },
+    }, ['retro_dir', 'memory_dir']),
+  },
+  {
+    name: 'cdp5__check_profile',
+    description: 'CDP5 §1.9/§22 profile-check (read-only): prüft gegen ein einmal deklariertes Projekt-Profil (`profile_text`, YAML-Frontmatter) — Konzept-Konformität gegen `konzept_text` (EU-AI-Act-Klasse, security_level, Pflicht-Tokens) und/oder Repo-Konformität gegen das lokale `repo_root` (runtime, test_framework). Mindestens eines von `konzept_text`/`repo_root` ist nötig. Liefert profile, results, drift.',
+    inputSchema: S({
+      profile_text: { type: 'string', description: 'project-profile.md-Text (YAML-Frontmatter)' },
+      konzept_text: { type: 'string', description: 'optionaler Konzept-Text für die Konzept-Konformität' },
+      repo_root: { type: 'string', description: 'optionale lokale Repo-Wurzel für die Repo-Konformität' },
+    }, ['profile_text']),
+  },
 ];
 
 // Reine Lese-Tools — alles andere gilt als Schreiboperation und triggert onWrite
@@ -204,6 +325,11 @@ const READ_ONLY_TOOLS = new Set([
   'graph__query_knowledge', 'graph__resolve_belief', 'graph__verify', 'graph__search',
   'graph__recall_episodes', 'graph__recall_world', 'graph__endorsements_for',
   'graph__trust_of', 'graph__list_pending', 'graph__quarantine_review',
+  // CDP5-Gates sind ALLE read-only (reine Detektoren/Reports) → kein onWrite/Hub-Push.
+  'cdp5__lint_concept', 'cdp5__lint_mcp_config', 'cdp5__scaffold_tests_from_ac',
+  'cdp5__scan_pii_text', 'cdp5__scan_secrets_text', 'cdp5__scan_pii_repo', 'cdp5__scan_secrets_repo',
+  'cdp5__find_test_gaps', 'cdp5__lint_wiki', 'cdp5__map_concept', 'cdp5__check_roadmap_drift',
+  'cdp5__check_retro_loop', 'cdp5__check_profile',
 ]);
 
 export class McpServer {
@@ -401,6 +527,56 @@ export class McpServer {
         case 'graph__propose_supersede_temporal':
           result = this.engine.proposeAction({ kind: 'supersede_temporal', payload: { subject: args.subject, predicate: args.predicate, object: args.object, as_of: args.as_of ?? null, confidence: args.confidence ?? 700 } });
           break;
+        // ===== CDP5-Gates (read-only) — delegieren an die reinen Skill-Exporte. Fehlende Pfade/Inputs
+        // werfen (readFileSync etc.) → vom catch unten als isError-Result gefangen (kein Server-Crash). =====
+        case 'cdp5__lint_concept':
+          result = lintKonzept(reqStr(args.konzept_text, 'konzept_text'), args.rubric_weights ?? undefined);
+          break;
+        case 'cdp5__lint_mcp_config':
+          result = lintMcp(reqStr(args.config_text, 'config_text'));
+          break;
+        case 'cdp5__scaffold_tests_from_ac':
+          result = scaffoldTestsFromAc(reqStr(args.konzept_text, 'konzept_text'), args.lang === 'js' ? 'js' : 'php');
+          break;
+        case 'cdp5__scan_pii_text':
+          result = { findings: piiScanText(reqStr(args.text, 'text'), args.file ?? null) };
+          break;
+        case 'cdp5__scan_secrets_text':
+          result = { findings: secretsScanText(reqStr(args.text, 'text'), args.file ?? null) };
+          break;
+        case 'cdp5__scan_pii_repo':
+          result = { findings: piiScanRepo(reqStr(args.repo_root, 'repo_root')) };
+          break;
+        case 'cdp5__scan_secrets_repo':
+          result = secretsScanRepo(reqStr(args.repo_root, 'repo_root'));
+          break;
+        case 'cdp5__find_test_gaps':
+          result = findTestGaps(reqStr(args.repo_root, 'repo_root'));
+          break;
+        case 'cdp5__lint_wiki':
+          result = lintWiki(reqStr(args.wiki_root, 'wiki_root'));
+          break;
+        case 'cdp5__map_concept':
+          result = { rows: mapKonzept(reqStr(args.konzept_path, 'konzept_path'), reqStr(args.repo_root, 'repo_root')) };
+          break;
+        case 'cdp5__check_roadmap_drift':
+          result = checkRoadmap(reqStr(args.roadmap_path, 'roadmap_path'), reqStr(args.repo_root, 'repo_root'));
+          break;
+        case 'cdp5__check_retro_loop':
+          result = checkLoop(reqStr(args.retro_dir, 'retro_dir'), reqStr(args.memory_dir, 'memory_dir'));
+          break;
+        case 'cdp5__check_profile': {
+          const profile = parseFrontmatter(reqStr(args.profile_text, 'profile_text'));
+          if (!Object.keys(profile).length) throw Object.assign(new Error('Kein YAML-Frontmatter im profile_text gefunden (--- … ---)'), { code: 'INVALID_PARAMETER_FORMAT' });
+          const hasKonzept = typeof args.konzept_text === 'string' && args.konzept_text !== '';
+          const hasRepo = typeof args.repo_root === 'string' && args.repo_root !== '';
+          if (!hasKonzept && !hasRepo) throw Object.assign(new Error('Mindestens konzept_text oder repo_root angeben'), { code: 'INVALID_PARAMETER_FORMAT' });
+          const results = [];
+          if (hasKonzept) results.push(...checkKonzept(profile, args.konzept_text).map((x) => ({ ...x, scope: 'Konzept' })));
+          if (hasRepo) results.push(...checkRepo(profile, args.repo_root).map((x) => ({ ...x, scope: 'Repo' })));
+          result = { profile, results, drift: results.some((x) => !x.pass) };
+          break;
+        }
         default:
           return { content: [{ type: 'text', text: `Unknown tool: ${name}` }], isError: true };
       }
