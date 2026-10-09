@@ -1,6 +1,6 @@
 {
   "name": "cdp5-gates",
-  "version": "0.5.1",
+  "version": "0.5.2",
   "description": "Deterministische read-only T1-Skills nach CDP5 §32.9 (Skill-Determinismus-Gate): entscheidbare, wiederholte Detektoren als Node-Programme statt LLM-Agents. Jeder Skill liefert einen reproduzierbaren Report; der Main-Agent handelt darauf.",
   "author": {
     "name": "SmR492",

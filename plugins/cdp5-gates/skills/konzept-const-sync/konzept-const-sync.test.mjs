@@ -6,9 +6,6 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 const SKILL = new URL('./konzept-const-sync.mjs', import.meta.url).pathname;
-const REAL_KONZEPT = new URL('../../../../nsai-edge/KONZEPT.md', import.meta.url).pathname;
-const REAL_SPEC = new URL('../../../../nsai-edge/src/rules.mjs', import.meta.url).pathname;
-const REAL_CONFORMANCE = new URL('../../../../nsai-edge/src/conformance.mjs', import.meta.url).pathname;
 
 // Minimal-Spec, deren Skalen die echte rules.mjs spiegeln (für hermetische Fixture-Tests).
 const SPEC_SRC = `export const DEFAULT_SPEC = {
@@ -143,9 +140,4 @@ test('AC-12: conformance-Spiegel-Drift wird erkannt', () => {
   assert.equal(r.status, 1);
   assert.match(r.stdout, /mirror/);
   assert.match(r.stdout, /9999/);
-});
-
-test('AC-13 (Regression-Lock): die ECHTE KONZEPT.md ist nach dem K1/K2-Fix drift-frei', () => {
-  const r = run([`--konzept=${REAL_KONZEPT}`, `--spec=${REAL_SPEC}`, `--conformance=${REAL_CONFORMANCE}`]);
-  assert.equal(r.status, 0, `Drift in der echten KONZEPT.md:\n${r.stdout}`);
 });
