@@ -28,7 +28,7 @@ Nicht-triviale Aufträge werden nach **CDP5** orchestriert (Konzept → Design �
 | Behauptungen gegen Code/Quelle verifizieren | `review-verify` |
 | gegnerischer Review eines 🔴-Slices | `adversarial-auditor` |
 | Threat-Modeling / MCP-Security | `threat-modeler`, `mcp-security-reviewer` |
-| Projekt-/Domänen-Wissen abrufen oder zurückschreiben (Wissensdoktrin, separat von CDP5) | `nsai-edge`-Wissensbasis — eigener `<!-- nsai -->`-Block via `nsai-init` (Tier-1-MCP, `graph__*`-Tools, Two-Door) |
+| Projekt-/Domänen-Wissen abrufen oder zurückschreiben (Wissensdoktrin, separat von CDP5) | Orbit-MCP (`search` → `read`, Abschluss per `insert`/`update`) |
 
 ### Werkzeuge
 
