@@ -6,7 +6,7 @@
   },
   "metadata": {
     "description": "Deterministische CDP5-T1-Skills (read-only Detektoren/Reports) als Claude-Code-Marketplace.",
-    "version": "0.8.0"
+    "version": "0.9.0"
   },
   "plugins": [
     {
@@ -20,6 +20,12 @@
       "source": "./plugins/cdp5-agents",
       "description": "Projektunabhängige CDP5-Methodik-Agents (Judgment, read-only): konzept-reviewer, review-verify, adversarial-auditor, threat-modeler, mcp-security-reviewer.",
       "version": "0.1.1"
+    },
+    {
+      "name": "orbit-workflow",
+      "source": "./plugins/orbit-workflow",
+      "description": "SessionStart hook that loads the latest Orbit report and the open FastNotes of the current project into every Claude Code session (startup, resume, clear, compact), with a local cache when Orbit is unreachable.",
+      "version": "0.1.0"
     }
   ]
 }
