@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { parseFrontmatter, checkKonzept, checkRepo } from './profile-check.mjs';
 
-test('parseFrontmatter liest Skalare + Listen', () => {
+test('parseFrontmatter reads scalars + lists', () => {
   const md = '---\nproject: Demo\neu_ai_act_class: minimal\nrequire_in_concept:\n  - Probabilistik-Statement\n  - "Vendor-Risiko"\n---\n# Body';
   const p = parseFrontmatter(md);
   assert.equal(p.project, 'Demo');
@@ -13,33 +13,33 @@ test('parseFrontmatter liest Skalare + Listen', () => {
   assert.deepEqual(p.require_in_concept, ['Probabilistik-Statement', 'Vendor-Risiko']);
 });
 
-test('parseFrontmatter ohne Frontmatter → {}', () => {
-  assert.deepEqual(parseFrontmatter('# nur Body'), {});
+test('parseFrontmatter without frontmatter → {}', () => {
+  assert.deepEqual(parseFrontmatter('# body only'), {});
 });
 
-test('checkKonzept: EU-AI-Act-Klasse muss deklariert sein', () => {
+test('checkKonzept: EU AI Act class must be declared', () => {
   const profile = { eu_ai_act_class: 'minimal' };
-  const ok = checkKonzept(profile, 'Alle UCs sind EU-AI-Act-Klasse minimal.');
-  const fail = checkKonzept(profile, 'Konzept ohne Regulatorik.');
+  const ok = checkKonzept(profile, 'All UCs are EU-AI-Act class minimal.');
+  const fail = checkKonzept(profile, 'Concept without regulatory section.');
   assert.equal(ok[0].pass, true);
   assert.equal(fail[0].pass, false);
 });
 
-test('checkKonzept: require_in_concept-Tokens', () => {
+test('checkKonzept: require_in_concept tokens', () => {
   const profile = { require_in_concept: ['Probabilistik-Statement', 'Glossar'] };
   const r = checkKonzept(profile, '## Probabilistik-Statement\n...\n## Glossar');
   assert.ok(r.every((x) => x.pass));
-  const r2 = checkKonzept(profile, '## Glossar nur');
+  const r2 = checkKonzept(profile, '## Glossar only');
   assert.equal(r2.find((x) => x.label.includes('Probabilistik')).pass, false);
 });
 
-test('checkKonzept: security_level=elevated fordert Threat-Modeling', () => {
-  assert.equal(checkKonzept({ security_level: 'elevated' }, 'kein Sicherheitsteil')[0].pass, false);
-  assert.equal(checkKonzept({ security_level: 'elevated' }, 'Threat-Modeling nach §33.4')[0].pass, true);
-  assert.equal(checkKonzept({ security_level: 'standard' }, 'egal').length, 0);  // standard → kein Check
+test('checkKonzept: security_level=elevated requires threat modeling', () => {
+  assert.equal(checkKonzept({ security_level: 'elevated' }, 'no security section')[0].pass, false);
+  assert.equal(checkKonzept({ security_level: 'elevated' }, 'Threat-Modeling per §33.4')[0].pass, true);
+  assert.equal(checkKonzept({ security_level: 'standard' }, 'whatever').length, 0);  // standard → no check
 });
 
-test('checkRepo: Runtime + Test-Framework-Signatur', () => {
+test('checkRepo: runtime + test framework signature', () => {
   const root = mkdtempSync(join(tmpdir(), 'pc-'));
   writeFileSync(join(root, 'package.json'), '{}');
   mkdirSync(join(root, 'test'));
@@ -48,9 +48,9 @@ test('checkRepo: Runtime + Test-Framework-Signatur', () => {
   assert.ok(r.every((x) => x.pass), JSON.stringify(r));
 });
 
-test('checkRepo: fehlende Signatur → Drift', () => {
+test('checkRepo: missing signature → drift', () => {
   const root = mkdtempSync(join(tmpdir(), 'pc-'));
-  writeFileSync(join(root, 'composer.json'), '{}');               // PHP-Repo …
-  const r = checkRepo({ runtime: 'node', test_framework: 'node:test' }, root);  // … aber node erwartet
+  writeFileSync(join(root, 'composer.json'), '{}');               // PHP repo …
+  const r = checkRepo({ runtime: 'node', test_framework: 'node:test' }, root);  // … but node expected
   assert.ok(r.some((x) => !x.pass));
 });

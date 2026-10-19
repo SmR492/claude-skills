@@ -1,26 +1,26 @@
 ---
 name: konzept-model-api
-description: Read-only Modell↔API-Drift-Detektor. Diff von PHP-Enum-Cases gegen OpenAPI-enum-Arrays und PHP-Entity-Properties gegen OpenAPI-Schema-Properties (gleichen Namens). Use bei „enum drift", „Modell gegen OpenAPI prüfen", „API-Konsistenz", Sprint-Ende.
+description: Read-only model↔API drift detector. Diffs PHP enum cases against OpenAPI enum arrays and PHP entity properties against OpenAPI schema properties (of the same name). Use for "enum drift", "check model against OpenAPI", "API consistency", end of sprint.
 ---
 
-# konzept-model-api (CDP5 T1-Gate)
+# konzept-model-api (CDP5 T1 gate)
 
-Deterministischer Diff-Teil des früheren `konzept-model-api`-Agents als Programm (CDP5 §32.8(1) nennt Enum-Drift + Modell↔OpenAPI-Diff explizit als deterministisch). Die semantische **Konzept-Vokabular-Drift**-Wertung (gleicher Begriff, andere Bedeutung) bleibt LLM-/Mensch-Arbeit.
+The deterministic diff part of the former `konzept-model-api` agent as a program (CDP5 §32.8(1) explicitly names enum drift + model↔OpenAPI diff as deterministic). The semantic **concept vocabulary drift** assessment (same term, different meaning) remains LLM/human work.
 
-## Aufruf
+## Invocation
 
 ```bash
 node "${CLAUDE_PLUGIN_ROOT}/skills/konzept-model-api/model-api-drift.mjs" \
-  --repo=<repo-root> --openapi=<pfad/openapi.yaml> [--json]
+  --repo=<repo-root> --openapi=<path/openapi.yaml> [--json]
 ```
 
-Exit: `0` kein Drift · `1` Drift gefunden · `2` Nutzungsfehler.
+Exit: `0` no drift · `1` drift found · `2` usage error.
 
-## Checks (Name-Match, normalisiert)
+## Checks (name match, normalised)
 
-- **Enum-Drift** — PHP `enum X { case … }` (Backing-Value oder Case-Name) ↔ OpenAPI `enum: […]` gleichen Namens; meldet fehlendes Pendant + abweichende Wertemengen.
-- **Property-Drift** — PHP-Entity-Properties (`private/protected/public … $x`) ↔ OpenAPI-Schema-`properties:` gleichen Namens; meldet „nur OpenAPI" / „nur Entity".
+- **Enum drift** — PHP `enum X { case … }` (backing value or case name) ↔ OpenAPI `enum: […]` of the same name; reports a missing counterpart + differing value sets.
+- **Property drift** — PHP entity properties (`private/protected/public … $x`) ↔ OpenAPI schema `properties:` of the same name; reports "only OpenAPI" / "only entity".
 
-## Grenzen (dependency-frei)
+## Limits (dependency-free)
 
-Der OpenAPI-Parser ist ein kompakter Zeilen-Scanner (kein voller YAML-Parser): er erfasst `components.schemas.*.properties` und `enum`-Blöcke/Inline-Arrays. Für exotische YAML-Konstrukte ggf. ungenau — Befunde sind Hinweise, die der Main-Agent verifiziert (CDP5 §10.6).
+The OpenAPI parser is a compact line scanner (not a full YAML parser): it captures `components.schemas.*.properties` and `enum` blocks/inline arrays. It may be imprecise for exotic YAML constructs — findings are hints that the main agent verifies (CDP5 §10.6).

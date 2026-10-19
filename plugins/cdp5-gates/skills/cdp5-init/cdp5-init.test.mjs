@@ -7,60 +7,60 @@ import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { mergeBlock, computeDiff, blockInvariantError, START, END } from './cdp5-init.mjs';
 
-const BLOCK = 'CDP5-Doktrin; cdp5-reference-Gate.';   // erfüllt Invariante
+const BLOCK = 'CDP5 doctrine; cdp5-reference gate.';   // satisfies the invariant
 const script = join(dirname(fileURLToPath(import.meta.url)), 'cdp5-init.mjs');
 const tmp = () => mkdtempSync(join(tmpdir(), 'ci-'));
 
-test('mergeBlock hängt an, wenn kein Marker da ist (Bestand unverändert)', () => {
+test('mergeBlock appends when no marker is present (existing content unchanged)', () => {
   const r = mergeBlock('# CLAUDE.md\nText\n', BLOCK);
   assert.equal(r.mode, 'append');
   assert.ok(r.md.includes(START) && r.md.includes(END));
   assert.ok(r.md.startsWith('# CLAUDE.md\nText\n'));
 });
 
-test('mergeBlock ersetzt Block, Inhalt außerhalb byte-identisch (UC-02 AC-1)', () => {
-  const r = mergeBlock(`vorher\n${START}\nALT\n${END}\nnachher\n`, BLOCK);
+test('mergeBlock replaces the block, content outside is byte-identical (UC-02 AC-1)', () => {
+  const r = mergeBlock(`before\n${START}\nOLD\n${END}\nafter\n`, BLOCK);
   assert.equal(r.mode, 'replace');
-  assert.ok(r.md.startsWith('vorher\n') && r.md.endsWith('\nnachher\n'));
-  assert.ok(!r.md.includes('ALT'));
+  assert.ok(r.md.startsWith('before\n') && r.md.endsWith('\nafter\n'));
+  assert.ok(!r.md.includes('OLD'));
 });
 
-test('mergeBlock ist idempotent (UC-04 AC-1)', () => {
-  const once = mergeBlock('Basis\n', BLOCK).md;
+test('mergeBlock is idempotent (UC-04 AC-1)', () => {
+  const once = mergeBlock('Base\n', BLOCK).md;
   assert.equal(once, mergeBlock(once, BLOCK).md);
 });
 
-test('inkonsistentes Marker-Paar → error, kein Merge (UC-04 AC-2)', () => {
-  assert.match(mergeBlock(`x\n${START}\nohne ende\n`, BLOCK).error, /inkonsistent/);
-  assert.match(mergeBlock(`${END}\n${START}\n`, BLOCK).error, /inkonsistent/);
+test('inconsistent marker pair → error, no merge (UC-04 AC-2)', () => {
+  assert.match(mergeBlock(`x\n${START}\nno end\n`, BLOCK).error, /inconsistent/);
+  assert.match(mergeBlock(`${END}\n${START}\n`, BLOCK).error, /inconsistent/);
 });
 
-test('computeDiff: noop wenn bereits aktuell', () => {
+test('computeDiff: noop when already up to date', () => {
   assert.equal(computeDiff(mergeBlock('b\n', BLOCK).md, BLOCK).mode, 'noop');
 });
 
-test('blockInvariantError: ohne Gate/Verweis → Meldung, sonst null (UC-03 Reject)', () => {
-  assert.match(blockInvariantError('nur text'), /CDP5-Verweis fehlt/);
-  assert.match(blockInvariantError('CDP5 ohne gate'), /cdp5-reference-Gate fehlt/);
+test('blockInvariantError: without gate/reference → message, otherwise null (UC-03 reject)', () => {
+  assert.match(blockInvariantError('just text'), /CDP5 reference missing/);
+  assert.match(blockInvariantError('CDP5 without gate'), /cdp5-reference gate missing/);
   assert.equal(blockInvariantError(BLOCK), null);
 });
 
-test('Default-Block cdp5-block.md erfüllt Invariante + enthält Gate (Dim-6-Polish)', () => {
+test('default block cdp5-block.md satisfies the invariant + contains the gate (dim-6 polish)', () => {
   const def = readFileSync(join(dirname(script), 'cdp5-block.md'), 'utf8');
   assert.equal(blockInvariantError(def), null);
   assert.match(def, /cdp5-reference/);
 });
 
-test('CLI Default ist read-only: --diff schreibt nicht (UC-01 AC-1)', () => {
+test('CLI default is read-only: --diff does not write (UC-01 AC-1)', () => {
   const f = join(tmp(), 'CLAUDE.md');
-  writeFileSync(f, '# Bestand\n');
+  writeFileSync(f, '# Existing\n');
   execFileSync('node', [script, `--target=${f}`], { stdio: 'pipe' });
-  assert.equal(readFileSync(f, 'utf8'), '# Bestand\n');
+  assert.equal(readFileSync(f, 'utf8'), '# Existing\n');
 });
 
-test('CLI --write schreibt + zweiter Lauf idempotent (UC-02/UC-04)', () => {
+test('CLI --write writes + second run is idempotent (UC-02/UC-04)', () => {
   const f = join(tmp(), 'CLAUDE.md');
-  writeFileSync(f, '# Bestand\n');
+  writeFileSync(f, '# Existing\n');
   execFileSync('node', [script, `--target=${f}`, '--write'], { stdio: 'pipe' });
   const after1 = readFileSync(f, 'utf8');
   assert.ok(after1.includes(START) && after1.includes('cdp5-reference'));
@@ -68,15 +68,15 @@ test('CLI --write schreibt + zweiter Lauf idempotent (UC-02/UC-04)', () => {
   assert.equal(readFileSync(f, 'utf8'), after1);
 });
 
-test('CLI --target=<Verzeichnis> → Exit 2', () => {
+test('CLI --target=<directory> → exit 2', () => {
   let code = 0;
   try { execFileSync('node', [script, `--target=${tmp()}`], { stdio: 'pipe' }); } catch (e) { code = e.status; }
   assert.equal(code, 2);
 });
 
-test('CLI --block mit Invarianten-Verletzung → Exit 2 (KI-Reject, UC-03)', () => {
+test('CLI --block with an invariant violation → exit 2 (AI reject, UC-03)', () => {
   const d = tmp(); const f = join(d, 'CLAUDE.md'); const bad = join(d, 'bad.md');
-  writeFileSync(f, '# x\n'); writeFileSync(bad, 'freitext ohne gate');
+  writeFileSync(f, '# x\n'); writeFileSync(bad, 'free text without gate');
   let code = 0;
   try { execFileSync('node', [script, `--target=${f}`, `--block=${bad}`], { stdio: 'pipe' }); } catch (e) { code = e.status; }
   assert.equal(code, 2);

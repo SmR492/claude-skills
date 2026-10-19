@@ -125,6 +125,7 @@ test('mutation: core.md tampered → hash mismatch is detected', () => {
 
 test('ackPresent accepts only the exact first non-empty line', () => {
   assert.ok(ackPresent('\n contract: v1 abcdef123456\nrest', '1', 'abcdef123456'));
+  assert.ok(ackPresent('contract: v1 sha256:abcdef123456\nrest', '1', 'abcdef123456'), 'the header form with the sha256 prefix is accepted too');
   assert.ok(!ackPresent('contract: v1 abcdef123457', '1', 'abcdef123456'));
   assert.ok(!ackPresent('Result\ncontract: v1 abcdef123456', '1', 'abcdef123456'));
   assert.ok(!ackPresent('', '1', 'abcdef123456'));
@@ -201,7 +202,7 @@ test('hooks.json wires both events to the plugin-scoped matcher', () => {
   assert.equal(hooks.SubagentStart[0].matcher, '^(cdp5-agents|domain-agents):');
   assert.match(hooks.SubagentStart[0].hooks[0].command, /inject-contract\.mjs/);
   assert.equal(hooks.SubagentStop[0].matcher, '^(cdp5-agents|domain-agents):');
-  assert.equal(hooks.PreToolUse[0].matcher, 'Bash');
+  assert.equal(hooks.PreToolUse[0].matcher, '^(Bash|PowerShell)$');
   assert.match(hooks.PreToolUse[0].hooks[0].command, /guard-bash\.mjs/);
   assert.match(hooks.SubagentStop[0].hooks[0].command, /check-ack\.mjs/);
 });

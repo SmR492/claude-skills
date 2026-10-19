@@ -41,6 +41,7 @@ test('render marks provenance as unverified and redacts names everywhere', () =>
   assert.doesNotMatch(md, /Mustermann/);
   assert.match(md, /\[Person\]/);
   assert.equal(redact('no names here', ['Mustermann']), 'no names here');
+  assert.equal(redact('MUSTERMANN and mustermann', ['Mustermann']), '[Person] and [Person]', 'case variants are redacted too');
 });
 
 test('buildPack writes one file per entry plus INDEX.md, filters by refs and reports missing', () => {

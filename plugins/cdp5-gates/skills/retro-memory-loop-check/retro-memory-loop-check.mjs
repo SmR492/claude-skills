@@ -1,8 +1,8 @@
 #!/usr/bin/env node
-// CDP5 §32.9 T1-Skill — Retro→Memory-Loop-Check (read-only): jeder in Retro-/ADR-Dokumenten
-// zitierte Memory-Slug (feedback_* / project_* / [[slug]]) muss real angelegt sein UND einen
-// Pointer im Memory-Index haben — sonst verdampft die Lehre (CDP5 §32.6).
-// Exit: 0 = Loop dicht · 1 = ≥1 zitierter Slug fehlt/ohne Pointer · 2 = Nutzungsfehler.
+// CDP5 §32.9 T1 skill — retro→memory loop check (read-only): every memory slug cited in
+// retro/ADR documents (feedback_* / project_* / [[slug]]) must actually exist AND have a
+// pointer in the memory index — otherwise the lesson evaporates (CDP5 §32.6).
+// Exit: 0 = loop closed · 1 = ≥1 cited slug missing/without pointer · 2 = usage error.
 
 import { readFileSync, existsSync, readdirSync, lstatSync } from 'node:fs';
 import { join, relative } from 'node:path';
@@ -20,7 +20,7 @@ function mdFiles(dir) {
 export function checkLoop(retroDir, memoryDir) {
   const indexPath = join(memoryDir, 'MEMORY.md');
   const index = existsSync(indexPath) ? readFileSync(indexPath, 'utf8') : '';
-  const cited = new Map(); // slug -> Set(quelle)
+  const cited = new Map(); // slug -> Set(source)
   for (const f of mdFiles(retroDir)) {
     const text = readFileSync(f, 'utf8');
     for (const m of text.matchAll(SLUG_RE)) {
@@ -47,12 +47,12 @@ function main(argv) {
   guardPaths([[a.retro, 'dir'], [a.memory, 'dir']]);
   const r = checkLoop(a.retro, a.memory);
   if (a.json) { console.log(JSON.stringify(r, null, 2)); process.exit(r.broken ? 1 : 0); }
-  console.log(`Retro→Memory-Loop — ${r.cited} zitierte Slugs, ${r.findings.length} gebrochen\n`);
+  console.log(`retro→memory loop — ${r.cited} cited slugs, ${r.findings.length} broken\n`);
   for (const f of r.findings) {
-    const why = [!f.fileExists && 'Datei fehlt', !f.hasPointer && 'kein MEMORY.md-Pointer'].filter(Boolean).join(' + ');
-    console.log(`  ✗ ${f.slug} — ${why}  (zitiert in: ${f.sources.join(', ')})`);
+    const why = [!f.fileExists && 'file missing', !f.hasPointer && 'no MEMORY.md pointer'].filter(Boolean).join(' + ');
+    console.log(`  ✗ ${f.slug} — ${why}  (cited in: ${f.sources.join(', ')})`);
   }
-  if (!r.broken) console.log('  Loop dicht: jeder zitierte Slug existiert + hat Pointer.');
+  if (!r.broken) console.log('  loop closed: every cited slug exists and has a pointer.');
   process.exit(r.broken ? 1 : 0);
 }
 

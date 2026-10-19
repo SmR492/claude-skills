@@ -1,7 +1,7 @@
 {
   "name": "cdp5-agents",
   "version": "0.3.0",
-  "description": "CDP5 agents for the engineering loop: judgment and counter-roles (konzept-reviewer, review-verify, adversarial-auditor, threat-modeler, mcp-security-reviewer, devils-advocate, pessimistic-realist, review-code, pm-retro), implementation workers (impl-debug, impl-uc, impl-refactor) and the orchestrate skill for the main session. Ships the shared worker contract (SubagentStart injection, SubagentStop acknowledgement and usage log) and a PreToolUse guard that keeps judgment agents read-only and workers off commit and push.",
+  "description": "CDP5 agents for the engineering loop: judgment and counter-roles (konzept-reviewer, review-verify, adversarial-auditor, threat-modeler, mcp-security-reviewer, devils-advocate, pessimistic-realist, review-code, pm-retro), implementation workers (impl-debug, impl-uc, impl-refactor) and the orchestrate skill for the main session. Ships the shared worker contract (SubagentStart injection, SubagentStop acknowledgement and usage log) and a PreToolUse tripwire on Bash and PowerShell (allowlist: judgment agents read-only, workers off commit, push and history rewrites; the disposable environment is the real boundary).",
   "author": { "name": "SmR492", "url": "https://github.com/SmR492" },
   "keywords": ["cdp5", "code-review", "verification", "threat-modeling", "mcp", "security"]
 }

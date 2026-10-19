@@ -9,6 +9,14 @@ const EFFORT = new Set(['low', 'medium', 'high', 'xhigh', 'max']);
 const MODELS = new Set(['sonnet', 'opus', 'haiku', 'fable', 'inherit']);
 const TOOLS = new Set(['Read', 'Grep', 'Glob', 'Bash', 'Write', 'Edit', 'WebFetch', 'WebSearch']);
 const WRITERS = new Set(['impl-debug', 'impl-uc', 'impl-refactor']);
+// Model tiers per doctrine §32.3: judgment, counter-roles, security and the psy roles on opus;
+// implementation workers, retro moderation and marketing on sonnet. Purely mechanical work is a T1 skill, not an agent.
+const MODEL_TIER = {
+  'adversarial-auditor': 'opus', 'review-verify': 'opus', 'konzept-reviewer': 'opus', 'threat-modeler': 'opus',
+  'mcp-security-reviewer': 'opus', 'devils-advocate': 'opus', 'pessimistic-realist': 'opus', 'review-code': 'opus',
+  'psy-grenzwaechter': 'opus', 'psy-domaenen-rechercheur': 'opus',
+  'impl-debug': 'sonnet', 'impl-uc': 'sonnet', 'impl-refactor': 'sonnet', 'pm-retro': 'sonnet', 'marketing-strategist': 'sonnet',
+};
 
 function agentFiles(dir) {
   return existsSync(dir) ? readdirSync(dir).filter((f) => f.endsWith('.md')).map((f) => join(dir, f)) : [];
@@ -31,6 +39,8 @@ test('every agent file has the required frontmatter with valid values', () => {
     assert.equal(fm.name, file.replace(/\.md$/, ''), `${file}: name must match the filename`);
     assert.ok(fm.description && fm.description.length <= 700, `${file}: description missing or longer than 700 characters`);
     assert.ok(MODELS.has(fm.model), `${file}: model ${fm.model}`);
+    assert.ok(fm.name in MODEL_TIER, `${file}: no model tier assigned for ${fm.name}`);
+    assert.equal(fm.model, MODEL_TIER[fm.name], `${file}: model must be ${MODEL_TIER[fm.name]} per §32.3`);
     assert.ok(EFFORT.has(fm.effort), `${file}: effort must be one of ${[...EFFORT].join(', ')}`);
     const tools = fm.tools.split(',').map((t) => t.trim());
     assert.ok(tools.length > 0 && tools.every((t) => TOOLS.has(t)), `${file}: tools ${fm.tools}`);

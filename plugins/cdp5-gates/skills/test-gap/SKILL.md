@@ -1,25 +1,25 @@
 ---
 name: test-gap
-description: Read-only Finder ungetesteter sicherheitskritischer Klassen (Voter / State-Processor / Authenticator) in einem PHP/Symfony-Repo. Use bei „test coverage gap", „welche Voter/State-Processor haben keinen Test", vor einem Test-Coverage-Sprint.
+description: Read-only finder for untested security-critical classes (Voter / StateProcessor / Authenticator) in a PHP/Symfony repo. Use for "test coverage gap", "which voters/state processors have no test", before a test-coverage sprint.
 ---
 
-# test-gap (CDP5 T1-Gate)
+# test-gap (CDP5 T1 gate)
 
-Detektions-Teil des früheren `test-gap`-Agents als Programm. Findet sicherheitskritische Klassen **ohne** Test — deterministisch. Das **Scaffolding** (Test-Code erzeugen) bleibt bewusst Agent-/Mensch-Arbeit (mutiert Code → braucht Review-Block).
+The detection part of the former `test-gap` agent as a program. Finds security-critical classes **without** a test — deterministically. The **scaffolding** (generating test code) deliberately remains agent/human work (it mutates code → needs a review block).
 
-## Aufruf
+## Invocation
 
 ```bash
 node "${CLAUDE_PLUGIN_ROOT}/skills/test-gap/test-gap.mjs" --repo=<repo-root> [--json]
 ```
 
-Exit: `0` keine Lücke · `1` ≥1 ungetestete sicherheitskritische Klasse · `2` Nutzungsfehler.
+Exit: `0` no gap · `1` ≥1 untested security-critical class · `2` usage error.
 
-## Erkennung
+## Detection
 
-- **Sicherheitskritisch** = Dateiname endet auf `Voter.php`/`StateProcessor.php`/`Authenticator.php` **oder** Inhalt `extends …Voter` / `implements …Authenticator|…StateProcessor`.
-- **Getestet** = es gibt `<Class>Test.php` **oder** ein Test-File referenziert den Klassennamen.
+- **Security-critical** = file name ends in `Voter.php`/`StateProcessor.php`/`Authenticator.php` **or** content `extends …Voter` / `implements …Authenticator|…StateProcessor`.
+- **Tested** = a `<Class>Test.php` exists **or** a test file references the class name.
 
-## Danach (Main-Agent)
+## Afterwards (main agent)
 
-Für die gefundenen Lücken Tests schreiben (TDD-First, CDP5 §11.7/§27.4) — das ist die LLM-/Mensch-Stufe, nicht Teil dieses Skills.
+Write tests for the gaps found (TDD-first, CDP5 §11.7/§27.4) — that is the LLM/human stage, not part of this skill.

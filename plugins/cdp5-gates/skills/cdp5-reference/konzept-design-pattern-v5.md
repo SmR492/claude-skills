@@ -2,8 +2,9 @@
 
 **Kürzel:** CDP5 (Concept Design Pattern, Generation 5) — aktive Doktrin ist **ausschließlich diese Datei**. Vorgänger **CDP4** (v4.7, `konzept-design-pattern-v4.md`) ist **frozen + nicht-aktiv**, gehalten als Fallback-Referenz (Rückfall bei struktureller v5-Grundstruktur-Drift). Das Kürzel KDP bezeichnet v3.1 (frozen, in §1–§26 inlined).
 
-**Version:** 5.0
-**Stand:** Mai 2026
+**Version:** 5.1
+**Stand:** Oktober 2026 (v5.0: Mai 2026)
+**Provenienz:** Diese Datei ist die gebündelte Kopie der CDP5-Doktrin und bis zur Anbindung der Wissensschicht (Orbit, `riedl/nsai/doktrin/par-*`) der Interims-Master (DECISIONS.md A4). Änderungen nur per PR; Stand der Bündelung v5.0, Orbit-only-Paragraphen siehe Redirect-Tabelle in §26. Eine generierte, hash-geprüfte Fassung ersetzt diese Kopie, sobald der Generator existiert.
 **Charakter dieser Version:** v5 ist eine **Restrukturierung** von v4.7 — gleiche Doktrin, neu geordnet für **kontextarmes Einlesen**. Inhalt wurde verschoben, nicht gelöscht (Ausnahme: zwei reine Vorwärtsverweis-Stubs; drei Themen-Dubletten zusammengeführt). Autoren-Zitate sind in direkte Inline-Regeln überführt (Portabilität: jede Regel steht für sich, keine externe Lektüre nötig). Neu: Teil 0 (Mission + Arbeitsschleife), die Anti-Drift-/Gedächtnis-Mechanik nach vorn gezogen, ein dedizierter Sicherheits-Teil (Teil 3, §33), LLM-Spezifika in einen überspringbaren Teil 5 gebündelt, Referenz-Material (Prompt-Pattern, Golden-Samples, Cases) in den Anhang.
 
 **Stabile Anker:** Die `§`-Nummern sind unverändert und bleiben die zitierfähigen Anker (alle internen `(§X.Y)`-Verweise gelten weiter). Die **Teil**-Gliederung ist die *Lese*-Reihenfolge — darum erscheint z. B. §29 (Modi) vor §10 (Review): der Arbeitsweg steht vor dem Konzept-Handwerk.
@@ -452,7 +453,7 @@ Orchestrierung heißt **nicht** automatisch viele parallele Agenten. Drei Stufen
 
 ### 32.11 Devil's-Advocate-Gate (Pflicht-Pass vor irreversiblen Wahlen)
 
-**Trigger:** jedes ADR mit Status „vorgeschlagen", jede Einführung eines neuen Subsystems, Moduls oder Modus (§27.1.1), jede Wahl, die irreversibel wird, und der Gesamt-Abschluss eines Auftrags. §11.4 fordert den Pass für „Decide" wörtlich; dieser Paragraph macht ihn zum Gate.
+**Trigger:** jedes ADR mit Status „vorgeschlagen", jede Einführung eines neuen Subsystems, Moduls oder Modus (§27.1.1; dieser Paragraph liegt nur in der Wissensschicht, in dieser Kopie gilt der Deletion-Test §27.1 als Proxy, siehe Redirect-Tabelle §26), jede Wahl, die irreversibel wird, und der Gesamt-Abschluss eines Auftrags. §11.4 fordert den Pass für „Decide" wörtlich; dieser Paragraph macht ihn zum Gate.
 
 **Ablauf:** Der Orchestrator startet `devils-advocate` in frischem Kontext (kein Anteil an der Wahl) mit dem wörtlichen Auftrag, der gewählten Option, den verworfenen Alternativen und ihren Kosten. Fehlt die verworfene Alternative, wird sie angefordert, nicht erfunden; die Nulloption darf der Pass selbst bilden. Der Pass liefert je Einwand einen Beleg-Ort und ein ex ante prüfbares Entkräftungs-Kriterium, prüft die Existenz-Frage (§27.1.1) und gibt ein dreiwertiges Verdikt: (a) die Begründung trägt, (b) die Alternative ist stärker, (c) die Nulloption schlägt beide.
 
@@ -2135,6 +2136,7 @@ Die v5.0-Aussage „§-Anker unverändert" gilt nicht für die folgenden Anker; 
 | §11.6 | in §11.3 gemergt (v5.0) | §11.3 |
 | §10.0 | nie als eigener Abschnitt vorhanden | §10.1 |
 | §32.18 | nicht vorhanden | §32.17 (Rollen-Graph) prüfen |
+| §27.1.1 (Existenz-Frage, vier Antworten, Regeln A–C), §1.11 (Playbook = Muster), §32.13 (Werkzeug-Playbooks, Invarianz-Sicherung), §32.15, §32.17, §32.19, §35.1 (Quality-Gates), §35.2 (Performance-Profiling) | nur in der Wissensschicht (Orbit) vorhanden, nicht in dieser Kopie (v5.0-Stand der Bündelung) | bis zur Synchronisation trägt der Brief den wörtlichen Auszug aus Orbit; in dieser Kopie gilt für §27.1.1 der Deletion-Test §27.1 als Proxy, die operative Fassung steht im Agent `devils-advocate` |
 | „Beleg-Kette (§10.6)" in Rollen- und Playbook-Texten | Zitat-Drift: §10.6 ist der Verifikationsagent neben dem Review-Agent | Beleg-Pflicht ist §32.8 (3)/(4) |
 | „Worker-Regel §32.7" für das Skills-/Agents-Verbot | Zitat-Drift: §32.7 (5) verbietet nur MCP | §32.2 (6) |
 | „Audit (§27.4)" | Zitat-Drift: §27.4 ist die Vertical-TDD-Schleife | §11.4 / §32.11 |

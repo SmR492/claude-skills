@@ -15,10 +15,10 @@ function tmpServer(toolsLiteral) {
 }
 function cleanup(dir) { try { rmSync(dir, { recursive: true, force: true }); } catch {} }
 
-test('AC-1: keine Drift — alle Input-Felder in description', () => {
+test('AC-1: no drift — all input fields in description', () => {
   const { dir, path } = tmpServer(`[{
     name: 'foo',
-    description: 'Setzt subject und predicate. Liefert verdict.',
+    description: 'Sets subject and predicate. Returns verdict.',
     inputSchema: { type: 'object', properties: { subject: {type:'string'}, predicate: {type:'string'} } },
     outputContract: ['verdict'],
   }]`);
@@ -27,10 +27,10 @@ test('AC-1: keine Drift — alle Input-Felder in description', () => {
   assert.equal(r.status, 0, r.stdout + r.stderr);
 });
 
-test('AC-2: Input-Drift — unerwähntes Input-Feld → Exit 1', () => {
+test('AC-2: input drift — unmentioned input field → exit 1', () => {
   const { dir, path } = tmpServer(`[{
     name: 'foo',
-    description: 'Setzt subject. Liefert verdict.',
+    description: 'Sets subject. Returns verdict.',
     inputSchema: { type: 'object', properties: { subject: {type:'string'}, until: {type:'string'} } },
     outputContract: ['verdict'],
   }]`);
@@ -40,10 +40,10 @@ test('AC-2: Input-Drift — unerwähntes Input-Feld → Exit 1', () => {
   assert.match(r.stdout, /until/);
 });
 
-test('AC-3: Output-Drift via outputContract → Exit 1', () => {
+test('AC-3: output drift via outputContract → exit 1', () => {
   const { dir, path } = tmpServer(`[{
     name: 'foo',
-    description: 'Setzt subject. Liefert verdict.',
+    description: 'Sets subject. Returns verdict.',
     inputSchema: { type: 'object', properties: { subject: {type:'string'} } },
     outputContract: ['verdict', 'physical_status'],
   }]`);
@@ -53,49 +53,49 @@ test('AC-3: Output-Drift via outputContract → Exit 1', () => {
   assert.match(r.stdout, /physical_status/);
 });
 
-test('AC-4: ohne outputContract → Output-Drift NICHT geprüft + Hinweis', () => {
+test('AC-4: without outputContract → output drift NOT checked + note', () => {
   const { dir, path } = tmpServer(`[{
     name: 'foo',
-    description: 'Setzt subject.',
+    description: 'Sets subject.',
     inputSchema: { type: 'object', properties: { subject: {type:'string'} } },
   }]`);
   const r = spawnSync('node', [SKILL, `--mcp=${path}`], { encoding: 'utf8' });
   cleanup(dir);
   assert.equal(r.status, 0);
-  assert.match(r.stdout, /ohne outputContract/);
+  assert.match(r.stdout, /without outputContract/);
 });
 
-test('AC-5: Wortgrenze — Substring darf NICHT als Match zählen', () => {
-  // description erwähnt "predicate_x", aber inputSchema fragt nach "predicate" — eigentlich KEIN Match.
+test('AC-5: word boundary — a substring must NOT count as a match', () => {
+  // description mentions "predicate_x", but inputSchema asks for "predicate" — actually NO match.
   const { dir, path } = tmpServer(`[{
     name: 'foo',
-    description: 'Setzt subject und predicate_x.',
+    description: 'Sets subject and predicate_x.',
     inputSchema: { type: 'object', properties: { subject: {type:'string'}, predicate: {type:'string'} } },
   }]`);
   const r = spawnSync('node', [SKILL, `--mcp=${path}`], { encoding: 'utf8' });
   cleanup(dir);
-  // 'predicate' ist Substring von 'predicate_x', aber das Skript nutzt eine Underscore-tolerante
-  // Boundary — `predicate_x` enthält 'predicate' als komplettes Wort gefolgt von '_'. Da `_` als
-  // Wortbestandteil zählt, ist es KEIN Match → Drift erwartet.
+  // 'predicate' is a substring of 'predicate_x', but the script uses an underscore-aware
+  // boundary — `predicate_x` contains 'predicate' as a complete word followed by '_'. Since `_`
+  // counts as part of the word, it is NOT a match → drift expected.
   assert.equal(r.status, 1);
   assert.match(r.stdout, /predicate/);
 });
 
-test('AC-6: nicht-existenter Pfad → Exit 2', () => {
+test('AC-6: non-existent path → exit 2', () => {
   const r = spawnSync('node', [SKILL, '--mcp=/tmp/does-not-exist-12345.mjs'], { encoding: 'utf8' });
   assert.equal(r.status, 2);
 });
 
-test('AC-7: kein --mcp → Exit 2 mit Usage', () => {
+test('AC-7: no --mcp → exit 2 with usage', () => {
   const r = spawnSync('node', [SKILL], { encoding: 'utf8' });
   assert.equal(r.status, 2);
   assert.match(r.stderr, /Usage/);
 });
 
-test('AC-8: JSON-Modus liefert maschinelles Format', () => {
+test('AC-8: JSON mode returns machine-readable format', () => {
   const { dir, path } = tmpServer(`[{
     name: 'foo',
-    description: 'Setzt subject.',
+    description: 'Sets subject.',
     inputSchema: { type: 'object', properties: { subject: {type:'string'}, missing: {type:'string'} } },
     outputContract: [],
   }]`);
@@ -107,7 +107,7 @@ test('AC-8: JSON-Modus liefert maschinelles Format', () => {
   assert.equal(out.findings[0].kind, 'input');
 });
 
-test('AC-9: TOOLS nicht exportiert → Exit 2', () => {
+test('AC-9: TOOLS not exported → exit 2', () => {
   const dir = mkdtempSync(join(tmpdir(), 'mdg-'));
   const path = join(dir, 'srv.mjs');
   writeFileSync(path, 'export const NOT_TOOLS = [];\n');
@@ -116,13 +116,13 @@ test('AC-9: TOOLS nicht exportiert → Exit 2', () => {
   assert.equal(r.status, 2);
 });
 
-test('AC-10: Multi-Tool — alle Tools werden geprüft', () => {
+test('AC-10: multi-tool — all tools are checked', () => {
   const { dir, path } = tmpServer(`[
-    { name: 'a', description: 'mit subject', inputSchema: { type: 'object', properties: { subject: {} } } },
-    { name: 'b', description: 'mit subject', inputSchema: { type: 'object', properties: { subject: {}, hidden: {} } } },
+    { name: 'a', description: 'with subject', inputSchema: { type: 'object', properties: { subject: {} } } },
+    { name: 'b', description: 'with subject', inputSchema: { type: 'object', properties: { subject: {}, hidden: {} } } },
   ]`);
   const r = spawnSync('node', [SKILL, `--mcp=${path}`], { encoding: 'utf8' });
   cleanup(dir);
   assert.equal(r.status, 1);
-  assert.match(r.stdout, /b — Input-Feld `hidden`/);
+  assert.match(r.stdout, /b — Input field `hidden`/);
 });

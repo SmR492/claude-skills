@@ -1,10 +1,10 @@
 #!/usr/bin/env node
-// CDP5 §32.9 T1-Skill — Modell↔API-Drift (read-only): deterministische Diffs.
-//   (1) Enum-Drift: PHP-Enum-Cases ↔ OpenAPI-`enum`-Arrays gleichen Namens.
-//   (2) Property-Drift: PHP-Entity-Properties ↔ OpenAPI-Schema-Properties gleichen Namens.
-// Dependency-frei (kompakter Zeilen-Scanner). Die semantische „Konzept-Vokabular"-Wertung
-// bleibt LLM-/Mensch-Arbeit — dieser Skill liefert nur die mechanischen Diffs.
-// Exit: 0 = kein Drift · 1 = Drift gefunden · 2 = Nutzungsfehler.
+// CDP5 §32.9 T1 skill — model↔API drift (read-only): deterministic diffs.
+//   (1) Enum drift: PHP enum cases ↔ OpenAPI `enum` arrays of the same name.
+//   (2) Property drift: PHP entity properties ↔ OpenAPI schema properties of the same name.
+// Dependency-free (compact line scanner). The semantic "concept vocabulary" assessment
+// remains LLM/human work — this skill only delivers the mechanical diffs.
+// Exit: 0 = no drift · 1 = drift found · 2 = usage error.
 
 import { readFileSync } from 'node:fs';
 import { collectFiles } from '../../lib/scan.mjs';
@@ -16,8 +16,8 @@ export function parsePhp(files) {
   const enums = {}, entities = {};
   for (const f of files) {
     const text = readFileSync(f, 'utf8');
-    // Pro Deklaration nur den eigenen Slice (bis zur nächsten class/enum oder EOF) auswerten,
-    // sonst bekäme jede Klasse die Properties der ganzen Datei.
+    // Evaluate only each declaration's own slice (up to the next class/enum or EOF),
+    // otherwise every class would get the properties of the whole file.
     const decls = [...text.matchAll(/\b(class|enum)\s+(\w+)/g)];
     decls.forEach((m, i) => {
       const body = text.slice(m.index, i + 1 < decls.length ? decls[i + 1].index : text.length);
@@ -41,7 +41,7 @@ export function parseOpenApi(text) {
   for (const raw of lines) {
     const indent = raw.match(/^(\s*)/)[1].length;
     const keyM = raw.match(/^\s*([A-Za-z_][\w]*):\s*(.*)$/);
-    // Schema-/Property-Tracking
+    // Schema/property tracking
     if (keyM) {
       const key = keyM[1];
       if (!['type', 'enum', 'properties', 'required', 'items', 'format', 'description', 'nullable', 'example', '$ref'].includes(key)) {
@@ -52,7 +52,7 @@ export function parseOpenApi(text) {
       if (key === 'properties') { inProps = true; propsIndent = indent; }
       if (inProps && indent <= schemaIndent && key !== 'properties') inProps = false;
     }
-    // Enum (inline + Block)
+    // Enum (inline + block)
     const inline = raw.match(/^\s*enum:\s*\[(.+)\]/);
     if (inline && owner) enums[owner] = inline[1].split(',').map((s) => s.trim().replace(/['"]/g, '')).sort();
     else if (/^\s*enum:\s*$/.test(raw)) { collectingEnum = owner; enums[owner] = []; }
@@ -68,15 +68,15 @@ export function parseOpenApi(text) {
 
 export function diff(php, api) {
   const drift = [];
-  // Enum-Drift (Name-Match, normalisiert)
+  // Enum drift (name match, normalised)
   for (const [name, vals] of Object.entries(php.enums)) {
     const apiKey = Object.keys(api.enums).find((k) => norm(k) === norm(name));
-    if (!apiKey) { drift.push({ type: 'enum', name, issue: 'PHP-Enum ohne OpenAPI-Pendant' }); continue; }
+    if (!apiKey) { drift.push({ type: 'enum', name, issue: 'PHP enum without OpenAPI counterpart' }); continue; }
     const a = [...api.enums[apiKey]].sort();
     if (JSON.stringify(a) !== JSON.stringify([...vals].sort()))
-      drift.push({ type: 'enum', name, issue: `Werte weichen ab — PHP [${vals}] vs OpenAPI [${a}]` });
+      drift.push({ type: 'enum', name, issue: `values differ — PHP [${vals}] vs OpenAPI [${a}]` });
   }
-  // Property-Drift (Schema-/Klassen-Name-Match)
+  // Property drift (schema/class name match)
   for (const [cls, props] of Object.entries(php.entities)) {
     const sKey = Object.keys(api.schemas).find((k) => norm(k) === norm(cls));
     if (!sKey) continue;
@@ -84,7 +84,7 @@ export function diff(php, api) {
     const onlyApi = sProps.filter((p) => !props.map(norm).includes(norm(p)));
     const onlyPhp = props.filter((p) => !sProps.map(norm).includes(norm(p)));
     if (onlyApi.length || onlyPhp.length)
-      drift.push({ type: 'property', name: cls, issue: `nur OpenAPI: [${onlyApi}] · nur Entity: [${onlyPhp}]` });
+      drift.push({ type: 'property', name: cls, issue: `only OpenAPI: [${onlyApi}] · only entity: [${onlyPhp}]` });
   }
   return drift;
 }
@@ -97,9 +97,9 @@ function main(argv) {
   const api = parseOpenApi(readFileSync(args.openapi, 'utf8'));
   const d = diff(php, api);
   if (args.json) { console.log(JSON.stringify(d, null, 2)); process.exit(d.length ? 1 : 0); }
-  console.log(`Modell↔API-Drift — ${Object.keys(php.enums).length} PHP-Enums, ${Object.keys(php.entities).length} Entities geprüft\n`);
+  console.log(`Model↔API drift — ${Object.keys(php.enums).length} PHP enums, ${Object.keys(php.entities).length} entities checked\n`);
   for (const x of d) console.log(`  ✗ [${x.type}] ${x.name}: ${x.issue}`);
-  if (!d.length) console.log('  kein Drift.');
+  if (!d.length) console.log('  no drift.');
   process.exit(d.length ? 1 : 0);
 }
 

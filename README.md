@@ -23,27 +23,29 @@ The concept maturity policy lives in `plugins/cdp5-gates/policy/reife-rubrik.pol
 
 ### cdp5-agents: agents for the engineering loop
 
-| Agent | Role | Effort |
-|---|---|---|
-| konzept-reviewer | gate and score of a concept against the policy | high |
-| review-verify | verifies claims against the source before anyone acts | high |
-| adversarial-auditor | refutes finished work with a counter-test (FREIGABE, FREIGABE-MIT-AUFLAGEN, SPERRE) | high |
-| devils-advocate | counter-vote on a choice, existence question, null option | high |
-| pessimistic-realist | outside view on a forecast, reference class, pre-mortem | high |
-| threat-modeler | STRIDE, §33.2 checklist, §33.6 classes, Trifecta block | high |
-| mcp-security-reviewer | MCP integration security and maturity | high |
-| review-code | architecture and code review, Schema C.1 | high |
-| pm-retro | blameless retro with carry-over and Kaizen | high |
-| impl-debug | reproduce, red before fix, root cause, green after | medium |
-| impl-uc | one vertical slice, test-first, diff only | medium |
-| impl-refactor | behaviour-preserving merge, split, cleanup with evidence | medium |
+| Agent | Role | Model | Effort |
+|---|---|---|---|
+| konzept-reviewer | gate and score of a concept against the policy | opus | high |
+| review-verify | verifies claims against the source before anyone acts | opus | high |
+| adversarial-auditor | refutes finished work with a counter-test (FREIGABE, FREIGABE-MIT-AUFLAGEN, SPERRE) | opus | high |
+| devils-advocate | counter-vote on a choice, existence question, null option | opus | high |
+| pessimistic-realist | outside view on a forecast, reference class, pre-mortem | opus | high |
+| threat-modeler | STRIDE, §33.2 checklist, §33.6 classes, Trifecta block | opus | high |
+| mcp-security-reviewer | MCP integration security and maturity | opus | high |
+| review-code | architecture and code review, Schema C.1 | opus | high |
+| pm-retro | blameless retro with carry-over and Kaizen | sonnet | high |
+| impl-debug | reproduce, red before fix, root cause, green after | sonnet | medium |
+| impl-uc | one vertical slice, test-first, diff only | sonnet | medium |
+| impl-refactor | behaviour-preserving merge, split, cleanup with evidence | sonnet | medium |
+
+Model tiers follow doctrine §32.3: judgment, counter-roles and security on `opus`; implementation workers, retro moderation and marketing on `sonnet`; purely mechanical work is a T1 skill, not an agent. `hooks/agents.test.mjs` pins the mapping.
 
 The `orchestrate` skill is the role text of the main session: trigger, brief template, counter-roles by object type, re-brief limit, worktrees, cost, planning rules, usage log.
 
 Shared mechanics:
 
 - `skills/worker-contract/SKILL.md` is the one contract for every agent; its core is generated into `core.md` (`node plugins/cdp5-agents/scripts/generate-contract.mjs`) and injected by a `SubagentStart` hook. The agent's first output line acknowledges the contract hash; a `SubagentStop` hook asks once if it is missing and appends one line per completed run to the usage log (`${CLAUDE_PLUGIN_DATA}/usage-log.jsonl`).
-- A `PreToolUse` hook keeps judgment agents read-only on Bash and keeps implementation workers off commit, push and history rewrites.
+- A `PreToolUse` hook on the Bash and PowerShell tools is a tripwire, not a sandbox: judgment agents get an allowlist of read-only programs and git read subcommands (global options such as `-C`/`-c` are parsed, aliases, command substitution, inline interpreter code and redirections are denied); implementation workers get git limited to worktree-local subcommands (no commit, push, fetch, stash or history rewrite, also behind `wsl`, `bash -c` or `docker exec`). The hook fails closed (exit 2) on unreadable input. The boundary that holds is the disposable environment the brief names.
 - Agents set `effort` in their frontmatter; no thinking phrases, no doctrine lookup by script. The brief carries the doctrine excerpt or the path of the bundled copy.
 - `roles-dormant/` holds role texts without an agent file; they are built at the third logged run.
 

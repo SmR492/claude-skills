@@ -1,24 +1,24 @@
 ---
 name: pii-scan
-description: Read-only, dependency-freier Klartext-PII-Detektor für ein Repo/Testdaten/Traces (E-Mail, IBAN, Telefon, Kreditkarte mit Luhn). Use bei „PII scan", „keine personenbezogenen Daten im Repo/Testdaten", Datenschutz-Check vor Commit/Release, als CI-Gate (speist den Sicher-Gate).
+description: Read-only, dependency-free cleartext PII detector for a repo/test data/traces (email, IBAN, phone, credit card with Luhn). Use on "PII scan", "no personal data in repo/test data", privacy check before commit/release, as a CI gate (feeds the Secure gate).
 ---
 
-# pii-scan (CDP5 T1-Gate, §15.6/§15.7/§2.7)
+# pii-scan (CDP5 T1 gate, §15.6/§15.7/§2.7)
 
-Findet Klartext-PII (deterministisch, redacted Output, nur `node:`-Builtins). Adressiert die Pflicht „keine personenbezogenen Produktivdaten in Repo/Testdaten/Traces".
+Finds cleartext PII (deterministic, redacted output, `node:` builtins only). Addresses the obligation "no personal production data in repo/test data/traces".
 
-## Aufruf
+## Invocation
 
 ```bash
 node "${CLAUDE_PLUGIN_ROOT}/skills/pii-scan/pii-scan.mjs" --repo=<root> [--json]
 ```
 
-Exit: `0` sauber · `1` ≥1 Fund · `2` Nutzungsfehler.
+Exit: `0` clean · `1` ≥1 finding · `2` usage error.
 
-## Erkennung
+## Detection
 
-E-Mail · IBAN · Telefon (intl.) · Kreditkarte (mit **Luhn**-Prüfung gegen False-Positives). Platzhalter (`${…}`, `your_…`, `example.com`, `<…>`, `changeme`) werden ignoriert; Funde **redacted**; `node_modules`/`vendor` etc. übersprungen, Dateien > 1 MB ausgelassen.
+Email · IBAN · phone (intl.) · credit card (with **Luhn** check against false positives). Placeholders (`${…}`, `your_…`, `example.com`, `<…>`, `changeme`) are ignored; findings are **redacted**; `node_modules`/`vendor` etc. skipped, files > 1 MB omitted.
 
-## Hybrid (wichtig)
+## Hybrid (important)
 
-Der Regex-Teil ist deterministisch, die **semantische** Einstufung (echter Name vs. Zufallsstring, Kontext) gehört in ein `review-verify`-Overlay — `pii-scan` ist ein **Hinweis-Gate**, kein finaler Wahrheits-Entscheid (CDP5 §10.6).
+The regex part is deterministic; the **semantic** classification (real name vs. random string, context) belongs in a `review-verify` overlay — `pii-scan` is a **hint gate**, not a final truth decision (CDP5 §10.6).

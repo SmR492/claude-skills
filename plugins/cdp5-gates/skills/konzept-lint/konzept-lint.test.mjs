@@ -48,10 +48,18 @@ test('missing AC table and error cases: gate fails on G3 and G7, score drops', (
   assert.ok(r.teilScore < 8);
 });
 
-test('missing lifecycle and changelog are gate items of their own', () => {
+test('missing lifecycle and changelog are gate items of their own; failed struktur checks are itemised', () => {
   const r = lintKonzept(HEAD + ROLES + uc(1) + GLOSSAR);
   assert.deepEqual(r.gate.failed, ['G4', 'G9']);
   assert.ok(r.dims.struktur < 10);
+  assert.deepEqual(r.strukturFailed, ['lifecycle']);
+  assert.deepEqual(lintKonzept(complete).strukturFailed, []);
+});
+
+test('hedged acceptance criteria such as "typisch" or "roughly" count as vague', () => {
+  const r = lintKonzept(HEAD + ROLES + uc(1, { ac: '| AC-1 | runtime < 30 s typisch | Unit | T::t | red |\n| AC-2 | roughly 100 items | Unit | T::t | red |' }) + LIFECYCLE + GLOSSAR + CHANGELOG);
+  assert.equal(r.perUC[0].vagueAC.length, 2);
+  assert.equal(r.dims.ac, 6);
 });
 
 test('a score cannot mask an open gate item', () => {

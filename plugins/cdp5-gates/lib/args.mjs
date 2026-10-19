@@ -1,31 +1,31 @@
-// Geteilte Input-Guards für die cdp5-gates-T1-Skills (Konzept: Input-Robustheits-Vertrag).
-// Vertrag: fehlerhafte Eingabe → Exit 2 + lesbare Meldung, NIE uncaught Exception/Stacktrace.
-// Nur node:-Builtins (CDP5 §32.9 Runtime-Regel).
+// Shared input guards for the cdp5-gates T1 skills (concept: input robustness contract).
+// Contract: invalid input → exit 2 + readable message, NEVER an uncaught exception/stack trace.
+// node: builtins only (CDP5 §32.9 runtime rule).
 
 import { existsSync, lstatSync } from 'node:fs';
 
 /**
- * Pure Validator: gibt eine Fehlermeldung oder `null` zurück.
- * Wirft NIE, ruft NIE process.exit — testbar ohne Seiteneffekt (UC-04 AC-1).
- * @param {*} path  Pfad-Argument (string) oder abwesend (undefined/null/'')
- * @param {'file'|'dir'} kind  erwarteter Typ
+ * Pure validator: returns an error message or `null`.
+ * NEVER throws, NEVER calls process.exit — testable without side effects (UC-04 AC-1).
+ * @param {*} path  path argument (string) or absent (undefined/null/'')
+ * @param {'file'|'dir'} kind  expected type
  */
 export function pathTypeError(path, kind) {
-  if (path === undefined || path === null || path === '') return null;   // abwesend/optional → eigener Missing-Arg-Check
-  if (typeof path !== 'string') return 'Argument ohne Wert (erwartet Pfad)';
-  if (!existsSync(path)) return `nicht gefunden: ${path}`;
+  if (path === undefined || path === null || path === '') return null;   // absent/optional → separate missing-arg check
+  if (typeof path !== 'string') return 'argument without a value (expected a path)';
+  if (!existsSync(path)) return `not found: ${path}`;
   let st;
-  try { st = lstatSync(path); } catch (e) { return `nicht lesbar: ${path} (${e.code || e.message})`; }
-  if (kind === 'dir' && !st.isDirectory()) return `erwartet Verzeichnis, ist keine: ${path}`;
-  if (kind === 'file' && !st.isFile()) return `erwartet Datei, ist keine: ${path}`;
+  try { st = lstatSync(path); } catch (e) { return `not readable: ${path} (${e.code || e.message})`; }
+  if (kind === 'dir' && !st.isDirectory()) return `expected a directory, but is not one: ${path}`;
+  if (kind === 'file' && !st.isFile()) return `expected a file, but is not one: ${path}`;
   return null;
 }
 
-/** Nicht pure: schreibt die Meldung nach stderr und beendet mit Exit 2 (Nutzungs-/Input-Fehler). */
+/** Not pure: writes the message to stderr and exits with code 2 (usage/input error). */
 export function usage(msg) { console.error(msg); process.exit(2); }
 
 /**
- * Komfort: prüft mehrere [pfad, kind]-Paare; beim ersten Fehler → usage() (Exit 2).
+ * Convenience: checks several [path, kind] pairs; on the first error → usage() (exit 2).
  * @param {Array<[*, 'file'|'dir']>} specs
  */
 export function guardPaths(specs) {

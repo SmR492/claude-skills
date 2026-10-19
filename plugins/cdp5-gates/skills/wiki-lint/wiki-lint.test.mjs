@@ -7,19 +7,19 @@ import { lintWiki } from './wiki-lint.mjs';
 
 const FM = '---\ntitle: X\ntype: pattern\nupdated: 2026-05-22\n---\n';
 
-test('erkennt Broken-Link, Orphan und Frontmatter-Lücke', () => {
+test('detects broken link, orphan and frontmatter gap', () => {
   const root = mkdtempSync(join(tmpdir(), 'wl-'));
   try {
-    // index verlinkt good.md; good.md ist also kein Orphan. orphan.md wird nirgends verlinkt.
-    writeFileSync(join(root, 'index.md'), FM + '[Good](good.md)\n[Tot](fehlt.md)\n');
+    // index links good.md, so good.md is not an orphan. orphan.md is linked from nowhere.
+    writeFileSync(join(root, 'index.md'), FM + '[Good](good.md)\n[Dead](missing.md)\n');
     writeFileSync(join(root, 'good.md'), FM + 'ok');
-    writeFileSync(join(root, 'orphan.md'), FM + 'niemand verlinkt mich');
-    writeFileSync(join(root, 'nofm.md'), 'kein frontmatter');
+    writeFileSync(join(root, 'orphan.md'), FM + 'nobody links to me');
+    writeFileSync(join(root, 'nofm.md'), 'no frontmatter');
     const r = lintWiki(root);
-    assert.deepEqual(r.brokenLinks.map((b) => b.target), ['fehlt.md']);
+    assert.deepEqual(r.brokenLinks.map((b) => b.target), ['missing.md']);
     assert.ok(r.orphans.includes('orphan.md'));
-    assert.ok(!r.orphans.includes('good.md'));        // verlinkt → kein Orphan
-    assert.ok(!r.orphans.includes('index.md'));        // Entry-Point
+    assert.ok(!r.orphans.includes('good.md'));        // linked → not an orphan
+    assert.ok(!r.orphans.includes('index.md'));        // entry point
     assert.ok(r.frontmatterIssues.some((f) => f.file === 'nofm.md'));
   } finally { rmSync(root, { recursive: true, force: true }); }
 });

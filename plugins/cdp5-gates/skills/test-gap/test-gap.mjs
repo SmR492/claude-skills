@@ -1,8 +1,8 @@
 #!/usr/bin/env node
-// CDP5 §32.9 T1-Skill — Test-Gap-Finder (read-only): welche sicherheitskritischen Klassen
-// (Voter / State-Processor / Authenticator) haben KEINEN Test? Reine Detektion.
-// Das Test-Scaffolding (Code-Generierung) bleibt Agent-/Mensch-Arbeit (würde blocken).
-// Exit: 0 = keine Lücke · 1 = ≥1 ungetestete sicherheitskritische Klasse · 2 = Nutzungsfehler.
+// CDP5 §32.9 T1 skill — test-gap finder (read-only): which security-critical classes
+// (Voter / StateProcessor / Authenticator) have NO test? Pure detection.
+// Test scaffolding (code generation) remains agent/human work (it would block).
+// Exit: 0 = no gap · 1 = ≥1 untested security-critical class · 2 = usage error.
 
 import { readFileSync } from 'node:fs';
 import { basename } from 'node:path';
@@ -40,9 +40,9 @@ function main(argv) {
   guardPaths([[args.repo, 'dir']]);
   const r = findTestGaps(args.repo);
   if (args.json) { console.log(JSON.stringify(r, null, 2)); process.exit(r.gaps.length ? 1 : 0); }
-  console.log(`Test-Gap-Finder — ${r.scanned} PHP-Dateien, ${r.covered.length} sicherheitskritische getestet, ${r.gaps.length} ohne Test\n`);
+  console.log(`Test-gap finder — ${r.scanned} PHP files, ${r.covered.length} security-critical classes tested, ${r.gaps.length} without test\n`);
   for (const g of r.gaps) console.log(`  ✗ ${g.class}  (${g.file})`);
-  if (!r.gaps.length) console.log('  keine ungetesteten sicherheitskritischen Klassen gefunden.');
+  if (!r.gaps.length) console.log('  no untested security-critical classes found.');
   process.exit(r.gaps.length ? 1 : 0);
 }
 

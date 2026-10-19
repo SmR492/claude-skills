@@ -28,7 +28,7 @@ export function parseEntry(raw) {
 
 export function redact(text, names) {
   let out = String(text);
-  for (const n of names) if (n) out = out.replace(new RegExp(n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g'), '[Person]');
+  for (const n of names) if (n) out = out.replace(new RegExp(n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi'), '[Person]');
   return out;
 }
 

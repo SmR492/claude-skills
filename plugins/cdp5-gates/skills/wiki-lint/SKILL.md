@@ -1,26 +1,26 @@
 ---
 name: wiki-lint
-description: Read-only Wiki-Health-Check. Deterministische Checks eines Markdown-Wikis — Broken internal Links, Orphan-Pages, Frontmatter-Konsistenz. Use bei „wiki lint", „health check wiki", „broken links prüfen", vor Wiki-Releases.
+description: Read-only wiki health check. Deterministic checks of a Markdown wiki — broken internal links, orphan pages, frontmatter consistency. Use on "wiki lint", "health check wiki", "check broken links", before wiki releases.
 ---
 
-# wiki-lint (CDP5 T1-Gate)
+# wiki-lint (CDP5 T1 gate)
 
-Deterministischer Teil des früheren `wiki-lint`-Agents als Programm. Macht nur die **mechanischen** Checks; stale-claims / Pattern-Promotion / Cross-Ref-Sinn bleiben LLM-/Mensch-Arbeit.
+The deterministic part of the former `wiki-lint` agent as a program. Performs only the **mechanical** checks; stale claims / pattern promotion / cross-ref meaning remain LLM/human work.
 
-## Aufruf
+## Invocation
 
 ```bash
 node "${CLAUDE_PLUGIN_ROOT}/skills/wiki-lint/wiki-lint.mjs" --wiki=<wiki-root> [--json]
 ```
 
-Exit: `0` keine Broken-Links · `1` ≥1 Broken-Link · `2` Nutzungsfehler.
+Exit: `0` no broken links · `1` ≥1 broken link · `2` usage error.
 
 ## Checks
 
-- **Broken internal Links** — `[..](slug.md)`-Ziele relativ zur Datei aufgelöst; `http(s)`/`mailto`/Anker ignoriert.
-- **Orphans** — `.md`-Seiten ohne eingehenden Link (Entry-Points `index/overview/log/README/rules.md` ausgenommen).
-- **Frontmatter-Konsistenz** — jede Seite braucht YAML-Frontmatter mit `title`, `type`, `updated`.
+- **Broken internal links** — `[..](slug.md)` targets resolved relative to the file; `http(s)`/`mailto`/anchors ignored.
+- **Orphans** — `.md` pages without an inbound link (entry points `index/overview/log/README/rules.md` excluded).
+- **Frontmatter consistency** — every page needs YAML frontmatter with `title`, `type`, `updated`.
 
-## Danach (Main-Agent)
+## Afterwards (main agent)
 
-Befunde bewerten + fixen (Links reparieren, Orphans verlinken/löschen, stale-claims, Pattern-Promotion) ist Agent-/Mensch-Arbeit.
+Assessing and fixing the findings (repairing links, linking/deleting orphans, stale claims, pattern promotion) is agent/human work.

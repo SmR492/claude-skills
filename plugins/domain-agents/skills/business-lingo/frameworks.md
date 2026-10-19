@@ -5,7 +5,7 @@ Deterministic mapping for the framework pick. Entries are in `entries/`; where n
 | Problem type | Signals in the request | Entries |
 |---|---|---|
 | Position and strategy | "where do we stand", strengths, competition, market | `BL:swot-analysis`, `BL:business-model-canvas-bmc`, `BL:growth-share-matrix` |
-| Prioritisation | too many options, what first, urgency versus importance | `BL:eisenhower-decision-matrix`, `BL:2x2-grid-for-business`, `BL:pareto-principle` |
+| Prioritisation | too many options, what first, urgency versus importance | `BL:eisenhower-decision-matrix`, `BL:2x2-grid-for-business`, `BL:pareto-principle`. The pack has no weighted backlog-scoring template (RICE, MoSCoW, WSJF are not entries); say so and offer such a method only as unsourced |
 | Root cause | recurring problem, why, incident | `BL:five-whys-analysis`, `BL:cause-and-effect-diagram` (the Ishikawa diagram; the pack names it cause-and-effect) |
 | Planning and sequencing | schedule, dependencies, milestones | `BL:gantt-chart`, `BL:flowchart` |
 | Structuring ideas | brainstorming, scattered input | `BL:mind-map`, `BL:venn-diagram`, `BL:thinking-hats` |

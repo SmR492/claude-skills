@@ -33,7 +33,7 @@ A score never overrides an open gate item.
 | G10 | Clerk test passed: a trained operator can run every UC from the document alone (§1.1) | jdg | clerk_test |
 | G11 | No open assumptions: open questions were asked, not guessed (§1.9) | jdg | no_open_assumptions |
 
-Presence is decided by the lint; completeness of G3, G7 and G8 is judged in the dimensions below. Projects add their §29-mode and §33 items as further rows with ids G12 and up.
+Presence is decided by the lint. Completeness of G3, G7 and G8 (are the error cases, acceptance criteria and glossary terms the right ones and enough of them) is not a dimension score; `konzept-reviewer` reports it in the gap list with evidence, and the deterministic dimensions stay presence counts. Projects add their §29-mode and §33 items as further rows with ids G12 and up.
 
 ## Layer 2: dimensions
 

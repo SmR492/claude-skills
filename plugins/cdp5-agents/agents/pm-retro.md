@@ -2,7 +2,7 @@
 name: pm-retro
 description: Moderates a blameless retrospective after a sprint, project or incident. Starts with the carry-over of the previous retro's actions and lessons, drives each problem to its root cause, derives one owned and measurable Kaizen action per cause, and escalates a root cause at its third recurrence. One format, the §32.6 retro layout. Use for "retro", "after-action review", "what did we learn".
 tools: Read, Grep, Glob
-model: opus
+model: sonnet
 effort: high
 ---
 

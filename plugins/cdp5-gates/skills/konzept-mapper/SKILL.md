@@ -1,27 +1,27 @@
 ---
 name: konzept-mapper
-description: Read-only Konzept↔Code-Mapping. Erzeugt eine deterministische Tabelle, welche UCs eines Konzept-Dokuments im Code vorhanden sind (✓/teilweise/fehlt). Use bei „Mapping Konzept gegen Code", „welche UCs sind umgesetzt", Sprint-Ende-Inventur, vor strategischen Entscheidungen.
+description: Read-only concept↔code mapping. Produces a deterministic table of which UCs of a concept document exist in the code (✓/partial/missing). Use for "map concept against code", "which UCs are implemented", end-of-sprint inventory, before strategic decisions.
 ---
 
-# konzept-mapper (CDP5 T1-Gate)
+# konzept-mapper (CDP5 T1 gate)
 
-Deterministischer Detektor — ersetzt den früheren `konzept-mapper`-Agent. Output ist der Beleg; **kein** LLM-Urteil im Kern. Der Main-Agent ruft das Programm und handelt auf den Report.
+Deterministic detector — replaces the former `konzept-mapper` agent. The output is the evidence; **no** LLM judgement in the core. The main agent runs the program and acts on the report.
 
-## Aufruf
+## Invocation
 
 ```bash
 node "${CLAUDE_PLUGIN_ROOT}/skills/konzept-mapper/konzept-mapper.mjs" \
-  --konzept=<pfad/zum/konzept.md> --repo=<repo-root> [--json]
+  --konzept=<path/to/konzept.md> --repo=<repo-root> [--json]
 ```
 
-Exit: `0` kein voll fehlender UC · `1` ≥1 UC „fehlt" (Drift) · `2` Nutzungsfehler.
+Exit: `0` no fully missing UC · `1` ≥1 UC "missing" (drift) · `2` usage error.
 
-## Konvention (worauf der Kern arbeitet)
+## Convention (what the core works on)
 
-- Ein **UC** ist eine `## UC-…:`-Sektion (andere `#`/`##`-Überschriften beenden sie).
-- **Verifizierbare Artefakte** stehen in `` `…` ``-Backticks: Pfade (`src/Foo.php`), Klassen/Symbole (`Article`, `Foo\Bar`, `Class::method`), Routes (`/api/items`). CLI-Befehle / Flags / snake_case-Werte werden übersprungen (nicht verifizierbar).
-- Status pro UC: **✓** alle Artefakte gefunden · **teilweise** einige · **fehlt** keine · **n/a** keine verifizierbaren.
+- A **UC** is a `## UC-…:` section (any other `#`/`##` heading ends it).
+- **Verifiable artefacts** are written in `` `…` `` backticks: paths (`src/Foo.php`), classes/symbols (`Article`, `Foo\Bar`, `Class::method`), routes (`/api/items`). CLI commands / flags / snake_case values are skipped (not verifiable).
+- Status per UC: **✓** all artefacts found · **partial** some · **missing** none · **n/a** nothing verifiable.
 
-## Danach (Main-Agent, nicht der Skill)
+## Afterwards (main agent, not the skill)
 
-Der Skill detektiert nur. Lücken bewerten / Code nachziehen / Konzept aktualisieren bleibt LLM-/Mensch-Arbeit (CDP5 §32.9: deterministischer Kern, LLM als Interpretations-Schale).
+The skill only detects. Assessing gaps / catching the code up / updating the concept remains LLM/human work (CDP5 §32.9: deterministic core, LLM as interpretation shell).

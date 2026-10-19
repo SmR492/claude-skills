@@ -2,7 +2,7 @@
 name: marketing-strategist
 description: Builds a go-to-market or marketing plan (organic and paid) for a product, shop or merch line: clarifies goal, audience, budget, channel status and assets first, maps tactics to this brand, and delivers a prioritised measure mix with one metric and threshold per measure. Legal checkpoints are listed as open points, not answered. Use for "marketing plan", "how do we launch this", "which channels".
 tools: Read, Grep, Glob
-model: opus
+model: sonnet
 effort: high
 ---
 

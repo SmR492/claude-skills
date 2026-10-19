@@ -1,20 +1,20 @@
 ---
 name: secrets-scan
-description: Read-only, dependency-freier Klartext-Secret-Scanner für ein Repo (AWS/OpenAI/GitHub/Slack/Google-Keys, Private Keys, JWTs, Secret-Assignments, .env-Leaks). Use bei „secrets scan", „keine Secrets im Repo prüfen", vor Commit/Release, als CI-Gate.
+description: Read-only, dependency-free cleartext secret scanner for a repo (AWS/OpenAI/GitHub/Slack/Google keys, private keys, JWTs, secret assignments, .env leaks). Use on "secrets scan", "check that there are no secrets in the repo", before commit/release, as a CI gate.
 ---
 
-# secrets-scan (CDP5 T1-Gate, §33.5)
+# secrets-scan (CDP5 T1 gate, §33.5)
 
-Dependency-frei (nur `node:`-Builtins), daher überall lauffähig wo Node ist. Read-only Detektor; redacted-Output. Ergänzt — ersetzt nicht — spezialisierte Tools (gitleaks/trufflehog).
+Dependency-free (`node:` builtins only), so it runs anywhere Node is available. Read-only detector; redacted output. Complements — does not replace — specialised tools (gitleaks/trufflehog).
 
-## Aufruf
+## Invocation
 
 ```bash
 node "${CLAUDE_PLUGIN_ROOT}/skills/secrets-scan/secrets-scan.mjs" --repo=<root> [--json]
 ```
 
-Exit: `0` sauber · `1` ≥1 Fund · `2` Nutzungsfehler.
+Exit: `0` clean · `1` ≥1 finding · `2` usage error.
 
-## Erkennung
+## Detection
 
-Bekannte Key-Formate (AKIA…, `sk-…`, `ghp_…`, `xox…`, `AIza…`), Private-Key-Blöcke, JWTs und Secret-Assignments (`api_key/secret/token/password = …`). Placeholder (`${…}`, `your_…`, `changeme`, `<…>`) werden ignoriert. Funde werden **redacted** ausgegeben (kein Klartext-Leak im Report). `node_modules`/`vendor`/`.git` etc. übersprungen, Dateien > 1 MB übersprungen.
+Known key formats (AKIA…, `sk-…`, `ghp_…`, `xox…`, `AIza…`), private key blocks, JWTs and secret assignments (`api_key/secret/token/password = …`). Placeholders (`${…}`, `your_…`, `changeme`, `<…>`) are ignored. Findings are printed **redacted** (no cleartext leak in the report). `node_modules`/`vendor`/`.git` etc. skipped, files > 1 MB skipped.

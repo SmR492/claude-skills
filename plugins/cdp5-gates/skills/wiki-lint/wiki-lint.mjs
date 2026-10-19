@@ -1,9 +1,9 @@
 #!/usr/bin/env node
-// CDP5 §32.9 T1-Skill — Wiki-Lint (read-only): deterministische Checks eines Markdown-Wikis.
-// Broken internal links · Orphan-Pages (keine eingehenden Links) · Frontmatter-Konsistenz.
-// Die LLM-Anteile des alten wiki-lint-Agents (stale-claims, Pattern-Promotion, Cross-Ref-Sinn)
-// bleiben Agent/Mensch — dieser Skill macht nur die mechanischen Checks.
-// Exit: 0 = keine Broken-Links · 1 = ≥1 Broken-Link · 2 = Nutzungsfehler.
+// CDP5 §32.9 T1 skill — wiki-lint (read-only): deterministic checks of a Markdown wiki.
+// Broken internal links · orphan pages (no inbound links) · frontmatter consistency.
+// The LLM parts of the former wiki-lint agent (stale claims, pattern promotion, cross-ref meaning)
+// stay with agent/human — this skill performs only the mechanical checks.
+// Exit: 0 = no broken links · 1 = ≥1 broken link · 2 = usage error.
 
 import { readFileSync, existsSync } from 'node:fs';
 import { dirname, resolve, relative, basename } from 'node:path';
@@ -21,7 +21,7 @@ export function lintWiki(wikiRoot) {
 
   for (const file of files) {
     const text = readFileSync(file, 'utf8');
-    // --- interne Links ---
+    // --- internal links ---
     for (const m of text.matchAll(/\[[^\]]*\]\(([^)]+)\)/g)) {
       let target = m[1].trim().split('#')[0];
       if (!target || /^(https?:|mailto:|#)/.test(target)) continue;
@@ -30,18 +30,18 @@ export function lintWiki(wikiRoot) {
       linkedTargets.add(abs);
       if (!existsSync(abs)) brokenLinks.push({ from: relative(wikiRoot, file), target });
     }
-    // --- Frontmatter ---
+    // --- frontmatter ---
     if (!text.startsWith('---')) {
-      frontmatterIssues.push({ file: relative(wikiRoot, file), issue: 'kein YAML-Frontmatter' });
+      frontmatterIssues.push({ file: relative(wikiRoot, file), issue: 'no YAML frontmatter' });
     } else {
       const end = text.indexOf('\n---', 3);
       const fm = end > 0 ? text.slice(3, end) : '';
       const missing = REQUIRED_FRONTMATTER.filter((k) => !new RegExp(`^${k}\\s*:`, 'm').test(fm));
-      if (missing.length) frontmatterIssues.push({ file: relative(wikiRoot, file), issue: `fehlende Keys: ${missing.join(', ')}` });
+      if (missing.length) frontmatterIssues.push({ file: relative(wikiRoot, file), issue: `missing keys: ${missing.join(', ')}` });
     }
   }
 
-  // --- Orphans ---
+  // --- orphans ---
   const orphans = files
     .filter((f) => !linkedTargets.has(resolve(f)) && !ENTRY_POINTS.has(basename(f)))
     .map((f) => relative(wikiRoot, f));
@@ -55,12 +55,12 @@ function main(argv) {
   guardPaths([[args.wiki, 'dir']]);
   const r = lintWiki(args.wiki);
   if (args.json) { console.log(JSON.stringify(r, null, 2)); process.exit(r.brokenLinks.length ? 1 : 0); }
-  console.log(`Wiki-Lint — ${r.scanned} Seiten gescannt\n`);
-  console.log(`🔗 Broken Links: ${r.brokenLinks.length}`);
+  console.log(`wiki-lint — ${r.scanned} pages scanned\n`);
+  console.log(`🔗 Broken links: ${r.brokenLinks.length}`);
   for (const b of r.brokenLinks) console.log(`   ✗ ${b.from} → ${b.target}`);
-  console.log(`\n🟠 Orphans (keine eingehenden Links): ${r.orphans.length}`);
+  console.log(`\n🟠 Orphans (no inbound links): ${r.orphans.length}`);
   for (const o of r.orphans) console.log(`   · ${o}`);
-  console.log(`\n📋 Frontmatter-Probleme: ${r.frontmatterIssues.length}`);
+  console.log(`\n📋 Frontmatter issues: ${r.frontmatterIssues.length}`);
   for (const f of r.frontmatterIssues) console.log(`   · ${f.file}: ${f.issue}`);
   process.exit(r.brokenLinks.length ? 1 : 0);
 }

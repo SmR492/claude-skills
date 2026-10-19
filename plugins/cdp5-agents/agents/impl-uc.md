@@ -2,7 +2,7 @@
 name: impl-uc
 description: Implements one use case or vertical slice test-first in a fresh, isolated context, strictly within the brief's scope and acceptance criteria. Each acceptance criterion becomes a test shown red for the right reason, then green. Delivers the diff with gate outputs, no commit. Use for UC-to-code work, "implement UC-07", "build this slice".
 tools: Read, Grep, Glob, Bash, Write, Edit
-model: opus
+model: sonnet
 effort: medium
 ---
 

@@ -2,7 +2,7 @@
 name: impl-debug
 description: Fixes a bug or regression through a real feedback loop. Reproduces first, shows the regression test red before the fix and green after, fixes at the root cause with the diff at that place, or returns "no defect, false positive" with evidence. Use for bug reports, failing builds, regressions.
 tools: Read, Grep, Glob, Bash, Write, Edit
-model: opus
+model: sonnet
 effort: medium
 ---
 

@@ -1,29 +1,31 @@
 ---
-# project-profile — einmal vom Architekten gesetzt, danach via `profile-check` nur noch verifiziert.
-# Kopieren in das Zielprojekt (z. B. nach docs/ oder Repo-Wurzel), Werte anpassen, Kommentar-Zeilen optional.
-project: <Projektname>
+# project-profile — set once by the architect, afterwards only verified via `profile-check`.
+# Copy into the target project (e.g. docs/ or the repo root), adjust the values, comment lines are optional.
+project: <project name>
 
-# Regulatorik / Sicherheit (Architekt-Entscheidung, §1.9/§23)
+# Regulatory / security (architect decision, §1.9/§23)
 eu_ai_act_class: minimal      # minimal | limited | high | prohibited
-security_level: standard      # standard | elevated  (elevated → Threat-Modeling §33.4 im Konzept Pflicht)
-pii_policy: none              # none | redacted | allowed  (informativ; vgl. pii-scan)
+security_level: standard      # standard | elevated  (elevated → threat modeling §33.4 mandatory in the concept)
+pii_policy: none              # none | redacted | allowed  (informational; cf. pii-scan)
 
-# Tooling / Runtime (erwartete Marker im Repo)
+# Tooling / runtime (expected markers in the repo)
 runtime: node                 # node | php | python
 test_framework: node:test     # node:test | phpunit | jest | vitest | pytest
 
-# Sprache / Konventionen (informativ)
-code_language: en             # Identifier-Sprache
+# Language / conventions (informational)
+code_language: en             # identifier language
 doc_language: de
 
-# Pflicht-Tokens, die jedes Konzept dieses Projekts enthalten muss (freie Liste):
+# Required tokens that every concept of this project must contain (free-form list;
+# the examples below are the German section titles used in the CDP5 concept template —
+# replace them with the headings your concepts actually use):
 require_in_concept:
   - Probabilistik-Statement
   - Vendor-Risiko
   - Glossar
 ---
 
-# Projekt-Profil: <Projektname>
+# Project profile: <project name>
 
-Kurze Begründung der oben gesetzten Defaults (warum diese EU-AI-Act-Klasse, warum dieses Sicherheits-Level …).
-`profile-check` verifiziert Konzepte/Code gegen das Frontmatter — diese Prosa ist für den Menschen.
+Short rationale for the defaults set above (why this EU AI Act class, why this security level …).
+`profile-check` verifies concepts/code against the frontmatter — this prose is for humans.

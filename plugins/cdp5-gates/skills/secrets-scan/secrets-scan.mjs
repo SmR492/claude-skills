@@ -1,11 +1,11 @@
 #!/usr/bin/env node
-// CDP5 §32.9 / §33.5 T1-Skill — Secrets-Scan (read-only, dependency-frei): findet Klartext-
-// Secrets im Repo (Keys, Tokens, Private Keys, .env-Leaks). Exit: 0 = sauber · 1 = Funde · 2 = Nutzungsfehler.
+// CDP5 §32.9 / §33.5 T1 skill — secrets-scan (read-only, dependency-free): finds cleartext
+// secrets in the repo (keys, tokens, private keys, .env leaks). Exit: 0 = clean · 1 = findings · 2 = usage error.
 
 import { readFileSync, readdirSync, lstatSync } from 'node:fs';
 import { guardPaths } from '../../lib/args.mjs';
 
-const MAX_LINE = 4000;   // ReDoS-Schutz: überlange Einzelzeilen vor dem Regex-Matching kappen (s. scanText)
+const MAX_LINE = 4000;   // ReDoS protection: truncate overlong single lines before regex matching (see scanText)
 import { join, relative, extname, basename } from 'node:path';
 
 const SKIP_DIRS = new Set(['.git', 'node_modules', 'vendor', 'var', 'cache', '.idea', 'dist', 'build', '.tmp']);
@@ -32,7 +32,7 @@ function collect(root) {
     for (const n of e) {
       if (SKIP_DIRS.has(n)) continue;
       const f = join(d, n); let st; try { st = lstatSync(f); } catch { continue; }
-      if (st.isSymbolicLink()) continue;            // keine Symlinks verfolgen (Out-of-tree-Read / Loop)
+      if (st.isSymbolicLink()) continue;            // do not follow symlinks (out-of-tree read / loop)
       if (st.isDirectory()) walk(f);
       else if (st.size < 1_000_000 && (SCAN_EXT.has(extname(n)) || isEnvFile(n))) out.push(f);
     }
@@ -46,7 +46,7 @@ const redact = (s) => (s.length <= 8 ? s[0] + '…' : s.slice(0, 4) + '…' + s.
 export function scanText(text, file) {
   const findings = [];
   text.split('\n').forEach((line, i) => {
-    if (line.length > MAX_LINE) line = line.slice(0, MAX_LINE);   // ReDoS-Schutz: überlange Zeile kappen
+    if (line.length > MAX_LINE) line = line.slice(0, MAX_LINE);   // ReDoS protection: truncate overlong line
     for (const p of PATTERNS) {
       const m = line.match(p.re);
       if (!m) continue;
@@ -71,9 +71,9 @@ function main(argv) {
   guardPaths([[a.repo, 'dir']]);
   const r = scanRepo(a.repo);
   if (a.json) { console.log(JSON.stringify(r, null, 2)); process.exit(r.hasSecrets ? 1 : 0); }
-  console.log(`Secrets-Scan — ${r.scanned} Dateien, ${r.findings.length} Funde\n`);
+  console.log(`secrets-scan — ${r.scanned} files, ${r.findings.length} findings\n`);
   for (const f of r.findings) console.log(`  ✗ ${f.type}  ${f.file}:${f.line}  (${f.match})`);
-  if (!r.hasSecrets) console.log('  keine Klartext-Secrets gefunden.');
+  if (!r.hasSecrets) console.log('  no cleartext secrets found.');
   process.exit(r.hasSecrets ? 1 : 0);
 }
 

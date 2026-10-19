@@ -57,7 +57,7 @@ export function verify(root) {
 
 export function ackPresent(message, version, hash) {
   const first = String(message ?? '').split('\n').map((l) => l.trim()).find((l) => l.length > 0) ?? '';
-  return first === `contract: v${version} ${hash}`;
+  return first === `contract: v${version} ${hash}` || first === `contract: v${version} sha256:${hash}`;
 }
 
 export function usageLogPath(env = process.env) {

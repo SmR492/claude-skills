@@ -1,37 +1,37 @@
-<!-- Von `cdp5-init` verwalteter Block. Nicht von Hand editieren — `cdp5-init` aktualisiert ihn. -->
-## CDP5 + claude-skills-Marketplace
+<!-- Block managed by `cdp5-init`. Do not edit by hand — `cdp5-init` updates it. -->
+## CDP5 + claude-skills marketplace
 
-Nicht-triviale Aufträge werden nach **CDP5** orchestriert (Konzept → Design → Implementation → Testing → Review), nicht ad hoc ausgeführt.
+Non-trivial tasks are orchestrated according to **CDP5** (concept → design → implementation → testing → review), not executed ad hoc.
 
-**cdp5-reference-Gate (Pflicht-Vorlauf):** Vor jeder Aufgabe den nötigen CDP5-Doktrin-Ausschnitt **just-in-time** laden statt anzunehmen —
-`node "${CLAUDE_PLUGIN_ROOT}/skills/cdp5-reference/cdp5.mjs" --section=<§> | --keyword=<Begriff> | --list`. Bei Unklarheit/offener Entscheidung in den Dialog mit dem Nutzer (Clarify-First).
+**cdp5-reference gate (mandatory pre-step):** Before every task, load the required CDP5 doctrine excerpt **just-in-time** instead of assuming it —
+`node "${CLAUDE_PLUGIN_ROOT}/skills/cdp5-reference/cdp5.mjs" --section=<§> | --keyword=<term> | --list`. When something is unclear or a decision is open, enter a dialogue with the user (clarify first).
 
-**Entscheidbar + wiederholt → deterministischer T1-Skill (kein LLM-Rateweg). Urteilsarbeit → Judgment-Agent. Schreiben/Mergen/Pushen → nur mit Mensch-Bestätigung.**
+**Decidable + repeated → deterministic T1 skill (no LLM guesswork). Judgment work → judgment agent. Writing/merging/pushing → only with human confirmation.**
 
-### Trigger-Map (Aussage → Werkzeug)
+### Trigger map (statement → tool)
 
-| Aussage / Bedarf | Werkzeug (`cdp5-gates` Skill / `cdp5-agents` Agent) |
+| Statement / need | Tool (`cdp5-gates` skill / `cdp5-agents` agent) |
 |---|---|
-| „ist die Spec strukturell vollständig", Reife-Teilscore | `konzept-lint` |
-| Tests aus Konzept-AC erzeugen (TDD-First) | `ac-to-test-scaffold` |
-| Konzept ↔ Code-Mapping / Drift | `konzept-mapper`, `konzept-model-api`, `roadmap-drift` |
-| Klartext-Secrets / PII im Repo | `secrets-scan`, `pii-scan` |
-| MCP-Config-Risiken | `mcp-config-lint` |
-| MCP-Tool-Description vs. Input-/Output-Felder (Consumer-Sycophancy-Schutz) | `mcp-doc-drift-gate` |
-| numerische Konstanten in Konzept-Prosa vs. Code-Spec (Paritäts-Drift) | `konzept-const-sync` |
-| Wiki-Health (Broken-Links/Orphans) | `wiki-lint` |
-| ungetestete sicherheitskritische Klassen | `test-gap` |
-| Retro→Memory-Loop prüfen | `retro-memory-loop-check` |
-| Projekt-Defaults gegen Profil prüfen | `profile-check` |
-| CLAUDE.md an den Marketplace anbinden/updaten | `cdp5-init` |
-| Konzept-Reife/Gap-Review (Judgment) | `konzept-reviewer` |
-| Behauptungen gegen Code/Quelle verifizieren | `review-verify` |
-| gegnerischer Review eines 🔴-Slices | `adversarial-auditor` |
-| Threat-Modeling / MCP-Security | `threat-modeler`, `mcp-security-reviewer` |
-| Projekt-/Domänen-Wissen abrufen oder zurückschreiben (Wissensdoktrin, separat von CDP5) | Orbit-MCP (`search` → `read`, Abschluss per `insert`/`update`) |
+| "is the spec structurally complete", maturity partial score | `konzept-lint` |
+| Generate tests from concept ACs (TDD-first) | `ac-to-test-scaffold` |
+| Concept ↔ code mapping / drift | `konzept-mapper`, `konzept-model-api`, `roadmap-drift` |
+| Plaintext secrets / PII in the repo | `secrets-scan`, `pii-scan` |
+| MCP config risks | `mcp-config-lint` |
+| MCP tool description vs. input/output fields (consumer sycophancy protection) | `mcp-doc-drift-gate` |
+| Numeric constants in concept prose vs. code spec (parity drift) | `konzept-const-sync` |
+| Wiki health (broken links/orphans) | `wiki-lint` |
+| Untested security-critical classes | `test-gap` |
+| Check the retro→memory loop | `retro-memory-loop-check` |
+| Check project defaults against the profile | `profile-check` |
+| Wire/update CLAUDE.md to the marketplace | `cdp5-init` |
+| Concept maturity/gap review (judgment) | `konzept-reviewer` |
+| Verify claims against code/source | `review-verify` |
+| Adversarial review of a 🔴 slice | `adversarial-auditor` |
+| Threat modeling / MCP security | `threat-modeler`, `mcp-security-reviewer` |
+| Retrieve or write back project/domain knowledge (knowledge doctrine, separate from CDP5) | Orbit MCP (`search` → `read`, finish with `insert`/`update`) |
 
-### Werkzeuge
+### Tools
 
-- **`cdp5-gates`** (deterministische, read-only T1-Skills): konzept-lint · ac-to-test-scaffold · konzept-mapper · konzept-model-api · konzept-const-sync · roadmap-drift · secrets-scan · pii-scan · mcp-config-lint · mcp-doc-drift-gate · wiki-lint · test-gap · retro-memory-loop-check · profile-check · cdp5-init · cdp5-reference.
-- **`cdp5-agents`** (Judgment, read-only): konzept-reviewer · review-verify · adversarial-auditor · threat-modeler · mcp-security-reviewer.
+- **`cdp5-gates`** (deterministic, read-only T1 skills): konzept-lint · ac-to-test-scaffold · konzept-mapper · konzept-model-api · konzept-const-sync · roadmap-drift · secrets-scan · pii-scan · mcp-config-lint · mcp-doc-drift-gate · wiki-lint · test-gap · retro-memory-loop-check · profile-check · cdp5-init · cdp5-reference.
+- **`cdp5-agents`** (judgment, read-only): konzept-reviewer · review-verify · adversarial-auditor · threat-modeler · mcp-security-reviewer.
 

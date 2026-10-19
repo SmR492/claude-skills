@@ -4,7 +4,7 @@
 // Layer 2: deterministic dimensions are scored 0–10 as the fraction of checks met and weighted per policy.
 // Exit: 0 = every deterministic gate item passes · 1 = a deterministic gate item fails · 2 = usage error.
 
-import { readFileSync, existsSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { guardPaths } from '../../lib/args.mjs';
@@ -12,7 +12,7 @@ import { guardPaths } from '../../lib/args.mjs';
 const HERE = dirname(fileURLToPath(import.meta.url));
 export const DEFAULT_POLICY = join(HERE, '..', '..', 'policy', 'reife-rubrik.policy.json');
 
-const VAGUE = /\b(should|ideally|sollte|idealerweise|möglichst|ungefähr|ca\.|etc\.|evtl\.|mehr oder weniger|o\.\s?ä\.)\b/i;
+const VAGUE = /\b(should|ideally|typically|roughly|approximately|about|usually|sollte|idealerweise|typisch|typischerweise|möglichst|ungefähr|in der Regel|ca\.|etc\.|evtl\.|mehr oder weniger|o\.\s?ä\.)\b/i;
 const EVIDENCE_TYPE = /\b(Test|AC-?\d+|Trace|Span|Checklist|Policy|Metrik|Metric|Eval)\b/i;
 
 export function loadPolicy(path = DEFAULT_POLICY) {
@@ -85,10 +85,12 @@ const GATE_CHECKS = {
 
 export function scoreDimensions(c) {
   const g = c.global;
-  const structureChecks = [g.hatUCs, g.hatKopf, g.hatLifecycle, g.hatProbabilistik, g.llmFelder, g.ragFelder];
+  const structureChecks = { ucs: g.hatUCs, head: g.hatKopf, lifecycle: g.hatLifecycle, probabilistic_statement: g.hatProbabilistik, llm_fields: g.llmFelder, rag_fields: g.ragFelder };
+  const values = Object.values(structureChecks);
   const vagueRows = c.perUC.reduce((s, u) => s + u.vagueAC.length, 0);
   return {
-    struktur: frac(structureChecks.filter(Boolean).length, structureChecks.length),
+    struktur: frac(values.filter(Boolean).length, values.length),
+    strukturFailed: Object.entries(structureChecks).filter(([, ok]) => !ok).map(([k]) => k),
     uc_schritte: frac(c.perUC.filter((u) => u.stepsNumbered).length, c.perUC.length),
     ac: Math.max(0, frac(c.perUC.filter((u) => u.hasAC).length, c.perUC.length) - 2 * vagueRows),
     fehlerfaelle: frac(c.perUC.filter((u) => u.hasFehlerfaelle).length, c.perUC.length),
@@ -99,7 +101,7 @@ export function scoreDimensions(c) {
 
 export function lintKonzept(md, policy = loadPolicy()) {
   const c = collectChecks(md);
-  const dims = scoreDimensions(c);
+  const { strukturFailed, ...dims } = scoreDimensions(c);
   const gate = policy.gate.map((item) => {
     if (item.kind !== 'det') return { ...item, pass: null, detail: 'judgment: konzept-reviewer' };
     const fn = GATE_CHECKS[item.check];
@@ -118,6 +120,7 @@ export function lintKonzept(md, policy = loadPolicy()) {
     perUC: c.perUC,
     global: c.global,
     dims,
+    strukturFailed,
     gate: { passed: detFailed.length === 0, failed: detFailed.map((i) => i.id), items: gate },
     detWeight: round(weightSum * 100) / 100,
     contribution: round(contribution),
@@ -130,9 +133,10 @@ function main(argv) {
   const a = Object.fromEntries(argv.slice(2).map((x) => { const [k, ...r] = x.split('='); return [k.replace(/^--/, ''), r.length ? r.join('=') : true]; }));
   if (!a.konzept) { console.error('Usage: konzept-lint.mjs --konzept=<konzept.md> [--rubric=<policy.json>] [--json]'); process.exit(2); }
   guardPaths([[a.konzept, 'file'], [a.rubric, 'file']]);
+  const policyPath = typeof a.rubric === 'string' ? a.rubric : DEFAULT_POLICY;
   let policy;
-  try { policy = loadPolicy(typeof a.rubric === 'string' && existsSync(a.rubric) ? a.rubric : DEFAULT_POLICY); }
-  catch (e) { console.error(`policy not readable (${a.rubric ?? DEFAULT_POLICY}): ${e.message}`); process.exit(2); }
+  try { policy = loadPolicy(policyPath); }
+  catch (e) { console.error(`policy not readable (${policyPath}): ${e.message}`); process.exit(2); }
   const r = lintKonzept(readFileSync(a.konzept, 'utf8'), policy);
   if (a.json) { console.log(JSON.stringify(r, null, 2)); process.exit(r.strukturGap ? 1 : 0); }
   console.log(`konzept-lint — ${r.perUC.length} UCs · LLM=${r.global.llm} RAG=${r.global.rag} · policy v${r.policyVersion}, threshold ${r.threshold}\n`);
@@ -147,6 +151,7 @@ function main(argv) {
     console.log(`  [${f ? '✗' : '✓'}] ${u.uc}${f ? '  — ' + f : ''}`);
   }
   console.log(`\nDeterministic dimensions: ${Object.entries(r.dims).map(([k, v]) => `${k} ${v.toFixed(1)}`).join(' · ')}`);
+  if (r.strukturFailed.length) console.log(`struktur checks failed: ${r.strukturFailed.join(', ')}`);
   console.log(`Deterministic contribution: ${r.contribution} of ${r.detWeight * 10} (normalized ${r.teilScore}/10). Judgment dimension (${(1 - r.detWeight).toFixed(2)}) and the final verdict: konzept-reviewer.`);
   console.log(r.gate.passed ? '\nGate: all deterministic items pass.' : `\nGate: open items ${r.gate.failed.join(', ')} — not ready regardless of score.`);
   process.exit(r.strukturGap ? 1 : 0);

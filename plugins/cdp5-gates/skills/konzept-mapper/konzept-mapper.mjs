@@ -1,9 +1,9 @@
 #!/usr/bin/env node
-// CDP5 §32.9 T1-Skill — Konzept↔Code-Mapping (read-only Report).
-// Pro UC im Konzept: sind die genannten Artefakte (Pfade, Klassen, Routes, Test-Klassen)
-// im Repo vorhanden? Status ✓ (alle) / teilweise / fehlt / n/a (keine verifizierbaren).
-// Konvention: ein UC ist eine `## UC-…:`-Sektion; verifizierbare Artefakte stehen in `…`-Backticks.
-// Exit: 0 = kein voll fehlender UC · 1 = ≥1 UC „fehlt" · 2 = Nutzungsfehler.
+// CDP5 §32.9 T1 skill — concept↔code mapping (read-only report).
+// For each UC in the concept: do the named artefacts (paths, classes, routes, test classes)
+// exist in the repo? Status ✓ (all) / partial / missing / n/a (nothing verifiable).
+// Convention: a UC is a `## UC-…:` section; verifiable artefacts are written in `…` backticks.
+// Exit: 0 = no fully missing UC · 1 = ≥1 UC "missing" · 2 = usage error.
 
 import { readFileSync } from 'node:fs';
 import { collectFiles, locate, backtickTokens } from '../../lib/scan.mjs';
@@ -11,7 +11,7 @@ import { guardPaths } from '../../lib/args.mjs';
 
 const CODE_EXT = ['.php', '.js', '.mjs', '.ts', '.twig', '.yaml', '.yml', '.sql', '.json'];
 
-/** UC-Sektionen aus dem Konzept-Markdown. */
+/** UC sections from the concept Markdown. */
 export function parseUCs(md) {
   const lines = md.split('\n');
   const ucs = [];
@@ -19,7 +19,7 @@ export function parseUCs(md) {
   for (const line of lines) {
     const h = line.match(/^##\s+(UC[-\s][^\n]*)/i);
     if (h) { cur = { title: h[1].trim(), body: '' }; ucs.push(cur); continue; }
-    if (/^#{1,2}\s/.test(line) && !/^##\s+UC/i.test(line)) cur = null; // andere Überschrift beendet UC
+    if (/^#{1,2}\s/.test(line) && !/^##\s+UC/i.test(line)) cur = null; // any other heading ends the UC
     if (cur) cur.body += line + '\n';
   }
   return ucs;
@@ -37,8 +37,8 @@ export function mapKonzept(konzeptPath, repoRoot) {
     let status;
     if (checked.length === 0) status = 'n/a';
     else if (found.length === checked.length) status = '✓';
-    else if (found.length === 0) status = 'fehlt';
-    else status = 'teilweise';
+    else if (found.length === 0) status = 'missing';
+    else status = 'partial';
     rows.push({ uc: uc.title, status, found: found.length, total: checked.length, missing });
   }
   return rows;
@@ -54,16 +54,16 @@ function main(argv) {
   const rows = mapKonzept(args.konzept, args.repo);
   if (args.json) { console.log(JSON.stringify(rows, null, 2)); }
   else {
-    console.log(`Konzept↔Code-Mapping — ${rows.length} UCs\n`);
+    console.log(`Concept↔code mapping — ${rows.length} UCs\n`);
     for (const r of rows) {
-      const m = r.missing.length ? `  · fehlt: ${r.missing.join(', ')}` : '';
+      const m = r.missing.length ? `  · missing: ${r.missing.join(', ')}` : '';
       console.log(`  [${r.status}] ${r.uc}  (${r.found}/${r.total})${m}`);
     }
-    const fehlt = rows.filter((r) => r.status === 'fehlt').length;
-    const teil = rows.filter((r) => r.status === 'teilweise').length;
-    console.log(`\n${rows.filter((r) => r.status === '✓').length} ✓ · ${teil} teilweise · ${fehlt} fehlt`);
+    const missing = rows.filter((r) => r.status === 'missing').length;
+    const partial = rows.filter((r) => r.status === 'partial').length;
+    console.log(`\n${rows.filter((r) => r.status === '✓').length} ✓ · ${partial} partial · ${missing} missing`);
   }
-  process.exit(rows.some((r) => r.status === 'fehlt') ? 1 : 0);
+  process.exit(rows.some((r) => r.status === 'missing') ? 1 : 0);
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) main(process.argv);
