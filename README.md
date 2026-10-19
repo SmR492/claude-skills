@@ -13,6 +13,20 @@ A Claude Code plugin marketplace for the CDP5 way of working: deterministic T1 s
 
 `domain-agents` requires `cdp5-agents` (worker-contract hooks).
 
+## Install
+
+Requirements: Claude Code 2.1.269 or later, `git`, and Node.js 20 or later on the host's PATH of the shell Claude Code uses (the hooks and every T1 skill are Node programs; on Windows the Windows PATH counts, a Node inside WSL is not seen). Check with `node --version` in that shell.
+
+```
+claude plugin marketplace add SmR492/claude-skills
+claude plugin install cdp5-gates@claude-skills
+claude plugin install cdp5-agents@claude-skills
+claude plugin install domain-agents@claude-skills
+claude plugin install orbit-workflow@claude-skills   # optional, needs the Orbit MCP
+```
+
+Start a new session afterwards. The SessionStart bootstrap of cdp5-agents prints the script paths, the data directory and the session id; if that block is missing, the hooks did not run (most often: Node not on the PATH). `/skill-doctor` lists the loaded skills and their context cost; `claude plugin eval` runs a plugin's eval suite once one exists.
+
 ## Plugins
 
 ### cdp5-gates: deterministic T1 skills
