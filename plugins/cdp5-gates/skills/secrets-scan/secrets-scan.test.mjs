@@ -65,6 +65,7 @@ test('placeholder word forms need a separator — a credential starting with tes
 
 test('unreadable file is skipped and counted, not a crash', (t) => {
   if (typeof process.getuid === 'function' && process.getuid() === 0) { t.skip('root reads everything'); return; }
+  if (process.platform === 'win32') { t.skip('chmod 000 has no effect on Windows'); return; }
   const root = mkdtempSync(join(tmpdir(), 'ss-unread-'));
   try {
     writeFileSync(join(root, 'ok.txt'), 'nothing here\n');

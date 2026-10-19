@@ -1,6 +1,6 @@
 {
   "name": "domain-agents",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "Domain agents and session skills from the former CDP5 knowledge-pack roles: marketing-strategist, psy-domaenen-rechercheur and psy-grenzwaechter as agents; business-lingo, three psy session skills and three knowledge packs as skills. Requires cdp5-agents for the worker contract hooks; without it the agents stop with CONTRACT-MISSING.",
   "author": {
     "name": "SmR492",

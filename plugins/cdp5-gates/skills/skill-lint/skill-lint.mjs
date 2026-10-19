@@ -129,7 +129,7 @@ export function lintSkill(skillDir, { kind = 'skill', conventions = true } = {})
 
 export function scanTree(root) {
   const findings = [];
-  const add = (sev, check, file, issue) => findings.push({ sev, check, file: relative(root, file) || basename(file), issue });
+  const add = (sev, check, file, issue) => findings.push({ sev, check, file: (relative(root, file) || basename(file)).replace(/\\/g, '/'), issue });
   const files = walk(root);
   for (const f of files) {
     if (f.symlink) { add('🟡', 'X9', f.path, 'symbolic link inside the skill tree'); continue; }
@@ -225,7 +225,7 @@ export function run(root, { scan = true, conventions = true } = {}) {
   const results = [
     ...skills.map((d) => ({ kind: 'skill', ...lintSkill(d, { kind: 'skill', conventions }) })),
     ...agents.map((f) => ({ kind: 'agent', ...lintSkill(f, { kind: 'agent', conventions }) })),
-  ].map((r) => ({ ...r, file: relative(abs, r.file) || basename(r.file) }));
+  ].map((r) => ({ ...r, file: (relative(abs, r.file) || basename(r.file)).replace(/\\/g, '/') }));
   const supply = scan ? scanTree(abs) : [];
   const all = [...results.flatMap((r) => r.findings), ...supply];
   return {

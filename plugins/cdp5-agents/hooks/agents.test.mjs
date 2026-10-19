@@ -2,9 +2,9 @@ import { fileURLToPath } from 'node:url';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readdirSync, readFileSync, existsSync } from 'node:fs';
-import { join } from 'node:path';
+import { join, basename } from 'node:path';
 
-const PLUGIN = fileURLToPath(new URL('..', import.meta.url)).replace(/\/$/, '');
+const PLUGIN = fileURLToPath(new URL('..', import.meta.url)).replace(/[\\/]$/, '');
 const DOMAIN = join(PLUGIN, '..', 'domain-agents', 'agents');
 const EFFORT = new Set(['low', 'medium', 'high', 'xhigh', 'max']);
 const MODELS = new Set(['sonnet', 'opus', 'haiku', 'fable', 'inherit']);
@@ -28,7 +28,7 @@ function parse(path) {
   const m = text.match(/^---\n([\s\S]*?)\n---\n([\s\S]*)$/);
   assert.ok(m, `${path}: frontmatter missing`);
   const fm = Object.fromEntries(m[1].split('\n').map((l) => { const i = l.indexOf(':'); return [l.slice(0, i).trim(), l.slice(i + 1).trim()]; }));
-  return { fm, body: m[2], file: path.split('/').pop() };
+  return { fm, body: m[2], file: basename(path) };
 }
 
 const files = [...agentFiles(join(PLUGIN, 'agents')), ...agentFiles(DOMAIN)];

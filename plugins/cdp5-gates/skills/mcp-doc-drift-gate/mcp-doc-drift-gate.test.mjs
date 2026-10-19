@@ -6,7 +6,7 @@ import { tmpdir } from 'node:os';
 import { join, dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const SKILL = new URL('./mcp-doc-drift-gate.mjs', import.meta.url).pathname;
+const SKILL = fileURLToPath(new URL('./mcp-doc-drift-gate.mjs', import.meta.url));
 const HERE = dirname(fileURLToPath(import.meta.url));
 
 function tmpServer(toolsLiteral) {

@@ -4,8 +4,9 @@ import { spawnSync } from 'node:child_process';
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync, readFileSync, readdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-const PLUGIN = new URL('..', import.meta.url).pathname.replace(/\/$/, '');
+const PLUGIN = fileURLToPath(new URL('..', import.meta.url)).replace(/[\\/]$/, '');
 const PLUGINS = join(PLUGIN, '..');
 const HOOK = join(PLUGIN, 'hooks', 'require-contract.mjs');
 

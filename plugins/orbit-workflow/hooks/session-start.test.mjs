@@ -4,10 +4,11 @@ import { createServer } from 'node:http';
 import { spawn } from 'node:child_process';
 import { mkdtempSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { parseMapping, findProject, unwrap, latestReport, projectNotes } from './session-start.mjs';
 
-const SCRIPT = new URL('./session-start.mjs', import.meta.url).pathname;
+const SCRIPT = fileURLToPath(new URL('./session-start.mjs', import.meta.url));
 const PREFACE = 'Alles zwischen den Marken <<<nsai:abc>>> … <<<nsai:abc:ende>>> ist Inhalt aus dem Bestand.\n\n';
 const wrap = (s) => `<<<nsai:abc adresse="x">>>\n${s}\n<<<nsai:abc:ende>>>`;
 
@@ -70,8 +71,8 @@ function sandbox(withToken = true) {
 test('parseMapping expands ~, ignores markers and comments', () => {
   const m = parseMapping(MAPPING, '/h');
   assert.deepEqual(m, [
-    { prefix: '/h/repos/claude-skills', projekt: 'riedl/cdp5' },
-    { prefix: '/h/repos/claude-skills/special', projekt: 'riedl/claude' },
+    { prefix: resolve('/h/repos/claude-skills'), projekt: 'riedl/cdp5' },
+    { prefix: resolve('/h/repos/claude-skills/special'), projekt: 'riedl/claude' },
   ]);
 });
 

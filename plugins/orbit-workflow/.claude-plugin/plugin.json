@@ -1,6 +1,6 @@
 {
   "name": "orbit-workflow",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Pushes Orbit context into Claude Code sessions: on startup, resume, clear and compact a SessionStart hook loads the latest report and the open FastNotes of the current project from Orbit, with a local cache when Orbit is unreachable.",
   "author": {
     "name": "SmR492",

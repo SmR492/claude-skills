@@ -6,7 +6,7 @@ import { tmpdir } from 'node:os';
 import { join, dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const SKILL = new URL('./konzept-const-sync.mjs', import.meta.url).pathname;
+const SKILL = fileURLToPath(new URL('./konzept-const-sync.mjs', import.meta.url));
 const HERE = dirname(fileURLToPath(import.meta.url));
 
 // Minimal spec whose scales mirror the real rules.mjs (for hermetic fixture tests).

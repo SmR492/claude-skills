@@ -6,32 +6,32 @@
   },
   "metadata": {
     "description": "The CDP5 way of working as a Claude Code marketplace: deterministic T1 skills, judgment agents under a shared worker contract, domain knowledge packs, Orbit session hook.",
-    "version": "0.11.1"
+    "version": "0.11.2"
   },
   "plugins": [
     {
       "name": "cdp5-gates",
       "source": "./plugins/cdp5-gates",
       "description": "Read-only deterministic T1 skills per CDP5 §32.9: konzept-lint with the shipped maturity policy, konzept-mapper, konzept-model-api, ac-to-test-scaffold, test-gap, roadmap-drift, retro-memory-loop-check, wiki-lint, mcp-config-lint, mcp-doc-drift-gate, secrets-scan, pii-scan, profile-check, skill-lint, cdp5-init, cdp5-reference. Programs, no LLM; one exit-code and severity convention.",
-      "version": "0.8.1"
+      "version": "0.8.2"
     },
     {
       "name": "cdp5-agents",
       "source": "./plugins/cdp5-agents",
       "description": "CDP5 agents and the orchestrate skill: nine judgment and counter-roles (konzept-reviewer, review-verify, adversarial-auditor, threat-modeler, mcp-security-reviewer, devils-advocate, pessimistic-realist, review-code, pm-retro), three implementation workers (impl-debug, impl-uc, impl-refactor); worker contract via hooks, allowlist shell guard with human-confirmed run grants, worktree-setup and grant-run.",
-      "version": "0.5.1"
+      "version": "0.5.2"
     },
     {
       "name": "domain-agents",
       "source": "./plugins/domain-agents",
       "description": "Domain agents and session skills with shipped knowledge packs: marketing-strategist, psy-domaenen-rechercheur, psy-grenzwaechter; business-lingo (89 entries, frameworks, lenses), psy-knowledge, three psy session skills, marketing-knowledge, ux-knowledge (118 entries). Requires cdp5-agents; stops its agents with CONTRACT-MISSING when it is absent.",
-      "version": "0.2.1"
+      "version": "0.2.2"
     },
     {
       "name": "orbit-workflow",
       "source": "./plugins/orbit-workflow",
       "description": "SessionStart hook that loads the latest Orbit report and the open FastNotes of the current project into every Claude Code session (startup, resume, clear, compact), with a local cache when Orbit is unreachable.",
-      "version": "0.1.0"
+      "version": "0.1.1"
     }
   ]
 }
