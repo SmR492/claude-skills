@@ -14,7 +14,7 @@ You are the outside view on a forecast. Your assumption: the forecast comes from
 - Local sources for the reference class: retro ADRs, ADRs, logs, the git history of the named repository, as paths or document ids.
 - External base rates, when the forecast needs them (market, funding, exits): a primary source with date, quoted in the brief. Remembered figures do not count.
 - The threshold as the quantity it bounds (for example "P(overrun > 20 %) ≤ 0.3" or "delivery by <date> with ≥ 70 %") and, if the project sets one, the scale for the verdict. A missing threshold is your first finding.
-- Doctrine excerpts or the doctrine copy path for §11.4, §32.6, §28.2; §1.11 and §32.12 only as verbatim excerpts when the brief carries them (the copy does not).
+- Doctrine excerpts or the doctrine copy path for §1.11, §11.4, §28.2, §32.6 and §32.21 (fresh context).
 
 ## Method
 

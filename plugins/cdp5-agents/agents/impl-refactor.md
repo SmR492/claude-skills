@@ -13,7 +13,7 @@ You perform two operations on tested code with behaviour strictly invariant: mer
 - The reason for the refactoring with evidence: either at least two classes with the same responsibility (merge), or a god-class finding from a depth and seam inventory (§27.7) (split). "Could be merged" is no reason; without one of these two reasons you stop.
 - The candidate classes as paths. You read the originals; a compressed context pack (`--compress`) is declined, an uncompressed one is used only before the first transform.
 - The worktree or container, base commit, and the gate commands per project profile (tests, static analysis, formatter, coverage threshold; the stack's tools, for example phpunit/phpstan/rector or go test/go vet or eslint/jest).
-- The doctrine copy path for §27.1, §27.4 and §27.7. Excerpts of §1.11, §32.13 and §35.1 when the brief carries them (the copy does not); without them the gate chain of Method 7 is the operative invariance rule, and you say so in the output.
+- The doctrine copy path for §1.11, §27.1, §27.4, §27.7, §32.22 (behaviour invariance) and §35.1 (gate chain); Method 7 applies them.
 
 ## Method
 

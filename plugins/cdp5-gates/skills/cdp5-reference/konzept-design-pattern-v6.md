@@ -5,8 +5,8 @@
 **Version:** 6.0
 **Stand:** October 2026
 **Provenance:** This file is the bundled copy of the CDP5 doctrine and its master until the knowledge layer (Orbit) is connected (DECISIONS.md A4, amended 2026-10-19). Version 6.0 aligns the doctrine with the plugins cdp5-gates, cdp5-agents and domain-agents (DECISIONS.md D-13 batches 1–7); changes only via PR.
-**Language:** English translation of the German Orbit original, translated 2026-10-19; § numbering and German identifier terms retained.
-**Character of this version:** v6.0 aligns the doctrine with the shipped plugins (worker contract, orchestrate size floor, gate ids G1–G15, run grants, the agents and T1 skills that exist); the paragraphs that were knowledge-layer-only are inlined (§1.11, §27.1.1, §32.12, §32.13, §32.15, §32.17, §35.1). Underneath, v5 is a **restructuring** of v4.7 — same doctrine, reordered for **low-context reading**. Content was moved, not deleted (exception: two pure forward-reference stubs; three topic duplicates merged). Author quotations have been converted into direct inline rules (portability: every rule stands on its own, no external reading required). New: Part 0 (mission + work loop), the anti-drift/memory mechanics pulled forward, a dedicated security part (Part 3, §33), LLM specifics bundled into a skippable Part 5, reference material (prompt patterns, golden samples, cases) in the appendix.
+**Language:** English. The paragraphs carried over from v5.1 are a translation of the German Orbit originals (translated 2026-10-19, § numbering and German identifier terms retained). The paragraphs new in v6.0 are written for this copy: §1.11 and §35.1 are condensed from their Orbit originals, §27.1.1 and §32.6.1 are faithful translations, §32.20–§32.24 have no Orbit original. The Orbit paragraphs §32.12, §32.13, §32.15, §32.17 and §32.19 keep their own meaning and are not in this copy (redirect table).
+**Character of this version:** v6.0 aligns the doctrine with the shipped plugins (worker contract, orchestrate size floor, gate ids G1–G15, run grants, the agents and T1 skills that exist); three knowledge-layer paragraphs are inlined (§1.11, §27.1.1, §35.1) and the rules the plugins rely on get free anchors of their own (§32.20 plugin mechanics, §32.21 fresh context, §32.22 behaviour invariance, §32.23 bounded attempts, §32.24 counter-role triad). Underneath, v5 is a **restructuring** of v4.7 — same doctrine, reordered for **low-context reading**. Content was moved, not deleted (exception: two pure forward-reference stubs; three topic duplicates merged). Author quotations have been converted into direct inline rules (portability: every rule stands on its own, no external reading required). New: Part 0 (mission + work loop), the anti-drift/memory mechanics pulled forward, a dedicated security part (Part 3, §33), LLM specifics bundled into a skippable Part 5, reference material (prompt patterns, golden samples, cases) in the appendix.
 
 **Stable anchors:** The `§` numbers are unchanged and remain the citable anchors (all internal `(§X.Y)` references continue to apply). The **Part** structure is the *reading* order — which is why, for example, §29 (modes) appears before §10 (review): the working path comes before the Konzept (concept document) craft.
 
@@ -347,9 +347,21 @@ After completion of the **review stage**, a **retro ADR** is mandatory. Lessons 
 - **Memory-loop verification (mandatory):** Every memory slug cited in the retro ADR **must really exist** (file `memory/<slug>.md` created **and** MEMORY.md pointer set). Check at retro closing — a cited but not created slug is a broken learning loop: the lesson evaporates, and the same error can recur. The check is decidable and runs as the T1 skill `retro-memory-loop-check` (§32.9). *(Practice lesson: several retros cited `feedback_*` slugs as persisted that were never written.)*
 - **Distinction:** Architecture ADRs (*what* was decided) live in `docs/adr/`; retro ADRs (*how* the work was done) in `docs/retro/`.
 
-### 32.6.1 Fork balance
+### 32.6.1 Fork balance — the mandatory question of every retro
 
-Every path opened during the run (a hypothesis, a worktree, a branch, a stub, an open question, a deferred follow-up) is listed at the end of the retro with one of three states: closed (merged or resolved, with evidence), abandoned (removed, with the reason) or open with a named owner. A path without a state is a finding of the retro; dead paths are removed before the PR. The orchestrator checks the fork balance when it closes the task; `pm-retro` records it.
+**Binding:** mandatory section of every retro ADR (§32.6).
+
+**Problem:** a retro whose unit of analysis is the bug can only ever conclude "the fix was incomplete", never "this code should not have existed". In the case study behind this paragraph, six retros distilled six laws of the form "build more" and none of the form "remove the fork"; the number of path forks stayed constant in every retro although it was the independent variable, and the work ended about a factor of ten above the assignment.
+
+**Mandatory section 1 — assignment (verbatim)**, at the top as the yardstick: the original assignment is quoted, not paraphrased.
+
+**Mandatory section 2 — fork balance**, at the end:
+1. Did this slice create a new fork, subsystem, table or mode? If so: was it commissioned (§27.1.1 answer 1), and does it pass the Deletion-Test (§27.1.1 answer 2)?
+2. Which existing fork should never have come into being? Name at least one candidate, or give the reason why there is none.
+3. Net balance: did the slice raise, keep or lower the number of forks?
+4. Every path opened during the run (a hypothesis, a worktree, a branch, a stub, an open question, a deferred follow-up) carries one of three states: closed (with evidence), abandoned (with the reason) or open with a named owner. A path without a state is a finding; dead paths are removed before the PR.
+
+**Heuristic:** a retro that produces only "build more" laws has not done the fork balance. A fork count that rises monotonically across retros is an overengineering alarm, however green the tests are. The orchestrator checks the balance when it closes the task; `pm-retro` records it.
 
 ### 32.7 Worker Agent: Need, Spec Format + Scaffolding
 
@@ -367,7 +379,7 @@ Every path opened during the run (a hypothesis, a worktree, a branch, a stub, an
 name: <stufe-rolle> | <domain-rolle>   # z. B. impl-uc, psy-grenzwaechter — Bindestrich; Doppelpunkt ist plugin:skill vorbehalten
 description: <Zweck in einem Satz + „Use when …"-Trigger>
 tools: <minimal tools needed>  # e.g. Read, Edit, Write, Bash, Grep, Glob; Write/Edit only for implementation workers
-model: haiku | sonnet | opus   # nach §32.3
+model: sonnet | opus           # per §32.3; purely mechanical work is a T1 skill, not an agent
 effort: low | medium | high | xhigh | max   # Denk-Tiefe: Gegenrollen/Reviewer high, Implementierungs-Worker medium
 color: <optional>
 ---
@@ -474,7 +486,7 @@ Orchestration does **not** automatically mean many parallel agents. Three levels
 
 ### 32.11 Devil's-Advocate Gate (mandatory pass before irreversible choices)
 
-**Trigger:** every ADR with status "proposed", every introduction of a new subsystem, module or mode (§27.1.1), every choice that becomes irreversible, and the overall closing of an assignment when the assignment produced a choice. When it produced no choice, the closing pass is the artefact's counter-role `adversarial-auditor` or, for forecasts, `pessimistic-realist` (§32.17). §11.4 demands the pass for "Decide" verbatim; this paragraph makes it a gate.
+**Trigger:** every ADR with status "proposed", every introduction of a new subsystem, module or mode (§27.1.1), every choice that becomes irreversible, and the overall closing of an assignment when the assignment produced a choice. When it produced no choice, the closing pass is the artefact's counter-role `adversarial-auditor` or, for forecasts, `pessimistic-realist` (§32.24). §11.4 demands the pass for "Decide" verbatim; this paragraph makes it a gate.
 
 **Procedure:** The orchestrator starts `devils-advocate` in fresh context (no share in the choice) with the verbatim assignment, the chosen option, the discarded alternatives and their costs. If the discarded alternative is missing, it is requested, not invented; the pass itself may form the null option. The pass delivers, per objection, an evidence location and an ex ante verifiable refutation criterion, checks the existence question (§27.1.1) and gives a three-valued verdict: (a) the rationale holds, (b) the alternative is stronger, (c) the null option beats both.
 
@@ -482,21 +494,21 @@ Orchestration does **not** automatically mean many parallel agents. Three levels
 
 **Exclusions:** no Devil's-Advocate passes in blameless retros (§32.6) and not in humanly sensitive or private playbooks; there the cross-check is `psy-grenzwaechter`. Private decisions on health, relationships, therapy or children are excluded; private administrative, financial and legal decisions are not.
 
-**Distinction:** Artifacts are checked by `adversarial-auditor` (ex post, empirically), forecasts by `pessimistic-realist`; the three form the counter-role triad (§32.17). The pass counts in the usage log (§32.7 (2)).
+**Distinction:** Artifacts are checked by `adversarial-auditor` (ex post, empirically), forecasts by `pessimistic-realist`; the three form the counter-role triad (§32.24). The pass counts in the usage log (§32.7 (2)).
 
-### 32.12 Fresh-context rule
+### 32.21 Fresh-context rule
 
 Counter-roles and reviewers (`devils-advocate`, `pessimistic-realist`, `adversarial-auditor`, `psy-grenzwaechter`, `review-verify`, `review-code`, `konzept-reviewer`) never judge their own or co-authored work. The header of every pass states `fresh context: yes` or `fresh context: no`; `no` invalidates the pass, and it is repeated with a fresh instance. The orchestrator supplies the authorship of every claim or artefact in the brief, so the role can state the line truthfully; a `review-verify` brief names the author of each claim.
 
-### 32.13 Behaviour invariance for refactoring
+### 32.22 Behaviour invariance for refactoring
 
 A refactoring changes structure, not behaviour, and the worker (`impl-refactor`) proves it: green baseline before the first change (gate chain §35.1 run and recorded); call-site inventory of every touched symbol; gate chain §35.1 run again after the change with zero new findings; a mutation sample that shows the suite turns red when the moved behaviour is broken; revert instead of repair forward when a step turns the suite red; risky changes (a changed public interface, a moved seam, concurrency) marked for `adversarial-auditor`; no commit, the delivery is the diff.
 
-### 32.15 Bounded attempts
+### 32.23 Bounded attempts
 
 Two refuted hypotheses or two failed attempts on the same problem, then the worker stops and reports (worker contract rule 6, §1.10). Two sharpened re-briefs for the same finding, the second to a fresh worker instance with the refuted attempt recorded as a known-issue line, then a Stop-Retro to the human. A third attempt without new evidence is not a strategy.
 
-### 32.17 Counter-role triad
+### 32.24 Counter-role triad
 
 Three counter-roles, one per object type: `devils-advocate` for choices (ADR, plan, new subsystem), `pessimistic-realist` for forecasts (estimate, date, success rate), `adversarial-auditor` for artefacts (diff, implementation, decision text). Every worker claim goes through `review-verify` before the orchestrator acts on it; MCP-bound capabilities through `mcp-security-reviewer`; psy-domain results through `psy-grenzwaechter`. A triad member declares a conflict of interest when a triad partner is at stake (its own earlier verdict, a role text, a tool it depends on); the orchestrator then picks another instance or hands the question to the human.
 
@@ -523,7 +535,7 @@ An AI agent that reads both the written specification (the "target") and the wri
 | **Review agent** | Check spec against policies | Before implementation |
 | **Verification agent** | Detect spec ↔ code drift | After every sprint |
 
-Both are to be defined as separate personas in the `.claude/agents/` or `.github/agents/` directory.
+Both are separate agents: `review-verify` and `konzept-reviewer` in the plugin cdp5-agents (its `agents/` directory is the live store, §32.7); a project without the plugin defines them in its own agents directory.
 
 Executable substantiation (`php -r`, a short trial run) happens in a disposable environment the orchestrator registered as a run grant (§32.20); without one the verification agent returns `unklar (nicht erreichbar: Werkzeug)`. URL claims are fetched by the orchestrator into the brief; workers have no network.
 
@@ -692,7 +704,7 @@ Durable artifacts (§28.1–§28.5) are the **external** memory; here is the mai
 
 #### 27.1.1 Necessity gate — the existence question before the ADR
 
-**Binding:** mandatory gate. An ADR that introduces a new subsystem, module, table or tool is incomplete without these four answers and must not be carried as "accepted".
+**Binding:** mandatory gate. An ADR that introduces a new subsystem, module, table, tool or mode is incomplete without these four answers and must not be carried as "accepted". (Mode added in v6.0: the §32.11 trigger and the §32.6.1 fork balance already count a new mode as a fork.)
 
 **Problem:** The adversarial auditor (§11.4) reviews a diff and asks "is this safe?". Nobody asks "should this exist?". §27.1 (Deletion-Test) and §1.11 (Proportionality) exist but are not applied without a gate (case study: a configuration manager with zero hits in sixteen project documents, roughly ten times the size of the assignment).
 
@@ -1368,7 +1380,7 @@ The Konzept is not a free-standing document but part of the repo toolchain. Mand
 | Integration point | Convention |
 |---|---|
 | **Versioning** | Konzept file lives in the repo (`docs/` or `wiki/`), is committed along. Changelog from v2.0 (§6), version in the header (§2.1). |
-| **Review agent** | `.github/agents/` or `.claude/agents/` contains the review persona; policies under `decision-policies/` with weighting (§10.5). CI can run the review agent against changed Konzept files. |
+| **Review agent** | `konzept-reviewer` from the plugin cdp5-agents (or a project-local agent of the same contract); the maturity policy `reife-rubrik.policy.md` with its weighting (§10.5), project copy optional. CI runs `konzept-lint` on changed Konzept files; the review agent runs on top. |
 | **Verification agent** | After every sprint, check spec↔code drift (§10.6) — the Konzept is the `Soll` source. |
 | **Glossary as system prompt** | The glossary (§14) is fed into the system prompt of the AI assistants; semantic anchors reduce prompt length. |
 | **Consistency check model↔API** | At every sprint end via versioned prompt (§19 + Appendix A.6). |
@@ -1942,7 +1954,7 @@ The pattern catalog: proven lessons (§24) and the anti-pattern review grid (§2
 
 ### 35.1 Gate chain
 
-The gate chain is the deterministic proof that a change left the behaviour of the untouched paths alone. It runs before and after a refactoring (§32.13), per slice in the implementation and before every PR; the commands are the project's own and are named in the brief:
+The gate chain is the deterministic proof that a change left the behaviour of the untouched paths alone. It runs before and after a refactoring (§32.22), per slice in the implementation and before every PR; the commands are the project's own and are named in the brief:
 1. Zero new static-analysis errors at the project level.
 2. Zero formatter diffs.
 3. Zero test failures in the full suite.
@@ -2215,7 +2227,7 @@ Future cases with the same mandatory schema: pseudonym · stack + character · w
 
 | Date | Version | Change | Reason |
 |---|---|---|---|
-| 2026-10 | **v6.0** | Alignment with the plugins cdp5-gates, cdp5-agents and domain-agents (DECISIONS.md D-13 batches 1–7). New: §1.11 proportionality; §27.1.1 necessity gate (existence question, four answers, rules A–C) now in the copy; §32.6.1 fork balance; §32.12 fresh-context rule; §32.13 behaviour invariance for refactoring; §32.15 bounded attempts; §32.17 counter-role triad; §32.20 plugin mechanics; §35 behaviour invariance gates with the §35.1 gate chain. Changed: §3 status lifecycle mandatory when any entity has a status, exemption sentence otherwise (G4); §6 changelog accepted missing below v2.0 (G9); §7 checklist carries gate ids G1–G15 with G5a/G5b and det/jdg per the policy; §10.3 interview mode as the T3 skill `spec-interview`, `konzept-reviewer` read-only, verifies det items, judges G5b/G10/G11, anchored levels or Unknown, re-score in fresh context, two rounds; §10.6 and §32.8 (6) executable substantiation only in a disposable environment with a run grant, URL claims fetched by the orchestrator; §11.4 counter-roles `adversarial-auditor` and `devils-advocate`; §13.3 two note forms, lint ignores the note; §23.3 psy escalation via PSY:krisen-eskalation and PSY:versorgungspfad-deutschland, block classes reported by every agent, gate held by the orchestrator; §27.6 impl-uc Method 0; §29/§32.2 size floor (two stages and more than one worker's worth; bugfix or single slice as worktree, one worker, review-verify; full chain from three stages, two writers or a 🔴 object); §32.1 skill form C session persona; §32.2 step 0 mode in the ledger and the two-stage review; §32.3 model table (no model for T1 work, sonnet for implementation, domain planning and retro, opus high for judgment, counter-roles and psy); §32.4 regenerated from the shipped agents, cross-cutting worker list retired, dormant roles footnote; §32.5 two anti-patterns (orchestrator fixes beyond one hunk, stacked workflow packs); §32.6 retro layout with carry-over, Five Whys, Kaizen table and fork balance, `pm-retro` briefed with ledger and `retro-memory-loop-check`, escalation at first (🔴) or third recurrence; §32.7 naming stufe-rolle or domain-rolle, Trifecta line 5a, plugin `agents/` as live store without mirror, need test counts stages and domains, third-run trigger from the usage log, thinking-phrase template line removed; §32.8 (3) Stop-Retro in contract format, (7) impl-uc stops; §32.9 all 17 T1 skills named, hybrid examples `cdp5-init` and `pii-scan`, exit-code convention; §32.10 fan-out gate answered in the ledger, one-hunk rule; §32.11 closing pass by object type, verdict mapping, invalid pass repeated with the alternative supplied; §33.1 judgment agents bound by the Trifecta; §33.3 `mcp-config-lint` checks. Redirect table reduced to §32.19 and §35.2. | The plugins are the single source for roles, skills and gates; the copy must describe them correctly so that briefs can cite it |
+| 2026-10 | **v6.0** | Alignment with the plugins cdp5-gates, cdp5-agents and domain-agents (DECISIONS.md D-13 batches 1–7). New: §1.11 proportionality (condensed from Orbit); §27.1.1 necessity gate (existence question, four answers, rules A–C, translated, mode added); §32.6.1 fork balance (translated, with the deletion question and the net balance); §32.20 plugin mechanics; §32.21 fresh-context rule; §32.22 behaviour invariance for refactoring; §32.23 bounded attempts; §32.24 counter-role triad (free anchors, no Orbit original; the Orbit §32.12 fan-out error correlation, §32.13 deterministic tool cores, §32.15 multi-agent orchestration and §32.17 role graph keep their numbers and stay in the knowledge layer); §35 behaviour invariance gates with the §35.1 gate chain. Changed: §3 status lifecycle mandatory when any entity has a status, exemption sentence otherwise (G4); §6 changelog accepted missing below v2.0 (G9); §7 checklist carries gate ids G1–G15 with G5a/G5b and det/jdg per the policy; §10.3 interview mode as the T3 skill `spec-interview`, `konzept-reviewer` read-only, verifies det items, judges G5b/G10/G11, anchored levels or Unknown, re-score in fresh context, two rounds; §10.6 and §32.8 (6) executable substantiation only in a disposable environment with a run grant, URL claims fetched by the orchestrator; §11.4 counter-roles `adversarial-auditor` and `devils-advocate`; §13.3 two note forms, lint ignores the note; §23.3 psy escalation via PSY:krisen-eskalation and PSY:versorgungspfad-deutschland, block classes reported by every agent, gate held by the orchestrator; §27.6 impl-uc Method 0; §29/§32.2 size floor (two stages and more than one worker's worth; bugfix or single slice as worktree, one worker, review-verify; full chain from three stages, two writers or a 🔴 object); §32.1 skill form C session persona; §32.2 step 0 mode in the ledger and the two-stage review; §32.3 model table (no model for T1 work, sonnet for implementation, domain planning and retro, opus high for judgment, counter-roles and psy); §32.4 regenerated from the shipped agents, cross-cutting worker list retired, dormant roles footnote; §32.5 two anti-patterns (orchestrator fixes beyond one hunk, stacked workflow packs); §32.6 retro layout with carry-over, Five Whys, Kaizen table and fork balance, `pm-retro` briefed with ledger and `retro-memory-loop-check`, escalation at first (🔴) or third recurrence; §32.7 naming stufe-rolle or domain-rolle, Trifecta line 5a, plugin `agents/` as live store without mirror, need test counts stages and domains, third-run trigger from the usage log, thinking-phrase template line removed; §32.8 (3) Stop-Retro in contract format, (7) impl-uc stops; §32.9 all 17 T1 skills named, hybrid examples `cdp5-init` and `pii-scan`, exit-code convention; §32.10 fan-out gate answered in the ledger, one-hunk rule; §32.11 closing pass by object type, verdict mapping, invalid pass repeated with the alternative supplied; §33.1 judgment agents bound by the Trifecta; §33.3 `mcp-config-lint` checks. Redirect table reduced to §32.19 and §35.2. | The plugins are the single source for roles, skills and gates; the copy must describe them correctly so that briefs can cite it |
 | 2026-10 | **v5.1** | Repo copy as interim master (knowledge layer Orbit downstream; §32.8 (2): a generated, hash-verified copy counts as the original). §32.1 orchestrator decides/briefs/verifies/synthesizes, no specialist work, effort scaling. §32.7: `effort` frontmatter instead of thinking phrases, worker contract + receipt, usage log as counting rule, rights/duties per role. §32.8 (2) mandatory brief fields, (3) filing switch and reference to the worker contract. **§32.11 devil's-advocate gate new.** §28.2 mandatory ADR fields (decision-maker, date, source, status, null option, supersede, Known-issue line) and filing switch. **§23.3 Mensch-Gate (human gate) list** (technical, integration, business, decisions). One maturity rubric: §7 is the gate of the policy `cdp5-gates/policy/reife-rubrik.policy.md`; §9 A.2, §10.3, §10.5, §10.7, §29 D, §B and the provenance table refer to it, no number left in the doctrine (plugin default 8.0). Corrections: §1.6 Mehrabian figure removed, §16.5 MCP authorization optional (HTTP) with audience/passthrough, §20.3 nomic-embed-text 768 dimensions. Roles: 35 checked, see `docs/cdp5-review/DECISIONS.md`; the source for roles and playbooks is the repo (plugins cdp5-agents, domain-agents), Orbit is generated from it. | Review of all roles, playbooks and paragraphs 2026-10-12/13 and decisions 2026-10-19; Orbit server decommissioning (nsai-edge removed, Orbit MCP as a later knowledge layer) |
 | 2026-05 | **v5.0** | **Restructuring** for low-context reading: Part 0 (mission + work loop) new; anti-drift/memory mechanics (§29/§32/§28/§27/§10.6/§19) moved forward as **Part 2**; LLM specifics (§13/§15/§16/§18/§20–§22) bundled in the skippable **Part 4**; prompt patterns (§9)/golden samples (§31)/cases (§30) in the **Appendix**. Author quotes → inline rules (portability). Stubs §8/§12 removed; §11.3+§11.6 merged; probabilistics (§1.5/§2.6/§18) cross-linked. § anchors unchanged (all `(§X.Y)` references remain valid). New: §32.6 memory-loop verification; §24 +Konzept splitting/plan fidelity/findings-as-issues + the work-path patterns as catalog entries; **§33 Security (new Part 3): lethal-trifecta gate, agent-runtime hardening, MCP tool/server security, threat-modeling-light, security gates, LLM threat classes, double review/license; §25 +3 anti-patterns, §7 security check block; subsequent parts authoring/LLM/lessons → Parts 4/5/6. **Gap-review additions (industry + 4 magazine issues + Anthropic docs):** §16.8 MCP tool design · §32.10 fan-out economics · §28.6 context hygiene/CLAUDE.md pruning · §19.4 AsyncAPI↔context map · §22.5 real-user rollouts · §2.6 EU AI Act high-risk obligations+CRA/NIS2 · §27.6/§20.3/§15.4 extensions** | Mission sharpened: CDP5 establishes knowledge doctrine + patterns and gives the AI a work path free of drift and memory loss. From review/retro + pattern consolidation across brain/memory/wiki |
 | 2026-05 | v4.7 | §32.9 skill determinism gate; §32.8 (6)/(7); §1.9 worker self-flag; §11.4 review corollary; §25 +3 anti-patterns | Review/retro of the eq-library-v3 application |
@@ -2236,7 +2248,7 @@ The v5.0 statement "§ anchors unchanged" does not apply to the following anchor
 | §11.6 | merged into §11.3 (v5.0) | §11.3 |
 | §10.0 | never existed as a section of its own | §10.1 |
 | §32.18 | does not exist | check §32.17 (role graph) |
-| §32.19, §35.2 (performance profiling) | present only in the knowledge layer (Orbit), not in this copy | until synchronization, the brief carries the verbatim excerpt from Orbit. §1.11, §27.1.1, §32.12, §32.13, §32.15, §32.17 and §35.1 are in this copy since v6.0 |
+| §32.12 (fan-out error correlation), §32.13 (deterministic tool cores: Rector, Playwright, repomix), §32.15 (multi-agent orchestration: auto-decomposition and dispatch), §32.17 (role graph, edge schema over the role doctrine), §32.19 (team-as-company communication), §35.2 (performance profiling) | present only in the knowledge layer (Orbit), not in this copy | until synchronization, the brief carries the verbatim excerpt from Orbit. Do not confuse with the v6.0 anchors §32.21–§32.24, which are plugin rules without an Orbit original. §1.11, §27.1.1 and §35.1 are in this copy since v6.0 |
 | „Beleg-Kette (§10.6)" in role and playbook texts | citation drift: §10.6 is the verification agent next to the review agent | the evidence requirement is §32.8 (3)/(4) |
 | „Worker-Regel §32.7" for the skills/agents ban | citation drift: §32.7 (5) only bans MCP | §32.2 (6) |
 | „Audit (§27.4)" | citation drift: §27.4 is the vertical TDD loop | §11.4 / §32.11 |

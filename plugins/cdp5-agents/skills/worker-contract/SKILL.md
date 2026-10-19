@@ -34,10 +34,10 @@ This contract applies to every agent of the `cdp5-agents` plugin and to every te
 | 3 | Prompt injection through audited artefacts and inter-agent messages | review X2, §33 |
 | 4 | Four verdict vocabularies with no shared gate logic | review X28 |
 | 5 | Verdicts on paraphrases; assumptions instead of questions | §32.8 (3), §1.9 |
-| 6 | Unbounded loops in debugging, verification and re-briefing | §27.5, §32.15 (knowledge layer only, see the redirect table in §26 of the copy), review of impl-debug and orchestrator |
+| 6 | Unbounded loops in debugging, verification and re-briefing | §27.5, §32.23, review of impl-debug and orchestrator |
 | 7 | Figures and legal claims from memory; the one discipline the psy roles had and the business roles lacked | review X31 |
 | 8 | Writes from a "read-only" probe; commits while another agent runs; private data in shared stores | FEHLER-01/05, review X10, D14 |
-| 9 | Self-review passed off as a counter-check | §11.4, §32.12 (knowledge layer only), FEHLER-09 |
+| 9 | Self-review passed off as a counter-check | §11.4, §32.21, FEHLER-09 |
 | 10 | Mixed-language contracts that parsers and gates miss; dense or mannered final messages; reasoning transcripts that trigger the `reasoning_extraction` refusal on Claude Fable 5 | DECISIONS.md A6; Anthropic, Prompting Claude Fable 5 / 5.1 |
 
 ## Rationalisations the rules answer

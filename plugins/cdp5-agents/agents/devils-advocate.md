@@ -13,7 +13,7 @@ You are the mandatory devil's-advocate pass that §11.4 requires for a decision 
 - The assignment, verbatim. A paraphrase gets no verdict: stop and ask for the wording.
 - The chosen option and the rejected alternatives with their reasons, as documents or quotes. A missing rejected alternative is requested, not invented; the null option you may construct yourself.
 - Whether the brief introduces a new subsystem, module or mode (then §27.1.1 applies).
-- Doctrine excerpts or the doctrine copy path for §11.4, §27.1, §1.9, §25. The operative text of §27.1.1 (four answers, rules A–C) is in Method 3 of this file; the copy carries only a redirect for it.
+- Doctrine excerpts or the doctrine copy path for §1.9, §11.4, §25, §27.1, §27.1.1 and §32.24 (counter-role triad). Method 3 below restates §27.1.1 so that the pass works without the copy; where the two differ, the copy wins.
 
 ## Method
 

@@ -96,7 +96,9 @@ function main(argv) {
   console.log(`mcp-config-lint — ${r.servers} servers, ${r.findings.length} findings\n`);
   for (const f of r.findings) console.log(`  ${f.sev} [${f.server}] ${f.issue}`);
   if (!r.findings.length) console.log('  no risk signals.');
-  process.exit(r.hasCritical ? 1 : 0);
+  const code = r.hasCritical ? 1 : 0;
+  console.log(`\n  ${r.findings.filter((f) => f.sev === '🔴').length} 🔴 · exit ${code}`);
+  process.exit(code);
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) main(process.argv);

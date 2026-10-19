@@ -45,6 +45,10 @@ function citingFiles() {
   return out;
 }
 
+// An anchor that is only in the redirect table (knowledge layer) is not answerable from the copy either: a brief
+// would have to carry an Orbit excerpt that nobody can fetch until the knowledge layer is connected, and an anchor
+// number can mean something else in Orbit than a reader expects (devils-advocate pass on v6.0, O1). Agents and
+// skills therefore cite only anchors the copy defines.
 export function danglingAnchors(files, { known, redirected }) {
   const dangling = [];
   for (const file of files) {
@@ -52,8 +56,9 @@ export function danglingAnchors(files, { known, redirected }) {
     lines.forEach((line, i) => {
       for (const m of line.matchAll(ANCHOR)) {
         const ref = m[1];
-        if (known.has(ref) || redirected.has(ref)) continue;
-        dangling.push(`${file.slice(PLUGINS.length + 1)}:${i + 1} §${ref}`);
+        if (known.has(ref)) continue;
+        const why = redirected.has(ref) ? 'knowledge layer only' : 'not in the copy';
+        dangling.push(`${file.slice(PLUGINS.length + 1)}:${i + 1} §${ref} (${why})`);
       }
     });
   }
@@ -71,10 +76,14 @@ test('the anchor parser reads multi-anchor headings and the redirect table', () 
 test('a fixture citing a missing paragraph is caught (red-first control)', () => {
   const anchors = doctrineAnchors(readFileSync(DOCTRINE, 'utf8'));
   assert.ok(!anchors.known.has('99.9'));
-  assert.ok(anchors.known.has('32.20') && anchors.known.has('27.1.1') && anchors.known.has('35.1'), 'v6 inlined anchors are known');
+  for (const a of ['32.20', '32.21', '32.22', '32.23', '32.24', '27.1.1', '35.1', '32.6.1', '1.11']) assert.ok(anchors.known.has(a), `v6 anchor §${a} is known`);
+  for (const a of ['32.12', '32.13', '32.15', '32.17', '32.19', '35.2']) {
+    assert.ok(!anchors.known.has(a), `§${a} must not be redefined in the copy (it means something else in Orbit)`);
+    assert.ok(anchors.redirected.has(a), `§${a} is listed in the redirect table`);
+  }
 });
 
-test('every doctrine anchor cited by an agent or SKILL.md exists in the bundled copy or its redirect table', () => {
+test('every doctrine anchor cited by an agent or SKILL.md is defined in the bundled copy (not only in its redirect table)', () => {
   const anchors = doctrineAnchors(readFileSync(DOCTRINE, 'utf8'));
   const files = citingFiles();
   assert.ok(files.length >= 40, `found ${files.length} agent and skill files`);
