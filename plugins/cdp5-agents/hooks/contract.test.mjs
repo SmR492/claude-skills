@@ -1,3 +1,4 @@
+import { fileURLToPath } from 'node:url';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
@@ -6,7 +7,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { extractCore, hashOf, parseCore, renderCore, ackPresent, verify, transcriptLastAssistant, finalMessage } from '../lib/contract.mjs';
 
-const PLUGIN = new URL('..', import.meta.url).pathname.replace(/\/$/, '');
+const PLUGIN = fileURLToPath(new URL('..', import.meta.url)).replace(/\/$/, '');
 const INJECT = join(PLUGIN, 'hooks', 'inject-contract.mjs');
 const CHECK = join(PLUGIN, 'hooks', 'check-ack.mjs');
 const GENERATE = join(PLUGIN, 'scripts', 'generate-contract.mjs');

@@ -1,3 +1,4 @@
+import { fileURLToPath } from 'node:url';
 // Citation integrity (retro 0020, RC2): every doctrine anchor `§N(.N)*` that an agent file or a SKILL.md of this
 // marketplace cites must exist in the bundled doctrine copy as a heading, or be listed in its redirect table as
 // knowledge-layer-only. A dangling anchor makes a brief unanswerable; the check is decidable, so it is a test.
@@ -6,7 +7,7 @@ import assert from 'node:assert/strict';
 import { readdirSync, readFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 
-const PLUGINS = join(new URL('..', import.meta.url).pathname.replace(/\/$/, ''), '..');
+const PLUGINS = join(fileURLToPath(new URL('..', import.meta.url)).replace(/\/$/, ''), '..');
 const DOCTRINE = join(PLUGINS, 'cdp5-gates', 'skills', 'cdp5-reference', 'konzept-design-pattern-v6.md');
 const ANCHOR = /§\s?(\d+(?:\.\d+)*)/g;
 

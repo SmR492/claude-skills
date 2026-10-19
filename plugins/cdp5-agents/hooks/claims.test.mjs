@@ -1,3 +1,4 @@
+import { fileURLToPath } from 'node:url';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
@@ -7,7 +8,7 @@ import { join } from 'node:path';
 import { hedgedClaims, claimReason } from '../lib/claims.mjs';
 import { verify } from '../lib/contract.mjs';
 
-const PLUGIN = new URL('..', import.meta.url).pathname.replace(/\/$/, '');
+const PLUGIN = fileURLToPath(new URL('..', import.meta.url)).replace(/\/$/, '');
 const CHECK = join(PLUGIN, 'hooks', 'check-ack.mjs');
 const GENERATE = join(PLUGIN, 'scripts', 'generate-contract.mjs');
 

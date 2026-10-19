@@ -14,8 +14,9 @@ function block(reason) {
 
 function releaseGrant(input, env) {
   // A run grant is used up by the run: whatever the outcome of the acknowledgement check, one use ends with it.
+  // Only a grant of this session (or one without session) is spent.
   try {
-    consumeGrant(agentName(input.agent_type), env);
+    consumeGrant(agentName(input.agent_type), env, Date.now(), input.session_id || undefined);
   } catch (e) {
     process.stderr.write(`cdp5-agents: grant not released (${e.message})\n`);
   }

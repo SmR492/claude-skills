@@ -3,12 +3,14 @@ import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
-import { dataDir, pointerPath, cacheDir, writeDataDirPointer } from '../lib/data-dir.mjs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import * as DD from '../lib/data-dir.mjs';
 import { grantsPath, addGrant, activeGrant } from '../lib/grants.mjs';
 import { usageLogPath } from '../lib/contract.mjs';
 
-const PLUGIN = new URL('..', import.meta.url).pathname.replace(/\/$/, '');
+const { dataDir, pointerPath, cacheDir, writeDataDirPointer } = DD;
+const PLUGIN = dirname(dirname(fileURLToPath(import.meta.url)));
 const BOOTSTRAP = join(PLUGIN, 'hooks', 'bootstrap.mjs');
 
 test('dataDir resolves the variable, then the pointer file, then the cache directory', () => {
@@ -53,10 +55,13 @@ test('bootstrap writes the pointer so that grant-run in the plain shell and guar
   try {
     const data = join(home, 'hook-data');
     const hookEnv = { PATH: process.env.PATH, HOME: home, CLAUDE_PLUGIN_ROOT: PLUGIN, CLAUDE_PLUGIN_DATA: data };
-    const r = spawnSync('node', [BOOTSTRAP], { env: hookEnv, encoding: 'utf8', input: JSON.stringify({ source: 'startup' }) });
+    const r = spawnSync('node', [BOOTSTRAP], { env: hookEnv, encoding: 'utf8', input: JSON.stringify({ source: 'startup', session_id: 'abc-123' }) });
     assert.equal(r.status, 0, r.stderr);
     const ctx = JSON.parse(r.stdout).hookSpecificOutput.additionalContext;
     assert.match(ctx, /session startup/);
+    assert.match(ctx, /--session=abc-123/, 'the session id is named for grant commands');
+    assert.equal(readFileSync(join(home, '.cache', 'cdp5-agents', 'session'), 'utf8').trim(), 'abc-123', 'session pointer next to the data-dir pointer');
+    assert.equal(DD.readSessionPointer?.({ HOME: home }), 'abc-123');
     assert.ok(ctx.includes(`node ${PLUGIN}/scripts/worktree-setup.mjs`), 'absolute path of worktree-setup');
     assert.ok(ctx.includes(`node ${PLUGIN}/scripts/grant-run.mjs`), 'absolute path of grant-run');
     assert.ok(ctx.includes(`live in ${data}`), 'data directory named');
@@ -64,8 +69,13 @@ test('bootstrap writes the pointer so that grant-run in the plain shell and guar
     // the orchestrator's shell has no CLAUDE_PLUGIN_DATA; both sides now resolve the same file
     const shellEnv = { HOME: home };
     assert.equal(grantsPath(shellEnv), grantsPath(hookEnv));
-    addGrant({ agent: 'adversarial-auditor', root: home, project: home }, shellEnv);
-    assert.equal(activeGrant('adversarial-auditor', hookEnv).root, home);
+    const wt = join(home, 'wt');
+    const project = join(home, 'project');
+    mkdirSync(wt);
+    mkdirSync(project);
+    addGrant({ agent: 'adversarial-auditor', root: wt, project, session: DD.readSessionPointer(shellEnv), isWorktree: () => true }, shellEnv);
+    assert.equal(activeGrant('adversarial-auditor', hookEnv, Date.now(), 'abc-123').root, wt);
+    assert.equal(activeGrant('adversarial-auditor', hookEnv).session, 'abc-123', 'the session pointer binds the grant');
   } finally {
     rmSync(home, { recursive: true, force: true });
   }

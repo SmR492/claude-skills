@@ -2,13 +2,16 @@
 // Creates the disposable environment for a worker or a counter-role run: a detached git worktree on an exact base
 // commit, a green baseline proven by the project's own gate commands, and (optionally) a run grant for one agent.
 // Prints the lines the orchestrator pastes into the brief. Nothing is committed; the worktree is the agent's sandbox.
-//   node worktree-setup.mjs --repo=<path> --base=<commit> --path=<new worktree dir> [--baseline="<cmd>"]... [--grant=<agent>] [--ttl=2h] [--uses=1] [--json]
+//   node worktree-setup.mjs --repo=<path> --base=<commit> --path=<new worktree dir> [--baseline="<cmd>"]... [--grant=<agent>] [--ttl=2h] [--uses=1] [--session=<id>] [--json]
+// Run it from the main session only: the PreToolUse guard asks the human to confirm --grant and denies this script to subagents.
+// The grant is bound to the session (--session, default: the id the SessionStart hook wrote to ~/.cache/cdp5-agents/session).
 // Exit: 0 = worktree ready (and grant issued if requested) · 1 = baseline red, no grant issued · 2 = usage error.
 import { spawnSync } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { addGrant, parseTtl, parseUses, DEFAULT_TTL_MS } from '../lib/grants.mjs';
+import { readSessionPointer } from '../lib/data-dir.mjs';
 
 export function parseArgs(argv) {
   const out = { baseline: [] };
@@ -60,7 +63,8 @@ export function setup(opts, env = process.env, now = Date.now()) {
   }
   let grant = null;
   if (opts.grant && green) {
-    grant = addGrant({ agent: opts.grant, root: path, project: repo, ttlMs: grantOpts.ttlMs, uses: grantOpts.uses, note: `worktree on ${base.out.slice(0, 7)}` }, env, now);
+    const session = typeof opts.session === 'string' ? opts.session : readSessionPointer(env);
+    grant = addGrant({ agent: opts.grant, root: path, project: repo, ttlMs: grantOpts.ttlMs, uses: grantOpts.uses, session, note: `worktree on ${base.out.slice(0, 7)}` }, env, now);
   }
   return { repo, worktree: path, base: base.out, baseline, green, grant, requestedGrant: opts.grant ?? null };
 }
@@ -69,7 +73,7 @@ export function briefLines(r) {
   const lines = [`disposable environment: ${r.worktree}`, `base commit: ${r.base}`];
   for (const b of r.baseline) lines.push(`baseline: ${b.cmd} → exit ${b.exit}`);
   if (r.baseline.length === 0) lines.push('baseline: none run (no --baseline given)');
-  if (r.grant) lines.push(`run grant: ${r.grant.agent} until ${r.grant.expires} (${r.grant.uses} use${r.grant.uses === 1 ? '' : 's'}, project ${r.grant.project})`);
+  if (r.grant) lines.push(`run grant: ${r.grant.agent} until ${r.grant.expires} (${r.grant.uses} use${r.grant.uses === 1 ? '' : 's'}, project ${r.grant.project}${r.grant.session ? `, session ${r.grant.session}` : ', no session binding'})`);
   else if (r.requestedGrant) lines.push(`run grant: not issued for ${r.requestedGrant} (baseline red)`);
   else lines.push('run grant: none');
   return lines;
@@ -78,7 +82,7 @@ export function briefLines(r) {
 export function main(argv = process.argv.slice(2), env = process.env) {
   const opts = parseArgs(argv);
   if (!opts.path) {
-    process.stderr.write('Usage: worktree-setup.mjs --repo=<path> --base=<commit> --path=<new worktree dir> [--baseline="<cmd>"]... [--grant=<agent>] [--ttl=2h] [--uses=1] [--json]\n');
+    process.stderr.write('Usage: worktree-setup.mjs --repo=<path> --base=<commit> --path=<new worktree dir> [--baseline="<cmd>"]... [--grant=<agent>] [--ttl=2h] [--uses=1] [--session=<id>] [--json]\n');
     return 2;
   }
   let r;

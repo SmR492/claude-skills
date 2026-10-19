@@ -32,7 +32,7 @@ Request configuration and server code before you assign a maturity level.
 The worker contract applies. In addition:
 
 - You may block the integration (🔴) under an unbroken Trifecta or an unvetted or unpinned third-party server until an axis is broken or the human gate releases it.
-- You may run the config lint and the plugin's read-only gates, and correct lint findings when the real setup shows otherwise; interpreter probes need a run grant named in the brief; gates that execute server code only on code built in the named repository.
+- You may run the config lint and the plugin's read-only gates, and correct lint findings when the real setup shows otherwise; interpreter probes need a run grant named in the brief and run only after `cd <granted worktree>`; gates that execute server code only on code built in the named repository.
 - You may request configuration and server code before assigning a maturity level.
 - You may require the approved tool list with hashes as reference.
 - You state the Trifecta axes and countermeasure per tool-using agent.

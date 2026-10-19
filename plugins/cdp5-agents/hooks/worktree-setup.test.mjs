@@ -3,11 +3,12 @@ import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync, existsSync, realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { setup, briefLines, parseArgs, grantOptions } from '../scripts/worktree-setup.mjs';
 import { activeGrant, DEFAULT_TTL_MS } from '../lib/grants.mjs';
 
-const PLUGIN = new URL('..', import.meta.url).pathname.replace(/\/$/, '');
+const PLUGIN = dirname(dirname(fileURLToPath(import.meta.url)));
 const SCRIPT = join(PLUGIN, 'scripts', 'worktree-setup.mjs');
 
 function repo() {
@@ -64,6 +65,24 @@ test('creates a detached worktree on the exact base, runs the baseline, issues t
     assert.match(lines[1], new RegExp(`^base commit: ${first}`));
     assert.match(lines[2], /baseline: node -e .* → exit 0/);
     assert.match(lines[3], /^run grant: adversarial-auditor until .* \(2 uses, project /);
+  } finally {
+    spawnSync('git', ['worktree', 'prune'], { cwd: r });
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('the grant is bound to the session: --session wins, otherwise the bootstrap pointer is used', () => {
+  const { root, r, first, env } = repo();
+  try {
+    const a = setup({ repo: r, base: first, path: join(root, 'wt-a'), baseline: [], grant: 'review-verify', session: 'sess-flag' }, env);
+    assert.equal(a.error, undefined, a.error);
+    assert.equal(activeGrant('review-verify', env).session, 'sess-flag');
+    mkdirSync(join(root, '.cache', 'cdp5-agents'), { recursive: true });
+    writeFileSync(join(root, '.cache', 'cdp5-agents', 'session'), 'sess-pointer\n');
+    const b = setup({ repo: r, base: first, path: join(root, 'wt-b'), baseline: [], grant: 'adversarial-auditor' }, env);
+    assert.equal(b.error, undefined, b.error);
+    assert.equal(activeGrant('adversarial-auditor', env).session, 'sess-pointer');
+    assert.match(briefLines(b).join('\n'), /session sess-pointer/);
   } finally {
     spawnSync('git', ['worktree', 'prune'], { cwd: r });
     rmSync(root, { recursive: true, force: true });

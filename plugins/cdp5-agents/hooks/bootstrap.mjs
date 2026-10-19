@@ -2,18 +2,20 @@
 // SessionStart hook (startup, resume, clear, compact): one short block that tells the main session which role text
 // and which mechanics of cdp5-agents apply. Re-injected after compaction so the orchestrator role survives a long
 // session. Kept to a few lines on purpose (A5: no silent skipping, but no token waste either).
-// It also writes the data-directory pointer so that the scripts the orchestrator runs from its own shell (where
-// CLAUDE_PLUGIN_DATA is not set) use the same grants.json and usage log as the hooks.
+// It also writes the data-directory pointer and the session id next to it, so that the scripts the orchestrator runs
+// from its own shell (where CLAUDE_PLUGIN_DATA is not set) use the same grants.json and usage log as the hooks and bind
+// the grants they issue to this session.
 import { pathToFileURL } from 'node:url';
 import { pluginRoot, readStdinJson } from '../lib/contract.mjs';
-import { dataDir, writeDataDirPointer } from '../lib/data-dir.mjs';
+import { dataDir, writeDataDirPointer, writeSessionPointer, SESSION_ID } from '../lib/data-dir.mjs';
 
-export function render(root, source, data) {
+export function render(root, source, data, session = null) {
+  const sessionFlag = session ? ` --session=${session}` : '';
   return [
     `cdp5-agents is active (session ${source || 'start'}).`,
     `Orchestrator role for the main session: the orchestrate skill (${root}/skills/orchestrate/SKILL.md) applies when a task spans two stages or three subtasks; read it before you delegate. You decide, brief, verify and synthesise; workers do the work.`,
-    'Workers receive the worker contract at start and open their final answer with its acknowledgement line; their final answers are checked for hedged completion claims. Judgment agents are read-only (no test runners, no network) until you register a run grant for a disposable environment.',
-    `Scripts (absolute paths, run them from the project directory): node ${root}/scripts/worktree-setup.mjs --repo=<path> --base=<commit> --path=<dir> [--baseline="<cmd>"] [--grant=<agent>] [--uses=N] creates worktree, baseline and grant in one step; node ${root}/scripts/grant-run.mjs grant --agent <name> --root <path> [--project <repo>] [--uses N] | list | revoke --agent <name> manages grants. A grant applies only to runs whose working directory is the project it was issued in or its root; one use is spent per finished agent run.`,
+    'Workers receive the worker contract at start and open their final answer with its acknowledgement line; their final answers are checked for hedged completion claims. Judgment agents are read-only (no test runners, no network) until you register a run grant for a disposable environment; the human confirms every grant.',
+    `Scripts (absolute paths, run them from the project directory): node ${root}/scripts/worktree-setup.mjs --repo=<path> --base=<commit> --path=<dir> [--baseline="<cmd>"] [--grant=<agent>] [--uses=N]${sessionFlag} creates worktree, baseline and grant in one step; node ${root}/scripts/grant-run.mjs grant --agent <name> --root <worktree> [--uses N]${sessionFlag} | list | revoke --agent <name> manages grants. A grant applies only to runs whose working directory lies inside the granted worktree${session ? `, only in this session (${session})` : ''}; one use is spent per finished agent run.`,
     `Grants and the usage log live in ${data}. Every completed agent run is appended to the usage log; a manual activity gets its own line, and its third run is the trigger to build a worker for it.`,
   ].join('\n');
 }
@@ -27,7 +29,13 @@ export function main(env = process.env) {
     data = dataDir(env);
     process.stderr.write(`cdp5-agents: data-dir pointer not written (${e.message})\n`);
   }
-  process.stdout.write(JSON.stringify({ hookSpecificOutput: { hookEventName: 'SessionStart', additionalContext: render(pluginRoot(env), input.source, data) } }));
+  const session = typeof input.session_id === 'string' && SESSION_ID.test(input.session_id) ? input.session_id : null;
+  try {
+    writeSessionPointer(session, env);
+  } catch (e) {
+    process.stderr.write(`cdp5-agents: session pointer not written (${e.message})\n`);
+  }
+  process.stdout.write(JSON.stringify({ hookSpecificOutput: { hookEventName: 'SessionStart', additionalContext: render(pluginRoot(env), input.source, data, session) } }));
   return 0;
 }
 

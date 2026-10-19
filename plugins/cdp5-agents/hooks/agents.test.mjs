@@ -1,9 +1,10 @@
+import { fileURLToPath } from 'node:url';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readdirSync, readFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 
-const PLUGIN = new URL('..', import.meta.url).pathname.replace(/\/$/, '');
+const PLUGIN = fileURLToPath(new URL('..', import.meta.url)).replace(/\/$/, '');
 const DOMAIN = join(PLUGIN, '..', 'domain-agents', 'agents');
 const EFFORT = new Set(['low', 'medium', 'high', 'xhigh', 'max']);
 const MODELS = new Set(['sonnet', 'opus', 'haiku', 'fable', 'inherit']);

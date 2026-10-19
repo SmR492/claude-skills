@@ -1,18 +1,20 @@
 #!/usr/bin/env node
-// PreToolUse guard for shell commands of the plugin subagents (Bash and PowerShell tools).
-// Judgment agents: allowlist of read-only programs and git read subcommands; everything else is denied. They have no
-// network: untrusted repository content plus secrets plus egress is the lethal trifecta, so curl is not on the list.
-// Implementation workers: git is limited to worktree-local subcommands; commit, push, fetch, history rewrites and
-// remote effects (gh pr merge, curl -X POST, ...) are denied.
+// PreToolUse guard for shell commands (Bash and PowerShell tools).
+// Plugin subagents:
+//   Judgment agents: allowlist of read-only programs and git read subcommands; everything else is denied. They have no
+//   network: untrusted repository content plus secrets plus egress is the lethal trifecta, so curl, gh and the network
+//   subcommands of npm and composer are not on the list.
+//   Implementation workers (and judgment agents with an applying run grant): git is limited to worktree-local
+//   subcommands; commit, push, fetch, history rewrites, gh/glab beyond read subcommands and curl sends are denied.
+//   No subagent runs the orchestrator tools (grant-run, worktree-setup, generate-contract).
+// Main session (no plugin agent type): untouched, except that issuing a run grant asks the human to confirm it.
 // The guard is a tripwire against ordinary write forms, not a sandbox: the disposable environment the brief names is the boundary.
 // Fails closed: any error or unparseable input exits 2 (the hook runner shows the reason and blocks).
 import { pathToFileURL } from 'node:url';
 import { readFileSync } from 'node:fs';
-import { agentName, PLUGIN_PREFIXES } from '../lib/agent-name.mjs';
-import { activeGrant, grantApplies } from '../lib/grants.mjs';
+import { agentName, WRITING_WORKERS } from '../lib/agent-name.mjs';
+import { activeGrant, grantApplies, sessionMatches } from '../lib/grants.mjs';
 
-export { agentName, PLUGIN_PREFIXES };
-export const WRITING_WORKERS = new Set(['impl-debug', 'impl-uc', 'impl-refactor']);
 export const SHELL_TOOLS = new Set(['Bash', 'PowerShell']);
 
 const GIT_GLOBAL_WITH_ARG = new Set(['-C', '-c', '--git-dir', '--work-tree', '--namespace', '--exec-path', '--super-prefix', '--config-env']);
@@ -62,17 +64,19 @@ const GIT_WORKER_RESTRICTED = {
   switch: (args) => !args.some((a) => /^(-c|-C|--orphan|--create|--force-create)$/.test(a)),
 };
 
+// Programs a judgment agent may run (after prefix resolution); wrappers (bash, sh, wsl, docker exec) and git are
+// handled before this list is consulted.
 export const READ_ONLY_PROGRAMS = new Set([
   'cat', 'head', 'tail', 'less', 'more', 'ls', 'wc', 'stat', 'file', 'du', 'df', 'echo', 'printf', 'pwd', 'which', 'whereis', 'type',
   'diff', 'cmp', 'comm', 'sort', 'uniq', 'cut', 'tr', 'jq', 'grep', 'egrep', 'fgrep', 'rg', 'ag', 'tree', 'date', 'basename', 'dirname',
   'realpath', 'readlink', 'sha256sum', 'sha1sum', 'md5sum', 'b2sum', 'cksum', 'true', 'false', 'test', '[', 'column', 'nl', 'od', 'xxd', 'strings',
-  'hostname', 'uname', 'id', 'whoami', 'nproc', 'free', 'uptime', 'ps', 'cd', 'git', 'find', 'awk', 'sed', 'node', 'php', 'python', 'python3', 'ruby', 'perl', 'wsl', 'bash', 'sh',
+  'hostname', 'uname', 'id', 'whoami', 'nproc', 'free', 'uptime', 'ps', 'cd', 'find', 'awk', 'sed', 'node', 'php', 'python', 'python3', 'ruby', 'perl',
   'docker', 'composer', 'npm', 'npx',
 ]);
 const POWERSHELL_READ_ONLY = new Set([
   'get-content', 'get-childitem', 'select-string', 'get-item', 'test-path', 'resolve-path', 'get-location', 'write-output', 'write-host', 'measure-object',
   'select-object', 'where-object', 'foreach-object', 'sort-object', 'format-table', 'format-list', 'out-string', 'compare-object', 'get-filehash', 'convertfrom-json',
-  'split-path', 'join-path', 'get-date', 'get-command', 'get-process', 'gc', 'gci', 'sls', 'cat', 'ls', 'dir', 'type', 'echo', 'pwd', 'git', 'wsl', 'node', 'php', 'python', 'python3',
+  'split-path', 'join-path', 'get-date', 'get-command', 'get-process', 'gc', 'gci', 'sls', 'cat', 'ls', 'dir', 'type', 'echo', 'pwd', 'node', 'php', 'python', 'python3',
 ]);
 // Cmdlets and aliases that write, delete or execute, matched at command position only: the start of the segment or
 // after ; { ( | & = (so README.md is not "md" and "Select-String sc" searches for the text sc).
@@ -83,30 +87,94 @@ const POWERSHELL_DENY_WORDS = [
   'ren', 'rni', 'sc', 'ac', 'sp', 'rp', 'spps', 'start',
 ];
 const POWERSHELL_DENY = new RegExp(`(^|[;{(|&=]\\s*)(${POWERSHELL_DENY_WORDS.join('|')})(?=[\\s;})|]|$)|(^|[;{(|&=]\\s*)(sl|cd|set-location)\\s+hk`, 'i');
+// PowerShell argument expressions that run .NET or code inside an otherwise read-only cmdlet's arguments.
+const POWERSHELL_EXPRESSION = [
+  [/\[[A-Za-z_][\w.`]*\]\s*::/, 'a static .NET call'],
+  [/\bnew-object\b/i, 'New-Object'],
+  [/\[scriptblock\]/i, '[scriptblock]'],
+  [/\badd-type\b/i, 'Add-Type'],
+  [/(^|\s)-encodedcommand\b/i, '-EncodedCommand'],
+  [/\binvoke-[a-z]+/i, 'an Invoke-* cmdlet'],
+  [/(^|[\s;{(|=])[&.]\s*\(/, 'the call operator on an expression'],
+  [/\([^)]*(::|\bnew-object\b)/i, 'a static call or New-Object in parentheses'],
+];
 
 // Interpreter options that run inline code, preload a module or change the runtime: short clusters containing one of
 // e, p, i, c, r, m, d, E (node -e, perl -pe/-pi, php -r/-d, python -c/-m, ruby -r) and the long forms, with or without =value.
 export const INTERPRETER_INLINE = /^(-[a-zA-Z]*[epicrmdE][a-zA-Z]*(=.*)?|--(eval|print|interactive|input-type|import|require|loader|experimental-loader|define|check)(=.*)?)$/;
 export const SCRIPT_FILE = /\.(mjs|cjs|js|php|py|rb|pl|sh)$/i;
-// Tool scripts a judgment agent may run: the marketplace checkout (plugins/…), an installed plugin (${CLAUDE_PLUGIN_ROOT}/… or
-// a path under .claude/plugins/) and a skill script (…/skills/<skill>/<script>). Project binaries (vendor/bin, node_modules/.bin)
-// are runs and need a grant.
-export const TOOL_SCRIPT_PATH = /^(\.\/)?([^/]+\/)*plugins\/|^\$\{?CLAUDE_PLUGIN_ROOT\}?\/|\/\.claude\/plugins\/|\/skills\/[^/]+\/[^/]+\.(mjs|cjs|js|py|sh)$/;
+// Tool scripts a judgment agent may run: an installed plugin (${CLAUDE_PLUGIN_ROOT}/… or the plugin cache under the
+// home directory's .claude/plugins/) and the skill scripts of this marketplace's checkout
+// (plugins/<cdp5-gates|cdp5-agents|domain-agents|orbit-workflow>/skills/<skill>/<script>). No .. segments; never the
+// orchestrator scripts. Project code (vendor/bin, node_modules/.bin, wp-content/plugins/…) is a run and needs a grant.
+export const TOOL_SCRIPT_PATH = /^(\$\{CLAUDE_PLUGIN_ROOT\}|\$CLAUDE_PLUGIN_ROOT|\$env:CLAUDE_PLUGIN_ROOT)\/|^(~|\$\{?HOME\}?|\/home\/[^/]+|\/Users\/[^/]+|\/root|[A-Za-z]:\/Users\/[^/]+)\/\.claude\/plugins\/|^(\.\/)?plugins\/(cdp5-gates|cdp5-agents|domain-agents|orbit-workflow)\/skills\/[^/]+\/[^/]+\.(mjs|cjs|js|py|sh)$/;
+
+// Orchestrator tools: no subagent runs them (they issue grants and create environments).
+const ORCHESTRATOR_SCRIPT = /(^|[/=])(grant-run|worktree-setup|generate-contract)\.mjs(?=$|["'\s;&|)])|(^|[/=~])cdp5-agents\/scripts\//;
+const ORCHESTRATOR_REASON = 'orchestrator tools; a worker never issues grants or creates environments';
+const PLUGIN_STATE = /grants\.json|grants\.lock|usage-log\.jsonl|\.cache[\\/]+cdp5-agents|CLAUDE_PLUGIN_DATA|cdp5-agents[\\/]+(data-dir|session)\b/i;
+const PLUGIN_STATE_REASON = "the plugin's state (grants, session and data-dir pointers, usage log) is written only by the orchestrator's scripts and the hooks";
+function mentionsPluginState(segment) {
+  return PLUGIN_STATE.test(String(segment));
+}
+// Programs that only display a file named as an argument; they may mention an orchestrator script.
+const VIEWERS = new Set(['cat', 'head', 'tail', 'less', 'more', 'grep', 'egrep', 'fgrep', 'rg', 'ag', 'wc', 'ls', 'stat', 'file', 'diff', 'cmp', 'sha256sum', 'sha1sum', 'md5sum', 'b2sum', 'cksum', 'git', 'get-content', 'gc', 'select-string', 'sls', 'get-item', 'get-childitem', 'gci', 'test-path', 'get-filehash']);
+// Programs that run code read from stdin or from arguments built elsewhere.
+const STDIN_RUNNERS = new Set(['node', 'bash', 'sh', 'zsh', 'dash', 'python', 'python3', 'perl', 'ruby', 'php', 'deno', 'bun', 'eval', 'source', '.', 'pwsh', 'powershell']);
+// Programs that run another program given as a later argument and are not resolved structurally.
+const RUNNERS = new Set(['flock', 'chrt', 'taskset', 'strace', 'ltrace', 'unbuffer', 'chronic', 'parallel', 'script', 'su', 'runuser', 'caffeinate', 'systemd-run', 'firejail', 'chroot', 'nsenter', 'unshare', 'fakeroot', 'proot', 'busybox']);
+const REMOTE_PROGRAMS = /^(git|gh|glab|curl)$/;
 
 const SHELL_CFLAG = /^-[a-zA-Z]*c[a-zA-Z]*$/;
 const SHELLS = /^(bash|sh|zsh|dash)$/;
 // sed: the w (write file) and e (execute) commands, as a command of their own or as an s/// flag.
 const SED_WRITE_OR_EXEC = /(^|[\/;{}\s\d$,!])[ewW](\s|$)|\/[gImMp0-9]*[ewW]\b/;
-// awk: system(), print/printf to a file or a pipe, getline from a file.
+// awk: system(), print/printf to a file or a pipe, getline from a file or from a command (cmd | getline), coprocesses, extensions.
 const AWK_SIDE_EFFECT = /\bsystem\s*\(|\bprintf?\b[^;}]*?(>|\|)|\bgetline\s*</;
+const AWK_COMMAND_GETLINE = /\|\s*getline\b|\|&|@(load|include)\b/;
 const CURL_SENDS = /^(-[a-zA-Z]*[XdTF]|--(request|data(-\w+)?|upload-file|form(-string)?|json)(=|$))/;
+const ASSIGNMENT = /^[A-Za-z_][A-Za-z0-9_]*\+?=/;
 
-function tokens(segment) {
-  // Whitespace split that keeps quoted strings together and strips the surrounding quotes for inspection.
+export function tokens(segment, shell = 'bash') {
+  // Shell words: quoted parts and escapes are joined into one word (text) with the source kept (raw). Bash escapes
+  // with a backslash, PowerShell with a backtick (a backslash is a path separator there).
+  const s = String(segment);
+  const ps = shell === 'powershell';
+  const esc = ps ? '`' : '\\';
   const out = [];
-  const re = /"((?:\\.|[^"\\])*)"|'([^']*)'|(\S+)/g;
-  let m;
-  while ((m = re.exec(segment))) out.push({ text: m[1] ?? m[2] ?? m[3], quoted: m[3] === undefined, raw: m[0] });
+  let i = 0;
+  while (i < s.length) {
+    while (i < s.length && /\s/.test(s[i])) i++;
+    if (i >= s.length) break;
+    const start = i;
+    let text = '';
+    let quoted = false;
+    while (i < s.length && !/\s/.test(s[i])) {
+      const ch = s[i];
+      if (ch === "'") {
+        quoted = true;
+        const end = s.indexOf("'", i + 1);
+        const stop = end < 0 ? s.length : end;
+        text += s.slice(i + 1, stop);
+        i = stop + 1;
+        continue;
+      }
+      if (ch === '"') {
+        quoted = true;
+        i++;
+        while (i < s.length && s[i] !== '"') {
+          if (s[i] === esc && i + 1 < s.length && (ps || /[$`"\\\n]/.test(s[i + 1]))) { text += s[i + 1]; i += 2; continue; }
+          text += s[i++];
+        }
+        i++;
+        continue;
+      }
+      if (ch === esc && i + 1 < s.length) { text += s[i + 1]; i += 2; continue; }
+      text += ch;
+      i++;
+    }
+    out.push({ text, quoted, raw: s.slice(start, Math.min(i, s.length)) });
+  }
   return out;
 }
 
@@ -144,6 +212,119 @@ export function splitSegments(command) {
   if (quote) throw new Error('unbalanced quotes');
   out.push(cur);
   return out.map((x) => x.replace(/\r$/, '').trim()).filter(Boolean);
+}
+
+export function redirections(segment, shell = 'bash') {
+  // Unquoted output redirections of a segment: [{ op, target }]. A > inside quotes is text, not an operator.
+  const s = String(segment);
+  const ps = shell === 'powershell';
+  const out = [];
+  let quote = null;
+  for (let i = 0; i < s.length; i++) {
+    const ch = s[i];
+    if (quote) {
+      if (quote === '"' && ch === (ps ? '`' : '\\')) { i++; continue; }
+      if (ch === quote) quote = null;
+      continue;
+    }
+    if (ch === '"' || ch === "'") { quote = ch; continue; }
+    if (ch === (ps ? '`' : '\\')) { i++; continue; }
+    if (ch !== '>') continue;
+    let op = '>';
+    if (/[0-9&*]/.test(s[i - 1] ?? '')) op = s[i - 1] + op;
+    let j = i + 1;
+    if (/[>|&]/.test(s[j] ?? '')) op += s[j++];
+    while (j < s.length && /[ \t]/.test(s[j])) j++;
+    let target = '';
+    let q = null;
+    for (; j < s.length; j++) {
+      const c = s[j];
+      if (q) { if (c === q) q = null; else target += c; continue; }
+      if (c === '"' || c === "'") { q = c; continue; }
+      if (/[\s;|&<>()]/.test(c)) break;
+      target += c;
+    }
+    out.push({ op, target });
+    i = j - 1;
+  }
+  return out;
+}
+
+function redirectAllowed({ op, target }, shell) {
+  if (/>&$/.test(op) && /^(\d+|-)$/.test(target)) return true; // fd duplication or close: 2>&1, >&2, >&-
+  if (target === '/dev/null') return true;
+  if (shell === 'powershell' && /^\$null$/i.test(target)) return true;
+  return false;
+}
+
+function skipOptions(toks, k, withValue) {
+  // Skips leading options; those matching withValue consume the next token as their value.
+  while (k < toks.length && toks[k].text.startsWith('-') && toks[k].text !== '-') {
+    const a = toks[k].text;
+    if (a === '--') return k + 1;
+    k += withValue && withValue.test(a) ? 2 : 1;
+  }
+  return k;
+}
+
+const PREFIX_PROGRAMS = new Set(['env', 'timeout', 'nice', 'ionice', 'nohup', 'setsid', 'stdbuf', 'command', 'builtin', 'exec', 'time', 'xargs', 'sudo', 'doas', 'watch']);
+
+export function resolveCommand(toks, shell = 'bash') {
+  // Strips the prefixes that run the rest of the words as a command (VAR=value, env, timeout, nice, nohup, stdbuf,
+  // command, exec, xargs, sudo, watch, ...) and returns the command words, the assignments and the prefixes seen.
+  const assignments = [];
+  const prefixes = [];
+  let viaXargs = false;
+  let k = 0;
+  const n = toks.length;
+  while (k < n) {
+    const t = toks[k];
+    if (shell === 'powershell') {
+      if (t.text === '&' || t.text === '.') { prefixes.push(t.text); k++; continue; }
+      if (/^\$[\w:]+$/.test(t.text) && toks[k + 1]?.text === '=') { assignments.push(`${t.text.slice(1)}=${toks[k + 2]?.text ?? ''}`); k += 2; continue; }
+      break;
+    }
+    if (ASSIGNMENT.test(t.raw)) { assignments.push(t.text); k++; continue; }
+    const name = t.quoted ? '' : baseName(t.text, shell).toLowerCase();
+    if (!PREFIX_PROGRAMS.has(name)) break;
+    prefixes.push(name);
+    k++;
+    switch (name) {
+      case 'env':
+        while (k < n) {
+          const a = toks[k].text;
+          if (/^(-S|--split-string)/.test(a) || /^-[a-zA-Z]*S/.test(a) && !a.startsWith('--')) return { error: 'env -S (split string) is not allowed', toks: [], assignments, prefixes, viaXargs };
+          if (/^(-u|--unset|-C|--chdir)$/.test(a)) { k += 2; continue; }
+          if (a === '--') { k++; break; }
+          if (a.startsWith('-')) { k++; continue; }
+          if (ASSIGNMENT.test(a)) { assignments.push(a); k++; continue; }
+          break;
+        }
+        break;
+      case 'timeout': k = skipOptions(toks, k, /^(-s|--signal|-k|--kill-after)$/) + 1; break;
+      case 'nice': k = skipOptions(toks, k, /^(-n|--adjustment)$/); break;
+      case 'ionice': k = skipOptions(toks, k, /^(-c|--class|-n|--classdata|-p|--pid|-P|--pgid|-u|--uid)$/); break;
+      case 'stdbuf': k = skipOptions(toks, k, /^(-i|-o|-e|--input|--output|--error)$/); break;
+      case 'exec': k = skipOptions(toks, k, /^-a$/); break;
+      case 'time': k = skipOptions(toks, k, /^(-f|--format|-o|--output)$/); break;
+      case 'sudo': k = skipOptions(toks, k, /^(-u|--user|-g|--group|-C|--close-from|-D|--chdir|-h|--host|-p|--prompt|-r|--role|-t|--type|-U|--other-user|-T|--command-timeout)$/); break;
+      case 'doas': k = skipOptions(toks, k, /^(-u|-C)$/); break;
+      case 'watch': k = skipOptions(toks, k, /^(-n|--interval|-q|--equexit)$/); break;
+      case 'xargs': viaXargs = true; k = skipOptions(toks, k, /^(-I|-n|-L|-P|-s|-d|-E|-a|--arg-file|--delimiter|--max-args|--max-lines|--max-procs|--max-chars|--eof|--replace|--process-slot-var)$/); break;
+      default: k = skipOptions(toks, k, null);
+    }
+  }
+  return { toks: toks.slice(k), assignments, prefixes, viaXargs };
+}
+
+function assignsRemoteProgram(assignment) {
+  const value = assignment.slice(assignment.indexOf('=') + 1).trim();
+  const firstWord = value.split(/\s+/)[0] ?? '';
+  return REMOTE_PROGRAMS.test(baseName(firstWord).toLowerCase());
+}
+
+function mentionsOrchestratorScript(toks) {
+  return toks.some((t) => ORCHESTRATOR_SCRIPT.test(t.text.replace(/\\/g, '/')) || ORCHESTRATOR_SCRIPT.test(t.raw.replace(/\\+/g, '/').replace(/["']/g, '')));
 }
 
 function configVerdict(kv, literal, tier) {
@@ -243,20 +424,31 @@ function positionals(args, valued) {
   return out;
 }
 
+const PUBLICATION = "publication is the orchestrator's";
+
 function remoteEffectVerdict(prog, args) {
-  // Remote state changes are denied in every tier: delivery is the diff, publication is the orchestrator's decision.
+  // gh and glab: read subcommands only, in every tier; curl: no sending. Delivery is the diff.
   if (prog === 'gh') {
     const [a, b] = args;
-    if (a === 'pr' && /^(merge|create)$/.test(b ?? '')) return `gh pr ${b} changes the remote repository`;
-    if (a === 'release') return 'gh release changes the remote repository';
-    if (a === 'repo' && b === 'delete') return 'gh repo delete is not allowed';
+    if (args.length === 1 && /^(--version|version)$/.test(a)) return null;
+    if (a === 'auth' && b === 'status') return null;
+    if (/^(pr|issue|repo|release|run|workflow)$/.test(a ?? '') && /^(view|list|status|diff|checks)$/.test(b ?? '')) return null;
     if (a === 'api') {
       const method = /(?:^|\s)(?:-X|--method)[=\s]*(\w+)/.exec(args.join(' '));
-      if (method && /^(POST|PUT|DELETE|PATCH)$/i.test(method[1])) return `gh api ${method[1].toUpperCase()} changes remote state`;
-      if (args.some((x) => /^(-f|-F|--field|--raw-field|--input)(=|$)/.test(x))) return 'gh api with fields sends a POST request';
+      if (method && !/^GET$/i.test(method[1])) return `gh api ${method[1].toUpperCase()} changes remote state; ${PUBLICATION}`;
+      if (args.some((x) => /^(-[fF]|--field|--raw-field|--input)/.test(x))) return `gh api with fields or input sends a POST request; ${PUBLICATION}`;
+      if (b === 'graphql') return `gh api graphql sends a POST request; ${PUBLICATION}`;
+      return null;
     }
+    return `gh ${[a, b].filter(Boolean).join(' ')} is not a read subcommand; ${PUBLICATION}`;
   }
-  if (prog === 'glab' && args[0] === 'mr' && args[1] === 'merge') return 'glab mr merge changes the remote repository';
+  if (prog === 'glab') {
+    const [a, b] = args;
+    if (args.length === 1 && /^(--version|-v|version)$/.test(a)) return null;
+    if (a === 'auth' && b === 'status') return null;
+    if (/^(mr|issue|repo|release|ci)$/.test(a ?? '') && /^(view|list|status|diff)$/.test(b ?? '')) return null;
+    return `glab ${[a, b].filter(Boolean).join(' ')} is not a read subcommand; ${PUBLICATION}`;
+  }
   if (prog === 'curl') {
     const sending = args.find((a) => CURL_SENDS.test(a));
     if (sending) return `curl ${sending} sends data or a non-GET request`;
@@ -264,28 +456,53 @@ function remoteEffectVerdict(prog, args) {
   return null;
 }
 
+function longOptionIs(arg, name, minChars = 1) {
+  // GNU long options accept unambiguous prefixes: --in, --outp=x.
+  if (!arg.startsWith('--')) return false;
+  const given = arg.slice(2).split('=')[0];
+  return given.length >= minChars && name.startsWith(given);
+}
+
+function shortCluster(arg, letters, valueLetters) {
+  // True when a short option cluster (-ni, -Ei) contains one of letters before a letter that takes a value.
+  if (!/^-[a-zA-Z]/.test(arg)) return false;
+  for (const ch of arg.slice(1)) {
+    if (letters.includes(ch)) return true;
+    if (valueLetters.includes(ch) || !/[a-zA-Z]/.test(ch)) return false;
+  }
+  return false;
+}
+
 function readOnlyOptionsVerdict(first, lower, args) {
-  // Allowlisted programs whose options write a file or run a program.
-  if (lower === 'find' && args.some((a) => /^(-delete|-exec|-execdir|-ok|-okdir|-fprint|-fprintf|-fls)$/.test(a))) return 'find with -delete or -exec is not allowed';
+  // Allowlisted programs whose options write a file, run a program or reach the network.
+  if (lower === 'find' && args.some((a) => /^-(delete|exec|execdir|ok|okdir|fprint\w*|fls)$/.test(a))) return 'find with -delete, -exec or a file output (-fprint*, -fls) is not allowed';
   if (lower === 'sed') {
-    if (args.some((a) => /^(-i|--in-place|-s|--separate|-f|--file)/.test(a))) return 'sed in-place editing or a script file is not allowed';
+    if (args.some((a) => shortCluster(a, 'isf', 'el') || longOptionIs(a, 'in-place') || longOptionIs(a, 'separate', 2) || longOptionIs(a, 'file', 2))) return 'sed in-place editing or a script file is not allowed';
     if (SED_WRITE_OR_EXEC.test(args.join(' '))) return 'sed w (write) and e (execute) commands are not allowed';
   }
-  if (lower === 'awk') {
-    if (args.some((a) => /^(-f|--file)(=|$)/.test(a))) return 'awk program files are not allowed';
-    if (AWK_SIDE_EFFECT.test(args.join(' '))) return 'awk with system(), file output or a pipe is not allowed';
+  if (lower === 'awk' || lower === 'gawk') {
+    if (args.some((a) => /^(-f|--file|-E|--exec|-i|--include|-l|--load)(=|$)/.test(a) || /^-[fEil]./.test(a))) return 'awk program files, includes and extensions are not allowed';
+    const program = args.join(' ');
+    if (AWK_SIDE_EFFECT.test(program) || AWK_COMMAND_GETLINE.test(program)) return 'awk with system(), file output, a pipe or command getline is not allowed';
   }
-  if (lower === 'sort' && args.some((a) => /^(-[a-zA-Z]*o|--output)/.test(a))) return 'sort -o writes a file';
+  if (lower === 'sort' && args.some((a) => shortCluster(a, 'o', 'ktST') || longOptionIs(a, 'output') || longOptionIs(a, 'compress-program', 2))) return 'sort -o writes a file and --compress-program runs a program';
   if (lower === 'uniq' && positionals(args, /^-(f|s|w)$/).length >= 2) return 'uniq with an output file is not allowed';
   if (lower === 'xxd' && positionals(args, /^-(c|g|l|s|o|cols|len|seek)$/).length >= 2) return 'xxd with an output file is not allowed';
-  if (lower === 'tree' && args.some((a) => /^-[a-zA-Z]*o/.test(a))) return 'tree -o writes a file';
+  if (lower === 'tree' && args.some((a) => /^-[a-zA-Z]*o/.test(a) || /^--output(=|$)/.test(a))) return 'tree -o writes a file';
   if (lower === 'rg' && args.some((a) => /^--pre(-glob)?(=|$)/.test(a))) return 'rg --pre runs a preprocessor';
   if (lower === 'docker' && !/^(ps|images|inspect|logs|version|info|port|top|stats)$/.test(args[0] ?? '')) return 'only docker read commands are allowed';
-  if (lower === 'composer' && !/^(show|info|validate|licenses|outdated|depends|why|why-not|check-platform-reqs|--version|-V)$/.test(args[0] ?? '')) return 'only composer read commands are allowed';
-  if (lower === 'npm' || lower === 'npx') {
-    if (lower === 'npx' || !/^(ls|list|view|info|show|outdated|audit|--version|-v|explain|why)$/.test(args[0] ?? '')) return `${first} is not allowed for judgment agents`;
-    if (args[0] === 'audit' && args.includes('fix')) return 'npm audit fix writes package files';
+  if ((lower === 'composer' || lower === 'npm') && args.some((a) => /^--(registry|repository|repository-url)(=|$)/.test(a))) return `${first} with a custom registry or repository is not allowed`;
+  if (lower === 'composer') {
+    const sub = args[0] ?? '';
+    if (/^(show|info)$/.test(sub)) {
+      if (!args.some((a) => /^(--locked|-i|--installed)$/.test(a))) return 'composer show without --locked or --installed reaches the network';
+      if (args.some((a) => /^(-l|--latest|-o|--outdated|-a|--available|--all)$/.test(a))) return 'composer show --latest, --outdated and --all reach the network';
+      return null;
+    }
+    if (!/^(validate|licenses|depends|why|why-not|prohibits|check-platform-reqs|--version|-V)$/.test(sub)) return 'only local composer read commands are allowed (show --locked, validate, licenses, depends, why, why-not, check-platform-reqs)';
   }
+  if (lower === 'npx') return 'npx is not allowed for judgment agents';
+  if (lower === 'npm' && !/^(ls|list|--version|-v)$/.test(args[0] ?? '')) return 'only npm ls/list and npm --version are allowed for judgment agents (other npm subcommands reach the registry)';
   if (/^(node|php|python3?|ruby|perl)$/.test(lower)) {
     if (args.length === 1 && /^(--version|-v|-V)$/.test(args[0])) return null;
     const scriptIdx = args.findIndex((a) => !a.startsWith('-'));
@@ -294,58 +511,88 @@ function readOnlyOptionsVerdict(first, lower, args) {
     if (inline) return `${first} ${inline}: inline code, preloads and runtime options are not allowed; put a probe into a script file in the environment the brief names`;
     const script = scriptIdx >= 0 ? args[scriptIdx] : undefined;
     if (!script || !SCRIPT_FILE.test(script)) return `${first} needs a script file argument`;
-    if (!TOOL_SCRIPT_PATH.test(script.replace(/\\/g, '/'))) return `${first} may only run tool scripts under plugins/, \${CLAUDE_PLUGIN_ROOT}/ or a skill directory (got ${script}); test runners and project binaries need a run grant`;
+    const path = script.replace(/\\/g, '/');
+    if (/(^|\/)\.\.(\/|$)/.test(path) || !TOOL_SCRIPT_PATH.test(path)) return `${first} may only run the skill scripts of the installed plugins (\${CLAUDE_PLUGIN_ROOT}/…, ~/.claude/plugins/…, plugins/<plugin>/skills/<skill>/<script>; no ..) (got ${script}); test runners and project code need a run grant`;
   }
   return null;
 }
 
+function judgmentPrecheck(segment, shell) {
+  if (/\$\(|`|<\(|>\(/.test(segment)) return 'command and process substitution are not allowed';
+  const bad = redirections(segment, shell).find((r) => !redirectAllowed(r, shell));
+  if (bad) return `output redirection is not allowed (${bad.op}${bad.target ? ` ${bad.target}` : ''})`;
+  return null;
+}
+
 export function segmentVerdict(segment, tier, shell = 'bash') {
-  const toks = tokens(segment);
+  const toks = tokens(segment, shell);
   if (toks.length === 0) return null;
-  const rawFirst = toks[0].raw;
-  const first = toks[0].text;
-  const lower = baseName(first, shell).toLowerCase();
+  const r = resolveCommand(toks, shell);
+  if (r.error) return r.error;
+  const cmd = r.toks;
+  const cmdTok = cmd[0];
+  const lower = cmdTok ? baseName(cmdTok.text, shell).toLowerCase() : '';
+  // Orchestrator tools, any tier: only a viewer may name them.
+  if (mentionsOrchestratorScript(toks) && (!VIEWERS.has(lower) || r.viaXargs)) return ORCHESTRATOR_REASON;
+  // The plugin's own state (grants, session pointer, data-dir pointer, usage log), any tier: only a viewer may name
+  // it. A worker can still write it through a script it wrote itself; this is a tripwire against the ordinary forms.
+  if (mentionsPluginState(segment) && (!VIEWERS.has(lower) || r.viaXargs)) return PLUGIN_STATE_REASON;
   if (tier === 'judgment') {
-    if (/\$\(|`|<\(|>\(/.test(segment)) return 'command and process substitution are not allowed';
-    if (/\s(eval|exec|source)\s/.test(` ${segment} `) || /^(eval|exec|source|\.)$/.test(lower)) return 'eval, exec and sourcing are not allowed';
-    if (/^[A-Za-z_][A-Za-z0-9_]*=/.test(first)) return 'environment assignments before a command are not allowed';
-    if (first.startsWith('$')) return 'a variable as command is not allowed';
-    if (/[\\"']/.test(rawFirst) || /^\.?\//.test(first) && !/^\/usr\/bin\/(git|grep|cat|ls)$/.test(first)) return 'quoted, escaped or path-form command names are not allowed';
-    // redirections: only to /dev/null, stderr merges allowed
-    const redirects = [...segment.matchAll(/(\d?>>?&?\s*\S+|<\S*)/g)].map((m) => m[0]).filter((r) => !/^\d?>&\d$/.test(r.replace(/\s+/g, '')) && !/^\d?>>?\s*\/dev\/null$/.test(r) && !/^</.test(r));
-    if (redirects.length) return `output redirection is not allowed (${redirects[0]})`;
-  } else if (/`|\$\(.*\bgit\b/.test(segment) && /\bgit\b/.test(segment)) {
-    return 'git behind command substitution is not allowed for workers';
+    const pre = judgmentPrecheck(segment, shell);
+    if (pre) return pre;
+  } else if (/`|\$\(.*\b(git|gh|glab|curl)\b/.test(segment) && /\b(git|gh|glab|curl)\b/.test(segment)) {
+    return 'git, gh, glab or curl behind command substitution is not allowed for workers';
   }
-  if (/\bgit\b/.test(segment) && lower !== 'git') {
-    // git somewhere later in the segment (wrapper, env prefix): inspect that git invocation too
-    const gi = toks.findIndex((t) => baseName(t.text, shell) === 'git');
-    if (gi > 0 && !innerCommandOf(toks, shell)) {
-      const v = gitVerdict(toks.slice(gi), tier);
-      if (v) return v;
-    }
-    if (/=\s*git\b/.test(segment)) return 'assigning git to a variable is not allowed';
+  // Variable indirection: a remote-effect program stored in a variable, or a variable as the command word.
+  const declared = /^(export|declare|typeset|local|readonly|alias)$/.test(lower) ? cmd.slice(1).map((t) => t.text).filter((a) => ASSIGNMENT.test(a)) : [];
+  if ([...r.assignments, ...declared].some(assignsRemoteProgram)) return 'assigning git, gh, glab or curl to a variable or alias is not allowed';
+  if (tier === 'judgment' && r.assignments.length) return 'environment assignments before a command are not allowed';
+  if (!cmdTok) return null;
+  if (cmdTok.text.startsWith('$')) return 'a variable as command is not allowed';
+  if (tier === 'judgment') {
+    if (/^(eval|exec|source|\.)$/.test(lower)) return 'eval, exec and sourcing are not allowed';
+    if (r.prefixes.some((p) => p === 'sudo' || p === 'doas')) return 'sudo and doas are not allowed';
+    if (shell === 'powershell' && r.prefixes.some((p) => p === '&' || p === '.')) return 'the call operator is not allowed';
+    if (/[\\"']/.test(cmdTok.raw) && shell !== 'powershell' || /^\.?\//.test(cmdTok.text) && !/^\/usr\/bin\/(git|grep|cat|ls)$/.test(cmdTok.text)) return 'quoted, escaped or path-form command names are not allowed';
   }
-  if (lower === 'git') return gitVerdict(toks, tier);
-  const wrapper = innerCommandOf(toks, shell);
+  if (r.viaXargs && (REMOTE_PROGRAMS.test(lower) || innerCommandOf(cmd, shell))) return `${lower} with arguments built by xargs cannot be checked`;
+  if (lower === 'git') return gitVerdict(cmd, tier);
+  const wrapper = innerCommandOf(cmd, shell);
   if (wrapper) {
     if (wrapper.kind === 'script') return tier === 'judgment' ? `running a shell script (${wrapper.script}) is not allowed` : null;
     if (wrapper.container && tier === 'judgment') return 'docker exec/run is not allowed for judgment agents';
     return verdict(wrapper.inner, tier, 'bash');
   }
-  const args = toks.slice(1).map((t) => t.text);
+  const args = cmd.slice(1).map((t) => t.text);
   const remote = remoteEffectVerdict(lower, args);
   if (remote) return remote;
-  if (tier === 'worker') return null;
+  if (RUNNERS.has(lower)) {
+    const runs = cmd.slice(1).find((t) => REMOTE_PROGRAMS.test(baseName(t.text, shell).toLowerCase()) || /(^|[\s;&|(])(git|gh|glab|curl)(\.exe)?(\s|$)/.test(t.text));
+    if (runs) return `${lower} runs ${runs.text}; git, gh, glab and curl behind ${lower} are not allowed`;
+  }
+  if (tier === 'worker') {
+    if (lower === 'find') {
+      for (let k = 1; k < cmd.length; k++) {
+        if (!/^-(exec|execdir|ok|okdir)$/.test(cmd[k].text)) continue;
+        let e = k + 1;
+        while (e < cmd.length && !(cmd[e].text === ';' || cmd[e].text === '+')) e++;
+        const v = segmentVerdict(cmd.slice(k + 1, e).map((t) => t.raw).join(' '), tier, shell);
+        if (v) return v;
+        k = e;
+      }
+    }
+    return null;
+  }
   if (shell === 'powershell') {
     if (POWERSHELL_DENY.test(segment)) return 'this PowerShell command writes, deletes or executes';
-    if (/\b(-command|-c)\b\s/i.test(segment) && /powershell|pwsh/i.test(first)) return 'nested PowerShell -Command is not allowed';
-    if (first === '&' || first === '.') return 'the call operator is not allowed';
-    if (!POWERSHELL_READ_ONLY.has(lower)) return `${first} is not in the read-only allowlist`;
+    const expr = POWERSHELL_EXPRESSION.find(([re]) => re.test(segment));
+    if (expr) return `PowerShell argument expressions are not allowed (${expr[1]})`;
+    if (/\b(-command|-c)\b\s/i.test(segment) && /powershell|pwsh/i.test(cmdTok.text)) return 'nested PowerShell -Command is not allowed';
+    if (!POWERSHELL_READ_ONLY.has(lower)) return `${cmdTok.text} is not in the read-only allowlist`;
   } else if (!READ_ONLY_PROGRAMS.has(lower)) {
-    return `${first} is not in the read-only allowlist`;
+    return `${cmdTok.text} is not in the read-only allowlist`;
   }
-  return readOnlyOptionsVerdict(first, lower, args);
+  return readOnlyOptionsVerdict(cmdTok.text, lower, args);
 }
 
 export function verdict(command, tier, shell = 'bash') {
@@ -355,6 +602,9 @@ export function verdict(command, tier, shell = 'bash') {
   } catch (e) {
     return `command could not be parsed (${e.message})`;
   }
+  // An orchestrator script piped or fed into an interpreter: cat …/grant-run.mjs | node - grant …
+  const parsed = segments.map((seg) => resolveCommand(tokens(seg, shell), shell));
+  if (segments.some((seg) => mentionsOrchestratorScript(tokens(seg, shell))) && parsed.some((r) => r.viaXargs || STDIN_RUNNERS.has(baseName(r.toks[0]?.text ?? '', shell).toLowerCase()))) return ORCHESTRATOR_REASON;
   for (const seg of segments) {
     const v = segmentVerdict(seg, tier, shell);
     if (v) return v;
@@ -362,23 +612,43 @@ export function verdict(command, tier, shell = 'bash') {
   return null;
 }
 
+// Main session: issuing a run grant (grant-run.mjs grant, worktree-setup.mjs --grant) needs the human's confirmation.
+export function issuesGrant(command) {
+  const c = String(command ?? '').replace(/\\+/g, '/');
+  const after = (re) => {
+    const m = re.exec(c);
+    return m ? c.slice(m.index + m[0].length) : null;
+  };
+  const run = after(/grant-run\.mjs/);
+  if (run !== null && /(^|[\s"'])grant(?=[\s"']|$)/.test(run)) return true;
+  const setup = after(/worktree-setup\.mjs/);
+  return setup !== null && /(^|[\s"'])--grant(?=[=\s"']|$)/.test(setup);
+}
+
+const GRANT_ASK = 'A run grant moves a judgment agent to the worker tier (runs, writes, network) inside the named environment; the environment is a host worktree, not a sandbox. Confirm the grant.';
+
 export function decide(input, env = process.env) {
-  const name = agentName(input.agent_type);
-  if (!name) return null;
   if (!SHELL_TOOLS.has(input.tool_name)) return null;
   const command = input.tool_input?.command ?? '';
+  const name = agentName(input.agent_type);
+  if (!name) {
+    if (!issuesGrant(command)) return null;
+    return { hookSpecificOutput: { hookEventName: 'PreToolUse', permissionDecision: 'ask', permissionDecisionReason: GRANT_ASK } };
+  }
   const isWorker = WRITING_WORKERS.has(name);
-  const grant = isWorker ? null : activeGrant(name, env);
-  const granted = Boolean(grant) && grantApplies(grant, input.cwd);
+  const grant = isWorker ? null : activeGrant(name, env, Date.now(), input.session_id);
+  const granted = Boolean(grant) && grantApplies(grant, input.cwd, input.session_id);
   const tier = isWorker || granted ? 'worker' : 'judgment';
   const shell = input.tool_name === 'PowerShell' ? 'powershell' : 'bash';
   const reason = verdict(command, tier, shell);
   if (!reason) return null;
   let head;
-  if (isWorker) head = 'Implementation workers deliver a diff; they do not commit, push, fetch or rewrite history (worker contract rule 8).';
-  else if (granted) head = `A run grant is active for ${grant.root}: runs and writes inside it, still no commit, push, fetch or history rewrite (worker contract rule 8).`;
-  else if (grant) head = `A run grant exists for another project (${grant.project ?? grant.root}), not for ${input.cwd ?? 'this directory'}; here this agent runs read-only commands only (worker contract rule 8).`;
-  else head = 'This agent runs read-only commands only; runs need a grant for a disposable environment from the orchestrator (worker contract rule 8).';
+  if (isWorker) head = 'Implementation workers deliver a diff; they do not commit, push, fetch, rewrite history or publish (worker contract rule 8).';
+  else if (granted) head = `Run grant active (project ${grant.project ?? 'unknown'}, environment ${grant.root}); the environment is the boundary, not this hook. Still denied: commit, push, fetch, history rewrites, publication and the orchestrator tools; delivery is the diff (worker contract rule 8).`;
+  else if (grant) {
+    const why = sessionMatches(grant, input.session_id) ? `the working directory ${input.cwd ?? '(none)'} is outside the environment` : 'it was issued in another session';
+    head = `A run grant exists for ${name} (environment ${grant.root}) but does not apply here: ${why}; here this agent runs read-only commands only (worker contract rule 8).`;
+  } else head = 'This agent runs read-only commands only; runs need a grant for a disposable environment from the orchestrator (worker contract rule 8).';
   return { hookSpecificOutput: { hookEventName: 'PreToolUse', permissionDecision: 'deny', permissionDecisionReason: `${head} Blocked: ${reason}. Command: ${String(command).slice(0, 120)}` } };
 }
 
