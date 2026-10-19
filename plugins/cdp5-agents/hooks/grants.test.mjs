@@ -37,7 +37,8 @@ function sandbox() {
 }
 
 // The hook input of an agent working in `cwd`.
-const auditor = (command, env, cwd, session_id) => decide({ agent_type: 'cdp5-agents:adversarial-auditor', tool_name: 'Bash', tool_input: { command }, cwd, session_id }, env);
+// Grants in these tests are issued for session 's1' unless a test says otherwise.
+const auditor = (command, env, cwd, session_id = 's1') => decide({ agent_type: 'cdp5-agents:adversarial-auditor', tool_name: 'Bash', tool_input: { command }, cwd, session_id }, env);
 const denied = (d) => d?.hookSpecificOutput.permissionDecision === 'deny';
 const usage = (env) => {
   const file = join(env.CLAUDE_PLUGIN_DATA, 'usage-log.jsonl');
@@ -70,17 +71,28 @@ test('isWithin compares path prefixes on directory boundaries; the filesystem ro
 });
 
 test('grantApplies: only inside the root (not the project), and only in the session the grant was issued in', () => {
-  const grant = { project: '/repo', root: '/tmp/wt' };
-  assert.ok(!grantApplies(grant, '/repo/sub'), 'the project is not the environment');
-  assert.ok(grantApplies(grant, '/tmp/wt'));
-  assert.ok(grantApplies(grant, '/tmp/wt/src'));
-  assert.ok(!grantApplies(grant, '/elsewhere'));
-  assert.ok(!grantApplies(grant, undefined), 'no cwd, no grant');
-  const bound = { project: '/repo', root: '/tmp/wt', session: 's1' };
-  assert.ok(grantApplies(bound, '/tmp/wt', 's1'));
-  assert.ok(!grantApplies(bound, '/tmp/wt', 's2'), 'another session');
-  assert.ok(!grantApplies(bound, '/tmp/wt', undefined), 'no session id in the hook input');
-  assert.ok(grantApplies(grant, '/tmp/wt', 's2'), 'a grant without session (older format) still applies');
+  const grant = { project: '/repo', root: '/tmp/wt', session: 's1' };
+  assert.ok(!grantApplies(grant, '/repo/sub', 's1'), 'the project is not the environment');
+  assert.ok(grantApplies(grant, '/tmp/wt', 's1'));
+  assert.ok(grantApplies(grant, '/tmp/wt/src', 's1'));
+  assert.ok(!grantApplies(grant, '/elsewhere', 's1'));
+  assert.ok(!grantApplies(grant, undefined, 's1'), 'no cwd, no grant');
+  assert.ok(!grantApplies(grant, '/tmp/wt', 's2'), 'another session');
+  assert.ok(!grantApplies(grant, '/tmp/wt', undefined), 'no session id in the hook input');
+  const unbound = { project: '/repo', root: '/tmp/wt' };
+  assert.ok(!grantApplies(unbound, '/tmp/wt', 's2'), 'a grant without session applies nowhere');
+  assert.ok(!grantApplies(unbound, '/tmp/wt', undefined), 'not even when the hook input has no session either');
+});
+
+test('addGrant refuses a grant without a session', () => {
+  const { root, wt, env } = sandbox();
+  try {
+    assert.throws(() => addGrant({ agent: 'review-verify', root: wt, project: root, session: undefined }, env), /session is required/);
+    assert.throws(() => addGrant({ agent: 'review-verify', root: wt, project: root, session: '' }, env), /session is required/);
+    assert.deepEqual(readGrants(env), []);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
 });
 
 test('addGrant rejects the project, the filesystem root, the home directory and a directory that is not a worktree of the project (injected check)', () => {
@@ -95,7 +107,7 @@ test('addGrant rejects the project, the filesystem root, the home directory and 
     assert.throws(() => addGrant({ agent: 'review-verify', root: '/', project: proj, isWorktree: yes }, env), /filesystem root/);
     assert.throws(() => addGrant({ agent: 'review-verify', root: root, project: proj, isWorktree: yes }, env), /home directory/);
     assert.throws(() => addGrant({ agent: 'review-verify', root: wt, project: proj, isWorktree: () => false }, env), /not a git worktree of the project/);
-    const g = addGrant({ agent: 'review-verify', root: wt, project: proj, isWorktree: spy }, env);
+    const g = addGrant({ agent: 'review-verify', root: wt, project: proj, isWorktree: spy, session: 's1' }, env);
     assert.equal(g.project, proj, 'project is still recorded');
     assert.equal(calls.length, 1);
     assert.equal(calls[0][1], proj);
@@ -112,8 +124,8 @@ test('addGrant real worktree check: a plain directory is refused, a linked workt
     const elsewhere = mkdtempSync(join(tmpdir(), 'cdp5-other-'));
     assert.throws(() => addGrant({ agent: 'review-verify', root: plain, project: root }, env), /not a git worktree of the project/);
     assert.throws(() => addGrant({ agent: 'review-verify', root: wt, project: elsewhere }, env), /not a git worktree of the project/, 'a directory outside the repository');
-    assert.equal(addGrant({ agent: 'review-verify', root: wt, project: root }, env).root, wt);
-    assert.equal(addGrant({ agent: 'adversarial-auditor', root: wt, project: plain }, env).root, wt, 'a subdirectory of the repository is the same project');
+    assert.equal(addGrant({ agent: 'review-verify', root: wt, project: root, session: 's1' }, env).root, wt);
+    assert.equal(addGrant({ agent: 'adversarial-auditor', root: wt, project: plain, session: 's1' }, env).root, wt, 'a subdirectory of the repository is the same project');
     rmSync(elsewhere, { recursive: true, force: true });
   } finally {
     rmSync(root, { recursive: true, force: true });
@@ -125,7 +137,7 @@ test('without a grant the auditor is read-only; with a grant it gets the worker 
   try {
     assert.ok(denied(auditor('vendor/bin/phpunit', env, wt)));
     assert.match(auditor('vendor/bin/phpunit', env, wt).hookSpecificOutput.permissionDecisionReason, /grant/);
-    const g = addGrant({ agent: 'adversarial-auditor', root: wt, project: root, note: 'counter-test' }, env);
+    const g = addGrant({ agent: 'adversarial-auditor', root: wt, project: root, session: 's1', note: 'counter-test' }, env);
     assert.equal(g.root, wt);
     assert.equal(g.project, root);
     assert.equal(g.uses, 1);
@@ -157,7 +169,7 @@ test('without a grant the auditor is read-only; with a grant it gets the worker 
 test('a grant does not leak: another cwd stays on the judgment tier and the deny text says so', () => {
   const { root, wt, env } = sandbox();
   try {
-    addGrant({ agent: 'adversarial-auditor', root: wt, project: root }, env);
+    addGrant({ agent: 'adversarial-auditor', root: wt, project: root, session: 's1' }, env);
     const other = auditor('vendor/bin/phpunit', env, join(tmpdir(), 'another-project'));
     assert.ok(denied(other));
     assert.match(other.hookSpecificOutput.permissionDecisionReason, /grant exists .* but does not apply here/);
@@ -191,10 +203,10 @@ test('an expired grant does not count and is pruned on the next write', () => {
   const { root, wt, env } = sandbox();
   try {
     const past = Date.now() - 10_000;
-    addGrant({ agent: 'adversarial-auditor', root: wt, project: root, ttlMs: 1_000 }, env, past);
+    addGrant({ agent: 'adversarial-auditor', root: wt, project: root, session: 's1', ttlMs: 1_000 }, env, past);
     assert.equal(activeGrant('adversarial-auditor', env), null);
     assert.ok(denied(auditor('vendor/bin/phpunit', env, wt)));
-    addGrant({ agent: 'review-verify', root: wt, project: root }, env);
+    addGrant({ agent: 'review-verify', root: wt, project: root, session: 's1' }, env);
     assert.deepEqual(readGrants(env).map((g) => g.agent), ['review-verify']);
   } finally {
     rmSync(root, { recursive: true, force: true });
@@ -206,9 +218,9 @@ test('addGrant refuses a missing root, a prefixed agent name and bad uses; a new
   try {
     assert.throws(() => addGrant({ agent: 'adversarial-auditor', root: join(root, 'nope'), project: root }, env), /does not exist/);
     assert.throws(() => addGrant({ agent: 'cdp5-agents:adversarial-auditor', root: wt, project: root }, env), /plain agent name/);
-    assert.throws(() => addGrant({ agent: 'adversarial-auditor', root: wt, project: root, uses: 0 }, env), /uses/);
-    addGrant({ agent: 'adversarial-auditor', root: wt, project: root }, env);
-    addGrant({ agent: 'adversarial-auditor', root: wt2, project: root }, env);
+    assert.throws(() => addGrant({ agent: 'adversarial-auditor', root: wt, project: root, session: 's1', uses: 0 }, env), /uses/);
+    addGrant({ agent: 'adversarial-auditor', root: wt, project: root, session: 's1' }, env);
+    addGrant({ agent: 'adversarial-auditor', root: wt2, project: root, session: 's1' }, env);
     assert.equal(readGrants(env).length, 1);
     assert.equal(activeGrant('adversarial-auditor', env).root, wt2);
   } finally {
@@ -219,14 +231,14 @@ test('addGrant refuses a missing root, a prefixed agent name and bad uses; a new
 test('uses: consumeGrant spends one use per run and removes the grant at zero; removeGrant drops it outright', () => {
   const { root, wt, env } = sandbox();
   try {
-    addGrant({ agent: 'adversarial-auditor', root: wt, project: root, uses: 2 }, env);
-    assert.equal(consumeGrant('adversarial-auditor', env).uses, 2, 'returns the grant as it was before the use');
+    addGrant({ agent: 'adversarial-auditor', root: wt, project: root, session: 's1', uses: 2 }, env);
+    assert.equal(consumeGrant('adversarial-auditor', env, Date.now(), 's1').uses, 2, 'returns the grant as it was before the use');
     assert.equal(activeGrant('adversarial-auditor', env).uses, 1);
     assert.equal(auditor('vendor/bin/phpunit', env, wt), null, 'still armed for the second run');
-    consumeGrant('adversarial-auditor', env);
+    consumeGrant('adversarial-auditor', env, Date.now(), 's1');
     assert.equal(activeGrant('adversarial-auditor', env), null);
-    assert.equal(consumeGrant('adversarial-auditor', env), null);
-    addGrant({ agent: 'review-verify', root: wt, project: root, uses: 5 }, env);
+    assert.equal(consumeGrant('adversarial-auditor', env, Date.now(), 's1'), null);
+    addGrant({ agent: 'review-verify', root: wt, project: root, session: 's1', uses: 5 }, env);
     assert.equal(removeGrant('review-verify', env).agent, 'review-verify');
     assert.deepEqual(readGrants(env), []);
   } finally {
@@ -237,16 +249,16 @@ test('uses: consumeGrant spends one use per run and removes the grant at zero; r
 test('concurrency: writes go through a lock file and a temp-file rename; a held lock fails closed with a clear error', () => {
   const { root, wt, env } = sandbox();
   try {
-    addGrant({ agent: 'adversarial-auditor', root: wt, project: root, uses: 3 }, env);
+    addGrant({ agent: 'adversarial-auditor', root: wt, project: root, session: 's1', uses: 3 }, env);
     const lock = `${grantsPath(env)}.lock`;
     writeFileSync(lock, 'held by a test');
     const started = Date.now();
-    assert.throws(() => consumeGrant('adversarial-auditor', env), (e) => e.message.includes(lock) && /locked/.test(e.message));
+    assert.throws(() => consumeGrant('adversarial-auditor', env, Date.now(), 's1'), (e) => e.message.includes(lock) && /locked/.test(e.message));
     assert.ok(Date.now() - started >= 1_500, 'retries for about two seconds before giving up');
     assert.equal(readGrants(env)[0].uses, 3, 'nothing changed while the lock was held');
     rmSync(lock);
-    consumeGrant('adversarial-auditor', env);
-    consumeGrant('adversarial-auditor', env);
+    consumeGrant('adversarial-auditor', env, Date.now(), 's1');
+    consumeGrant('adversarial-auditor', env, Date.now(), 's1');
     assert.equal(readGrants(env)[0].uses, 1);
     assert.ok(!existsSync(lock), 'the lock is released');
     assert.deepEqual(readdirSync(dirname(grantsPath(env))).filter((f) => /\.tmp$/.test(f)), [], 'no temp files left behind');
@@ -334,19 +346,19 @@ test('SubagentStop spends one use of the finished agent, whether the acknowledge
     assert.equal(spawnSync('node', [GENERATE], { env, encoding: 'utf8' }).status, 0);
     const v = verify(root);
     assert.ok(v.ok, v.error);
-    addGrant({ agent: 'adversarial-auditor', root: wt, project: root }, env);
-    addGrant({ agent: 'review-verify', root: wt, project: root, uses: 2 }, env);
-    const ok = spawnSync('node', [CHECK], { env, encoding: 'utf8', input: JSON.stringify({ agent_type: 'cdp5-agents:adversarial-auditor', stop_hook_active: false, last_assistant_message: `contract: v${v.version} ${v.hash}\nSPERRE` }) });
+    addGrant({ agent: 'adversarial-auditor', root: wt, project: root, session: 's1' }, env);
+    addGrant({ agent: 'review-verify', root: wt, project: root, session: 's1', uses: 2 }, env);
+    const ok = spawnSync('node', [CHECK], { env, encoding: 'utf8', input: JSON.stringify({ agent_type: 'cdp5-agents:adversarial-auditor', session_id: 's1', stop_hook_active: false, last_assistant_message: `contract: v${v.version} ${v.hash}\nSPERRE` }) });
     assert.equal(ok.status, 0, ok.stderr);
     assert.deepEqual(readGrants(env).map((g) => g.agent), ['review-verify'], 'only the finished agent loses its grant');
-    const second = spawnSync('node', [CHECK], { env, encoding: 'utf8', input: JSON.stringify({ agent_type: 'cdp5-agents:review-verify', stop_hook_active: true, last_assistant_message: 'no ack' }) });
+    const second = spawnSync('node', [CHECK], { env, encoding: 'utf8', input: JSON.stringify({ agent_type: 'cdp5-agents:review-verify', session_id: 's1', stop_hook_active: true, last_assistant_message: 'no ack' }) });
     assert.equal(second.status, 0);
     assert.equal(readGrants(env)[0].uses, 1, 'one of two uses spent');
-    const third = spawnSync('node', [CHECK], { env, encoding: 'utf8', input: JSON.stringify({ agent_type: 'cdp5-agents:review-verify', stop_hook_active: true, last_assistant_message: 'no ack' }) });
+    const third = spawnSync('node', [CHECK], { env, encoding: 'utf8', input: JSON.stringify({ agent_type: 'cdp5-agents:review-verify', session_id: 's1', stop_hook_active: true, last_assistant_message: 'no ack' }) });
     assert.equal(third.status, 0);
     assert.deepEqual(readGrants(env), []);
     assert.ok(existsSync(join(root, 'data', 'grants.json')));
-    assert.equal(consumeGrant('nobody', env), null);
+    assert.equal(consumeGrant('nobody', env, Date.now(), 's1'), null);
     const runs = usage(env).filter((e) => e.result !== undefined);
     assert.deepEqual(runs.map((e) => e.result), ['ok', 'no-ack', 'no-ack']);
     // session-bound grant: a stop from another session leaves it, a stop from its session spends it

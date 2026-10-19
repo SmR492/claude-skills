@@ -42,7 +42,7 @@ export function main(argv = process.argv.slice(2), env = process.env, out = (s) 
       const project = typeof args.project === 'string' ? args.project : process.cwd();
       const session = typeof args.session === 'string' ? args.session : readSessionPointer(env);
       const g = addGrant({ agent: args.agent, root: args.root, project, ttlMs, uses, session, note: typeof args.note === 'string' ? args.note : '' }, env);
-      out(`grant: ${g.agent} may run in ${g.root} until ${g.expires} for project ${g.project}, ${g.uses} use${g.uses === 1 ? '' : 's'}${g.session ? `, session ${g.session}` : ', no session binding'} (${grantsPath(env)})`);
+      out(`grant: ${g.agent} may run in ${g.root} until ${g.expires} for project ${g.project}, ${g.uses} use${g.uses === 1 ? '' : 's'}, session ${g.session} (${grantsPath(env)})`);
       return 0;
     }
     if (cmd === 'list') {

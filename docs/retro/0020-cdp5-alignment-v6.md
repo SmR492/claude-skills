@@ -89,7 +89,8 @@ Decidable requirements (an entry point starts, an anchor resolves, a number is u
 | Live install test with installed plugins | open | orchestrator, gated by human (ESC-1) |
 | Push of the local commits | open | human |
 | Duplicate retro numbers 0001/0002 (cdp5 vs nsai-edge) | open | human decides: renumber or move nsai-edge retros |
-| Devils-advocate pass on v6.0 | open, running in blind-test round 2 | orchestrator |
+| Devils-advocate pass on v6.0 | closed: (a) with conditions, all four applied (83f7eb4); own-scope items (§32.11 trigger, triad clause) for the human | orchestrator |
+| Grant and guard 🔴 from threat-modeler and auditor (self-grant, main-checkout scope, unbroken trifecta) | closed by test-verified fix (aef4f30, 5d7d4c9, session mandatory); live host test open | orchestrator |
 | Calibration set for the rubric | open | orchestrator |
 | Eval suites with `claude plugin eval` | open, depends on live install | orchestrator |
 | German Orbit paragraphs as generator source | open | orchestrator (Orbit phase) |

@@ -30,10 +30,13 @@ function git(args, cwd) {
 }
 
 // Validates the grant options before anything touches the repository, so a bad value leaves no stray worktree.
-export function grantOptions(opts) {
+// A grant needs the session it is issued for: --session, or the id the SessionStart bootstrap wrote to the pointer file.
+export function grantOptions(opts, env = process.env) {
   if (opts.grant && !/^[a-z0-9-]+$/.test(String(opts.grant))) return { error: `--grant must be the plain agent name, for example adversarial-auditor (got ${opts.grant})` };
+  const session = typeof opts.session === 'string' && opts.session ? opts.session : readSessionPointer(env);
+  if (opts.grant && !session) return { error: '--grant needs a session: pass --session=<id> (the SessionStart bootstrap prints it) or start the session with the plugin installed so the pointer file exists' };
   try {
-    return { ttlMs: opts.ttl ? parseTtl(opts.ttl) : DEFAULT_TTL_MS, uses: opts.uses ? parseUses(opts.uses) : 1 };
+    return { ttlMs: opts.ttl ? parseTtl(opts.ttl) : DEFAULT_TTL_MS, uses: opts.uses ? parseUses(opts.uses) : 1, session: session || null };
   } catch (e) {
     return { error: e.message };
   }
@@ -41,7 +44,7 @@ export function grantOptions(opts) {
 
 export function setup(opts, env = process.env, now = Date.now()) {
   if (!opts.path) return { error: '--path is required' };
-  const grantOpts = grantOptions(opts);
+  const grantOpts = grantOptions(opts, env);
   if (grantOpts.error) return { error: grantOpts.error };
   const repoArg = resolve(opts.repo ?? '.');
   if (git(['rev-parse', '--git-dir'], repoArg).status !== 0) return { error: `not a git repository: ${repoArg}` };
@@ -63,8 +66,7 @@ export function setup(opts, env = process.env, now = Date.now()) {
   }
   let grant = null;
   if (opts.grant && green) {
-    const session = typeof opts.session === 'string' ? opts.session : readSessionPointer(env);
-    grant = addGrant({ agent: opts.grant, root: path, project: repo, ttlMs: grantOpts.ttlMs, uses: grantOpts.uses, session, note: `worktree on ${base.out.slice(0, 7)}` }, env, now);
+    grant = addGrant({ agent: opts.grant, root: path, project: repo, ttlMs: grantOpts.ttlMs, uses: grantOpts.uses, session: grantOpts.session, note: `worktree on ${base.out.slice(0, 7)}` }, env, now);
   }
   return { repo, worktree: path, base: base.out, baseline, green, grant, requestedGrant: opts.grant ?? null };
 }
@@ -73,7 +75,7 @@ export function briefLines(r) {
   const lines = [`disposable environment: ${r.worktree}`, `base commit: ${r.base}`];
   for (const b of r.baseline) lines.push(`baseline: ${b.cmd} → exit ${b.exit}`);
   if (r.baseline.length === 0) lines.push('baseline: none run (no --baseline given)');
-  if (r.grant) lines.push(`run grant: ${r.grant.agent} until ${r.grant.expires} (${r.grant.uses} use${r.grant.uses === 1 ? '' : 's'}, project ${r.grant.project}${r.grant.session ? `, session ${r.grant.session}` : ', no session binding'})`);
+  if (r.grant) lines.push(`run grant: ${r.grant.agent} until ${r.grant.expires} (${r.grant.uses} use${r.grant.uses === 1 ? '' : 's'}, project ${r.grant.project}, session ${r.grant.session})`);
   else if (r.requestedGrant) lines.push(`run grant: not issued for ${r.requestedGrant} (baseline red)`);
   else lines.push('run grant: none');
   return lines;

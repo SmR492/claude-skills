@@ -37,19 +37,22 @@ test('parseArgs collects repeated --baseline and plain flags', () => {
   assert.equal(a.json, true);
 });
 
-test('grantOptions validates agent name, ttl and uses up front', () => {
-  assert.deepEqual(grantOptions({}), { ttlMs: DEFAULT_TTL_MS, uses: 1 });
-  assert.deepEqual(grantOptions({ grant: 'review-verify', ttl: '30m', uses: '3' }), { ttlMs: 1_800_000, uses: 3 });
-  assert.match(grantOptions({ grant: 'cdp5-agents:review-verify' }).error, /plain agent name/);
-  assert.match(grantOptions({ grant: 'review-verify', ttl: '3d' }).error, /ttl/);
-  assert.match(grantOptions({ grant: 'review-verify', uses: '0' }).error, /uses/);
+test('grantOptions validates agent name, ttl, uses and the session up front', () => {
+  const noPointer = { HOME: join(tmpdir(), 'no-such-home-for-cdp5') };
+  assert.deepEqual(grantOptions({}, noPointer), { ttlMs: DEFAULT_TTL_MS, uses: 1, session: null });
+  assert.deepEqual(grantOptions({ grant: 'review-verify', ttl: '30m', uses: '3', session: 's1' }, noPointer), { ttlMs: 1_800_000, uses: 3, session: 's1' });
+  assert.match(grantOptions({ grant: 'cdp5-agents:review-verify', session: 's1' }, noPointer).error, /plain agent name/);
+  assert.match(grantOptions({ grant: 'review-verify', ttl: '3d', session: 's1' }, noPointer).error, /ttl/);
+  assert.match(grantOptions({ grant: 'review-verify', uses: '0', session: 's1' }, noPointer).error, /uses/);
+  assert.match(grantOptions({ grant: 'review-verify' }, noPointer).error, /needs a session/, 'a grant without --session and without the bootstrap pointer is refused');
+  assert.equal(grantOptions({ baseline: ['npm test'] }, noPointer).error, undefined, 'no grant requested: no session needed');
 });
 
 test('creates a detached worktree on the exact base, runs the baseline, issues the grant bound to the repository when green', () => {
   const { root, r, first, env } = repo();
   try {
     const wt = join(root, 'wt');
-    const res = setup({ repo: r, base: first, path: wt, baseline: ['node -e "process.exit(0)"'], grant: 'adversarial-auditor', uses: '2' }, env);
+    const res = setup({ repo: r, base: first, path: wt, baseline: ['node -e "process.exit(0)"'], grant: 'adversarial-auditor', uses: '2', session: 's1' }, env);
     assert.equal(res.error, undefined, res.error);
     assert.equal(res.base, first);
     assert.ok(existsSync(join(wt, 'a.txt')));
@@ -93,7 +96,7 @@ test('a red baseline keeps the worktree, issues no grant and exits 1; usage erro
   const { root, r, first, env } = repo();
   try {
     const wt = join(root, 'wt-red');
-    const run = spawnSync('node', [SCRIPT, `--repo=${r}`, `--base=${first}`, `--path=${wt}`, '--baseline=node -e "console.log(1)"', '--baseline=node -e "console.error(\'boom\'); process.exit(3)"', '--grant=review-verify'], { env, encoding: 'utf8' });
+    const run = spawnSync('node', [SCRIPT, `--repo=${r}`, `--base=${first}`, `--path=${wt}`, '--baseline=node -e "console.log(1)"', '--baseline=node -e "console.error(\'boom\'); process.exit(3)"', '--grant=review-verify', '--session=s1'], { env, encoding: 'utf8' });
     assert.equal(run.status, 1, run.stdout + run.stderr);
     assert.match(run.stdout, /baseline: .*→ exit 0\nbaseline: .*→ exit 3/);
     assert.match(run.stdout, /run grant: not issued for review-verify \(baseline red\)/);
@@ -117,12 +120,17 @@ test('a bad --grant, --ttl or --uses is rejected before the worktree is created'
       const wt = join(root, `wt-${name}`);
       const args = [SCRIPT, `--repo=${r}`, `--base=${first}`, `--path=${wt}`, flag];
       if (name !== 'grant') args.push('--grant=review-verify');
+      args.push('--session=s1');
       const run = spawnSync('node', args, { env, encoding: 'utf8' });
       assert.equal(run.status, 2, `${flag}: ${run.stdout}${run.stderr}`);
       assert.match(run.stderr, new RegExp(name === 'grant' ? 'plain agent name' : name));
       assert.ok(!existsSync(wt), `${flag}: no stray worktree`);
       assert.equal(activeGrant('review-verify', env), null);
     }
+    const noSession = spawnSync('node', [SCRIPT, `--repo=${r}`, `--base=${first}`, `--path=${join(root, 'wt-nosession')}`, '--grant=review-verify'], { env, encoding: 'utf8' });
+    assert.equal(noSession.status, 2, noSession.stdout + noSession.stderr);
+    assert.match(noSession.stderr, /needs a session/);
+    assert.ok(!existsSync(join(root, 'wt-nosession')), 'no stray worktree without a session');
     assert.equal(spawnSync('git', ['worktree', 'list'], { cwd: r, encoding: 'utf8' }).stdout.trim().split('\n').length, 1, 'only the main worktree exists');
   } finally {
     spawnSync('git', ['worktree', 'prune'], { cwd: r });

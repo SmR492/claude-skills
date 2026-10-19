@@ -9,7 +9,7 @@ import { spawnSync } from 'node:child_process';
 import { closeSync, existsSync, mkdirSync, openSync, readFileSync, realpathSync, renameSync, unlinkSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
-import { dataDir } from './data-dir.mjs';
+import { dataDir, SESSION_ID as SESSION_RE } from './data-dir.mjs';
 import { appendUsage } from './contract.mjs';
 
 export const DEFAULT_TTL_MS = 2 * 60 * 60 * 1000;
@@ -103,12 +103,12 @@ export function pruneExpired(grants, now = Date.now()) {
 
 const sessionOf = (g) => g.session ?? '';
 
-// The grant of an agent that fits the session: the one issued in that session, else one without session (older
-// format). Without a fitting grant, any grant of the agent is returned so that the guard can say why it does not apply.
+// The grant of an agent that fits the session. Without a fitting grant, any grant of the agent is returned so that the
+// guard can say why it does not apply (another session, outside the environment).
 export function activeGrant(agent, env = process.env, now = Date.now(), sessionId = undefined) {
   if (!agent) return null;
   const mine = pruneExpired(readGrants(env), now).filter((g) => g.agent === agent);
-  return mine.find((g) => g.session && g.session === sessionId) ?? mine.find((g) => !g.session) ?? mine[0] ?? null;
+  return mine.find((g) => g.session === sessionId) ?? mine[0] ?? null;
 }
 
 function normalizePath(p) {
@@ -130,11 +130,12 @@ export function isWithin(cwd, base) {
   return c === b || c.startsWith(`${b}/`);
 }
 
+// Every grant carries the session it was issued in; a grant without one (hand-written or from an older format) applies nowhere.
 export function sessionMatches(grant, sessionId) {
-  return !grant?.session || grant.session === sessionId;
+  return Boolean(grant?.session) && Boolean(sessionId) && grant.session === sessionId;
 }
 
-// A grant applies to a hook call only inside its root, and only in its session when it carries one.
+// A grant applies to a hook call only inside its root and only in the session it was issued in.
 export function grantApplies(grant, cwd, sessionId = undefined) {
   if (!grant) return false;
   return isWithin(cwd, grant.root) && sessionMatches(grant, sessionId);
@@ -160,7 +161,7 @@ export function addGrant({ agent, root, project = process.cwd(), ttlMs = DEFAULT
   const absolute = resolve(root);
   if (!existsSync(absolute)) throw new Error(`root does not exist: ${absolute}`);
   if (!Number.isInteger(uses) || uses < 1 || uses > MAX_USES) throw new Error(`uses must be a whole number between 1 and ${MAX_USES}`);
-  if (session !== null && session !== undefined && session !== '' && !/^[A-Za-z0-9._:-]{1,128}$/.test(String(session))) throw new Error(`session must be a session id, got "${session}"`);
+  if (session !== null && session !== undefined && session !== '' && !SESSION_RE.test(String(session))) throw new Error(`session must be a session id, got "${session}"`);
   const projectAbs = resolve(project);
   const r = normalizePath(real(absolute));
   const p = normalizePath(real(projectAbs));
@@ -170,8 +171,8 @@ export function addGrant({ agent, root, project = process.cwd(), ttlMs = DEFAULT
   if (r === home) throw new Error(`root is the home directory (${absolute}); a grant needs a separate worktree`);
   if (isWithin(p, r) || isWithin(home, r)) throw new Error(`root ${absolute} contains the project or the home directory; a grant needs a separate worktree`);
   if (!isWorktree(absolute, projectAbs)) throw new Error(`root is not a git worktree of the project: ${absolute} is not listed by git -C ${projectAbs} worktree list`);
-  const grant = { agent, root: absolute, project: projectAbs, uses, issued: new Date(now).toISOString(), expires: new Date(now + ttlMs).toISOString(), note };
-  if (session) grant.session = String(session);
+  if (!session) throw new Error('session is required: pass --session=<id> (the SessionStart bootstrap prints it and writes ~/.cache/cdp5-agents/session); a grant without a session applies nowhere');
+  const grant = { agent, root: absolute, project: projectAbs, uses, issued: new Date(now).toISOString(), expires: new Date(now + ttlMs).toISOString(), note, session: String(session) };
   return withGrantsLock(env, () => {
     const grants = pruneExpired(readGrants(env), now).filter((g) => !(g.agent === agent && sessionOf(g) === sessionOf(grant)));
     grants.push(grant);
@@ -181,8 +182,8 @@ export function addGrant({ agent, root, project = process.cwd(), ttlMs = DEFAULT
   });
 }
 
-// One finished run uses up one use; the grant disappears at zero. Only a grant of the stopping session (or one
-// without session) is consumed. Returns the grant as it was before the use, or null.
+// One finished run uses up one use; the grant disappears at zero. Only the grant of the stopping session is consumed.
+// Returns the grant as it was before the use, or null.
 export function consumeGrant(agent, env = process.env, now = Date.now(), sessionId = undefined) {
   if (!agent) return null;
   if (!readGrants(env).some((g) => g.agent === agent)) return null;
@@ -190,7 +191,7 @@ export function consumeGrant(agent, env = process.env, now = Date.now(), session
     const grants = readGrants(env);
     const live = pruneExpired(grants, now);
     const mine = live.filter((g) => g.agent === agent);
-    const used = mine.find((g) => g.session && g.session === sessionId) ?? mine.find((g) => !g.session) ?? null;
+    const used = (sessionId && mine.find((g) => g.session === sessionId)) || null;
     const rest = live.flatMap((g) => {
       if (g !== used) return [g];
       const left = (g.uses ?? 1) - 1;
@@ -207,7 +208,7 @@ export function removeGrant(agent, env = process.env, now = Date.now(), sessionI
   if (!agent) return null;
   return withGrantsLock(env, () => {
     const grants = readGrants(env);
-    const hit = (g) => g.agent === agent && (sessionId === undefined || sessionOf(g) === sessionId || !g.session);
+    const hit = (g) => g.agent === agent && (sessionId === undefined || sessionOf(g) === sessionId);
     const removed = grants.filter(hit);
     const rest = pruneExpired(grants.filter((g) => !hit(g)), now);
     if (removed.length || rest.length !== grants.length) writeGrants(rest, env);
