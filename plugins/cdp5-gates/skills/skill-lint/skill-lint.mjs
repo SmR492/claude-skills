@@ -24,7 +24,7 @@ const MAX_SIZE = 1_000_000;
 
 // Supply-chain patterns. `scope` says which files they apply to; `sev` the severity in non-test files.
 const SIGNALS = [
-  { id: 'X1', sev: '🔴', scope: 'code', why: 'remote or dynamic code execution', re: /(curl|wget|Invoke-WebRequest|iwr)\b[^\n|]*\|\s*(ba|z|da)?sh\b|\beval\s*["'$(]|new\s+Function\s*\(|Invoke-Expression\s*\(|\biex\s*\(|base64\s+(-d|--decode)[^\n]*\|\s*(ba)?sh\b|\batob\s*\([^\n]*\)\s*\)\s*\(/i },
+  { id: 'X1', sev: '🔴', scope: 'code', why: 'remote or dynamic code execution', re: /(curl|wget|Invoke-WebRequest|iwr)\b[^\n|]*\|\s*(ba|z|da)?sh\b|(?<!['"`])\beval\s*\(|(?<![\w'"`])eval\s+["'$]|new\s+Function\s*\(|Invoke-Expression\s*\(|\biex\s*\(|base64\s+(-d|--decode)[^\n]*\|\s*(ba)?sh\b|\batob\s*\([^\n]*\)\s*\)\s*\(/i },
   { id: 'X2', sev: '🔴', scope: 'code', why: 'reaches credentials or secret stores', re: /~\/\.ssh|\bid_rsa\b|\.aws\/credentials|\.netrc\b|\/etc\/(passwd|shadow)|process\.env\.[A-Z0-9_]*(KEY|TOKEN|SECRET|PASSWORD)\b|\$env:[A-Z0-9_]*(KEY|TOKEN|SECRET)\b|keychain|credential\s*manager/i },
   { id: 'X3', sev: '🔴', scope: 'text', why: 'instruction override or concealment aimed at the agent', re: /ignore (all |any )?(previous|prior|above|earlier) (instructions|rules)|disregard (your|the|all) (previous |prior )?(instructions|rules|guidelines)|do not (tell|inform|mention|reveal)[^\n]{0,40}\buser\b|without (telling|informing|asking) the user|hide [^\n]{0,30}from the user|you are now (in )?(developer|god|unrestricted) mode|override (your )?(safety|system) (rules|prompt)/i },
   { id: 'X4', sev: '🟡', scope: 'code', why: 'network access', re: /\b(curl|wget|Invoke-WebRequest|Invoke-RestMethod|iwr|irm)\b|\bfetch\s*\(|https?:\/\/[a-z0-9.-]+/i },

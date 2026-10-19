@@ -125,6 +125,22 @@ test('self-check: the plugins of this repository have no critical finding, no sp
   assert.deepEqual(spec, [], spec.join('\n'));
 });
 
+test('the word eval as a string literal is not dynamic execution; eval( and shell eval "…" are', () => {
+  const root = mkdtempSync(join(tmpdir(), 'skill-lint-'));
+  try {
+    const dir = skill(root, 'evalish', 'name: evalish\ndescription: Eval words. Use when testing.');
+    mkdirSync(join(dir, 'scripts'));
+    writeFileSync(join(dir, 'scripts', 'list.mjs'), "const RUNNERS = new Set(['node', 'eval', 'source']);\nexport default RUNNERS;\n");
+    assert.ok(!scanTree(root).some((x) => x.check === 'X1'), 'a Set of command names is not execution');
+    writeFileSync(join(dir, 'scripts', 'run.mjs'), 'const p = process.argv[2];\neval(p);\n');
+    writeFileSync(join(dir, 'scripts', 'run.sh'), '#!/bin/sh\neval "$PAYLOAD"\n');
+    const x1 = scanTree(root).filter((x) => x.check === 'X1' && x.sev === '🔴').map((x) => x.file).sort();
+    assert.deepEqual(x1, ['evalish/scripts/run.mjs', 'evalish/scripts/run.sh']);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
 test('a pattern definition or comment in code is informational, a real call is not', () => {
   const root = mkdtempSync(join(tmpdir(), 'skill-lint-'));
   try {
