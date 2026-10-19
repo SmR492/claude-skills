@@ -11,7 +11,7 @@ import { join, dirname } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { guardPaths } from '../../lib/args.mjs';
 
-const DEFAULT_DOCTRINE = join(dirname(fileURLToPath(import.meta.url)), 'konzept-design-pattern-v5.md');
+const DEFAULT_DOCTRINE = join(dirname(fileURLToPath(import.meta.url)), 'konzept-design-pattern-v6.md');
 
 export function splitBlocks(md) {
   const blocks = [];

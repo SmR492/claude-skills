@@ -5,7 +5,7 @@ description: The CDP5 doctrine as a queryable reference. Returns exactly the req
 
 # cdp5-reference
 
-The complete CDP5 doctrine (`konzept-design-pattern-v5.md`) is bundled here. Instead of loading it in full, you fetch **exactly** the relevant part — context-efficient (CDP5 §28.6).
+The complete CDP5 doctrine (`konzept-design-pattern-v6.md`) is bundled here. Instead of loading it in full, you fetch **exactly** the relevant part — context-efficient (CDP5 §28.6).
 
 ## Query
 
@@ -24,4 +24,4 @@ Exit: `0` hit · `2` no hit, or usage/input error. **Reference lookups are not g
 
 ## Without Bash
 
-Agents without Bash read/grep the bundled `konzept-design-pattern-v5.md` directly (Read/Grep). The `§` anchors are stable; the part headings structure the reading order (part 0 mission · 1 core principles · 2 workflow · 3 security · 4 authoring · 5 LLM · 6 lessons learned).
+Agents without Bash read/grep the bundled `konzept-design-pattern-v6.md` directly (Read/Grep). The `§` anchors are stable; the part headings structure the reading order (part 0 mission · 1 core principles · 2 workflow · 3 security · 4 authoring · 5 LLM · 6 lessons learned).

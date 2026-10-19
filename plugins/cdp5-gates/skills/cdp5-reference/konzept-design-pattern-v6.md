@@ -2,11 +2,11 @@
 
 **Abbreviation:** CDP5 (Concept Design Pattern, Generation 5) — the active doctrine is **exclusively this file**. The predecessor **CDP4** (v4.7, `konzept-design-pattern-v4.md`) is **frozen + not active**, kept as a fallback reference (fallback in case of structural drift of the v5 base structure). The abbreviation KDP denotes v3.1 (frozen, inlined in §1–§26).
 
-**Version:** 5.1
-**Status:** October 2026 (v5.0: May 2026)
-**Provenance:** This file is the bundled copy of the CDP5 doctrine and, until the knowledge layer (Orbit, `riedl/nsai/doktrin/par-*`) is connected, the interim master (DECISIONS.md A4). Changes only via PR; bundling status v5.0, for Orbit-only paragraphs see the redirect table in §26. A generated, hash-checked version replaces this copy as soon as the generator exists.
+**Version:** 6.0
+**Stand:** October 2026
+**Provenance:** This file is the bundled copy of the CDP5 doctrine and its master until the knowledge layer (Orbit) is connected (DECISIONS.md A4, amended 2026-10-19). Version 6.0 aligns the doctrine with the plugins cdp5-gates, cdp5-agents and domain-agents (DECISIONS.md D-13 batches 1–7); changes only via PR.
 **Language:** English translation of the German Orbit original, translated 2026-10-19; § numbering and German identifier terms retained.
-**Character of this version:** v5 is a **restructuring** of v4.7 — same doctrine, reordered for **low-context reading**. Content was moved, not deleted (exception: two pure forward-reference stubs; three topic duplicates merged). Author quotations have been converted into direct inline rules (portability: every rule stands on its own, no external reading required). New: Part 0 (mission + work loop), the anti-drift/memory mechanics pulled forward, a dedicated security part (Part 3, §33), LLM specifics bundled into a skippable Part 5, reference material (prompt patterns, golden samples, cases) in the appendix.
+**Character of this version:** v6.0 aligns the doctrine with the shipped plugins (worker contract, orchestrate size floor, gate ids G1–G15, run grants, the agents and T1 skills that exist); the paragraphs that were knowledge-layer-only are inlined (§1.11, §27.1.1, §32.12, §32.13, §32.15, §32.17, §35.1). Underneath, v5 is a **restructuring** of v4.7 — same doctrine, reordered for **low-context reading**. Content was moved, not deleted (exception: two pure forward-reference stubs; three topic duplicates merged). Author quotations have been converted into direct inline rules (portability: every rule stands on its own, no external reading required). New: Part 0 (mission + work loop), the anti-drift/memory mechanics pulled forward, a dedicated security part (Part 3, §33), LLM specifics bundled into a skippable Part 5, reference material (prompt patterns, golden samples, cases) in the appendix.
 
 **Stable anchors:** The `§` numbers are unchanged and remain the citable anchors (all internal `(§X.Y)` references continue to apply). The **Part** structure is the *reading* order — which is why, for example, §29 (modes) appears before §10 (review): the working path comes before the Konzept (concept document) craft.
 
@@ -153,6 +153,10 @@ If a solution approach fails **after the second attempt** OR the user expresses 
 - **Do not become destructive under pressure:** no sweeping edits, no overwriting of others' or one's own user changes, no guess-and-push. Before intervening again, the substantiated cause + the planned fix are named (for contentious interventions: have them confirmed, §1.9).
 - The cause found is recorded (memory/ADR/retro, §32.6) so that the same loop is not run again.
 
+### 1.11 Proportionality
+
+Every answer and every artefact comes in one of three scope forms: a direct answer; a minimal concept; the full structure with UCs and acceptance criteria. The orchestrator names the form in the brief. Without a named form, the smallest form that answers the assignment applies, and the omissions are stated. A self-imposed demand for completeness or purity ("pure", "complete", "byte-equivalent", "clean", "consistent") is an uncommissioned feature and needs the client's explicit release (§27.1.1).
+
 ---
 
 # Part 2 — The Working Path (drift-free / memory-loss-free)
@@ -161,7 +165,7 @@ This part is the operational core: *how* an assignment is processed without the 
 
 ## 29. Four Application Modes + Mode E
 
-§29 decides which §27 tools apply in which mode. Modes are non-linear — a session can switch between modes.
+§29 decides which §27 tools apply in which mode. Modes are non-linear — a session can switch between modes. The orchestrator role (§32) applies from two stages and more than one worker's worth of work; a bugfix or a single slice with one writer runs as worktree, one worker, review-verify; the full chain applies from three stages, two writers or a 🔴 object (size floor, §32.10).
 
 ### Mode A — Greenfield feature in an existing repo
 
@@ -276,15 +280,18 @@ Format: numbered list with the mandatory fields per entry.
 |---|---|---|
 | **Enterprise / management** | Main session (orchestrator) | Understand the assignment, choose the CDP5 mode (§29), delegate to stage workers, supervise, **verify** (§32.8 (4)), **synthesize** results, hold Mensch-Gates (§23). The orchestrator decides, briefs, verifies and synthesizes; it does not analyze, research or implement itself, it brings in expert workers for that. Effort scaling is part of its role: one agent with a few tool calls for a fact, two to four workers for a comparison, more only for complex research; before a team, first check whether a subagent suffices (role text: skill `orchestrate` in the plugin cdp5-agents) |
 | **Department / worker** | Subagent per stage role | Isolated specialist work in a **fresh, small context** (drift protection), with baked-in methodology + bound tools |
-| **Tool / procedure** | Skill | Either (A) baked into the worker as methodology or (B) run by the orchestrator (MCP/interaction) |
+| **Tool / procedure** | Skill | (A) baked into the worker as methodology; (B) run by the orchestrator (MCP/interaction); (C) a session persona for a conversation with a person (domain-agents psy skills, `business-lingo`) that dispatches its counter-check (`psy-grenzwaechter`) as a worker and does no engineering work in persona |
 
 ### 32.2 Mandatory Orchestrator Procedure
 
+The procedure applies from two stages and more than one worker's worth of work; a bugfix or a single slice with one writer runs as worktree, one worker, review-verify; the full chain from three stages, two writers or a 🔴 object (size floor, §32.10).
+
+0. **Name the mode (§29) in the ledger;** for a sprint-sized assignment the §23 walk-through and responsibility matrix precede the first brief.
 1. **Choose mode (§29):** A greenfield · B bug/regression · C review/teardown · D UC→code · E AI PoC.
 2. **Walk-through + responsibility matrix (§23)** before delegation if the assignment spans a sprint.
 3. **Before every delegation: determinism gate + pointer brief (§32.8)** — decidable task → script instead of LLM worker; otherwise brief = pointer to the single source + narrow task + scope/AC + stop rule. Then **delegate per stage to the responsible worker** (table §32.4); independent workers **asynchronously/in parallel** (several `Agent` calls in one message), dependent ones sequentially.
 4. **Choose the cheapest sufficient model per worker** (§32.3) — saving tokens is mandatory, not optional.
-5. **Verify results (§1.5 + §10.6):** worker output is probabilistic → before any follow-up action, check it against code/source via `review-verify` (verification agent). No irreversible action on an unverified worker claim.
+5. **Verify results (§1.5 + §10.6):** worker output is probabilistic → `review-verify` checks every worker claim against code/source before any follow-up action. A delivered diff passes the two-stage review in fresh context: brief conformance by `review-verify` (every AC covered, nothing out of scope, the gate commands really run), then quality by `review-code` for diffs that add a class or a seam or exceed about 150 lines; smaller diffs close with `review-verify` alone. No irreversible action on an unverified worker claim.
 6. **MCP/interaction skills (B) stay with the orchestrator** — subagents get no MCP tools and cannot call skills/agents. The orchestrator runs them and passes the result to the workers.
 7. **Hold Mensch-Gates (§23):** destructive/irreversible steps (schema drop, force-push, migration cutoff, branch delete) never automatic — always a human.
 
@@ -292,23 +299,27 @@ Format: numbered list with the mandatory fields per entry.
 
 | Worker class | Default model | Rationale |
 |---|---|---|
-| Read-only / mechanical (mapping, wiki query, lint, git) | **haiku** | cheap, no deep reasoning needed |
-| Implementation / scaffolding / debug / refactor | **sonnet** | good code-reasoning/cost trade-off |
+| Read-only / mechanical (mapping, lint, scan, drift check) | **no model:** T1 skill (§32.9) | decidable; the script's output is the evidence |
+| Implementation / debug / refactor | **sonnet** | good code-reasoning/cost trade-off |
 | Security · architecture · Konzept review · verification · counter-roles | **opus** (`effort: high`) | errors here are expensive/irreversible |
+| Domain planning bound to a knowledge pack (marketing, UX) | **sonnet** | the pack carries the method, the model applies it |
+| Psy domain (research, boundary guard) | **opus** (`effort: high`) | a person is affected; provenance and boundaries are judgment |
+| Retro moderation | **sonnet** | structured synthesis of ledger and chronicle |
 
 The orchestrator itself runs on the strongest available model (the reasoning load lies in delegation + verification); the specialist work is offloaded to the appropriate cheaper model.
 
-### 32.4 Stages → Workers → Skills (A baked in / B orchestrator)
+### 32.4 Stages → Workers → Skills (worker agents / T1 skills / B orchestrator)
 
-| Stage | Worker agents (`stufe-rolle`) | Methodology baked in (A) | Orchestrator skills (B) |
+| Stage | Worker agents (plugin, model) | T1 skills (cdp5-gates) | Orchestrator skills (B) |
 |---|---|---|---|
-| **Konzept** | `konzept-reviewer` (opus), `konzept-mapper` (haiku), `konzept-model-api` (sonnet), `konzept-sync` (sonnet) | §2/§3/§14 checks, §19 model↔API | `spec-interview`, `spec-review`, `walk-through`, `repomix` |
-| **Design** | `design-db` (opus), `design-agent-uc` (sonnet), `design-doc` (sonnet) | §27 slice/module depth, §28 CONTEXT.md/ADR, §13/§16/§21 LLM UC | `prototype` |
-| **Implementation** | `impl-uc`, `impl-tenant`, `impl-optional`, `impl-refactor`, `impl-debug`, `impl-template`, `impl-csrf`, `impl-imagic`, `impl-frontend` (all sonnet), `impl-vendor-patch` (opus) | §11.7 TDD-First, **phpunit/phpstan** | `fan-out-migrate`, `writer-reviewer-loop` |
-| **Testing/Eval** | `test-runner` (sonnet), `test-gap` (sonnet) | §15 validation, **phpunit/phpstan** | `llm-eval-harness`, `playwright-ui-sweep`, `diagnose`, `chrome-devtools` |
-| **Review** | `review-symfony` (opus), `review-code` (opus), `review-security` (opus), `review-access` (opus), `review-verify` (opus) | §10 review checklist, §10.6 verification | `adversarial-review`, `pr-review` |
+| **Konzept** | `konzept-reviewer` (cdp5-agents, opus) | `konzept-mapper`, `konzept-lint`, `konzept-model-api`, `konzept-const-sync`, `profile-check`, `cdp5-reference` | `spec-interview`, `spec-review`, `grill-me`, `to-prd`/`to-issues` |
+| **Design** | `threat-modeler` (cdp5-agents, opus), `devils-advocate` (cdp5-agents, opus), `pessimistic-realist` (cdp5-agents, opus) | `ac-to-test-scaffold` | `prototype` |
+| **Implementation** | `impl-uc`, `impl-debug`, `impl-refactor` (cdp5-agents, sonnet) | `roadmap-drift`, `secrets-scan`, `pii-scan` | `fan-out-migrate`, `writer-reviewer-loop`, `tdd` |
+| **Review** | `review-verify`, `review-code`, `adversarial-auditor`, `mcp-security-reviewer` (cdp5-agents, opus) | `test-gap`, `mcp-config-lint`, `mcp-doc-drift-gate`, `skill-lint`, `wiki-lint` | `adversarial-review` |
+| **Retro** | `pm-retro` (cdp5-agents, sonnet) | `retro-memory-loop-check` | — |
+| **Domain** (cross-stage, plugin domain-agents) | `marketing-strategist` (sonnet), `psy-domaenen-rechercheur` (opus), `psy-grenzwaechter` (opus, counter-role) | — | `business-lingo`, `psy-diagnostik-navigator`, `psy-therapiebegleiter`, `psy-paar-moderator` (session personas, form C) |
 
-Cross-cutting workers (not assigned to any fixed stage): infra (`infra-portainer`, `infra-frankenphp`, `infra-traefik`), git (`git-ops`, `git-branch`, `git-cross-repo`), wiki (`wiki-ingest`, `wiki-lint`, `wiki-query`).
+Dormant role texts (`design-agent-uc`, `ux-designer`, `ux-reviewer`; candidates `test-perf`, `security-champion`, `architecture-auditor`) are built at the third logged manual run (§32.7). The former cross-cutting worker list (infra, git, wiki) is retired; that work is T1 skills or the orchestrator's own.
 
 ### 32.5 Anti-Patterns
 
@@ -321,32 +332,39 @@ Cross-cutting workers (not assigned to any fixed stage): infra (`infra-portainer
 - ❌ Briefing workers with copied context walls instead of pointers (overflow + paraphrase drift, §32.8 (2)).
 - ❌ Worker stops with "doesn't work" without a Stop-Retro — the main agent has to guess what happened (§32.8 (3)).
 - ❌ Parallel fan-out to many workers without value/parallelizability (~15× tokens burned — §32.10) instead of one worker or doing it directly.
+- ❌ Orchestrator fixes a worker's finding itself beyond one behaviour-neutral hunk (skips the review, fills the context; §32.10 one-hunk rule).
+- ❌ Stacking several large workflow packs (contradicting instructions); `orchestrate` plus `worker-contract` is the single workflow layer, foreign packs are linted with `skill-lint` before installation (§32.20).
 
 ### 32.6 Retro ADR after Review (mandatory closing) + Memory Loop
 
 After completion of the **review stage**, a **retro ADR** is mandatory. Lessons live **project-specifically with the code**, so they are at hand where they are needed.
 
 - **Location:** `docs/retro/<NNNN>-<slug>.md` in the respective project repo (consecutive number per session/sprint).
-- **Layout:** status/date/purpose → context → decision chronicle E1…En → what went well / better → core lesson.
-- **Who:** The orchestrator triggers it as the last step; the skill `reflection-toolkit:reflection-collector` writes the retro ADR.
+- **Layout:** status/date/purpose → assignment verbatim → carry-over of the previous retro (done / held / recurred, with evidence) → context → decision chronicle E1…En → root causes (Five Whys) with recurrence count → Kaizen table (one owned, measurable action per cause) → lessons → core lesson → fork balance (§32.6.1).
+- **Who:** The orchestrator triggers it as the last step and briefs `pm-retro` with the ledger, the previous retro and the output of the T1 skill `retro-memory-loop-check`; `reflection-collector` where installed.
+- **Escalation:** a 🔴 root cause escalates at its first recurrence, every other root cause at the third.
 - **Durable lessons:** additionally persist in memory `feedback_<slug>` and link in the retro ADR.
-- **Memory-loop verification (mandatory):** Every memory slug cited in the retro ADR **must really exist** (file `memory/<slug>.md` created **and** MEMORY.md pointer set). Check at retro closing — a cited but not created slug is a broken learning loop: the lesson evaporates, and the same error can recur. The check is decidable → T1 script candidate (§32.9). *(Practice lesson: several retros cited `feedback_*` slugs as persisted that were never written.)*
+- **Memory-loop verification (mandatory):** Every memory slug cited in the retro ADR **must really exist** (file `memory/<slug>.md` created **and** MEMORY.md pointer set). Check at retro closing — a cited but not created slug is a broken learning loop: the lesson evaporates, and the same error can recur. The check is decidable and runs as the T1 skill `retro-memory-loop-check` (§32.9). *(Practice lesson: several retros cited `feedback_*` slugs as persisted that were never written.)*
 - **Distinction:** Architecture ADRs (*what* was decided) live in `docs/adr/`; retro ADRs (*how* the work was done) in `docs/retro/`.
+
+### 32.6.1 Fork balance
+
+Every path opened during the run (a hypothesis, a worktree, a branch, a stub, an open question, a deferred follow-up) is listed at the end of the retro with one of three states: closed (merged or resolved, with evidence), abandoned (removed, with the reason) or open with a named owner. A path without a state is a finding of the retro; dead paths are removed before the PR. The orchestrator checks the fork balance when it closes the task; `pm-retro` records it.
 
 ### 32.7 Worker Agent: Need, Spec Format + Scaffolding
 
 **Need — when a dedicated worker comes into being (check before creating):**
-1. **Stage role as baseline:** Each of the five stages (§32.4) has recurring roles. A role deserves its own worker if it is a **delimitable, recurring** activity of the stage (e.g. review → symfony / code / security / access / verify).
-2. **Repetition threshold:** from the **3rd repetition** of the same manually performed activity → dedicated worker. What is counted are **runs** in the usage log (`usage-log.jsonl`, written by the SubagentStop hook of the plugin cdp5-agents; the orchestrator records manual activities as `manual:<tätigkeit>`), not documents or citations.
+1. **Stage or domain role as baseline:** A role counts against a stage of §32.4 or a domain the plugin domain-agents covers. A role deserves its own worker if it is a **delimitable, recurring** activity of that stage or domain (e.g. review → verify / code / adversarial audit / MCP security).
+2. **Repetition threshold:** from the **3rd repetition** of the same manually performed activity → dedicated worker. What is counted are **runs** in the usage log (`usage-log.jsonl`, written by the SubagentStop hook of the plugin cdp5-agents; the orchestrator records manual activities as `manual:<activity>` lines, and the third-run trigger reads exactly these lines), not documents or citations.
 3. **Immediate trigger:** a single manual process with many different subtasks (multi-step) → evaluate as a worker **immediately**, not only after 3×.
 4. **Delimitation/merge check:** if the activity overlaps an existing worker, that worker is **extended or merged** instead of creating a second one.
 5. **Cost/benefit (anti-pattern):** **no** worker for a one-shot activity — maintenance burden without reuse is not worth it. When in doubt, the orchestrator does it once itself, or a cross-cutting skill applies.
 
-**Spec format** — one file `agents/<stufe-rolle>.md` per worker, derived project-independently from stage + role:
+**Spec format** — one file `agents/<stufe-rolle>.md` (plugin cdp5-agents) or `agents/<domain-rolle>.md` (plugin domain-agents) per worker, derived project-independently from stage + role or domain + role:
 
 ```yaml
 ---
-name: <stufe-rolle>            # z. B. impl-uc, review-security — Bindestrich; Doppelpunkt ist plugin:skill vorbehalten
+name: <stufe-rolle> | <domain-rolle>   # z. B. impl-uc, psy-grenzwaechter — Bindestrich; Doppelpunkt ist plugin:skill vorbehalten
 description: <Zweck in einem Satz + „Use when …"-Trigger>
 tools: <minimal tools needed>  # e.g. Read, Edit, Write, Bash, Grep, Glob; Write/Edit only for implementation workers
 model: haiku | sonnet | opus   # nach §32.3
@@ -359,28 +377,28 @@ color: <optional>
 1. **No thinking phrases.** The depth of thinking is set by the frontmatter field `effort`, not by a line like "think harder" (current models over-steer on such phrases; instructions to reproduce one's own reasoning trigger refusals). The worker contract (skill `worker-contract`) is injected by the SubagentStart hook; the worker's first output line is the receipt `contract: v<N> <hash>`.
 2. **Role in one sentence** + delimitation from neighboring workers.
 3. **Inputs** — what the orchestrator hands over.
-4. **Workflow** — numbered steps = the baked-in stage methodology (§32.4 column A).
+4. **Workflow** — numbered steps = the baked-in stage methodology (§32.4).
 5. **Tool binding:** deterministic procedures inline (e.g. the test worker calls the suite via Bash). **No MCP tools** — MCP/interaction skills are run by the orchestrator (§32.4 column B), which passes the result in.
+5a. **Trifecta line (§33.1):** which of the three axes the agent's tools open and which one is broken; mandatory for every agent with WebFetch, WebSearch or network access.
 6. **Rights and duties (§5 of the role):** at least three rights and three duties beyond the worker contract; a right whose basis is a MUST in doctrine or playbook has a twin duty with a check.
 7. **Output format** — return to the orchestrator; claims with evidence (§32.8 (3)/(4)); first line the contract receipt, then the result in one sentence, then the evidence.
 
 **Scaffolding procedure (orchestrator or `skill-creator`):**
-1. Choose stage + role (§32.4); name `stufe-rolle`.
+1. Choose stage + role (§32.4) or domain + role; name `<stufe-rolle>` or `<domain-rolle>`.
 2. Set the model per §32.3, keep tools minimal.
-3. Bake the stage methodology (§32.4 column A) in as the workflow.
-4. Create the file under `agents/<name>.md` **and** mirror it into the live store `~/.claude/agents/` so that the `Agent` call finds the worker.
-5. Register in the worker inventory.
+3. Bake the stage methodology (§32.4) in as the workflow.
+4. Create the file under `agents/<name>.md`; the plugin's `agents/` directory is the live store; no mirror.
+5. Register in the worker inventory (§32.4 table).
 
 **Minimal template (generic):**
 ```markdown
 ---
-name: <stufe-rolle>
+name: <stufe-rolle | domain-rolle>
 description: <Ein-Satz-Zweck + "Use when …">
 tools: Read, Grep, Glob, Bash
 model: sonnet
+effort: medium
 ---
-
-**Begin with 'think hard' before tool use.**
 
 Du bist der <Rolle>-Worker der Stufe <Stufe>. <Abgrenzung zu Nachbar-Workern>.
 
@@ -406,21 +424,21 @@ Two drift directions, both deadly: **context rot** (worker context fills up) and
 - Deterministic (→ code/skill): tests (phpunit/phpstan), lints, model↔OpenAPI diff, enum drift, link/broken-ref scan, frontmatter/table consistency, route discovery, mass rename, roadmap↔code inventory, retro↔memory-loop check.
 - Judgment (→ LLM worker): Reife-Score (maturity score), gap assessment, UC→code logic, code quality judgment, LLM-as-judge eval.
 
-**(2) Task brief = pointer, not paste (mandatory):** The brief contains the assignment **verbatim**, the output format, the exact target (repo + commit, container, document ID + version, URL + date), a narrow task (one stage, one role), **pointers to the single-source files** (CONTEXT.md, spec/UC path, relevant ADR paths, glossary) — the worker reads the **original lazily + scoped** —, scope + AC, explicit out-of-scope, the tools and sources, the throwaway environment for trial runs or "none", the required doctrine sections as an excerpt or the path of the doctrine copy, and the stop rule (3). A **generated, hash-checked copy** from the knowledge layer also counts as the **original** (provenance line per section, diff-and-hash review before the commit, no manual change); until the knowledge layer is connected, the bundled copy `konzept-design-pattern-v5.md` is the master and is changed only via PR. Copied context walls remain forbidden: they create overflow (context rot) **and** paraphrase drift (the worker works on the summary instead of the original).
+**(2) Task brief = pointer, not paste (mandatory):** The brief contains the assignment **verbatim**, the output format, the exact target (repo + commit, container, document ID + version, URL + date), a narrow task (one stage, one role), **pointers to the single-source files** (CONTEXT.md, spec/UC path, relevant ADR paths, glossary) — the worker reads the **original lazily + scoped** —, scope + AC, explicit out-of-scope, the tools and sources, the throwaway environment for trial runs or "none", the required doctrine sections as an excerpt or the path of the doctrine copy, and the stop rule (3). A **generated, hash-checked copy** from the knowledge layer also counts as the **original** (provenance line per section, diff-and-hash review before the commit, no manual change); until the knowledge layer is connected, the bundled copy `konzept-design-pattern-v6.md` is the master and is changed only via PR. Copied context walls remain forbidden: they create overflow (context rot) **and** paraphrase drift (the worker works on the summary instead of the original).
 
 **(3) Worker contract — evidence obligation + Stop-Retro:**
 - Output **always with evidence** (file:line / command output).
-- If context for unambiguous work is missing → **STOP, no assumption.** The worker returns a **Stop-Retro ADR** (layout §32.6): **what** it did (decision chronicle up to the stop), **why** it stops (the concrete gap + why it cannot be resolved unambiguously), **what** it needs (which info/decision closes it). This way the main agent knows completely what happened — and goes into the conversation with the user in a targeted way (§1.9), instead of blindly continuing or re-deriving.
-- The worker returns the Stop-Retro in its output; the orchestrator persists it according to the **filing switch** (§28): own repos → `docs/retro/`; company repos → nothing AI-generated into the repo, but the memory directory outside the repo (`~/.claude/projects/<projekt>/memory/`) or later the knowledge layer; ephemeral things into the scratch area. It flows into the final retro ADR (§32.6).
+- If context for unambiguous work is missing → **STOP, no assumption.** The worker returns a **Stop-Retro** in the contract format (`STOP` / `done` / `why` / `need`, skill `worker-contract`): **done** — what it did (decision chronicle up to the stop, with evidence), **why** it stops (the concrete gap + why it cannot be resolved unambiguously), **need** — what closes it (which info/decision). This way the main agent knows completely what happened — and goes into the conversation with the user in a targeted way (§1.9), instead of blindly continuing or re-deriving.
+- The worker returns the Stop-Retro in its output; the orchestrator persists it according to the **filing switch** (§28): own repos → `docs/retro/`; company repos → nothing AI-generated into the repo, but the memory directory outside the repo (`~/.claude/projects/<projekt>/memory/`) or later the knowledge layer; ephemeral things into the scratch area. The orchestrator folds it into the §32.6 retro ADR.
 - Further contract rules (severity scale, verdict mapping pass / pass-mit-Auflage (Auflage = condition) / block, limited attempts, provenance per statement, fresh context of the counter-roles, language) are in the skill `worker-contract` of the plugin cdp5-agents; it is the single source and is injected per worker start.
 
 **(4) Verification gate:** Worker claims are checked against the source before every follow-up action — deterministically where possible, otherwise `review-verify` (§10.6). Under-context claims are caught exactly here.
 
 **(5) Parallelism only if self-contained:** Only workers with **independent, self-contained briefs** run in parallel. Jointly evolving context → sequential or re-brief, otherwise parallel workers work on outdated assumptions.
 
-**(6) Reproduction/empirics gate (before every diff/bugfix):** Before a deviating result is fixed as a bug, the orchestrator **rules out stale/old state first** (clean reproduction / clean re-run), then classifies per diff false positive (reconstruction/measurement gap) vs. genuine defect — never soften the target comparison in order to get "green". Language/platform semantics are **substantiated executably** (`php -r`, short trial run), not claimed from memory (not from the reviewer's either). Reviewers/workers are given the **exact target** (container/checkout/path) in the brief.
+**(6) Reproduction/empirics gate (before every diff/bugfix):** Before a deviating result is fixed as a bug, the orchestrator **rules out stale/old state first** (clean reproduction / clean re-run), then classifies per diff false positive (reconstruction/measurement gap) vs. genuine defect — never soften the target comparison in order to get "green". Language/platform semantics are **substantiated executably** (`php -r`, short trial run), not claimed from memory (not from the reviewer's either). The trial run happens in a disposable environment the orchestrator registered as a run grant (§32.20); without one the reviewer returns `unklar (nicht erreichbar: Werkzeug)`. URL claims are fetched by the orchestrator into the brief (workers have no network). Reviewers/workers are given the **exact target** (container/checkout/path) in the brief.
 
-**(7) Precondition = stop, not a basis for negotiation:** A precondition noted in ADR/Konzept ("X is a prerequisite") is a **gate**. If it is open, the slice is **blocked** — no "rescue" attempt in the same run.
+**(7) Precondition = stop, not a basis for negotiation:** A precondition noted in ADR/Konzept ("X is a prerequisite") is a **gate**. If it is open, the slice is **blocked** — no "rescue" attempt in the same run. An open precondition in a UC or ADR blocks the slice; `impl-uc` stops with a Stop-Retro (3).
 
 ### 32.9 Skill Determinism Gate (tier classification)
 
@@ -431,7 +449,9 @@ Two drift directions, both deadly: **context rot** (worker context fills up) and
 | **T1 — Deterministic core** | decidable (pass/fail with evidence) **+** repeated **+** structured input | programmed skill in a **host-available** runtime (default Node.js) + own tests; output = evidence |
 | **T2 — Agent (LLM worker)** | genuine judgment, limited scope | subagent (§32.3), claim with evidence |
 | **T3 — Text skill** | only interactive human-dialogue value (reproducibility is not the goal) | Markdown skill (e.g. `spec-interview`, `walk-through`, `adversarial-review`) |
-| **Hybrid** | LLM framing → T1 core → LLM interpretation | text skill that calls a T1 program (e.g. `review-verify`, `konzept-mapper`) |
+| **Hybrid** | LLM framing → T1 core → LLM interpretation | T1 core with an LLM layer around it (e.g. `cdp5-init`: diff core plus confirmation; `pii-scan` with a `review-verify` overlay) |
+
+**T1 skills of the plugin cdp5-gates (17):** `ac-to-test-scaffold`, `cdp5-init`, `cdp5-reference`, `konzept-const-sync`, `konzept-lint`, `konzept-mapper`, `konzept-model-api`, `mcp-config-lint`, `mcp-doc-drift-gate`, `pii-scan`, `profile-check`, `retro-memory-loop-check`, `roadmap-drift`, `secrets-scan`, `skill-lint`, `test-gap`, `wiki-lint`. **Exit-code convention:** 0 = no 🔴 finding, 1 = at least one 🔴, 2 = input error; every finding is 🔴, 🟡 or 🟢.
 
 **Runtime (binding):** T1 skills run on the **host** on which Claude Code runs — the runtime must be **guaranteed installed** there. Default is **Node.js**, because Claude Code itself is a Node CLI and is therefore always present (one toolchain for all host-side skills). **PHP is not a host guarantee:** the projects run in Docker, PHP lives *in* the containers, not on the host. A gate that needs the project PHP runtime therefore runs **in the container via `docker exec`**, triggered by a thin host-side (Node) wrapper. T1 skills come **with their own test suite**, otherwise one merely trades LLM non-determinism for untested code bugs (real: a deterministic evaluator had a 🔴 bug with PHP array auto-index that only an executable cross-check found).
 
@@ -442,11 +462,11 @@ Two drift directions, both deadly: **context rot** (worker context fills up) and
 ### 32.10 Fan-out Economics — when multi-agent pays off
 
 Orchestration does **not** automatically mean many parallel agents. Three levels, from cheap to expensive:
-- **Directly oneself** (no worker) — for small, clear scope, when a brief would be more expensive than the work. *Start simple* (provenance: Anthropic "building effective agents": simplest solution first; agents trade latency + cost for flexibility — use only when something simpler demonstrably does not suffice).
+- **Directly oneself** (no worker) — for small, clear scope, when a brief would be more expensive than the work. One-hunk rule (§32.5): a finding whose fix is one hunk without behaviour change may be applied directly and still passes `review-verify`; anything larger is a re-brief. *Start simple* (provenance: Anthropic "building effective agents": simplest solution first; agents trade latency + cost for flexibility — use only when something simpler demonstrably does not suffice).
 - **One stage worker** (default for delimited specialist work) — drift isolation through fresh context (§32.1).
 - **Parallel fan-out to several workers** — expensive (multi-agent consumes **~15× chat tokens**, Anthropic multi-agent research). Pays off only if (a) the subtasks are **independent + parallelizable** (§32.8 (5) self-contained) **and** (b) the value justifies the token/latency overhead.
 
-**Gate before fan-out:** independent + parallelizable + valuable? → fan-out; otherwise sequential or direct. (Complement to the §32.5 anti-pattern "sequentially what could run in parallel".)
+**Gate before fan-out:** independent + parallelizable + value justifies ~15× tokens? → fan-out; otherwise sequential or direct. The answer to the gate is recorded in the ledger. (Complement to the §32.5 anti-pattern "sequentially what could run in parallel".)
 
 **Agent architecture (production):** For agentic production UCs, the **GOAP/Embabel pattern (§13.2)** is the reference — a deterministic planner controls the flow, the LLM is a tool in typed actions ("the LLM does not control the flow, the planner does"). Agents only for decisions under uncertainty with several solution paths; not for CRUD/rule-based processes (§13.2/§13.3).
 
@@ -454,15 +474,41 @@ Orchestration does **not** automatically mean many parallel agents. Three levels
 
 ### 32.11 Devil's-Advocate Gate (mandatory pass before irreversible choices)
 
-**Trigger:** every ADR with status "proposed", every introduction of a new subsystem, module or mode (§27.1.1; this paragraph lives only in the knowledge layer, in this copy the Deletion-Test §27.1 applies as a proxy, see redirect table §26), every choice that becomes irreversible, and the overall closing of an assignment. §11.4 demands the pass for "Decide" verbatim; this paragraph makes it a gate.
+**Trigger:** every ADR with status "proposed", every introduction of a new subsystem, module or mode (§27.1.1), every choice that becomes irreversible, and the overall closing of an assignment when the assignment produced a choice. When it produced no choice, the closing pass is the artefact's counter-role `adversarial-auditor` or, for forecasts, `pessimistic-realist` (§32.17). §11.4 demands the pass for "Decide" verbatim; this paragraph makes it a gate.
 
 **Procedure:** The orchestrator starts `devils-advocate` in fresh context (no share in the choice) with the verbatim assignment, the chosen option, the discarded alternatives and their costs. If the discarded alternative is missing, it is requested, not invented; the pass itself may form the null option. The pass delivers, per objection, an evidence location and an ex ante verifiable refutation criterion, checks the existence question (§27.1.1) and gives a three-valued verdict: (a) the rationale holds, (b) the alternative is stronger, (c) the null option beats both.
 
-**Gate rule:** In case of (b) or (c), execution remains blocked until the human decider documents, per objection, acceptance or reasoned rejection in the ADR (§28.2). A pass without fresh context or without a named alternative is invalid and is repeated. The pass is a counter-vote, not a veto: the human decides (§23.3).
+**Gate rule:** In case of (b) or (c), execution remains blocked until the human decider documents, per objection, acceptance or reasoned rejection in the ADR (§28.2). A pass without fresh context or without a named alternative is invalid and is repeated with the alternative supplied, not accepted. Verdict mapping (worker contract rule 4): (a) = pass, (a) with conditions = pass-with-conditions, (b) and (c) = block. The pass is a counter-vote, not a veto: the human decides (§23.3).
 
 **Exclusions:** no Devil's-Advocate passes in blameless retros (§32.6) and not in humanly sensitive or private playbooks; there the cross-check is `psy-grenzwaechter`. Private decisions on health, relationships, therapy or children are excluded; private administrative, financial and legal decisions are not.
 
 **Distinction:** Artifacts are checked by `adversarial-auditor` (ex post, empirically), forecasts by `pessimistic-realist`; the three form the counter-role triad (§32.17). The pass counts in the usage log (§32.7 (2)).
+
+### 32.12 Fresh-context rule
+
+Counter-roles and reviewers (`devils-advocate`, `pessimistic-realist`, `adversarial-auditor`, `psy-grenzwaechter`, `review-verify`, `review-code`, `konzept-reviewer`) never judge their own or co-authored work. The header of every pass states `fresh context: yes` or `fresh context: no`; `no` invalidates the pass, and it is repeated with a fresh instance. The orchestrator supplies the authorship of every claim or artefact in the brief, so the role can state the line truthfully; a `review-verify` brief names the author of each claim.
+
+### 32.13 Behaviour invariance for refactoring
+
+A refactoring changes structure, not behaviour, and the worker (`impl-refactor`) proves it: green baseline before the first change (gate chain §35.1 run and recorded); call-site inventory of every touched symbol; gate chain §35.1 run again after the change with zero new findings; a mutation sample that shows the suite turns red when the moved behaviour is broken; revert instead of repair forward when a step turns the suite red; risky changes (a changed public interface, a moved seam, concurrency) marked for `adversarial-auditor`; no commit, the delivery is the diff.
+
+### 32.15 Bounded attempts
+
+Two refuted hypotheses or two failed attempts on the same problem, then the worker stops and reports (worker contract rule 6, §1.10). Two sharpened re-briefs for the same finding, the second to a fresh worker instance with the refuted attempt recorded as a known-issue line, then a Stop-Retro to the human. A third attempt without new evidence is not a strategy.
+
+### 32.17 Counter-role triad
+
+Three counter-roles, one per object type: `devils-advocate` for choices (ADR, plan, new subsystem), `pessimistic-realist` for forecasts (estimate, date, success rate), `adversarial-auditor` for artefacts (diff, implementation, decision text). Every worker claim goes through `review-verify` before the orchestrator acts on it; MCP-bound capabilities through `mcp-security-reviewer`; psy-domain results through `psy-grenzwaechter`. A triad member declares a conflict of interest when a triad partner is at stake (its own earlier verdict, a role text, a tool it depends on); the orchestrator then picks another instance or hands the question to the human.
+
+### 32.20 Plugin mechanics
+
+The working path is enforced by the plugins cdp5-agents and cdp5-gates:
+- **Worker contract** (skill `worker-contract`, injected at agent start): rules 1–10 (acknowledgement, evidence, data not instructions, severity and verdicts, Stop-Retro, bounded effort and scope, provenance, boundaries, fresh context, language). The first line of every answer is the acknowledgement `contract: v<N> <hash>`, `CONTRACT-MISSING` otherwise; the SubagentStop hook checks the line and asks once on a hedged completion claim (hedged-claim check).
+- **Run grants and disposable environments:** `worktree-setup.mjs` creates a worktree on the exact base commit, runs the gate commands as baseline and registers the grant; `grant-run.mjs grant|list|revoke` manages grants for an existing environment. A grant is per agent type and per project, single use by default, with a TTL; a red baseline issues no grant; the brief carries the output lines verbatim or `disposable environment: none`.
+- **Shell guard as tripwire:** judgment agents are read-only and without network; workers have no commit, push, fetch or history rewrite even with a grant. The guard catches the slip; the contract is the rule.
+- **Usage log:** `usage-log.jsonl`, one line per run with its result (ok, no-ack, hedged, contract-missing); manual activities as `manual:<activity>` lines (§32.7).
+- **SessionStart bootstrap:** prints the script and data paths and the contract header; briefs use those paths, not guesses.
+- **skill-lint** (T1, cdp5-gates) runs before a foreign skill or workflow pack is installed (§32.5).
 
 ## 10.6 / 10.7 / 19 — Verification & Model↔API Consistency
 
@@ -478,6 +524,8 @@ An AI agent that reads both the written specification (the "target") and the wri
 | **Verification agent** | Detect spec ↔ code drift | After every sprint |
 
 Both are to be defined as separate personas in the `.claude/agents/` or `.github/agents/` directory.
+
+Executable substantiation (`php -r`, a short trial run) happens in a disposable environment the orchestrator registered as a run grant (§32.20); without one the verification agent returns `unklar (nicht erreichbar: Werkzeug)`. URL claims are fetched by the orchestrator into the brief; workers have no network.
 
 ### 10.7 Verification convention for obligations
 
@@ -642,6 +690,24 @@ Durable artifacts (§28.1–§28.5) are the **external** memory; here is the mai
 
 > **State in the Konzept:** For every module extraction in §3 UC structure plan or ADR, the Deletion-Test is noted as a one-sentence answer.
 
+#### 27.1.1 Necessity gate — the existence question before the ADR
+
+**Binding:** mandatory gate. An ADR that introduces a new subsystem, module, table or tool is incomplete without these four answers and must not be carried as "accepted".
+
+**Problem:** The adversarial auditor (§11.4) reviews a diff and asks "is this safe?". Nobody asks "should this exist?". §27.1 (Deletion-Test) and §1.11 (Proportionality) exist but are not applied without a gate (case study: a configuration manager with zero hits in sixteen project documents, roughly ten times the size of the assignment).
+
+**Four mandatory answers** (one to three sentences each, in the ADR itself):
+1. **Assignment verbatim** — quote the original assignment verbatim. Does this subsystem follow from it necessarily, or is it a self-imposed purity demand? Warning words: "pure", "complete", "byte-equivalent", "clean", "consistent". A self-imposed purity demand is an uncommissioned feature and needs the client's explicit release.
+2. **Deletion-Test (§27.1)** — would deleting make the complexity disappear or reappear across N callers? Name N. Disappears = pass-through = do not build.
+3. **Consumer** — who needs the result, by name (file:line or role)? What happens concretely if it does not exist? "Otherwise the verify reports missing" is not an answer (§25): that is the machine justifying its own extension.
+4. **Simplest alternative** — what delivers the same contribution to the goal with less code? Quantify both in lines. If the factor is above 3, the burden of proof lies with building, not with leaving it out.
+
+**Consequence rule A — consumer death is immediate disposition:** If the justifying consumer falls away (feature cut, gate removed, requirement withdrawn), every mechanism derived from it is put up for disposition at once, as a mandatory gate, not as an option (case study: the consumer was cut, its derived verification machinery kept growing for six weeks).
+
+**Consequence rule B — reintroduction needs a revocation ADR:** A previously rejected alternative that is introduced later needs its own ADR with an explicit revocation rationale. A silent reversal under bugfix pressure is an alarm signal (case study: a sandbox boot rejected as too expensive was later introduced without revocation).
+
+**Consequence rule C — a bug produces a simplification, not a subsystem:** If a bugfix produces a new subsystem, that is a whack-a-mole signal (fix principles, not symptoms). Look for the invariant root first. Document the chain when one fix forces a further mechanism; three links are a stop.
+
 ### 27.2 Vertical slice / Tracer-Bullet as decomposition default
 
 | Horizontal (anti-pattern) | Vertical (default) |
@@ -761,6 +827,8 @@ Mandatory order when extending existing software:
 6. **Vertical TDD loop** (§27.4) — hang tests on existing seams
 7. **Update CONTEXT.md** before PR
 
+Implementation workers read CONTEXT.md, the ADRs of the touch area and the glossary before the first test (`impl-uc` Method 0); test and symbol names use the glossary vocabulary.
+
 **Two anchors for AI in existing code:** **Island of order** (provenance: Leßner) — in legacy code, create a separate folder with spotless minimal reference implementations of all building blocks (entity, repository, test builder); the AI **imitates what it sees**, so give it unpolluted models (not shipped). **Self-Contained Systems** (SCS) — subsystems with their own data storage/UI keep the AI context per UC small: a system UC refers to only one subsystem (deep-module spirit, §27.1).
 
 ### 27.7 Review/teardown mode
@@ -801,7 +869,7 @@ A tool-using agent is dangerous as soon as **three conditions coincide** (Lethal
 2. **Contact with untrusted content** — web, e-mail, RAG documents, **MCP/tool responses**, third-party code / dependent libraries,
 3. **Ability to communicate externally** (network egress, outbound tool calls).
 
-**Gate rule:** If all three apply, at least **one axis must be broken** — restrict egress to an allowlist **or** minimize data scope **or** isolate untrusted content — **or** a human-approval gate (§23) before the risky action. Per agent/LLM UC, state in the Konzept: which of the three axes apply and which countermeasure takes effect. *(Practice: an injected prompt from a compromised library exfiltrated `.env` secrets via tool call — prompt injection is number 1 on the OWASP LLM Top 10.)*
+**Gate rule:** If all three apply, at least **one axis must be broken** — restrict egress to an allowlist **or** minimize data scope **or** isolate untrusted content — **or** a human-approval gate (§23) before the risky action. Per agent/LLM UC, state in the Konzept: which of the three axes apply and which countermeasure takes effect. *(Practice: an injected prompt from a compromised library exfiltrated `.env` secrets via tool call — prompt injection is number 1 on the OWASP LLM Top 10.)* The plugin's own judgment agents are bound by the Trifecta as well: no network, grants only for disposable environments (§32.20); the orchestrator fetches external content into the brief with URL, fetch date and HTTP status.
 
 ### 33.2 Agent runtime hardening (mandatory fields per agentic UC)
 
@@ -823,7 +891,7 @@ Maintain per MCP server in the Konzept:
 | **Deployment isolation** — sandbox/OCI container | breakout, lateral movement |
 | **Spec version + upgrade strategy** | version drift (auth/transport change quickly) |
 
-Default = **least privilege**: only UC-relevant servers/tools visible (tool budget, §16.6/§16.7).
+Default = **least privilege**: only UC-relevant servers/tools visible (tool budget, §16.6/§16.7). Static tokens in `headers` and `env` are checked by `mcp-config-lint` (T1), which also flags unpinned `npx`/`uvx` commands and docker images and remote `url` servers; the remaining fields are judged by `mcp-security-reviewer` by hand.
 
 ### 33.4 Threat modeling "light" in the design
 
@@ -1011,7 +1079,7 @@ The postponement of the Annex III/I deadlines was made by the **Digital Omnibus 
 
 | Element | When |
 |---------|------|
-| Status lifecycle | When the object has a status |
+| Status lifecycle | Mandatory as soon as any entity has a status; otherwise the Konzept carries the sentence `No status lifecycle: <reason>` (German: `Kein Status-Lebenszyklus: <Grund>`). `konzept-lint` accepts either (gate G4). |
 | Validation rules | When fields have complex rules |
 | Rate limits | When abuse is possible |
 | Security rules | When auth/data protection is affected |
@@ -1091,24 +1159,29 @@ Mandatory at the end of every Konzept (table: Entity, Table, Description).
 | 1.x | Additions, new UCs, no breaking changes |
 | 2.0 | Structural rework, changed UCs |
 
-**Changelog section** mandatory from v2.0 (list of changes relative to the previous version).
+**Changelog section** mandatory from v2.0 (list of changes relative to the previous version). The lint (gate G9) accepts a missing changelog while the parsed version is below 2.0; without a parsable version the changelog is required.
 
 ## 7. Checklist before Completion
 
-> This list is the **Gate** (layer 1) of the maturity policy `plugins/cdp5-gates/policy/reife-rubrik.policy.md` (items G1–G11, each marked as [det] for `konzept-lint` or [jdg] for `konzept-reviewer`). The policy is the only rubric; §9 A.2, §10.3 and §10.5 refer to it. An open gate item means "not mature", regardless of the score.
+> This list is the **Gate** (layer 1) of the maturity policy `plugins/cdp5-gates/policy/reife-rubrik.policy.md` (items G1–G15 with G5a/G5b, each marked as [det] for `konzept-lint` or [jdg] for `konzept-reviewer`). The policy is the only rubric; §9 A.2, §10.3 and §10.5 refer to it. An open gate item means "not mature", regardless of the score. Threshold and weights live in the policy file, not here.
 
 **Basic checklist:**
-- [ ] All UCs have numbered steps
-- [ ] All mandatory fields filled
-- [ ] Error cases tables complete
-- [ ] Status lifecycle diagrams present
-- [ ] Role overview up to date
-- [ ] Probabilistics Statement in the header (if LLM UCs, §2.6)
-- [ ] Acceptance criteria table per UC (§11.7)
-- [ ] Glossary maintained (§14)
-- [ ] Changelog entry
-- [ ] Case-worker test passed (§1.1)
-- [ ] No open assumptions — ambiguities + open decisions resolved in dialogue, not guessed (§1.9)
+- [ ] All UCs have numbered, branched steps (§3.0) [G1, det]
+- [ ] Document head with Version and Scope (§2.1) [G2, det]
+- [ ] Error-case table per UC (§3.2) [G3, det]
+- [ ] Status lifecycle present, or the exemption sentence `No status lifecycle: <reason>` (§3.3) [G4, det]
+- [ ] Role overview present (§2.3) [G5a, det]
+- [ ] Role overview current: every actor named in a UC is a row, no stale role [G5b, jdg]
+- [ ] Probabilistics Statement in the header for LLM UCs (§2.6) [G6, det]
+- [ ] Acceptance criteria table per UC (§11.7) [G7, det]
+- [ ] Glossary present (§14) [G8, det]
+- [ ] Changelog entry, or head Version below 2.0 (§6) [G9, det]
+- [ ] Case-worker test passed (§1.1) [G10, jdg]
+- [ ] No open assumptions — ambiguities + open decisions resolved in dialogue, not guessed (§1.9) [G11, jdg]
+- [ ] Actor and Route per UC (§3) [G12, det]
+- [ ] Vendor Risk Statement for LLM UCs (§2.7) [G13, det]
+- [ ] Entity overview (§5) [G14, det]
+- [ ] Responsibility matrix (§23.1) [G15, det]
 
 **Extension for implementation-plan share** (mode A/B/C/D/E per §29):
 - [ ] CONTEXT.md present or created (§28.1)
@@ -1161,7 +1234,7 @@ Konzept draft → konzept-lint (gate det items + partial score) → konzept-revi
 
 Threshold and scale are in the project policy (plugin default 8.0), not in the doctrine; the reviewer reports reaching the threshold as a finding, the project decides.
 
-**Interview mode instead of a static gap list (provenance: Bartels):** The review agent works better when it finds **one** gap, asks **one** targeted follow-up question, receives the answer and weaves the correction directly into the structured document — only then the next round (analogous to the initial spec interview, Appendix A.3).
+**Interview mode instead of a static gap list (provenance: Bartels):** Interview mode runs in the session as the T3 skill `spec-interview`: it finds **one** gap, asks **one** targeted follow-up question, receives the answer and weaves the correction directly into the structured document — only then the next round (analogous to the initial spec interview, Appendix A.3). The review agent `konzept-reviewer` stays read-only: it verifies the lint's det items instead of re-deriving them, judges G5b, G10 and G11, scores the judgment dimensions on the anchored levels of the policy or returns `Unknown`, and re-scores the edited document in a fresh context. At most two judgment rounds, then the human.
 
 **Structured input beats prose:** A review/verification agent delivers significantly better results when the spec is available as a **machine-readable tree** (numbered steps, branches, error cases — §3.0) instead of running text. The §3 structure is thus not only human-optimal but agent-optimal.
 
@@ -1225,11 +1298,11 @@ The developer must not become the „externen Speichercontroller des Assistenten
 | Superpower | Description | Where to show it in the Konzept? |
 |---|---|---|
 | **Communicate** | Stakeholder workshops, domain storytelling, event storming | Actor list + process note |
-| **Decide** | Architecture + strategy decisions. AI proposals tend toward confirmation (sycophancy, Kruse 2026) — Decide demands active refutation, not passive acceptance. Mandatory devil's-advocate pass or a second model as counter-vote. | Decision records with a human approver |
+| **Decide** | Architecture + strategy decisions. AI proposals tend toward confirmation (sycophancy, Kruse 2026) — Decide demands active refutation, not passive acceptance. Mandatory devil's-advocate pass (`devils-advocate`, §32.11) or a second model as counter-vote. | Decision records with a human approver |
 | **Adapt** | Course change on new insight | Version history + changelog |
 | **Make Mistakes** | Learning from errors → better decision next time | Lessons-learned register / retro ADR |
 
-**Review corollary (🔴 slices):** For risky pipeline/architecture slices, **self-review and a merely confirming "pro" agent do not count as review**. Binding is the **adversarial auditor** (`adversarial-review`) plus an **empirical counter-check against the real target** (exact repo/checkout/container). Green tests + self-audit + pro agent in practice share the same blind spot (sycophancy) — only the auditor found the latent data-loss path, and only the executable counter-check (`php -r` against real PHP) exposed a wrong semantic assumption that the reviewer had co-confirmed.
+**Review corollary (🔴 slices):** For risky pipeline/architecture slices, **self-review and a merely confirming "pro" agent do not count as review**. Binding is the counter-role `adversarial-auditor` (plugin cdp5-agents, §32.11) plus an **empirical counter-check against the real target** (exact repo/checkout/container). Green tests + self-audit + pro agent in practice share the same blind spot (sycophancy) — only the auditor found the latent data-loss path, and only the executable counter-check (`php -r` against real PHP) exposed a wrong semantic assumption that the reviewer had co-confirmed.
 
 ### 11.5 AI Tests Are Often Tailored to the Code (Anti-Pattern)
 
@@ -1336,7 +1409,7 @@ The sentence "destructive/irreversible steps remain a Mensch-Gate, never auto" i
 - business: investor outreach, term-sheet commitment, signature, sending externally;
 - decisions: every choice that does not survive the devil's-advocate pass (§32.11) with verdict (b) or (c), and every forecast that hits "nicht tragbar" (not acceptable) plus an irreversible commitment.
 
-The human decides, with decision-maker and date in the ADR (§28.2); an agent prepares and halts. Health and crisis topics do not follow §23 but the escalation rules of the Psy domain.
+The human decides, with decision-maker and date in the ADR (§28.2); an agent prepares and halts. Every agent reports a block with its §23.3 class; the orchestrator holds the gate, no agent calls it. Health and crisis topics: the human gate is the person's real-world contact named by PSY:krisen-eskalation and PSY:versorgungspfad-deutschland; an unresolved `psy-grenzwaechter` block is handed to the person with that contact and is not decided by the orchestrator or recorded in an ADR.
 
 ---
 
@@ -1402,7 +1475,7 @@ In the Konzept per LLM UC: which phases are active, which concrete validations p
 
 ### 13.3 When NO LLM in the UC
 
-Fully deterministic flow · safety-relevant decisions · regulatory traceability mandatory · highly regulated environment (medicine, finance, railway safety). In the Konzept as a note: `> **No LLM:** This UC is deterministic — no AI component.`
+Fully deterministic flow · safety-relevant decisions · regulatory traceability mandatory · highly regulated environment (medicine, finance, railway safety). In the Konzept as a note: `> **No LLM:** …` or `> **Deterministic UC:** no AI component.`; the lint ignores the note when it classifies the UC as LLM or deterministic (gates G6, G13).
 
 ### 13.4 Validation Strategy in the Konzept (extended)
 
@@ -1865,6 +1938,21 @@ The pattern catalog: proven lessons (§24) and the anti-pattern review grid (§2
 
 ---
 
+## 35. Behaviour invariance gates
+
+### 35.1 Gate chain
+
+The gate chain is the deterministic proof that a change left the behaviour of the untouched paths alone. It runs before and after a refactoring (§32.13), per slice in the implementation and before every PR; the commands are the project's own and are named in the brief:
+1. Zero new static-analysis errors at the project level.
+2. Zero formatter diffs.
+3. Zero test failures in the full suite.
+4. Coverage on touched lines at or above the project threshold.
+5. UI flows covered by the end-to-end suite where the change touches a route or a template.
+
+Plus a mutation sample: at least one deliberate break of the moved or changed behaviour shows that the suite turns red; a suite that cannot turn red proves nothing (worker contract rule 2). Exit status and counts are read on the final state and quoted in the report; an exemption is a known-issue line (§28.2), not an omission.
+
+---
+
 ## Self-Application — CDP5 as a Review Grid Against Other Konzepte
 
 During `konzept-review`, other Konzepte are measured against CDP5 — in particular check:
@@ -2127,6 +2215,7 @@ Future cases with the same mandatory schema: pseudonym · stack + character · w
 
 | Date | Version | Change | Reason |
 |---|---|---|---|
+| 2026-10 | **v6.0** | Alignment with the plugins cdp5-gates, cdp5-agents and domain-agents (DECISIONS.md D-13 batches 1–7). New: §1.11 proportionality; §27.1.1 necessity gate (existence question, four answers, rules A–C) now in the copy; §32.6.1 fork balance; §32.12 fresh-context rule; §32.13 behaviour invariance for refactoring; §32.15 bounded attempts; §32.17 counter-role triad; §32.20 plugin mechanics; §35 behaviour invariance gates with the §35.1 gate chain. Changed: §3 status lifecycle mandatory when any entity has a status, exemption sentence otherwise (G4); §6 changelog accepted missing below v2.0 (G9); §7 checklist carries gate ids G1–G15 with G5a/G5b and det/jdg per the policy; §10.3 interview mode as the T3 skill `spec-interview`, `konzept-reviewer` read-only, verifies det items, judges G5b/G10/G11, anchored levels or Unknown, re-score in fresh context, two rounds; §10.6 and §32.8 (6) executable substantiation only in a disposable environment with a run grant, URL claims fetched by the orchestrator; §11.4 counter-roles `adversarial-auditor` and `devils-advocate`; §13.3 two note forms, lint ignores the note; §23.3 psy escalation via PSY:krisen-eskalation and PSY:versorgungspfad-deutschland, block classes reported by every agent, gate held by the orchestrator; §27.6 impl-uc Method 0; §29/§32.2 size floor (two stages and more than one worker's worth; bugfix or single slice as worktree, one worker, review-verify; full chain from three stages, two writers or a 🔴 object); §32.1 skill form C session persona; §32.2 step 0 mode in the ledger and the two-stage review; §32.3 model table (no model for T1 work, sonnet for implementation, domain planning and retro, opus high for judgment, counter-roles and psy); §32.4 regenerated from the shipped agents, cross-cutting worker list retired, dormant roles footnote; §32.5 two anti-patterns (orchestrator fixes beyond one hunk, stacked workflow packs); §32.6 retro layout with carry-over, Five Whys, Kaizen table and fork balance, `pm-retro` briefed with ledger and `retro-memory-loop-check`, escalation at first (🔴) or third recurrence; §32.7 naming stufe-rolle or domain-rolle, Trifecta line 5a, plugin `agents/` as live store without mirror, need test counts stages and domains, third-run trigger from the usage log, thinking-phrase template line removed; §32.8 (3) Stop-Retro in contract format, (7) impl-uc stops; §32.9 all 17 T1 skills named, hybrid examples `cdp5-init` and `pii-scan`, exit-code convention; §32.10 fan-out gate answered in the ledger, one-hunk rule; §32.11 closing pass by object type, verdict mapping, invalid pass repeated with the alternative supplied; §33.1 judgment agents bound by the Trifecta; §33.3 `mcp-config-lint` checks. Redirect table reduced to §32.19 and §35.2. | The plugins are the single source for roles, skills and gates; the copy must describe them correctly so that briefs can cite it |
 | 2026-10 | **v5.1** | Repo copy as interim master (knowledge layer Orbit downstream; §32.8 (2): a generated, hash-verified copy counts as the original). §32.1 orchestrator decides/briefs/verifies/synthesizes, no specialist work, effort scaling. §32.7: `effort` frontmatter instead of thinking phrases, worker contract + receipt, usage log as counting rule, rights/duties per role. §32.8 (2) mandatory brief fields, (3) filing switch and reference to the worker contract. **§32.11 devil's-advocate gate new.** §28.2 mandatory ADR fields (decision-maker, date, source, status, null option, supersede, Known-issue line) and filing switch. **§23.3 Mensch-Gate (human gate) list** (technical, integration, business, decisions). One maturity rubric: §7 is the gate of the policy `cdp5-gates/policy/reife-rubrik.policy.md`; §9 A.2, §10.3, §10.5, §10.7, §29 D, §B and the provenance table refer to it, no number left in the doctrine (plugin default 8.0). Corrections: §1.6 Mehrabian figure removed, §16.5 MCP authorization optional (HTTP) with audience/passthrough, §20.3 nomic-embed-text 768 dimensions. Roles: 35 checked, see `docs/cdp5-review/DECISIONS.md`; the source for roles and playbooks is the repo (plugins cdp5-agents, domain-agents), Orbit is generated from it. | Review of all roles, playbooks and paragraphs 2026-10-12/13 and decisions 2026-10-19; Orbit server decommissioning (nsai-edge removed, Orbit MCP as a later knowledge layer) |
 | 2026-05 | **v5.0** | **Restructuring** for low-context reading: Part 0 (mission + work loop) new; anti-drift/memory mechanics (§29/§32/§28/§27/§10.6/§19) moved forward as **Part 2**; LLM specifics (§13/§15/§16/§18/§20–§22) bundled in the skippable **Part 4**; prompt patterns (§9)/golden samples (§31)/cases (§30) in the **Appendix**. Author quotes → inline rules (portability). Stubs §8/§12 removed; §11.3+§11.6 merged; probabilistics (§1.5/§2.6/§18) cross-linked. § anchors unchanged (all `(§X.Y)` references remain valid). New: §32.6 memory-loop verification; §24 +Konzept splitting/plan fidelity/findings-as-issues + the work-path patterns as catalog entries; **§33 Security (new Part 3): lethal-trifecta gate, agent-runtime hardening, MCP tool/server security, threat-modeling-light, security gates, LLM threat classes, double review/license; §25 +3 anti-patterns, §7 security check block; subsequent parts authoring/LLM/lessons → Parts 4/5/6. **Gap-review additions (industry + 4 magazine issues + Anthropic docs):** §16.8 MCP tool design · §32.10 fan-out economics · §28.6 context hygiene/CLAUDE.md pruning · §19.4 AsyncAPI↔context map · §22.5 real-user rollouts · §2.6 EU AI Act high-risk obligations+CRA/NIS2 · §27.6/§20.3/§15.4 extensions** | Mission sharpened: CDP5 establishes knowledge doctrine + patterns and gives the AI a work path free of drift and memory loss. From review/retro + pattern consolidation across brain/memory/wiki |
 | 2026-05 | v4.7 | §32.9 skill determinism gate; §32.8 (6)/(7); §1.9 worker self-flag; §11.4 review corollary; §25 +3 anti-patterns | Review/retro of the eq-library-v3 application |
@@ -2147,11 +2236,11 @@ The v5.0 statement "§ anchors unchanged" does not apply to the following anchor
 | §11.6 | merged into §11.3 (v5.0) | §11.3 |
 | §10.0 | never existed as a section of its own | §10.1 |
 | §32.18 | does not exist | check §32.17 (role graph) |
-| §27.1.1 (existence question, four answers, rules A–C), §1.11 (playbook = pattern), §32.13 (tool playbooks, invariance safeguarding), §32.15, §32.17, §32.19, §35.1 (quality gates), §35.2 (performance profiling) | present only in the knowledge layer (Orbit), not in this copy (v5.0 state of the bundling) | until synchronization, the brief carries the verbatim excerpt from Orbit; in this copy, the Deletion-Test §27.1 serves as proxy for §27.1.1, the operative version is in the agent `devils-advocate` |
+| §32.19, §35.2 (performance profiling) | present only in the knowledge layer (Orbit), not in this copy | until synchronization, the brief carries the verbatim excerpt from Orbit. §1.11, §27.1.1, §32.12, §32.13, §32.15, §32.17 and §35.1 are in this copy since v6.0 |
 | „Beleg-Kette (§10.6)" in role and playbook texts | citation drift: §10.6 is the verification agent next to the review agent | the evidence requirement is §32.8 (3)/(4) |
 | „Worker-Regel §32.7" for the skills/agents ban | citation drift: §32.7 (5) only bans MCP | §32.2 (6) |
 | „Audit (§27.4)" | citation drift: §27.4 is the vertical TDD loop | §11.4 / §32.11 |
 
 ---
 
-> **End of CDP5 (v5.1).** Predecessor CDP4 (v4.7, `konzept-design-pattern-v4.md`) remains frozen as fallback reference.
+> **End of CDP5 (v6.0).** Predecessor CDP4 (v4.7, `konzept-design-pattern-v4.md`) remains frozen as fallback reference.

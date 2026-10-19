@@ -9,7 +9,7 @@ import { parseUCs, lintKonzept, loadPolicy, collectChecks, glossaryTerms, GATE_C
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const SCRIPT = join(HERE, 'konzept-lint.mjs');
-const DOCTRINE = join(HERE, '..', 'cdp5-reference', 'konzept-design-pattern-v5.md');
+const DOCTRINE = join(HERE, '..', 'cdp5-reference', 'konzept-design-pattern-v6.md');
 const HEAD = '**Version:** 1.0\n**Scope:** x\n';
 const HEAD_V2 = '**Version:** 2.0\n**Scope:** x\n';
 const ROLES = '## Rollen\n| Rolle | Aufgabe |\n';

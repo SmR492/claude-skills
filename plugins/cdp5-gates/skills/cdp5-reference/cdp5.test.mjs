@@ -8,7 +8,7 @@ import { fileURLToPath } from 'node:url';
 import { bySection, byKeyword, listSections, splitBlocks } from './cdp5.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
-const MD = readFileSync(join(HERE, 'konzept-design-pattern-v5.md'), 'utf8');
+const MD = readFileSync(join(HERE, 'konzept-design-pattern-v6.md'), 'utf8');
 
 /** Copies lib + this skill (incl. the bundled doctrine) into a temp directory whose path contains a space. */
 function cliCopy() {
