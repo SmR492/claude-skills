@@ -39,22 +39,29 @@ export function classify(token) {
   return null; // CLI commands (foo:bar), flags (--x), snake_case DB values
 }
 
-/** Look up an artifact in the repo. files = code files collected beforehand. */
+/**
+ * Look up an artifact in the repo. files = code files collected beforehand.
+ * Returns { kind, found, strength, evidence }:
+ *   strength 'path'        — the file/directory exists (paths) or the route literal occurs in a code file (routes)
+ *   strength 'declaration' — `class|interface|trait|enum|function|const <Name>` in a code file
+ *   strength 'occurrence'  — the bare word occurs in a code file (weak: may be a comment, a string, composer.json …)
+ *   strength null          — not found / not verifiable
+ */
 export function locate(token, root, files) {
   const kind = classify(token);
-  if (kind === null) return { kind, found: null, evidence: 'n/a' };
+  if (kind === null) return { kind, found: null, strength: null, evidence: 'n/a' };
   if (kind === 'path') {
     const needle = token.replace(/^\.?\//, '');
-    if (existsSync(join(root, needle))) return { kind, found: true, evidence: needle };
+    if (existsSync(join(root, needle))) return { kind, found: true, strength: 'path', evidence: needle };
     const hit = files.find((f) => relative(root, f).endsWith(needle));
-    return { kind, found: !!hit, evidence: hit ? relative(root, hit) : null };
+    return { kind, found: !!hit, strength: hit ? 'path' : null, evidence: hit ? relative(root, hit) : null };
   }
   if (kind === 'route') {
     for (const f of files) {
       if (extname(f) === '.md') continue;
-      if (readFileSync(f, 'utf8').includes(token)) return { kind, found: true, evidence: `${relative(root, f)} (route)` };
+      if (readFileSync(f, 'utf8').includes(token)) return { kind, found: true, strength: 'path', evidence: `${relative(root, f)} (route)` };
     }
-    return { kind, found: false, evidence: null };
+    return { kind, found: false, strength: null, evidence: null };
   }
   // symbol: declaration in a CODE file (not .md)
   const leaf = token.split('\\').pop().split('::')[0];
@@ -64,10 +71,33 @@ export function locate(token, root, files) {
   for (const f of files) {
     if (extname(f) === '.md') continue;
     const text = readFileSync(f, 'utf8');
-    if (declRe.test(text)) return { kind, found: true, evidence: `${relative(root, f)} (declaration)` };
+    if (declRe.test(text)) return { kind, found: true, strength: 'declaration', evidence: `${relative(root, f)} (declaration)` };
     if (!weak && wordRe.test(text)) weak = `${relative(root, f)} (occurrence)`;
   }
-  return { kind, found: !!weak, evidence: weak };
+  return { kind, found: !!weak, strength: weak ? 'occurrence' : null, evidence: weak };
+}
+
+/**
+ * UC sections of a concept document. A UC heading is `## UC-…` or `### UC-…` (H3 UCs usually sit under a
+ * numbered `## N. Use Cases` section). Any other H1/H2 heading ends the current UC; H3 sub-headings
+ * (`### Akzeptanzkriterien`) stay inside it. Returns [{ id, title, body, line }] with a 1-based heading line.
+ */
+export function parseUCs(md) {
+  const ucs = [];
+  let cur = null;
+  md.split('\n').forEach((line, i) => {
+    const h = line.match(/^#{2,3}\s+(UC[-\s][^\n]*)/i);
+    if (h) {
+      const title = h[1].trim();
+      const id = (title.match(/^UC[-\s]?[\w.]+/i) || [title])[0].replace(/\s+/g, '-').replace(/[.:]+$/, '');
+      cur = { id, title, body: '', line: i + 1 };
+      ucs.push(cur);
+      return;
+    }
+    if (/^#{1,2}\s/.test(line)) cur = null;   // any other H1/H2 heading ends the UC
+    if (cur) cur.body += line + '\n';
+  });
+  return ucs;
 }
 
 /** Backtick tokens from a block of text. */

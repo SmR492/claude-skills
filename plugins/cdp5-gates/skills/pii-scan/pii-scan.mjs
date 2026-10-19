@@ -3,9 +3,10 @@
 // traces (email, IBAN, phone, credit card). Dependency-free, redacted output.
 // HYBRID: the regex part is deterministic; the semantic classification (real name vs.
 // random string) belongs in a review-verify overlay — not a final truth gate on its own.
-// Exit: 0 = clean · 1 = ≥1 finding · 2 = usage error.
+// Exit: 0 = no 🔴 · 1 = ≥1 🔴 (every PII finding is 🔴) · 2 = usage error.
 
 import { readFileSync, readdirSync, lstatSync } from 'node:fs';
+import { pathToFileURL } from 'node:url';
 import { guardPaths } from '../../lib/args.mjs';
 import { join, relative, extname, basename } from 'node:path';
 
@@ -13,15 +14,15 @@ const SKIP = new Set(['.git', 'node_modules', 'vendor', 'var', 'cache', '.idea',
 const EXT = new Set(['.php', '.js', '.mjs', '.ts', '.py', '.rb', '.go', '.java', '.json', '.yaml', '.yml', '.xml', '.csv', '.sql', '.txt', '.md', '.env', '.ini', '.toml']);
 // PLACEHOLDER is tested against the MATCHED value (not the whole line) so that real PII
 // next to a placeholder is not lost. 0{12,} = all-zero test cards (does NOT exclude IBANs containing zeros).
-const PLACEHOLDER = /\byour[_-]|example\.(com|org)|@example\.|\bxxx+\b|0{12,}|changeme|<[^>]+>/i;
+export const PLACEHOLDER = /\byour[_-]|example\.(com|org)|@example\.|\bxxx+\b|0{12,}|changeme|\$\{|<[^>]+>/i;
 const MAX_LINE = 4000;   // PII never sits in overlong single tokens — cap against quadratic regex backtracking (ReDoS)
 
 // Quantifiers deliberately bounded (close to RFC) → no O(n²) backtracking on long non-matching lines.
 const PATTERNS = [
   { type: 'Email', re: /[A-Za-z0-9._%+-]{1,64}@[A-Za-z0-9.-]{1,255}\.[A-Za-z]{2,24}/g },
-  { type: 'IBAN', re: /\b[A-Z]{2}\d{2}[A-Z0-9]{11,30}\b/g },
+  { type: 'IBAN', re: /\b[A-Z]{2}\d{2}[A-Z0-9]{11,30}\b/g, check: iban97 },
   { type: 'Phone', re: /\+\d{2,3}[\s\-/]?\d[\d\s\-/]{7,40}\d/g },
-  { type: 'Credit card', re: /\b(?:\d[ -]?){13,16}\b/g, luhn: true },
+  { type: 'Credit card', re: /\b(?:\d[ -]?){13,16}\b/g, check: luhn },
 ];
 
 function luhn(s) {
@@ -30,6 +31,19 @@ function luhn(s) {
   let sum = 0, alt = false;
   for (let i = d.length - 1; i >= 0; i--) { let n = +d[i]; if (alt) { n *= 2; if (n > 9) n -= 9; } sum += n; alt = !alt; }
   return sum % 10 === 0;
+}
+
+// ISO 13616 mod-97: move the first four characters to the end, letters → 10..35, remainder must be 1.
+export function iban97(s) {
+  const iban = s.replace(/\s/g, '').toUpperCase();
+  if (iban.length < 15 || iban.length > 34) return false;
+  const rearranged = iban.slice(4) + iban.slice(0, 4);
+  let r = 0;
+  for (const ch of rearranged) {
+    const v = /[A-Z]/.test(ch) ? String(ch.charCodeAt(0) - 55) : ch;
+    for (const d of v) r = (r * 10 + Number(d)) % 97;
+  }
+  return r === 1;
 }
 
 const redact = (m) => m.length <= 4 ? '…' : m.slice(0, 2) + '…' + m.slice(-2);
@@ -41,8 +55,8 @@ export function scanText(text, file) {
     for (const p of PATTERNS) {
       for (const m of line.matchAll(p.re)) {
         if (PLACEHOLDER.test(m[0])) continue;        // per match, not per line
-        if (p.luhn && !luhn(m[0])) continue;
-        out.push({ file, line: i + 1, type: p.type, match: redact(m[0]) });
+        if (p.check && !p.check(m[0])) continue;     // checksum (Luhn / IBAN mod-97) against false positives
+        out.push({ sev: '🔴', file, line: i + 1, type: p.type, match: redact(m[0]) });
       }
     }
   });
@@ -79,12 +93,13 @@ function main(argv) {
   if (!a.repo) { console.error('Usage: pii-scan.mjs --repo=<root> [--json]'); process.exit(2); }
   guardPaths([[a.repo, 'dir']]);
   const f = scanRepo(a.repo);
-  if (a.json) { console.log(JSON.stringify(f, null, 2)); process.exit(f.length ? 1 : 0); }
+  const critical = f.some((x) => x.sev === '🔴');
+  if (a.json) { console.log(JSON.stringify(f, null, 2)); process.exit(critical ? 1 : 0); }
   console.log(`pii-scan — ${f.length} possible PII findings (redacted)\n`);
-  for (const x of f) console.log(`  ✗ ${x.type}  ${x.file}:${x.line}  (${x.match})`);
+  for (const x of f) console.log(`  ${x.sev} ${x.type}  ${x.file}:${x.line}  (${x.match})`);
   if (!f.length) console.log('  no cleartext PII found.');
   else console.log('\nHybrid: verify semantically (review-verify) — regex can be a false positive.');
-  process.exit(f.length ? 1 : 0);
+  process.exit(critical ? 1 : 0);
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) main(process.argv);
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) main(process.argv);

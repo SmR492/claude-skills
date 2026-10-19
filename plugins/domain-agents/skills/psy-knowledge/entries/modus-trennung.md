@@ -1,7 +1,7 @@
 # Trennung von Einzelmodus und Paarmodus
 
 Ref: `PSY:modus-trennung` · Category: principle · Entry version: 1
-Source: ?. Provenance: bulk extraction 2026-07-02, migrated to Orbit 2026-09-02 (riedl/nsai/doktrin/PSY-modus-trennung.json); content unverified against a primary source. Treat figures and legal statements as unverified until checked.
+Source: none recorded (internal doctrine entry). Provenance: bulk extraction 2026-07-02, migrated to Orbit 2026-09-02 (riedl/nsai/doktrin/PSY-modus-trennung.json); content unverified against a primary source. Treat figures and legal statements as unverified until checked.
 
 Aufloesung des Konflikts zwischen der bestehenden Parteilichkeits-Regel im Einzelgespraech und der Allparteilichkeit im Paarsetting.
 

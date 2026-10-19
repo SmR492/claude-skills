@@ -1,6 +1,6 @@
 ---
 name: mcp-doc-drift-gate
-description: Read-only T1 gate against consumer sycophancy in MCP tools. Loads an MCP server (convention `export const TOOLS = [...]`) via dynamic import and checks, for every tool, that all `inputSchema.properties.*` and all declared `outputContract` fields occur as tokens in the tool `description`. Prevents the hallucination class where an LLM consumer sees an undocumented field and invents its meaning. Use on "mcp doc check", "tool description drift", BEFORE every MCP slice merge.
+description: T1 gate against consumer sycophancy in MCP tools. Loads an MCP server (convention `export const TOOLS = [...]`) via dynamic import and checks, for every tool, that all `inputSchema.properties.*` and all declared `outputContract` fields occur as whole words in the tool `description`. Prevents the hallucination class where an LLM consumer sees an undocumented field and invents its meaning. Use on "mcp doc check", "tool description drift", BEFORE every MCP slice merge.
 ---
 
 # mcp-doc-drift-gate (CDP5 T1 gate)
@@ -17,7 +17,18 @@ This skill turns that into a **deterministic** pre-merge gate without any LLM ca
 node "${CLAUDE_PLUGIN_ROOT}/skills/mcp-doc-drift-gate/mcp-doc-drift-gate.mjs" --mcp=<path-to-mcp-server.mjs> [--json]
 ```
 
-Exit: `0` no drift · `1` drift found · `2` usage error.
+**Executes the module's top-level code via `import()`; run only on code built in this repository (§33.1).** The gate does not write anything, but it is not sandboxed — whatever the server module does at import time (connecting, reading env, spawning) happens.
+
+## Severity and exit codes
+
+| Marker | Meaning | Gates? |
+|---|---|---|
+| 🔴 | blocks — input/output drift, tool shape violation | yes → exit `1` |
+| 🟡 | defect with workaround — tool without `outputContract` (output drift unchecked) | no |
+| 🟢 | polish | no (not emitted by this skill today) |
+
+Exit: `0` no 🔴 · `1` ≥1 🔴 · `2` usage or input error (missing `--mcp`, path not a file, import failure, no `TOOLS` export).
+`--json` prints `{ tools_checked, findings, drift, tools_without_output_contract, exit, findings[] }`; every finding carries `sev`, `tool`, `kind` (`shape` | `input` | `output` | `coverage`), `detail`.
 
 ## Convention
 
@@ -38,18 +49,19 @@ export const TOOLS = [
 
 ## Checks
 
-1. **Tool shape**: every TOOL has `name`, `description`, `inputSchema`.
-2. **Input drift**: every field in `inputSchema.properties` must occur in the description text as a token (case-insensitive substring match on word boundaries).
-3. **Output drift** (when `outputContract` is declared): every field must occur in the description.
-4. **Whitespace-tolerant**: tokenisation normalises whitespace.
+1. **Tool shape** (🔴): every TOOL is an object with non-empty `name`, non-empty `description` and an `inputSchema` object. A missing `inputSchema` is reported as `shape: inputSchema missing`; the input-drift check then runs over zero fields.
+2. **Input drift** (🔴): every field in `inputSchema.properties` must occur in the description as a whole word (case-insensitive; `[A-Za-z0-9_]` form the word, so `predicate` does not match `predicate_x`). Markdown, backticks and punctuation around the word are fine. There is no whitespace normalisation — field names never contain whitespace.
+3. **Output drift** (🔴, when `outputContract` is declared): every field must occur in the description.
+4. **Coverage note** (🟡): a tool without `outputContract` is listed so the reader knows its output drift was NOT checked.
 
 ## Example output
 
 ```
 mcp-doc-drift-gate — 13 tools checked, 2 drift spots
 
-  ✗ graph__verify — Output field `physical_status` not in description
-  ✗ graph__search — Input field `max_hops` not in description
+  🔴 graph__verify — Output field `physical_status` not in description
+  🔴 graph__search — Input field `max_hops` not in description
+  🟡 graph__stats — tool without outputContract — output drift was NOT checked
 
 2 drift  ·  exit 1
 ```
@@ -57,5 +69,6 @@ mcp-doc-drift-gate — 13 tools checked, 2 drift spots
 ## What it does NOT check (deliberate scope boundary)
 
 - Semantic correctness of the description (judgment task → `konzept-reviewer` or similar).
-- Completeness of the `outputContract` declaration. If the skill neither finds output drift nor sees an `outputContract`, it prints a **note**, not a fail.
+- Completeness of the `outputContract` declaration. A tool without one yields a 🟡 note, not a fail.
+- Nested schema fields (`properties.foo.properties.bar`) — only the top-level `inputSchema.properties` keys are checked.
 - Wire contract / federation (different skill: `mcp-config-lint`).

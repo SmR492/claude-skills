@@ -23,15 +23,20 @@ Non-trivial tasks are orchestrated according to **CDP5** (concept → design →
 | Untested security-critical classes | `test-gap` |
 | Check the retro→memory loop | `retro-memory-loop-check` |
 | Check project defaults against the profile | `profile-check` |
+| Before installing a plugin / after writing a skill or agent | `skill-lint` |
 | Wire/update CLAUDE.md to the marketplace | `cdp5-init` |
 | Concept maturity/gap review (judgment) | `konzept-reviewer` |
 | Verify claims against code/source | `review-verify` |
+| Code review of a diff or slice | `review-code` |
 | Adversarial review of a 🔴 slice | `adversarial-auditor` |
+| Challenge the reasoning of a choice / outside view on a forecast | `devils-advocate`, `pessimistic-realist` |
 | Threat modeling / MCP security | `threat-modeler`, `mcp-security-reviewer` |
+| Retro → memory candidates | `pm-retro` |
+| Implement a UC / debug a failure / refactor (worker in its own worktree) | `impl-uc`, `impl-debug`, `impl-refactor` |
 | Retrieve or write back project/domain knowledge (knowledge doctrine, separate from CDP5) | Orbit MCP (`search` → `read`, finish with `insert`/`update`) |
 
 ### Tools
 
-- **`cdp5-gates`** (deterministic, read-only T1 skills): konzept-lint · ac-to-test-scaffold · konzept-mapper · konzept-model-api · konzept-const-sync · roadmap-drift · secrets-scan · pii-scan · mcp-config-lint · mcp-doc-drift-gate · wiki-lint · test-gap · retro-memory-loop-check · profile-check · cdp5-init · cdp5-reference.
-- **`cdp5-agents`** (judgment, read-only): konzept-reviewer · review-verify · adversarial-auditor · threat-modeler · mcp-security-reviewer.
-
+- **`cdp5-gates`** (deterministic T1 skills, read-only — exception: `cdp5-init --write` after confirmation): konzept-lint · ac-to-test-scaffold · konzept-mapper · konzept-model-api · konzept-const-sync · roadmap-drift · secrets-scan · pii-scan · mcp-config-lint · mcp-doc-drift-gate · wiki-lint · test-gap · retro-memory-loop-check · profile-check · skill-lint · cdp5-init · cdp5-reference.
+- **`cdp5-agents`** — judgment (read-only): konzept-reviewer · review-verify · review-code · adversarial-auditor · devils-advocate · pessimistic-realist · threat-modeler · mcp-security-reviewer · pm-retro.
+- **`cdp5-agents`** — implementation workers (write in their worktree, no commit): impl-uc · impl-debug · impl-refactor.

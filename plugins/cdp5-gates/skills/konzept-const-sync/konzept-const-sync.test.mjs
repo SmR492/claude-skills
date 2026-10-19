@@ -1,11 +1,13 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { writeFileSync, mkdtempSync, rmSync } from 'node:fs';
+import { writeFileSync, mkdtempSync, mkdirSync, cpSync, copyFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 const SKILL = new URL('./konzept-const-sync.mjs', import.meta.url).pathname;
+const HERE = dirname(fileURLToPath(import.meta.url));
 
 // Minimal spec whose scales mirror the real rules.mjs (for hermetic fixture tests).
 // Tier names (gesetz, behoerde, fachquelle, …) are the real German spec keys and stay as-is.
@@ -141,4 +143,57 @@ test('AC-12: conformance mirror drift is detected', () => {
   assert.equal(r.status, 1);
   assert.match(r.stdout, /mirror/);
   assert.match(r.stdout, /9999/);
+});
+
+test('AC-13: --keys makes the tracked set configurable (project-independent spec)', () => {
+  const spec = 'export const DEFAULT_SPEC = { fooThreshold: 7, levels: { low: 1, high: 3 } };';
+  const { dir, kPath, sPath } = fixture('fooThreshold = 8 and levels: low=1, high=2, extra=9', spec);
+  // default key set knows nothing about this spec → nothing tracked, exit 0
+  const r0 = run([`--konzept=${kPath}`, `--spec=${sPath}`]);
+  assert.equal(r0.status, 0, r0.stdout + r0.stderr);
+  // explicit key list → drift in scalar + map key + phantom
+  const keysPath = join(dir, 'keys.json');
+  writeFileSync(keysPath, JSON.stringify(['fooThreshold', 'levels']));
+  const r1 = run([`--konzept=${kPath}`, `--spec=${sPath}`, `--keys=${keysPath}`, '--json']);
+  cleanup(dir);
+  assert.equal(r1.status, 1, r1.stdout + r1.stderr);
+  const out = JSON.parse(r1.stdout);
+  assert.equal(out.keys_source, keysPath);
+  const kinds = out.findings.map((f) => f.kind).sort();
+  assert.deepEqual(kinds, ['phantom', 'scalar-decl', 'tier-decl']);
+  assert.ok(out.findings.every((f) => f.sev === '🔴'));
+});
+
+test('AC-14: --keys that is not a JSON array → exit 2', () => {
+  const { dir, kPath, sPath } = fixture('x');
+  const keysPath = join(dir, 'keys.json');
+  writeFileSync(keysPath, '{"name":"foo"}');
+  const r = run([`--konzept=${kPath}`, `--spec=${sPath}`, `--keys=${keysPath}`]);
+  cleanup(dir);
+  assert.equal(r.status, 2);
+  assert.match(r.stderr, /JSON array/);
+});
+
+test('AC-15: summary line `N drift · exit N` is printed with 🔴 markers', () => {
+  const { dir, kPath, sPath } = fixture('behoerde=4');
+  const r = run([`--konzept=${kPath}`, `--spec=${sPath}`]);
+  cleanup(dir);
+  assert.equal(r.status, 1);
+  assert.match(r.stdout, /🔴 L1 \[tier-decl\]/);
+  assert.match(r.stdout, /1 drift {2}· {2}exit 1/);
+});
+
+test('AC-16: CLI runs from a path containing a space and prints output', () => {
+  const base = mkdtempSync(join(tmpdir(), 'cdp5 gates '));
+  try {
+    cpSync(resolve(HERE, '../../lib'), join(base, 'lib'), { recursive: true });
+    const skillDir = join(base, 'skills', 'konzept-const-sync');
+    mkdirSync(skillDir, { recursive: true });
+    copyFileSync(join(HERE, 'konzept-const-sync.mjs'), join(skillDir, 'konzept-const-sync.mjs'));
+    const kPath = join(base, 'KONZEPT.md'); const sPath = join(base, 'rules.mjs');
+    writeFileSync(kPath, 'gesetz(6)'); writeFileSync(sPath, SPEC_SRC);
+    const r = spawnSync('node', [join(skillDir, 'konzept-const-sync.mjs'), `--konzept=${kPath}`, `--spec=${sPath}`], { encoding: 'utf8' });
+    assert.match(r.stdout, /konzept-const-sync — 1 lines/);
+    assert.equal(r.status, 0);
+  } finally { rmSync(base, { recursive: true, force: true }); }
 });

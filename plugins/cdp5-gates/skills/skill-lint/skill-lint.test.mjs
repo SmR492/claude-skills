@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync, cpSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -135,6 +135,40 @@ test('a pattern definition or comment in code is informational, a real call is n
     const f = scanTree(root);
     assert.ok(f.filter((x) => x.file.endsWith('a.mjs')).every((x) => x.sev === '🟢'), JSON.stringify(f));
     assert.ok(f.some((x) => x.file.endsWith('b.mjs') && x.sev === '🔴' && x.check === 'X2'));
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('a comment hit does not shadow a later real call of the same signal (severity shadowing)', () => {
+  const root = mkdtempSync(join(tmpdir(), 'skill-lint-'));
+  try {
+    const dir = skill(root, 'shadow', 'name: shadow\ndescription: A tool. Use when needed.');
+    mkdirSync(join(dir, 'scripts'));
+    writeFileSync(join(dir, 'scripts', 'run.mjs'), '// eval("x") is documented here\nconst payload = process.argv[2];\neval(payload);\n');
+    const x1 = scanTree(root).filter((x) => x.check === 'X1' && x.file.endsWith('run.mjs'));
+    assert.ok(x1.some((x) => x.sev === '🔴' && /line 3/.test(x.issue)), `real eval must be 🔴: ${JSON.stringify(x1)}`);
+    assert.equal(x1.filter((x) => x.sev === '🟢').length, 1, 'the comment hit is reported once as informational');
+    assert.ok(run(root).hasCritical);
+    // only comment hits → one informational finding, no 🔴
+    writeFileSync(join(dir, 'scripts', 'run.mjs'), '// eval("x") in docs\n// eval("y") again\nconst ok = 1;\n');
+    const onlyInfo = scanTree(root).filter((x) => x.check === 'X1' && x.file.endsWith('run.mjs'));
+    assert.deepEqual(onlyInfo.map((x) => x.sev), ['🟢']);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('CLI runs from a path with a space (main guard) and prints the summary', () => {
+  const root = mkdtempSync(join(tmpdir(), 'cdp5 gates-'));
+  try {
+    cpSync(join(HERE, '..', '..', 'lib'), join(root, 'lib'), { recursive: true });
+    cpSync(HERE, join(root, 'skills', 'skill-lint'), { recursive: true });
+    const copied = join(root, 'skills', 'skill-lint', 'skill-lint.mjs');
+    const target = skill(root, 'clean', 'name: clean\ndescription: Clean. Use when clean.');
+    const r = spawnSync('node', [copied, `--path=${target}`], { encoding: 'utf8' });
+    assert.equal(r.status, 0, r.stdout + r.stderr);
+    assert.match(r.stdout, /skill-lint — 1 skills, 0 agents/);
   } finally {
     rmSync(root, { recursive: true, force: true });
   }

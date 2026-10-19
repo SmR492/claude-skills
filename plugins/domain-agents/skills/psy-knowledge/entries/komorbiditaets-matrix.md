@@ -1,7 +1,7 @@
 # Komorbiditaets- und Differenzialmatrix Depression / ADHS / ASS
 
 Ref: `PSY:komorbiditaets-matrix` · Category: framework · Entry version: 1
-Source: ?. Provenance: bulk extraction 2026-07-02, migrated to Orbit 2026-09-02 (riedl/nsai/doktrin/PSY-komorbiditaets-matrix.json); content unverified against a primary source. Treat figures and legal statements as unverified until checked.
+Source: none recorded (internal doctrine entry). Provenance: bulk extraction 2026-07-02, migrated to Orbit 2026-09-02 (riedl/nsai/doktrin/PSY-komorbiditaets-matrix.json); content unverified against a primary source. Treat figures and legal statements as unverified until checked.
 
 Die drei Stoerungsbilder ueberlappen stark. Regel: Grund- und Folgediagnose klaeren statt Diagnosen addieren.
 

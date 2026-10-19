@@ -13,8 +13,10 @@ The **TDD-first bridge**: reads the `## UC-…` + acceptance-criteria tables and
 node "${CLAUDE_PLUGIN_ROOT}/skills/ac-to-test-scaffold/ac-to-test-scaffold.mjs" --konzept=<konzept.md> [--lang=php|js]
 ```
 
-Exit: `0` skeletons generated · `1` no ACs found (run `konzept-lint` first) · `2` usage error.
+Exit: `0` skeletons generated (code on stdout, a one-line summary on stderr) · `2` usage or input error — including "no AC tables found" (message: run `konzept-lint` first). This skill is a generator, not a gate: it emits no 🔴/🟡/🟢 findings and never exits `1`; a concept without ACs is an input state, which is why it shares exit `2` with the usage errors.
 
 ## Convention
 
-AC rows `| AC-N | criterion | test type | Class::method | status |` (cf. CDP5 §11.7). Test class/method come from the `Class::method` column; if it is absent, they are derived from the UC/AC id. `--lang=php` (PHPUnit, default) or `js` (node:test). Afterwards: `tdd` loop (red → green per AC); `konzept-mapper` later checks whether the classes really exist.
+- A **UC** is a `## UC-…` or `### UC-…` section (shared parser `parseUCs` in `lib/scan.mjs`, identical to `konzept-mapper`).
+- AC rows `| AC-N | criterion | test type | Class::method | status |` inside a UC (cf. CDP5 §11.7). Test class/method come from the column containing `Class::method` (or a `…Test` class name); if absent, the class is derived from the UC title and the method from the AC id. Duplicate method names within a class are suffixed `_2`, `_3`, ….
+- `--lang=php` (PHPUnit, default: one `final class … extends TestCase` per test class, `markTestIncomplete` per AC) or `js` (one `node:test` entry per AC that throws). Afterwards: `tdd` loop (red → green per AC); `konzept-mapper` later checks whether the classes really exist.

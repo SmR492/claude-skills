@@ -8,6 +8,7 @@
 
 import { readFileSync, readdirSync, lstatSync, existsSync, statSync } from 'node:fs';
 import { join, relative, basename, dirname, extname, resolve } from 'node:path';
+import { pathToFileURL } from 'node:url';
 import { guardPaths } from '../../lib/args.mjs';
 
 const SKIP_DIRS = new Set(['.git', 'node_modules', 'vendor', 'dist', 'build', '.tmp', 'entries']);
@@ -148,8 +149,11 @@ export function scanTree(root) {
       if (s.scope === 'text' && !(isText || ext === '.md')) continue;
       const re = new RegExp(s.re.source, s.re.flags.includes('g') ? s.re.flags : `${s.re.flags}g`);
       let m;
-      let reported = false;
-      while (!reported && (m = re.exec(text))) {
+      // Per signal and file: the first downgraded (🟢) hit is reported once, but scanning continues until a hit
+      // that is NOT downgraded — a comment mentioning `eval(` must not shadow a real `eval(payload)` further down.
+      let infoReported = false;
+      while ((m = re.exec(text))) {
+        if (m[0] === '') { re.lastIndex++; continue; }
         const lineNo = text.slice(0, m.index).split('\n').length;
         const lineText = lines[lineNo - 1] ?? '';
         const inComment = isCode && /^\s*(\/\/|#|\*|\/\*)/.test(lineText);
@@ -159,8 +163,12 @@ export function scanTree(root) {
         if (isTest) { sev = '🟢'; note = ' (test or fixture file, informational)'; }
         else if (inPattern) { sev = '🟢'; note = ' (inside a pattern definition, informational)'; }
         else if (inComment) { sev = '🟢'; note = ' (in a comment, informational)'; }
+        const downgraded = sev !== s.sev;
+        if (downgraded && infoReported) continue;
         add(sev, s.id, f.path, `${s.why}${note}: line ${lineNo}: ${m[0].slice(0, 80).replace(/\s+/g, ' ')}`);
-        reported = true;
+        if (!downgraded) break;
+        infoReported = true;
+        if (isTest) break;   // every hit in a test file is informational — one is enough
       }
     }
     if (basename(f.path) === 'package.json') {
@@ -250,4 +258,4 @@ function main(argv) {
   process.exit(r.hasCritical ? 1 : 0);
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) main(process.argv);
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) main(process.argv);

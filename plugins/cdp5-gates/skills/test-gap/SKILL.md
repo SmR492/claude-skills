@@ -13,12 +13,19 @@ The detection part of the former `test-gap` agent as a program. Finds security-c
 node "${CLAUDE_PLUGIN_ROOT}/skills/test-gap/test-gap.mjs" --repo=<repo-root> [--json]
 ```
 
-Exit: `0` no gap · `1` ≥1 untested security-critical class · `2` usage error.
+Exit: `0` no 🔴 (every security-critical class has a test) · `1` ≥1 🔴 (untested security-critical class) · `2` usage or input error.
+
+Every security-critical class is printed as a finding: 🔴 (no test) or 🟢 (tested). `--json` returns `{ gaps[{ class, file, sev }], covered[…], scanned }`.
 
 ## Detection
 
-- **Security-critical** = file name ends in `Voter.php`/`StateProcessor.php`/`Authenticator.php` **or** content `extends …Voter` / `implements …Authenticator|…StateProcessor`.
-- **Tested** = a `<Class>Test.php` exists **or** a test file references the class name.
+- **Security-critical** = the file name ends in `Voter.php`, `StateProcessor.php` or `Authenticator.php`, **or** the content matches exactly one of:
+  - `extends …Voter` (any class whose name ends in `Voter`),
+  - an `implements` clause that names `Authenticator`, `AuthenticatorInterface`, `StateProcessor` or `StateProcessorInterface` as a whole word (also in a comma-separated list).
+  API Platform's generic `ProcessorInterface` is **not** matched — a plain state processor is not a security gate.
+- **Test file** = path contains a `tests/` or `Tests/` directory (either separator, case-insensitive) **or** the file name ends in `Test.php`.
+- **Tested** = a `<Class>Test.php` exists **or** any test file references the class name as a whole word.
+- Files ending in `Test.php` are never reported as gaps themselves.
 
 ## Afterwards (main agent)
 

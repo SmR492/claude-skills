@@ -15,12 +15,12 @@ node "${CLAUDE_PLUGIN_ROOT}/skills/cdp5-reference/cdp5.mjs" --keyword="lethal tr
 node "${CLAUDE_PLUGIN_ROOT}/skills/cdp5-reference/cdp5.mjs" --list
 ```
 
-- `--section=<X>` — the section including its subsections (`33`, `33.1`, `32.8`, `19.4`, `0.3` …).
-- `--keyword=<term>` — all blocks whose heading/text contains the term, with a snippet.
-- `--list` — table of contents of all sections.
+- `--section=<X>` — the section including its subsections (`33`, `33.1`, `32.8`, `19.4`, `0.3` …). The number must match the heading exactly: `--section=10` returns `## 10. AI Review of the Konzept`, not the combined heading `10.6 / 10.7 / 19 — …` (reachable as `--section=10.6`).
+- `--keyword=<term>` — all blocks (headings H1–H4) whose heading/text contains the term (case-insensitive), each with a 200-character snippet.
+- `--list` — table of contents (headings up to H3).
 - `--doctrine=<path>` — alternative doctrine file (default: the bundled one).
 
-Exit: `0` hit · `1` no hit · `2` usage error.
+Exit: `0` hit · `2` no hit, or usage/input error. **Reference lookups are not gates:** this skill produces no 🔴/🟡/🟢 findings and never exits `1`; a missing section or keyword is an input problem (typo, wrong number), which is why it shares exit `2` with the usage errors.
 
 ## Without Bash
 

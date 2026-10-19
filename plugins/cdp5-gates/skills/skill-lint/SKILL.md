@@ -32,6 +32,7 @@ Supply chain (off with `--no-scan`), over every file of the tree:
 - 🔴 **X1** remote or dynamic code execution (a download piped into a shell, `eval`, `Invoke-Expression`, decoded base64 piped into a shell). **X2** reach into credential stores (SSH keys, cloud credential files, netrc, secret-looking environment variables). **X3** text that tells the agent to disregard its earlier rules or to conceal a step from the user. **X7** hook command that downloads or sends over the network.
 - 🟡 **X4** network access in code. **X5** encoded payload (long base64, hex runs, `atob`). **X6** unpinned `npx`/`pip`/`gem` execution, install-time scripts in `package.json`. **X7** hook command outside the plugin root. **X8** marketplace plugin source without a commit or tag pin. **X9** binary, oversized or symlinked file.
 - A signal in a test or fixture file, in a comment, or inside a regular-expression definition is reported as 🟢: Claude Code never executes the first two, and the third is a detector, not an action. Read them anyway when the skill is foreign.
+- Per signal and file, the scan reports the first 🟢 hit once and keeps scanning until it meets a hit that is not downgraded, which it reports at full severity and then stops. A comment that mentions `eval(` therefore never hides a real `eval(payload)` further down the same file.
 
 ## Limits
 

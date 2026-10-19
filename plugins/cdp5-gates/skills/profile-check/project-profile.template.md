@@ -4,7 +4,7 @@
 project: <project name>
 
 # Regulatory / security (architect decision, §1.9/§23)
-eu_ai_act_class: minimal      # minimal | limited | high | prohibited
+eu_ai_act_class: minimal      # minimal | limited | high | unacceptable  (EU AI Act scale, §22)
 security_level: standard      # standard | elevated  (elevated → threat modeling §33.4 mandatory in the concept)
 pii_policy: none              # none | redacted | allowed  (informational; cf. pii-scan)
 

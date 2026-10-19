@@ -33,7 +33,7 @@ export function parsePolicy(md) {
   if (!Number.isFinite(threshold)) throw new Error('policy: missing "Threshold: **N**" line');
   const gate = tableAfter(md, '## Layer 1: gate').map(([id, item, kind, check]) => ({ id, item, kind, check }));
   const dimensions = tableAfter(md, '## Layer 2: dimensions').map(([id, name, weight, kind, scoredBy]) => ({ id, name, weight: Number(weight), kind, scoredBy }));
-  for (const g of gate) if (!/^G\d+$/.test(g.id) || !['det', 'jdg'].includes(g.kind)) throw new Error(`policy: bad gate row ${JSON.stringify(g)}`);
+  for (const g of gate) if (!/^G\d+[a-z]?$/.test(g.id) || !['det', 'jdg'].includes(g.kind)) throw new Error(`policy: bad gate row ${JSON.stringify(g)}`);
   for (const d of dimensions) if (!Number.isFinite(d.weight) || !['det', 'jdg', 'mixed'].includes(d.kind)) throw new Error(`policy: bad dimension row ${JSON.stringify(d)}`);
   const sum = dimensions.reduce((s, d) => s + d.weight, 0);
   if (Math.abs(sum - 1) > 0.001) throw new Error(`policy: dimension weights sum to ${sum.toFixed(3)}, expected 1.000`);

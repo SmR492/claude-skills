@@ -1,7 +1,7 @@
 # Harte Grenze: Vorbereitung und Begleitung statt Behandlung
 
 Ref: `PSY:keine-behandlung-nur-vorbereitung` · Category: gate · Entry version: 2
-Source: ?. Provenance: bulk extraction 2026-07-02, migrated to Orbit 2026-09-02 (riedl/nsai/doktrin/PSY-keine-behandlung-nur-vorbereitung.json); content unverified against a primary source. Treat figures and legal statements as unverified until checked.
+Source: none recorded (internal doctrine entry). Provenance: bulk extraction 2026-07-02, migrated to Orbit 2026-09-02 (riedl/nsai/doktrin/PSY-keine-behandlung-nur-vorbereitung.json); content unverified against a primary source. Treat figures and legal statements as unverified until checked.
 
 Gate, das jede Ausgabe der Psycho-Domaene passieren muss. Die Wissensbasis bereitet Behandlung vor und begleitet sie - sie fuehrt keine durch.
 

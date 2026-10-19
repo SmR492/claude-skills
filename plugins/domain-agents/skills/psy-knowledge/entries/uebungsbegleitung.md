@@ -1,7 +1,7 @@
 # Uebungs- und Hausaufgabenbegleitung
 
 Ref: `PSY:uebungsbegleitung` · Category: method · Entry version: 1
-Source: ?. Provenance: bulk extraction 2026-07-02, migrated to Orbit 2026-09-02 (riedl/nsai/doktrin/PSY-uebungsbegleitung.json); content unverified against a primary source. Treat figures and legal statements as unverified until checked.
+Source: none recorded (internal doctrine entry). Provenance: bulk extraction 2026-07-02, migrated to Orbit 2026-09-02 (riedl/nsai/doktrin/PSY-uebungsbegleitung.json); content unverified against a primary source. Treat figures and legal statements as unverified until checked.
 
 Methode zur Begleitung von Uebungen und Hausaufgaben zwischen den Behandlungsterminen - dem in der Forschung am besten belegten Hebel ausserhalb der Sitzung.
 

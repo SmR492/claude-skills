@@ -28,9 +28,11 @@ export function main(env = process.env) {
   readStdinJson();
   const v = verify(pluginRoot(env));
   if (!v.ok) {
+    // Exit 0 on purpose: Claude Code hands additionalContext to the agent only on exit 0, and the agent must see
+    // CONTRACT-MISSING to stop; the stderr line keeps the failure visible to the operator.
     emit(missing(v.error));
     process.stderr.write(`cdp5-agents: worker contract not injected: ${v.error}\n`);
-    return 2;
+    return 0;
   }
   emit(render(v));
   return 0;

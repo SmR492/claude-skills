@@ -1,7 +1,7 @@
 # Traumabegleitung: erlaubter Rahmen und harte Ausschluesse
 
 Ref: `PSY:traumabegleitung` · Category: method · Entry version: 1
-Source: ?. Provenance: bulk extraction 2026-07-02, migrated to Orbit 2026-09-02 (riedl/nsai/doktrin/PSY-traumabegleitung.json); content unverified against a primary source. Treat figures and legal statements as unverified until checked.
+Source: none recorded (internal doctrine entry). Provenance: bulk extraction 2026-07-02, migrated to Orbit 2026-09-02 (riedl/nsai/doktrin/PSY-traumabegleitung.json); content unverified against a primary source. Treat figures and legal statements as unverified until checked.
 
 Was in der Trauma-Domaene begleitet werden darf und was der behandelnden Fachperson vorbehalten bleibt - inklusive der inhaltlichen Begruendung fuer die Grenze.
 

@@ -4,11 +4,11 @@
 //   --section=33.1        → the section (including subsections)
 //   --keyword="lethal"    → all blocks whose heading/text contains the term (with snippet)
 //   --list                → all section headings (table of contents)
-// Exit: 0 = hit · 1 = no hit · 2 = usage error.
+// Exit: 0 = hit · 2 = no hit / usage error. A reference lookup is not a gate: there is no finding, so exit 1 is never used.
 
 import { readFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { guardPaths } from '../../lib/args.mjs';
 
 const DEFAULT_DOCTRINE = join(dirname(fileURLToPath(import.meta.url)), 'konzept-design-pattern-v5.md');
@@ -29,7 +29,8 @@ const text = (b) => `${b.headingLine}\n${b.body.join('\n')}`.trimEnd();
 
 export function bySection(md, sec) {
   const esc = sec.replace(/[.]/g, '\\.');
-  const re = new RegExp(`^(§\\s*)?${esc}(\\b|[.\\s:—-])`);
+  // `(?!\.\d)` keeps `--section=10` from matching the combined heading `10.6 / 10.7 / 19 — …`.
+  const re = new RegExp(`^(§\\s*)?${esc}(?!\\.\\d)(\\b|[.\\s:—-])`);
   const blocks = splitBlocks(md);
   const start = blocks.findIndex((b) => re.test(b.heading));
   if (start < 0) return null;
@@ -60,12 +61,12 @@ function main(argv) {
   if (a.list) { console.log(listSections(md).join('\n')); process.exit(0); }
   if (typeof a.section === 'string') {
     const s = bySection(md, a.section);
-    if (!s) { console.error(`§${a.section} not found. --list shows all sections.`); process.exit(1); }
+    if (!s) { console.error(`§${a.section} not found. --list shows all sections.`); process.exit(2); }
     console.log(s); process.exit(0);
   }
   if (typeof a.keyword === 'string') {
     const hits = byKeyword(md, a.keyword);
-    if (!hits.length) { console.error(`No hit for "${a.keyword}".`); process.exit(1); }
+    if (!hits.length) { console.error(`No hit for "${a.keyword}".`); process.exit(2); }
     for (const h of hits) console.log(`§ ${h.heading}\n   ${h.snippet}\n`);
     process.exit(0);
   }
@@ -73,4 +74,4 @@ function main(argv) {
   process.exit(2);
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) main(process.argv);
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) main(process.argv);

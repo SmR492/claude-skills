@@ -2,13 +2,13 @@
 // Creates the disposable environment for a worker or a counter-role run: a detached git worktree on an exact base
 // commit, a green baseline proven by the project's own gate commands, and (optionally) a run grant for one agent.
 // Prints the lines the orchestrator pastes into the brief. Nothing is committed; the worktree is the agent's sandbox.
-//   node worktree-setup.mjs --repo=<path> --base=<commit> --path=<new worktree dir> [--baseline="<cmd>"]... [--grant=<agent>] [--ttl=2h] [--json]
+//   node worktree-setup.mjs --repo=<path> --base=<commit> --path=<new worktree dir> [--baseline="<cmd>"]... [--grant=<agent>] [--ttl=2h] [--uses=1] [--json]
 // Exit: 0 = worktree ready (and grant issued if requested) · 1 = baseline red, no grant issued · 2 = usage error.
 import { spawnSync } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { addGrant, parseTtl, DEFAULT_TTL_MS } from '../lib/grants.mjs';
+import { addGrant, parseTtl, parseUses, DEFAULT_TTL_MS } from '../lib/grants.mjs';
 
 export function parseArgs(argv) {
   const out = { baseline: [] };
@@ -26,9 +26,24 @@ function git(args, cwd) {
   return { status: r.status, out: (r.stdout ?? '').trim(), err: (r.stderr ?? '').trim() };
 }
 
+// Validates the grant options before anything touches the repository, so a bad value leaves no stray worktree.
+export function grantOptions(opts) {
+  if (opts.grant && !/^[a-z0-9-]+$/.test(String(opts.grant))) return { error: `--grant must be the plain agent name, for example adversarial-auditor (got ${opts.grant})` };
+  try {
+    return { ttlMs: opts.ttl ? parseTtl(opts.ttl) : DEFAULT_TTL_MS, uses: opts.uses ? parseUses(opts.uses) : 1 };
+  } catch (e) {
+    return { error: e.message };
+  }
+}
+
 export function setup(opts, env = process.env, now = Date.now()) {
-  const repo = resolve(opts.repo ?? '.');
-  if (git(['rev-parse', '--git-dir'], repo).status !== 0) return { error: `not a git repository: ${repo}` };
+  if (!opts.path) return { error: '--path is required' };
+  const grantOpts = grantOptions(opts);
+  if (grantOpts.error) return { error: grantOpts.error };
+  const repoArg = resolve(opts.repo ?? '.');
+  if (git(['rev-parse', '--git-dir'], repoArg).status !== 0) return { error: `not a git repository: ${repoArg}` };
+  const top = git(['rev-parse', '--show-toplevel'], repoArg);
+  const repo = top.status === 0 && top.out ? top.out : repoArg;
   const base = git(['rev-parse', '--verify', `${opts.base ?? 'HEAD'}^{commit}`], repo);
   if (base.status !== 0) return { error: `base commit not found: ${opts.base} (${base.err})` };
   const path = resolve(opts.path);
@@ -45,8 +60,7 @@ export function setup(opts, env = process.env, now = Date.now()) {
   }
   let grant = null;
   if (opts.grant && green) {
-    const ttlMs = opts.ttl ? parseTtl(opts.ttl) : DEFAULT_TTL_MS;
-    grant = addGrant({ agent: opts.grant, root: path, ttlMs, note: `worktree on ${base.out.slice(0, 7)}` }, env, now);
+    grant = addGrant({ agent: opts.grant, root: path, project: repo, ttlMs: grantOpts.ttlMs, uses: grantOpts.uses, note: `worktree on ${base.out.slice(0, 7)}` }, env, now);
   }
   return { repo, worktree: path, base: base.out, baseline, green, grant, requestedGrant: opts.grant ?? null };
 }
@@ -55,7 +69,7 @@ export function briefLines(r) {
   const lines = [`disposable environment: ${r.worktree}`, `base commit: ${r.base}`];
   for (const b of r.baseline) lines.push(`baseline: ${b.cmd} → exit ${b.exit}`);
   if (r.baseline.length === 0) lines.push('baseline: none run (no --baseline given)');
-  if (r.grant) lines.push(`run grant: ${r.grant.agent} until ${r.grant.expires}`);
+  if (r.grant) lines.push(`run grant: ${r.grant.agent} until ${r.grant.expires} (${r.grant.uses} use${r.grant.uses === 1 ? '' : 's'}, project ${r.grant.project})`);
   else if (r.requestedGrant) lines.push(`run grant: not issued for ${r.requestedGrant} (baseline red)`);
   else lines.push('run grant: none');
   return lines;
@@ -64,7 +78,7 @@ export function briefLines(r) {
 export function main(argv = process.argv.slice(2), env = process.env) {
   const opts = parseArgs(argv);
   if (!opts.path) {
-    process.stderr.write('Usage: worktree-setup.mjs --repo=<path> --base=<commit> --path=<new worktree dir> [--baseline="<cmd>"]... [--grant=<agent>] [--ttl=2h] [--json]\n');
+    process.stderr.write('Usage: worktree-setup.mjs --repo=<path> --base=<commit> --path=<new worktree dir> [--baseline="<cmd>"]... [--grant=<agent>] [--ttl=2h] [--uses=1] [--json]\n');
     return 2;
   }
   let r;

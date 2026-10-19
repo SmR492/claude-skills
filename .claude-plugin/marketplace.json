@@ -6,26 +6,26 @@
   },
   "metadata": {
     "description": "The CDP5 way of working as a Claude Code marketplace: deterministic T1 skills, judgment agents under a shared worker contract, domain knowledge packs, Orbit session hook.",
-    "version": "0.10.0"
+    "version": "0.11.0"
   },
   "plugins": [
     {
       "name": "cdp5-gates",
       "source": "./plugins/cdp5-gates",
-      "description": "Read-only deterministic T1 skills per CDP5 §32.9: konzept-mapper, konzept-lint (gate plus score against the shipped maturity policy), ac-to-test-scaffold, konzept-model-api, test-gap, roadmap-drift, retro-memory-loop-check, wiki-lint, mcp-config-lint, mcp-doc-drift-gate, secrets-scan, pii-scan, profile-check, cdp5-init, cdp5-reference, skill-lint (spec, conventions and supply-chain check of skills and plugins). Reproducible (program, no LLM); the output is the evidence.",
-      "version": "0.7.0"
+      "description": "Read-only deterministic T1 skills per CDP5 §32.9: konzept-mapper, konzept-lint (gate plus score against the shipped maturity policy), ac-to-test-scaffold, konzept-model-api, test-gap, roadmap-drift, retro-memory-loop-check, wiki-lint, mcp-config-lint, mcp-doc-drift-gate, secrets-scan, pii-scan, profile-check, cdp5-init, cdp5-reference, skill-lint (spec, conventions and supply-chain check of skills and plugins). Reproducible (program, no LLM); one exit-code and severity convention; the output is the evidence.",
+      "version": "0.8.0"
     },
     {
       "name": "cdp5-agents",
       "source": "./plugins/cdp5-agents",
       "description": "CDP5 agents and the orchestrate skill: judgment and counter-roles (konzept-reviewer, review-verify, adversarial-auditor, threat-modeler, mcp-security-reviewer, devils-advocate, pessimistic-realist, review-code, pm-retro) and implementation workers (impl-debug, impl-uc, impl-refactor); shared worker contract via SubagentStart/SubagentStop hooks (acknowledgement, hedged-claim check, usage log), allowlist shell guard with run grants for disposable environments, SessionStart bootstrap, worktree-setup and grant-run scripts.",
-      "version": "0.4.0"
+      "version": "0.5.0"
     },
     {
       "name": "domain-agents",
       "source": "./plugins/domain-agents",
-      "description": "Domain agents and session skills with shipped knowledge packs: marketing-strategist, psy-domaenen-rechercheur, psy-grenzwaechter; business-lingo (89 BL entries, frameworks, lenses), psy-knowledge, psy-diagnostik-navigator, psy-therapiebegleiter, psy-paar-moderator, marketing-knowledge, ux-knowledge (118 UX entries). Requires cdp5-agents.",
-      "version": "0.1.0"
+      "description": "Domain agents and session skills with shipped knowledge packs: marketing-strategist, psy-domaenen-rechercheur, psy-grenzwaechter; business-lingo (89 BL entries, frameworks, lenses), psy-knowledge, psy-diagnostik-navigator, psy-therapiebegleiter, psy-paar-moderator, marketing-knowledge, ux-knowledge (118 UX entries). Requires cdp5-agents; its own SubagentStart guard stops the agents with CONTRACT-MISSING when cdp5-agents is absent.",
+      "version": "0.2.0"
     },
     {
       "name": "orbit-workflow",

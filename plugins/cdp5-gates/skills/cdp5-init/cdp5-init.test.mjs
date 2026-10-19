@@ -1,15 +1,55 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { execFileSync } from 'node:child_process';
-import { mkdtempSync, writeFileSync, readFileSync } from 'node:fs';
+import { execFileSync, spawnSync } from 'node:child_process';
+import { mkdtempSync, writeFileSync, readFileSync, readdirSync, cpSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { mergeBlock, computeDiff, blockInvariantError, START, END } from './cdp5-init.mjs';
 
 const BLOCK = 'CDP5 doctrine; cdp5-reference gate.';   // satisfies the invariant
-const script = join(dirname(fileURLToPath(import.meta.url)), 'cdp5-init.mjs');
+const HERE = dirname(fileURLToPath(import.meta.url));
+const script = join(HERE, 'cdp5-init.mjs');
 const tmp = () => mkdtempSync(join(tmpdir(), 'ci-'));
+
+/** Copies lib + this skill (incl. cdp5-block.md) into a temp directory whose path contains a space. */
+function cliCopy() {
+  const root = mkdtempSync(join(tmpdir(), 'cdp5 gates-'));
+  cpSync(join(HERE, '..', '..', 'lib'), join(root, 'lib'), { recursive: true });
+  cpSync(HERE, join(root, 'skills', 'cdp5-init'), { recursive: true });
+  return { root, script: join(root, 'skills', 'cdp5-init', 'cdp5-init.mjs') };
+}
+
+test('default block lists every cdp5-gates skill (incl. skill-lint) and every cdp5-agents agent in two groups', () => {
+  const def = readFileSync(join(HERE, 'cdp5-block.md'), 'utf8');
+  const gatesLine = def.split('\n').find((l) => l.startsWith('- **`cdp5-gates`**'));
+  assert.ok(gatesLine, 'cdp5-gates tools line present');
+  assert.match(gatesLine, /read-only — exception: `cdp5-init --write` after confirmation/);
+  const skillDirs = readdirSync(join(HERE, '..')).filter((d) => !d.startsWith('.'));
+  for (const s of skillDirs) assert.ok(gatesLine.includes(s), `cdp5-gates line lists ${s}`);
+  assert.match(def, /\| Before installing a plugin \/ after writing a skill or agent \| `skill-lint` \|/);
+  const agentFiles = readdirSync(join(HERE, '..', '..', '..', 'cdp5-agents', 'agents')).filter((f) => f.endsWith('.md')).map((f) => f.replace(/\.md$/, ''));
+  assert.equal(agentFiles.length, 12);
+  const judgment = def.split('\n').find((l) => /cdp5-agents.*judgment \(read-only\)/.test(l));
+  const workers = def.split('\n').find((l) => /cdp5-agents.*implementation workers \(write in their worktree, no commit\)/.test(l));
+  assert.ok(judgment && workers, 'two agent groups');
+  for (const a of agentFiles) assert.ok(judgment.includes(a) || workers.includes(a), `agent ${a} listed`);
+  for (const w of ['impl-uc', 'impl-debug', 'impl-refactor']) assert.ok(workers.includes(w) && !judgment.includes(w), `${w} is a worker`);
+});
+
+test('CLI runs from a path with a space (main guard): preview prints the diff and writes nothing', () => {
+  const { root, script: copied } = cliCopy();
+  try {
+    const f = join(root, 'CLAUDE.md');
+    writeFileSync(f, '# Existing\n');
+    const r = spawnSync('node', [copied, `--target=${f}`], { encoding: 'utf8' });
+    assert.equal(r.status, 0, r.stdout + r.stderr);
+    assert.match(r.stdout, /cdp5-init \(preview, append\)/);
+    assert.match(r.stdout, /\+ <!-- cdp5:start -->/);
+    assert.equal(readFileSync(f, 'utf8'), '# Existing\n');
+    assert.equal(spawnSync('node', [copied], { encoding: 'utf8' }).status, 2);
+  } finally { rmSync(root, { recursive: true, force: true }); }
+});
 
 test('mergeBlock appends when no marker is present (existing content unchanged)', () => {
   const r = mergeBlock('# CLAUDE.md\nText\n', BLOCK);

@@ -2057,6 +2057,19 @@ A case worker enters the vehicle on an index card, checks the VIN check digit by
 | Fallback behavior | Confidence < 0.6 ⇒ `NeedsReview` → escalation to the Workshop-Manager |
 | Knowledge-cutoff handling | category catalog is passed as context (not taken from model knowledge) |
 
+### Behavior
+1. Member submits the defect description (free text, max. 2,000 characters) for vehicle `{id}`
+2. Fast path: keyword match against the category catalog (`parseDefectText`)
+   2.1 Unambiguous category ⇒ `Confident`, continue with step 3
+   2.2 No or several candidates ⇒ deep path `classifyDeep` (LLM) with description + `make`/`model` + catalog as context; Confidence < 0.6 ⇒ `NeedsReview`
+3. `Confident` ⇒ category saved on the defect · `NeedsReview` ⇒ task for the Workshop-Manager, Member sees "under review"
+
+### Error Cases
+| Case | Message / Behavior |
+|------|---------------------|
+| Description empty or > 2,000 characters | "Describe the defect in 1–2,000 characters." inline, no LLM call |
+| LLM provider unreachable or timeout | `NeedsReview` without category, escalation to the Workshop-Manager, trace span with `error.type` |
+
 ### Probabilistics Statement (excerpt §2.6)
 | UC | Tolerance threshold | Validation strategy | Fallback | EU AI Act class |
 |---|---|---|---|---|

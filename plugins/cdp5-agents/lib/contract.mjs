@@ -1,8 +1,8 @@
 import { createHash } from 'node:crypto';
 import { existsSync, readFileSync, appendFileSync, mkdirSync } from 'node:fs';
-import { homedir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { dataDir } from './data-dir.mjs';
 
 export const HEADER_RE = /^WORKER-CONTRACT v(\d+) sha256:([0-9a-f]{12})$/m;
 
@@ -61,8 +61,46 @@ export function ackPresent(message, version, hash) {
 }
 
 export function usageLogPath(env = process.env) {
-  const dir = env.CLAUDE_PLUGIN_DATA ?? join(env.HOME ?? homedir(), '.cache', 'cdp5-agents');
-  return join(dir, 'usage-log.jsonl');
+  return join(dataDir(env), 'usage-log.jsonl');
+}
+
+function textBlocks(content) {
+  if (typeof content === 'string') return content;
+  if (!Array.isArray(content)) return '';
+  return content.filter((b) => b?.type === 'text' && typeof b.text === 'string').map((b) => b.text).join('\n');
+}
+
+function isAssistant(entry) {
+  return entry?.type === 'assistant' || entry?.message?.role === 'assistant';
+}
+
+// The last assistant message of a JSONL transcript. Claude Code writes one line per content block, all sharing the
+// message id, so the trailing assistant lines with the same id are joined; a tool-only block yields an empty string.
+export function transcriptLastAssistant(path) {
+  if (!path || !existsSync(path)) return '';
+  const lines = readFileSync(path, 'utf8').split('\n');
+  const parts = [];
+  let id;
+  for (let i = lines.length - 1; i >= 0; i--) {
+    if (!lines[i].trim()) continue;
+    let entry;
+    try { entry = JSON.parse(lines[i]); } catch { continue; }
+    if (!isAssistant(entry)) {
+      if (parts.length) break;
+      continue;
+    }
+    const thisId = entry.message?.id ?? entry.uuid ?? null;
+    if (parts.length && (id === null || thisId !== id)) break;
+    id = thisId;
+    parts.unshift(textBlocks(entry.message?.content ?? entry.content));
+  }
+  return parts.filter(Boolean).join('\n');
+}
+
+// The message the stop hook judges: the hook input's last_assistant_message, or the transcript when that is absent.
+export function finalMessage(input) {
+  if (input.last_assistant_message !== undefined && input.last_assistant_message !== null) return String(input.last_assistant_message);
+  return transcriptLastAssistant(input.agent_transcript_path ?? input.transcript_path);
 }
 
 export function appendUsage(entry, env = process.env) {

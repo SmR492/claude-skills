@@ -4,13 +4,17 @@
 //   (2) Property drift: PHP entity properties ↔ OpenAPI schema properties of the same name.
 // Dependency-free (compact line scanner). The semantic "concept vocabulary" assessment
 // remains LLM/human work — this skill only delivers the mechanical diffs.
-// Exit: 0 = no drift · 1 = drift found · 2 = usage error.
+// Exit: 0 = no 🔴 · 1 = ≥1 🔴 (value-set or property drift; with --strict also a missing counterpart) · 2 = usage error.
 
 import { readFileSync } from 'node:fs';
+import { pathToFileURL } from 'node:url';
 import { collectFiles } from '../../lib/scan.mjs';
 import { guardPaths } from '../../lib/args.mjs';
 
 const norm = (s) => s.toLowerCase().replace(/[_\s-]/g, '');
+// Property declaration: visibility, optional `static`/`readonly`, OPTIONAL type (`private $x`, `private static int $x`,
+// `protected ?Foo\Bar $y`, `public readonly string|null $z`).
+const PROP_RE = /(?:private|protected|public)\s+(?:static\s+)?(?:readonly\s+)?(?:[\w?|\\]+\s+)?\$(\w+)/g;
 
 export function parsePhp(files) {
   const enums = {}, entities = {};
@@ -25,7 +29,7 @@ export function parsePhp(files) {
         const cases = [...body.matchAll(/\bcase\s+(\w+)\s*(?:=\s*['"]([^'"]+)['"])?/g)].map((c) => c[2] ?? c[1]);
         if (cases.length) enums[m[2]] = [...new Set(cases)].sort();
       } else {
-        const props = [...body.matchAll(/(?:private|protected|public)\s+(?:readonly\s+)?[\w?|\\]+\s+\$(\w+)/g)].map((p) => p[1]);
+        const props = [...body.matchAll(PROP_RE)].map((p) => p[1]);
         if (props.length) entities[m[2]] = [...new Set(props)].sort();
       }
     });
@@ -66,15 +70,19 @@ export function parseOpenApi(text) {
   return { enums, schemas };
 }
 
-export function diff(php, api) {
+/**
+ * Findings with severity. A PHP enum without an OpenAPI counterpart is informational (🟡) — many enums are
+ * internal and never reach the API; `strict` turns it into 🔴. Differing value sets and property drift are 🔴.
+ */
+export function diff(php, api, { strict = false } = {}) {
   const drift = [];
   // Enum drift (name match, normalised)
   for (const [name, vals] of Object.entries(php.enums)) {
     const apiKey = Object.keys(api.enums).find((k) => norm(k) === norm(name));
-    if (!apiKey) { drift.push({ type: 'enum', name, issue: 'PHP enum without OpenAPI counterpart' }); continue; }
+    if (!apiKey) { drift.push({ sev: strict ? '🔴' : '🟡', type: 'enum', name, issue: 'PHP enum without OpenAPI counterpart' }); continue; }
     const a = [...api.enums[apiKey]].sort();
     if (JSON.stringify(a) !== JSON.stringify([...vals].sort()))
-      drift.push({ type: 'enum', name, issue: `values differ — PHP [${vals}] vs OpenAPI [${a}]` });
+      drift.push({ sev: '🔴', type: 'enum', name, issue: `values differ — PHP [${vals}] vs OpenAPI [${a}]` });
   }
   // Property drift (schema/class name match)
   for (const [cls, props] of Object.entries(php.entities)) {
@@ -84,23 +92,25 @@ export function diff(php, api) {
     const onlyApi = sProps.filter((p) => !props.map(norm).includes(norm(p)));
     const onlyPhp = props.filter((p) => !sProps.map(norm).includes(norm(p)));
     if (onlyApi.length || onlyPhp.length)
-      drift.push({ type: 'property', name: cls, issue: `only OpenAPI: [${onlyApi}] · only entity: [${onlyPhp}]` });
+      drift.push({ sev: '🔴', type: 'property', name: cls, issue: `only OpenAPI: [${onlyApi}] · only entity: [${onlyPhp}]` });
   }
   return drift;
 }
 
 function main(argv) {
   const args = Object.fromEntries(argv.slice(2).map((a) => { const [k, v] = a.split('='); return [k.replace(/^--/, ''), v ?? true]; }));
-  if (!args.repo || !args.openapi) { console.error('Usage: model-api-drift.mjs --repo=<root> --openapi=<openapi.yaml> [--json]'); process.exit(2); }
+  if (!args.repo || !args.openapi) { console.error('Usage: model-api-drift.mjs --repo=<root> --openapi=<openapi.yaml> [--strict] [--json]'); process.exit(2); }
   guardPaths([[args.repo, 'dir'], [args.openapi, 'file']]);
   const php = parsePhp(collectFiles(args.repo, ['.php']));
   const api = parseOpenApi(readFileSync(args.openapi, 'utf8'));
-  const d = diff(php, api);
-  if (args.json) { console.log(JSON.stringify(d, null, 2)); process.exit(d.length ? 1 : 0); }
+  const d = diff(php, api, { strict: !!args.strict });
+  const critical = d.filter((x) => x.sev === '🔴').length;
+  if (args.json) { console.log(JSON.stringify(d, null, 2)); process.exit(critical ? 1 : 0); }
   console.log(`Model↔API drift — ${Object.keys(php.enums).length} PHP enums, ${Object.keys(php.entities).length} entities checked\n`);
-  for (const x of d) console.log(`  ✗ [${x.type}] ${x.name}: ${x.issue}`);
-  if (!d.length) console.log('  no drift.');
-  process.exit(d.length ? 1 : 0);
+  for (const x of d) console.log(`  ${x.sev} [${x.type}] ${x.name}: ${x.issue}`);
+  if (!d.length) console.log('  🟢 no drift.');
+  else console.log(`\n${critical} 🔴 · ${d.length - critical} 🟡`);
+  process.exit(critical ? 1 : 0);
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) main(process.argv);
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) main(process.argv);

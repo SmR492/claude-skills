@@ -11,15 +11,25 @@ The deterministic diff part of the former `konzept-model-api` agent as a program
 
 ```bash
 node "${CLAUDE_PLUGIN_ROOT}/skills/konzept-model-api/model-api-drift.mjs" \
-  --repo=<repo-root> --openapi=<path/openapi.yaml> [--json]
+  --repo=<repo-root> --openapi=<path/openapi.yaml> [--strict] [--json]
 ```
 
-Exit: `0` no drift · `1` drift found · `2` usage error.
+Exit: `0` no 🔴 · `1` ≥1 🔴 · `2` usage or input error.
 
-## Checks (name match, normalised)
+Every finding is printed with a severity; `--json` returns the finding array `[{ sev, type: enum|property, name, issue }]`.
 
-- **Enum drift** — PHP `enum X { case … }` (backing value or case name) ↔ OpenAPI `enum: […]` of the same name; reports a missing counterpart + differing value sets.
-- **Property drift** — PHP entity properties (`private/protected/public … $x`) ↔ OpenAPI schema `properties:` of the same name; reports "only OpenAPI" / "only entity".
+| Finding | Severity |
+|---|---|
+| PHP enum and OpenAPI enum of the same name have different value sets | 🔴 |
+| Entity and schema of the same name have different property sets | 🔴 |
+| PHP enum without an OpenAPI counterpart | 🟡 (informational: many enums are internal) · 🔴 with `--strict` |
+
+An entity without a schema of the same name is not reported (the mapping of entities to API resources is not 1:1).
+
+## Checks (name match, normalised: case, `_`, `-` and whitespace ignored)
+
+- **Enum drift** — PHP `enum X { case … }` (backing value if present, otherwise the case name) ↔ OpenAPI `enum: […]` (inline array or block list) whose owning key has the same name.
+- **Property drift** — PHP entity properties ↔ OpenAPI `components.schemas.<Name>.properties` of the same name; reports "only OpenAPI" / "only entity". A property is any `private|protected|public [static] [readonly] [type] $name` declaration inside the class slice, so untyped (`private $x`) and static (`private static int $x`) properties are seen; promoted constructor properties count as properties.
 
 ## Limits (dependency-free)
 

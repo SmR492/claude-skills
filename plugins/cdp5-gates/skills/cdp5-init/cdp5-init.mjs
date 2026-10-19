@@ -7,7 +7,7 @@
 
 import { readFileSync, writeFileSync, existsSync, lstatSync } from 'node:fs';
 import { join, dirname } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { guardPaths, usage } from '../../lib/args.mjs';
 
 export const START = '<!-- cdp5:start -->';
@@ -86,4 +86,4 @@ function main(argv) {
   process.exit(0);
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) main(process.argv);
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) main(process.argv);

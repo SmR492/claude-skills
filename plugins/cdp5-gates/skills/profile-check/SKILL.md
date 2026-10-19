@@ -14,13 +14,17 @@ node "${CLAUDE_PLUGIN_ROOT}/skills/profile-check/profile-check.mjs" \
   --profile=<project-profile.md> [--konzept=<concept.md>] [--repo=<root>] [--json]
 ```
 
-Specify at least `--konzept` or `--repo`. Exit: `0` conformant · `1` profile drift · `2` usage error.
+Specify at least `--konzept` or `--repo`. Exit: `0` no 🔴 (conformant) · `1` ≥1 🔴 (profile drift) · `2` usage or input error.
+
+Every check is printed as a finding: 🟢 pass or 🔴 fail (with a hint). `--json` returns `{ profile, results[{ sev, pass, label, hint, scope: Concept|Repo }], drift }`.
 
 ## Profile fields (YAML frontmatter)
 
+The parser reads `key: value`, `key:` + `  - item` lists, quoted values, and strips inline `# comments` (so the template's `runtime: node   # node | php | python` yields `node`).
+
 | Field | Effect |
 |---|---|
-| `eu_ai_act_class` | The concept must declare the class + "AI-Act" (the architect sets the class once). |
+| `eu_ai_act_class` | Must be on the EU AI Act scale `minimal | limited | high | unacceptable` (doctrine §22), otherwise 🔴. The concept must declare the class **next to its context**: as a whole word on a line that mentions "AI Act"/"AI-Act", or in a Markdown table row labelled "Risk class"/"Risikoklasse". A bare "high" or "minimal" elsewhere in the prose does not count. |
 | `security_level` | `elevated` → the concept must contain threat modeling (§33.4); `standard` → no check. |
 | `runtime` | `node`/`php`/`python` — expected runtime markers (package.json/composer.json/… or matching file extensions) in the repo. |
 | `test_framework` | `node:test`/`phpunit`/`jest`/`vitest`/`pytest` — at least one test file with a matching signature. |

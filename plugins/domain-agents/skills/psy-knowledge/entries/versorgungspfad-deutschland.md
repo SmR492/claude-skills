@@ -1,7 +1,7 @@
 # Versorgungspfad ambulante Psychotherapie (Deutschland)
 
 Ref: `PSY:versorgungspfad-deutschland` · Category: framework · Entry version: 1
-Source: ?. Provenance: bulk extraction 2026-07-02, migrated to Orbit 2026-09-02 (riedl/nsai/doktrin/PSY-versorgungspfad-deutschland.json); content unverified against a primary source. Treat figures and legal statements as unverified until checked.
+Source: none recorded (internal doctrine entry). Provenance: bulk extraction 2026-07-02, migrated to Orbit 2026-09-02 (riedl/nsai/doktrin/PSY-versorgungspfad-deutschland.json); content unverified against a primary source. Treat figures and legal statements as unverified until checked.
 
 Stufenlogik, Formulare, Kontingente und Zugangswege der GKV-Psychotherapie nach Psychotherapie-Richtlinie und SGB V.
 

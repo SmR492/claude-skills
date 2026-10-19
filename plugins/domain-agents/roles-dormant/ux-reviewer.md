@@ -1,6 +1,6 @@
 # ux-reviewer (dormant role text)
 
-Status: dormant. No agent file until the third logged UX run (usage log, `manual:ux-review`). Paired with ux-designer; the loop-back target is `ux-designer`, no plugin prefix.
+Status: dormant. No agent file until the third logged UX run (usage log, `manual:ux-review`). Paired with ux-designer; the loop-back target is the agent `ux-designer` of this plugin, addressed as `domain-agents:ux-designer` once its agent file exists.
 
 ## Task
 

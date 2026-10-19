@@ -31,7 +31,25 @@ test('parseEntry strips markers and reads ref, title, summary, points, source', 
   assert.equal(e.summary, 'A tool.');
   assert.deepEqual(e.points, ['Strengths', 'Weaknesses']);
   assert.equal(e.source, 'business-lingo-guide Seite 24');
+  assert.equal(e.migrated, '2026-09-02', 'the migration date comes from the export, not from a constant');
   assert.equal(slugFor(e.ref), 'swot-analysis');
+  const gate = parseEntry(JSON.stringify({ art: 'dokument', id: 'x', fassung: 2, herkunft: { quelle: 'nsai-app MCP' }, text: JSON.stringify({ ref: 'PSY:g', title: 'G', category: 'gate', body: { summary: 's', points: [] } }) }));
+  assert.equal(gate.source, 'none recorded (internal doctrine entry)');
+  assert.equal(gate.migrated, null);
+  assert.match(render(gate), /Source: none recorded \(internal doctrine entry\)\. Provenance: .* migrated to Orbit on an unknown date/);
+});
+
+test('buildPack takes an INDEX title', () => {
+  const root = mkdtempSync(join(tmpdir(), 'packs-'));
+  const src = join(root, 'raw');
+  mkdirSync(src);
+  writeFileSync(join(src, 'SU-a.json.json'), rawEntry('SU:a', 'A', 'sa', []));
+  try {
+    buildPack({ source: src, prefix: 'SU', out: join(root, 'su'), title: 'Marketing knowledge pack (SU subset)' });
+    assert.match(readFileSync(join(root, 'su', 'INDEX.md'), 'utf8'), /^# Marketing knowledge pack \(SU subset\)\n/);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
 });
 
 test('render marks provenance as unverified and redacts names everywhere', () => {

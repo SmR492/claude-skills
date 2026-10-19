@@ -1,7 +1,7 @@
 # Diagnose, Verdacht, Ersteinschaetzung, Screening, Selbstauskunft trennen
 
 Ref: `PSY:diagnose-vs-verdacht` · Category: principle · Entry version: 1
-Source: ?. Provenance: bulk extraction 2026-07-02, migrated to Orbit 2026-09-02 (riedl/nsai/doktrin/PSY-diagnose-vs-verdacht.json); content unverified against a primary source. Treat figures and legal statements as unverified until checked.
+Source: none recorded (internal doctrine entry). Provenance: bulk extraction 2026-07-02, migrated to Orbit 2026-09-02 (riedl/nsai/doktrin/PSY-diagnose-vs-verdacht.json); content unverified against a primary source. Treat figures and legal statements as unverified until checked.
 
 Fuenf epistemisch verschiedene Zustaende, die nie synonym verwendet werden duerfen.
 

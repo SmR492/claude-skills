@@ -27,9 +27,13 @@ Closes the gap after a marketplace installation: the `/plugin install` commands 
    ```
    Loop until "yes" or abort (fallback: the operator edits the CLAUDE.md manually).
 
+## Block content (`cdp5-block.md`)
+
+CDP5 reference, the `cdp5-reference` gate, the trigger map (statement → skill/agent, including `skill-lint` before installing a plugin / after writing a skill) and the tool lists: all `cdp5-gates` skills (read-only — exception: `cdp5-init --write` after confirmation) and all `cdp5-agents` agents in two groups — judgment (read-only) and implementation workers (write in their worktree, no commit). The test suite checks the block against the real skill and agent directories, so a new skill or agent fails the test until the block lists it.
+
 ## Exit codes (core)
 
-`0` diff shown / written · `2` usage/input error (missing `--target`, directory instead of file, inconsistent marker pair, block without CDP5 reference/gate).
+`0` diff shown / written · `2` usage/input error (missing `--target`, directory instead of file, inconsistent marker pair, block without CDP5 reference/gate). This skill is a merge tool, not a gate: it emits no 🔴/🟡/🟢 findings and never exits `1`.
 
 ## Limits
 

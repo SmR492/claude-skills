@@ -4,21 +4,14 @@
 // The skeletons are placeholders (incomplete/todo), not red tests — the dev turns each one into a
 // real failing assertion before implementing.
 // Prints to stdout only (read-only); dev/orchestrator creates the files.
-// Exit: 0 = skeletons generated · 1 = no ACs found · 2 = usage error.
+// Exit: 0 = skeletons generated · 2 = usage/input error (also: no AC table found — input state, not a finding).
 
 import { readFileSync } from 'node:fs';
+import { pathToFileURL } from 'node:url';
+import { parseUCs } from '../../lib/scan.mjs';
 import { guardPaths } from '../../lib/args.mjs';
 
-export function parseUCs(md) {
-  const ucs = []; let cur = null;
-  for (const line of md.split('\n')) {
-    const h = line.match(/^#{2,3}\s+(UC[-\s][^\n]*)/i);   // H2 OR H3 (UCs often sit under `## N. Use Cases`)
-    if (h) { cur = { title: h[1].trim(), body: '' }; ucs.push(cur); continue; }
-    if (/^#{1,2}\s/.test(line) && !/^#{2,3}\s+UC/i.test(line)) cur = null;
-    if (cur) cur.body += line + '\n';
-  }
-  return ucs;
-}
+export { parseUCs };
 
 /** AC rows → {id, kriterium, klasse, methode}. Test class from the column containing `Class::method`. */
 export function extractACs(md) {
@@ -70,10 +63,10 @@ function main(argv) {
   if (!a.konzept) { console.error('Usage: ac-to-test-scaffold.mjs --konzept=<konzept.md> [--lang=php|js]'); process.exit(2); }
   guardPaths([[a.konzept, 'file']]);
   const r = scaffold(readFileSync(a.konzept, 'utf8'), a.lang === 'js' ? 'js' : 'php');
-  if (!r.count) { console.error('No AC tables found — run `konzept-lint` first (an AC table per UC is mandatory).'); process.exit(1); }
+  if (!r.count) { console.error('No AC tables found — run `konzept-lint` first (an AC table per UC is mandatory).'); process.exit(2); }
   console.error(`// ${r.count} AC → ${Object.keys(r.byClass).length} test class(es) · read-only (copy/create the files):\n`);
   console.log(r.code);
   process.exit(0);
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) main(process.argv);
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) main(process.argv);

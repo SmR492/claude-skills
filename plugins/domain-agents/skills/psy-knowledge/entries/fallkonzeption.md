@@ -1,7 +1,7 @@
 # Fallkonzeption und Stoerungsmodell erarbeiten
 
 Ref: `PSY:fallkonzeption` · Category: method · Entry version: 1
-Source: ?. Provenance: bulk extraction 2026-07-02, migrated to Orbit 2026-09-02 (riedl/nsai/doktrin/PSY-fallkonzeption.json); content unverified against a primary source. Treat figures and legal statements as unverified until checked.
+Source: none recorded (internal doctrine entry). Provenance: bulk extraction 2026-07-02, migrated to Orbit 2026-09-02 (riedl/nsai/doktrin/PSY-fallkonzeption.json); content unverified against a primary source. Treat figures and legal statements as unverified until checked.
 
 Methode zur Erarbeitung eines Stoerungsmodells (Verhaltensanalyse nach SORKC, Makro-/Mikroanalyse, Teufelskreise) als Vorbereitung fuer die Arbeit mit dem Behandler.
 

@@ -1,11 +1,13 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { writeFileSync, mkdtempSync, rmSync } from 'node:fs';
+import { writeFileSync, mkdtempSync, mkdirSync, cpSync, copyFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 const SKILL = new URL('./mcp-doc-drift-gate.mjs', import.meta.url).pathname;
+const HERE = dirname(fileURLToPath(import.meta.url));
 
 function tmpServer(toolsLiteral) {
   const dir = mkdtempSync(join(tmpdir(), 'mdg-'));
@@ -125,4 +127,50 @@ test('AC-10: multi-tool — all tools are checked', () => {
   cleanup(dir);
   assert.equal(r.status, 1);
   assert.match(r.stdout, /b — Input field `hidden`/);
+});
+
+test('AC-11: missing inputSchema → 🔴 shape finding, exit 1', () => {
+  const { dir, path } = tmpServer(`[{ name: 'foo', description: 'Returns verdict.', outputContract: ['verdict'] }]`);
+  const r = spawnSync('node', [SKILL, `--mcp=${path}`, '--json'], { encoding: 'utf8' });
+  cleanup(dir);
+  assert.equal(r.status, 1);
+  const out = JSON.parse(r.stdout);
+  const shape = out.findings.find((f) => f.kind === 'shape');
+  assert.ok(shape, 'shape finding expected');
+  assert.equal(shape.sev, '🔴');
+  assert.match(shape.detail, /inputSchema missing/);
+});
+
+test('AC-12: summary line `N drift · exit N` is printed; every finding carries a severity marker', () => {
+  const { dir, path } = tmpServer(`[{
+    name: 'foo',
+    description: 'Sets subject.',
+    inputSchema: { type: 'object', properties: { subject: {type:'string'}, until: {type:'string'} } },
+  }]`);
+  const r = spawnSync('node', [SKILL, `--mcp=${path}`], { encoding: 'utf8' });
+  cleanup(dir);
+  assert.equal(r.status, 1);
+  assert.match(r.stdout, /1 drift {2}· {2}exit 1/);
+  assert.match(r.stdout, /🔴 foo — Input field `until`/);
+  assert.match(r.stdout, /🟡 foo — tool without outputContract/);
+  const ok = tmpServer(`[{ name: 'a', description: 'with subject', inputSchema: { properties: { subject: {} } }, outputContract: [] }]`);
+  const r2 = spawnSync('node', [SKILL, `--mcp=${ok.path}`], { encoding: 'utf8' });
+  cleanup(ok.dir);
+  assert.equal(r2.status, 0);
+  assert.match(r2.stdout, /no drift {2}· {2}exit 0/);
+});
+
+test('AC-13: CLI runs from a path containing a space and prints output', () => {
+  const base = mkdtempSync(join(tmpdir(), 'cdp5 gates '));
+  try {
+    cpSync(resolve(HERE, '../../lib'), join(base, 'lib'), { recursive: true });
+    const skillDir = join(base, 'skills', 'mcp-doc-drift-gate');
+    mkdirSync(skillDir, { recursive: true });
+    copyFileSync(join(HERE, 'mcp-doc-drift-gate.mjs'), join(skillDir, 'mcp-doc-drift-gate.mjs'));
+    const srv = join(base, 'srv.mjs');
+    writeFileSync(srv, `export const TOOLS = [{ name: 'a', description: 'with subject', inputSchema: { properties: { subject: {} } }, outputContract: [] }];\n`);
+    const r = spawnSync('node', [join(skillDir, 'mcp-doc-drift-gate.mjs'), `--mcp=${srv}`], { encoding: 'utf8' });
+    assert.match(r.stdout, /mcp-doc-drift-gate — 1 tools checked/);
+    assert.equal(r.status, 0);
+  } finally { rmSync(base, { recursive: true, force: true }); }
 });

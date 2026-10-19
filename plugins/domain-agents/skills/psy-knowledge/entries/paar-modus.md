@@ -1,7 +1,7 @@
 # Paarmodus: harte Regeln
 
 Ref: `PSY:paar-modus` · Category: gate · Entry version: 1
-Source: ?. Provenance: bulk extraction 2026-07-02, migrated to Orbit 2026-09-02 (riedl/nsai/doktrin/PSY-paar-modus.json); content unverified against a primary source. Treat figures and legal statements as unverified until checked.
+Source: none recorded (internal doctrine entry). Provenance: bulk extraction 2026-07-02, migrated to Orbit 2026-09-02 (riedl/nsai/doktrin/PSY-paar-modus.json); content unverified against a primary source. Treat figures and legal statements as unverified until checked.
 
 Sechs nicht verhandelbare Regeln, ohne die der Paarmodus in einem geteilten Chat zur Waffe wird.
 
