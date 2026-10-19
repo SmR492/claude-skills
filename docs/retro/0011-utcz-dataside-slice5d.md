@@ -1,44 +1,44 @@
-# Retro-ADR 0011 — UTC-Z auf der Datenseite (NSAI-Edge Slice #5d)
+# Retro-ADR 0011 — UTC-Z on the data side (NSAI-Edge Slice #5d)
 
-**Status:** abgeschlossen (Adversarial NEIN→Fix→JA-mit-Einschränkung→JA) · autonom + self-merged (PR #11)
-**Datum:** 2026-05-28
-**Zweck:** Retrospektive des UTC-Z-Datenseite-Slice und der zwei Adversarial-Audit-Runden — der zweite Audit fand drei weitere 🔴-Pfade, die ich beim Erstausbau übersehen hatte.
+**Status:** completed (adversarial NO→fix→YES-with-reservation→YES) · autonomous + self-merged (PR #11)
+**Date:** 2026-05-28
+**Purpose:** Retrospective of the UTC-Z data-side slice and the two adversarial audit rounds — the second audit found three more 🔴 paths that I had overlooked in the first build-out.
 
-## Kontext
-Slice #5 (UC-BT) hatte UTC-Z nur auf der **Lese-Seite** normalisiert (`_validClause(as_of)` via `_normIso`). Die **Datenseite** (`storeTriple`/`mergeIncoming`/`clone` etc.) legte `asserted_at`/`occurred_at` verbatim ab — Offset-Notationen wie `+02:00` blieben drin, und der lexikografische SQLite-Vergleich verschob die Sichtbarkeit eines mit `+02:00` gespeicherten Fakts um die Offset-Differenz in die Zukunft. Auditor hatte das in Slice #5b als 🟡-C aufgedeckt und als „eigener Folge-Slice" deferred — heute eingelöst.
+## Context
+Slice #5 (UC-BT) had normalized UTC-Z only on the **read side** (`_validClause(as_of)` via `_normIso`). The **data side** (`storeTriple`/`mergeIncoming`/`clone` etc.) stored `asserted_at`/`occurred_at` verbatim — offset notations such as `+02:00` stayed in, and the lexicographic SQLite comparison shifted the visibility of a fact stored with `+02:00` into the future by the offset difference. The auditor had uncovered this in Slice #5b as 🟡-C and deferred it as "own follow-up slice" — redeemed today.
 
-## CDP5-geprüfte Architektur-Entscheidung
-**`asserted_at` ist Teil des `signingString` → keine In-Place-Mutation möglich**, sonst würden Origin-Signaturen invalidieren (wir können nicht resignieren, Origin-Privatkey fehlt). Lösung: **abgeleitete Spalten** `asserted_at_norm` + `occurred_at_norm` (additiv, idempotent gefüllt). `_edgeToWire` ignoriert `_norm` → Wire/Signatur unangetastet.
+## CDP5-checked architecture decision
+**`asserted_at` is part of the `signingString` → no in-place mutation possible**, otherwise origin signatures would be invalidated (we cannot re-sign, the origin private key is missing). Solution: **derived columns** `asserted_at_norm` + `occurred_at_norm` (additive, filled idempotently). `_edgeToWire` ignores `_norm` → wire/signature untouched.
 
-`valid_from`/`valid_to` sind dagegen LOKAL (nicht im Wire) → In-Place-Normalisierung zulässig (Defense-in-Depth in der Migration ergänzt).
+`valid_from`/`valid_to`, by contrast, are LOCAL (not in the wire) → in-place normalization permissible (defense in depth added in the migration).
 
-## Entscheidungschronik
-- **E1** — Konzept-First: UC-5d ins KONZEPT.md mit Design-Constraint, AC-5d.1–8, Fehlerfällen. Lint 10/10.
-- **E2** — Implementation: Schema-Erweiterung, Migration-Helper, alle Schreib-Pfade (storeTriple/mergeIncoming/clone/infer/recordEpisode) schreiben `_norm` mit; Lese-Pfade (`_validClause`/`_withinWeight`/recallEpisodes since-until) auf COALESCE umgestellt. 155/155 Tests.
-- **E3** — Live-DB-Kopie-Verifikation: 12193 Edges, Migration in 74 ms durchgelaufen, 100 % _norm-filled, zweiter Lauf 3 ms no-op. Aktuelle Live-DB hat KEINE Offset-Bestände (Defekt war potentiell, kein historischer Schaden).
-- **E4** — Adversarial-Audit Runde 1: **NEIN**, drei übersehene 🔴-Pfade:
-  - 🔴-1 `episodicGc` `DELETE FROM episodes WHERE occurred_at < ?` → echter Datenverlust bei Offset-Episoden.
-  - 🔴-2 `recallEpisodes` `ORDER BY occurred_at DESC` → falsche Limit-Reihenfolge.
-  - 🔴-3 `episodesForTriple` `ORDER BY e.occurred_at DESC` → Provenienz-Sortierung.
-- **E5** — Fix: drei einzeilige `COALESCE(_norm, original)`-Anpassungen + drei Regressionstests (158/158 grün).
-- **E6** — Adversarial-Audit Runde 2: **JA-mit-Einschränkung**. Drei 🔴 sauber gefixt + empirisch verifiziert. Neuer 🟡: Migration normalisierte `valid_from`/`valid_to` nicht (asymmetrisch zu `_norm`-Spalten). Im aktuellen Engine-Pfad nicht erreichbar, aber Defense-in-Depth-Lücke. **Im selben Slice mitgefixt** (4 Zeilen, gleiche UTC-Z-Klasse), AC dazu. 159/159.
-- **E7** — Re-Verifikation Live-DB-Kopie: 0 residuale Offset-Werte in valid_from/valid_to (sauber).
-- **E8** — Self-Merge PR #11.
+## Decision chronicle
+- **E1** — Konzept-first (Konzept = concept document): UC-5d into KONZEPT.md with design constraint, AC-5d.1–8, error cases. Lint 10/10.
+- **E2** — Implementation: schema extension, migration helper, all write paths (storeTriple/mergeIncoming/clone/infer/recordEpisode) also write `_norm`; read paths (`_validClause`/`_withinWeight`/recallEpisodes since-until) switched to COALESCE. 155/155 tests.
+- **E3** — Live-DB-copy verification: 12193 edges, migration ran through in 74 ms, 100 % _norm-filled, second run 3 ms no-op. The current live DB has NO offset records (the defect was potential, no historical damage).
+- **E4** — Adversarial audit round 1: **NO**, three overlooked 🔴 paths:
+  - 🔴-1 `episodicGc` `DELETE FROM episodes WHERE occurred_at < ?` → real data loss for offset episodes.
+  - 🔴-2 `recallEpisodes` `ORDER BY occurred_at DESC` → wrong limit order.
+  - 🔴-3 `episodesForTriple` `ORDER BY e.occurred_at DESC` → provenance sorting.
+- **E5** — Fix: three one-line `COALESCE(_norm, original)` adjustments + three regression tests (158/158 green).
+- **E6** — Adversarial audit round 2: **YES-with-reservation**. Three 🔴 cleanly fixed + empirically verified. New 🟡: the migration did not normalize `valid_from`/`valid_to` (asymmetric to the `_norm` columns). Not reachable in the current engine path, but a defense-in-depth gap. **Fixed along in the same slice** (4 lines, same UTC-Z class), AC added. 159/159.
+- **E7** — Re-verification on the live-DB copy: 0 residual offset values in valid_from/valid_to (clean).
+- **E8** — Self-merge PR #11.
 
-## Prozess-Lehre (Kern)
-**Der erste Adversarial-Audit findet selten ALLES.** Slice #5b lieferte einen Auditor mit 3 Findings — Slice #5d lieferte zwei Auditor-Runden mit ingesamt vier Findings (3×🔴 + 1×🟡), die ich beim Erstausbau übersehen hatte. Insbesondere die `ORDER BY`/`DELETE`-Pfade wurden **erst beim systematischen Pfad-Sweep** entdeckt — ich hatte WHERE-Filter angepasst, ohne die SORT-/DELETE-Pfade derselben Spalte mitzuziehen. **Lehre:** bei einer Spalten-Semantik-Änderung (raw → normalisiert) MÜSSEN ALLE Vorkommen der Spalte ge-grep-t und einzeln entschieden werden — nicht nur die offensichtlichen Lese-Klauseln.
+## Process lesson (core)
+**The first adversarial audit rarely finds EVERYTHING.** Slice #5b produced an auditor with 3 findings — Slice #5d produced two auditor rounds with a total of four findings (3×🔴 + 1×🟡) that I had overlooked in the first build-out. In particular, the `ORDER BY`/`DELETE` paths were only discovered **during the systematic path sweep** — I had adjusted WHERE filters without carrying the SORT/DELETE paths of the same column along. **Lesson:** for a column semantics change (raw → normalized), ALL occurrences of the column MUST be grepped and decided individually — not just the obvious read clauses.
 
-**Re-Audit nach Fix ist nicht optional, sondern Pflicht.** Der erste Fix-Vorschlag wäre vielleicht „die drei Stellen fixen" — aber der Re-Audit fand die vierte (Migrations-Asymmetrie). Das ist genau das Anti-Sycophancy-Muster, das wir verlangen: ein bestätigender zweiter Reviewer würde „grün" sagen, weil drei Findings sauber gefixt sind; ein gegnerischer findet die übrig gebliebene Asymmetrie. [[feedback-green-tests-bypass-security]]
+**Re-audit after a fix is not optional, it is mandatory.** The first fix proposal might have been "fix the three places" — but the re-audit found the fourth (migration asymmetry). That is exactly the anti-sycophancy pattern we demand: a confirming second reviewer would say "green" because three findings are cleanly fixed; an adversarial one finds the remaining asymmetry. [[feedback-green-tests-bypass-security]]
 
-**Live-DB-Kopie-Verifikation hat Pflichtgewicht.** Migration auf 12k+ echten Edges verläuft anders als auf In-Memory-Fixtures (Idempotenz, Performance, residuale Werte). Verifikation an der Kopie ist günstig (74 ms), aber liefert harte Belege.
+**Live-DB-copy verification carries mandatory weight.** A migration on 12k+ real edges behaves differently than on in-memory fixtures (idempotency, performance, residual values). Verification on the copy is cheap (74 ms) but delivers hard evidence.
 
-## Inhaltliche Lehre
-**Wire-Vertrag verbietet In-Place-Mutation signierter Felder.** `asserted_at` ist Teil des `signingString` — eine nachträgliche UTC-Z-Normalisierung würde die Origin-Signatur unverifizierbar machen. Abgeleitete Spalten sind das saubere Pattern: Original für Signatur intakt, `_norm` für lokale Lese-Linsen. `_edgeToWire` muss explizit `_norm`-Spalten ausschließen — wäre sonst ein Wire-Leak.
+## Substantive lesson
+**The wire contract forbids in-place mutation of signed fields.** `asserted_at` is part of the `signingString` — a subsequent UTC-Z normalization would make the origin signature unverifiable. Derived columns are the clean pattern: original intact for the signature, `_norm` for local read lenses. `_edgeToWire` must explicitly exclude `_norm` columns — otherwise it would be a wire leak.
 
-**`valid_from`/`valid_to` sind anders zu behandeln.** Diese Spalten sind LOKAL (nicht im Wire/Signatur), also In-Place-Normalisierung in der Migration zulässig und einfacher als eine zweite `_norm`-Spalte.
+**`valid_from`/`valid_to` must be treated differently.** These columns are LOCAL (not in the wire/signature), so in-place normalization in the migration is permissible and simpler than a second `_norm` column.
 
-**Lexikografischer SQL-Vergleich braucht UTC-Z-Konsistenz an ALLEN Vergleichs-Stellen.** Eine WHERE-Klausel mit `_norm` und ein ORDER BY ohne sind eine Inkonsistenz, die zur Drift-an-der-Schwelle führt (siehe 🔴-2/-3).
+**Lexicographic SQL comparison needs UTC-Z consistency at ALL comparison sites.** A WHERE clause with `_norm` and an ORDER BY without is an inconsistency that leads to drift at the threshold (see 🔴-2/-3).
 
-## Offen
-- 🟡 Performance-Index auf `_norm`-Spalten (Auditor-Empfehlung, kein Korrektheits-Bug). Bei aktuellen DB-Größen unkritisch — Backlog.
-- Re-Audit-Pattern als Skill in den Workflow nehmen (immer zweite Runde nach Fix).
+## Open
+- 🟡 Performance index on `_norm` columns (auditor recommendation, no correctness bug). Uncritical at current DB sizes — backlog.
+- Adopt the re-audit pattern as a skill in the workflow (always a second round after a fix).

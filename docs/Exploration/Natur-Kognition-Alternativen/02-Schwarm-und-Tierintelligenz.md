@@ -1,120 +1,120 @@
-# Kollektive Tier-Intelligenz & Schwarm-Entscheidung
+# Collective Animal Intelligence & Swarm Decision-Making
 
-> **Explorations-Rohmaterial** (Batch 2026-05-29), web-quellengestützt. **Keine CDP5-Bindung.** Invarianten-Brüche geflaggt, nicht gefiltert. Zweck: Rohmaterial fürs Konzept.
+> **Exploration raw material** (batch 2026-05-29), web-sourced. **No CDP5 binding.** Invariant violations flagged, not filtered. Purpose: raw material for the Konzept (concept document).
 >
-> **Invarianten-Legende:** (1) Zero-Dep · (2) Offline · (3) Determinismus · (4) CRDT-Konvergenz · (5) lokale Lese-Linsen · (6) „Anzahl zählt nie" · (7) Open-World · (8) „Nie raten".
+> **Invariant legend:** (1) zero-dep · (2) offline · (3) determinism · (4) CRDT convergence · (5) local read lenses · (6) "count never counts" · (7) open-world · (8) "never guess".
 
-**Querschnitts-Beobachtung vorab:** NSAI-Edge ist heute fast überall ein **stateless, comparison-based, value-INsensitives** System (max-Auswahl, statische Schwellen, Snapshot-Belief-Resolution). Die Biologie löst dieselben Probleme fast überall **value-sensitiv und über persistente, zerfallende Akkumulatoren.** Das ist die rote Linie unten.
-
----
-
-### [Cross-Inhibition / Stop-Signal-Belief-Resolution]
-- **Prinzip (Natur):** Honigbienen-Scouts werben per Waggle-Dance für Nistplätze und senden zugleich *inhibitorische Stop-Signale* (Headbutt + Buzz) gezielt an Werber **konkurrierender** Optionen. Bessere Plätze → mehr Tänze → mehr Inhibition gegen alle anderen. Löst nachweislich den Deadlock bei zwei gleich guten Plätzen, den reines positives Feedback nicht lösen kann (Seeley/Visscher/Marshall, *Science* 2011).
-- **Mechanismus:** Dynamisches System mit zwei „committed"-Populationen y₁, y₂ und uncommitted x. Rekrutierung ∝ Qualität, plus Cross-Term −σ·y_i·y_j. Bei hohem σ: **Pitchfork-Bifurkation** → deterministisches Kippen in winner-take-all, *auch* bei y₁≈y₂. Entscheidend (Pais/Marshall 2013): hängt von **Differenz UND Mittelwert** der Werte ab — value-sensitive, nicht nur accuracy-sensitive.
-- **NSAI-Edge-Übertragung (ERSETZT/ergänzt Belief-Resolution):** Heute contested-Flag, wenn der Zweitplatzierte ≥ Schwelle — rein *vergleichende* Snapshot-Linse. Cross-Inhibition macht es value-sensitiv: jedes konkurrierende Objekt sammelt einen Integer-Score (source_type·recency·conf·trust), und der Score wird **aktiv gedämpft proportional zum Score seiner Rivalen** (`score_i -= floor(σ·score_i·score_j/SCALE)` über Top-Tier-Paare). Härtet die contested-Schwelle: bei zwei starken gegensätzlichen Quellen entsteht *kein* fauler Mittelweg — klarer Sieger kippt durch ODER sauber contested. Mittelwert-Term liefert ein *kostenloses Konfidenz-Signal*: beide schwach → absichtlich unentschieden (Anti-„Nie raten").
-- **Trade-offs:** Statt Paar-Inhibition: globale Normalisierung (softmax-artig) — verletzt aber „Anzahl zählt nie" weniger sauber. Cross-Inhibition bleibt max-artig (kein Summieren über Quellen). σ ist ein neuer Tuning-Parameter (zu klein → Deadlock, zu groß → vorschnell).
-- **Invarianten-Check:** ✅ Determinismus (Integer-Iteration, fixe σ); ✅ „Anzahl zählt nie" (Inhibition skaliert mit Score, nicht Count); ⚠️ CRDT: nur lesend über signierte Wire-Werte, nie zurückschreiben.
-- **Quellen:** [Stop Signals Provide Cross Inhibition (Science 2011)](https://www.science.org/doi/10.1126/science.1210361) · [Value-Sensitive Decision-Making (PLoS ONE 2013)](https://journals.plos.org/plosone/article?id=10.1371/journal.pone.0073216)
+**Cross-cutting observation up front:** NSAI-Edge today is almost everywhere a **stateless, comparison-based, value-INsensitive** system (max selection, static thresholds, snapshot belief resolution). Biology solves the same problems almost everywhere **value-sensitively and via persistent, decaying accumulators.** That is the red thread below.
 
 ---
 
-### [Stigmergisches Retrieval — Pfade verstärken sich durch Nutzung]
-- **Prinzip:** Ameisen koordinieren über die *persistente Umwelt*: Pheromon zieht an; häufig begangene Pfade akkumulieren mehr, ungenutzte verdunsten. Kürzester Pfad ist *emergent* (Dorigo, ACO).
-- **Mechanismus:** Kantenwahl P ∝ τ^α·η^β. Nach jeder Lösung: Verdunstung τ←(1−ρ)·τ, dann Deposit Δτ ∝ 1/Pfadlänge auf genutzten Kanten. ρ verhindert Konvergenz auf Suboptima.
-- **NSAI-Edge-Übertragung (ERGÄNZT Retrieval-Routing):** PPR ist heute *strukturell* (Topologie + Belief). Ergänze einen **usage-Pheromon-Layer** pro Kante: bei jedem in einer erfolgreichen Antwort *genutzten* Retrieval-Pfad Integer-Pheromon deponieren; periodisch verdunsten (`τ←τ−floor(τ/HL)`). PPR nutzt τ als Zusatzgewicht. Häufig wertvolle Pfade werden schneller gefunden, „totes" Wissen sinkt im Ranking, ohne gelöscht zu werden (Open-World bleibt). Externalisiertes Nutzungsgedächtnis; Decay-als-Verdunstung ist mathematisch identisch zum bestehenden conf-Decay.
-- **Trade-offs:** Pheromon-Feedback ist eine *Echokammer*-Quelle (oft begangen ≠ wahr) — strikt vom Belief trennen (Pheromon rankt Reihenfolge, ändert NIE Konfidenz).
-- **Invarianten-Check:** ✅ Determinismus; ✅ Offline/zero-dep (eine Integer-Spalte/Kante); ⚠️ „Anzahl zählt nie": Pheromon *zählt* Nutzungen — zulässig nur, weil es Retrieval-*Reihenfolge* steuert, nie Belief-*Wahrheit*. Diese Trennung ist die ganze Schlacht.
-- **Quellen:** [Ant Colony Optimization (Dorigo & Stützle)](https://web2.qatar.cmu.edu/~gdicaro/15382/additional/aco-book.pdf)
+### [Cross-inhibition / stop-signal belief resolution]
+- **Principle (nature):** Honeybee scouts advertise nest sites via waggle dance and at the same time send *inhibitory stop signals* (headbutt + buzz) specifically to advertisers of **competing** options. Better sites → more dances → more inhibition against all others. Demonstrably resolves the deadlock between two equally good sites that pure positive feedback cannot resolve (Seeley/Visscher/Marshall, *Science* 2011).
+- **Mechanism:** Dynamical system with two "committed" populations y₁, y₂ and uncommitted x. Recruitment ∝ quality, plus cross term −σ·y_i·y_j. At high σ: **pitchfork bifurcation** → deterministic tipping into winner-take-all, *even* at y₁≈y₂. Crucially (Pais/Marshall 2013): depends on **difference AND mean** of the values — value-sensitive, not just accuracy-sensitive.
+- **NSAI-Edge transfer (REPLACES/complements belief resolution):** Today a contested flag when the runner-up ≥ threshold — a purely *comparative* snapshot lens. Cross-inhibition makes it value-sensitive: each competing object accumulates an integer score (source_type·recency·conf·trust), and the score is **actively dampened in proportion to the score of its rivals** (`score_i -= floor(σ·score_i·score_j/SCALE)` over top-tier pairs). Hardens the contested threshold: with two strong opposing sources there is *no* lazy middle ground — a clear winner tips through OR cleanly contested. The mean term yields a *free confidence signal*: both weak → deliberately undecided (anti-"never guess").
+- **Trade-offs:** Instead of pairwise inhibition: global normalization (softmax-like) — but violates "count never counts" less cleanly. Cross-inhibition stays max-like (no summing over sources). σ is a new tuning parameter (too small → deadlock, too large → premature).
+- **Invariant check:** ✅ determinism (integer iteration, fixed σ); ✅ "count never counts" (inhibition scales with score, not count); ⚠️ CRDT: read-only over signed wire values, never write back.
+- **Sources:** [Stop Signals Provide Cross Inhibition (Science 2011)](https://www.science.org/doi/10.1126/science.1210361) · [Value-Sensitive Decision-Making (PLoS ONE 2013)](https://journals.plos.org/plosone/article?id=10.1371/journal.pone.0073216)
 
 ---
 
-### [Physarum-Topologie-Pruning — Kanten, die kein Wissen tragen, sterben]
-- **Prinzip:** Schleimpilz *Physarum* bildet ein Röhrennetz, das mit dem Protoplasma-Fluss adaptiert: durchströmte Röhren werden dicker, ungenutzte verkümmern. Tokio-Bahn-Experiment: Netz mit fast identischer Effizienz/Fehlertoleranz wie das real geplante Schienennetz — nur lokale Flussregel (Tero et al., *Science* 2010).
-- **Mechanismus:** Q_ij = D_ij·(p_i−p_j)/L_ij; Adaptation dD/dt = f(|Q|) − r·D (sigmoide Verstärkung + linearer Decay). Röhren mit D→0 werden gepruned.
-- **NSAI-Edge-Übertragung (NEU: Graph-Wartung/Compaction):** periodischer deterministischer **Topologie-Compactor**. „Fluss" = Häufigkeit, mit der eine Kante in belief-gewichteten Retrieval-Pfaden Strom trägt. Kanten unter Schwelle werden *nicht gelöscht* (Open-World!), sondern in „cold storage" verschoben (aus dem Hot-PageRank-Index, on-demand reaktivierbar). Hält den Retrieval-Graph klein/schnell ohne Wissensverlust — biologisch optimiertes Index-Tiering für Knoten mit Millionen Tripeln.
-- **Trade-offs:** Reines conf-Decay-Pruning verwirft auch strukturell wichtige Brücken-Kanten (Physarum behält die wegen Fehlertoleranz). Braucht Fluss-Telemetrie (synergetisch mit Pheromon-Layer).
-- **Invarianten-Check:** ✅ Determinismus (Integer dD/dt); ✅ Open-World (cold storage statt delete); ⚠️ CRDT: Pruning ist *lokale* Index-Entscheidung — Knoten dürfen unterschiedliche Hot/Cold-Aufteilungen haben, solange der signierte Bestand identisch konvergiert.
-- **Quellen:** [Rules for Biologically Inspired Adaptive Network Design (Science 2010)](https://www.science.org/doi/10.1126/science.1177894)
+### [Stigmergic retrieval — paths strengthen through use]
+- **Principle:** Ants coordinate via the *persistent environment*: pheromone attracts; frequently walked paths accumulate more, unused ones evaporate. The shortest path is *emergent* (Dorigo, ACO).
+- **Mechanism:** Edge choice P ∝ τ^α·η^β. After each solution: evaporation τ←(1−ρ)·τ, then deposit Δτ ∝ 1/path length on used edges. ρ prevents convergence on suboptima.
+- **NSAI-Edge transfer (COMPLEMENTS retrieval routing):** PPR today is *structural* (topology + belief). Add a **usage pheromone layer** per edge: deposit integer pheromone on every retrieval path *used* in a successful answer; evaporate periodically (`τ←τ−floor(τ/HL)`). PPR uses τ as an additional weight. Frequently valuable paths are found faster, "dead" knowledge sinks in the ranking without being deleted (open-world remains). Externalized usage memory; decay-as-evaporation is mathematically identical to the existing conf decay.
+- **Trade-offs:** Pheromone feedback is an *echo chamber* source (often walked ≠ true) — separate strictly from belief (pheromone ranks order, NEVER changes confidence).
+- **Invariant check:** ✅ determinism; ✅ offline/zero-dep (one integer column per edge); ⚠️ "count never counts": pheromone *counts* uses — permissible only because it steers retrieval *order*, never belief *truth*. This separation is the whole battle.
+- **Sources:** [Ant Colony Optimization (Dorigo & Stützle)](https://web2.qatar.cmu.edu/~gdicaro/15382/additional/aco-book.pdf)
 
 ---
 
-### [Quorum-Response-Kurve statt fixer contested-Schwelle]
-- **Prinzip:** Fisch-/Vogelschwärme folgen einer *Quorum-Response*: Übernahme-Wahrscheinlichkeit ist eine steile **nichtlineare** Funktion der Zahl der Nachbarn, die ein Verhalten zeigen. Verstärkt korrekte Mehrheiten, filtert Rauschen (Sumpter/Krause/Couzin, *PNAS* 2008). „Many wrongs principle": viele verrauschte Schätzungen mitteln sich gut — aber nur über die nichtlineare Kurve.
-- **Mechanismus:** P(n) = n^k/(T^k + n^k) (Hill-Funktion). Unter T fast keine Reaktion (Rauschunterdrückung), knapp darüber steiler Anstieg (Entscheidung rastet ein). Höhere Sicherheitsanforderung → höheres T.
-- **NSAI-Edge-Übertragung (ERSETZT Quorum-Schwelle):** Statt *harter* Schwelle (n Quellen → bestätigt) eine **Integer-Hill-Response** über die *aggregierte Evidenzstärke* (nicht Quellenzahl!): die Konfidenz, mit der ein contested-Fakt „resolved" gilt, steigt sigmoidal mit Sieger-Score/Zweitplatzierter-Score. Knappe Rennen bleiben unsicher (flache Region), klare rasten hart ein.
-- **Invarianten-Check:** ✅ Determinismus (Integer-Lookup-Table); ✅ „Anzahl zählt nie" *sofern* n die Evidenzstärke ist, nicht die Quellenzahl — sonst ❌. Diese Substitution ist der Knackpunkt.
-- **Quellen:** [Quorum decision-making facilitates information transfer (PNAS)](https://www.pnas.org/doi/10.1073/pnas.0710344105)
+### [Physarum topology pruning — edges that carry no knowledge die]
+- **Principle:** The slime mold *Physarum* forms a tube network that adapts to protoplasm flow: tubes with flow thicken, unused ones wither. Tokyo rail experiment: network with almost identical efficiency/fault tolerance to the actually planned rail network — only a local flow rule (Tero et al., *Science* 2010).
+- **Mechanism:** Q_ij = D_ij·(p_i−p_j)/L_ij; adaptation dD/dt = f(|Q|) − r·D (sigmoid reinforcement + linear decay). Tubes with D→0 get pruned.
+- **NSAI-Edge transfer (NEW: graph maintenance/compaction):** periodic deterministic **topology compactor**. "Flow" = frequency with which an edge carries current in belief-weighted retrieval paths. Edges below threshold are *not deleted* (open-world!) but moved to "cold storage" (out of the hot PageRank index, reactivatable on demand). Keeps the retrieval graph small/fast without knowledge loss — biologically optimized index tiering for nodes with millions of triples.
+- **Trade-offs:** Pure conf-decay pruning also discards structurally important bridge edges (Physarum keeps those for fault tolerance). Needs flow telemetry (synergistic with the pheromone layer).
+- **Invariant check:** ✅ determinism (integer dD/dt); ✅ open-world (cold storage instead of delete); ⚠️ CRDT: pruning is a *local* index decision — nodes may have different hot/cold splits as long as the signed stock converges identically.
+- **Sources:** [Rules for Biologically Inspired Adaptive Network Design (Science 2010)](https://www.science.org/doi/10.1126/science.1177894)
 
 ---
 
-### [Firefly-Synchronisation als Vector-Clock-Ergänzung]
-- **Prinzip:** Glühwürmchen synchronisieren ohne Zentraltakt: jeder Oszillator springt bei Schwelle, jeder beobachtete Blitz zieht die Phase der Nachbarn nach. Mirollo & Strogatz (1990): beliebig viele pulse-coupled Oszillatoren synchronisieren garantiert.
-- **Mechanismus:** Phase φ steigt bis 1, dann Feuer+Reset. Empfangener Puls: φ ← min(1, φ+ε). Konvexität der Antwortkurve garantiert Konvergenz.
-- **NSAI-Edge-Übertragung (ERGÄNZT Vector-Clock):** Vector-Clocks wachsen mit der Peer-Zahl. Ein firefly-artiger **Sync-Heartbeat** etabliert grobe „Föderations-Epochen": Knoten broadcasten periodisch einen Epoch-Puls, beim Empfang ziehen sie ihren Epoch-Zähler nach (max-Regel — CRDT-kompatibel!). Gibt einen *deterministischen, monoton wachsenden, koordinatorfreien* gemeinsamen Decay-Anker → reduziert Re-Assertion-Stürme. Ersetzt Vector-Clock NICHT für Kausalität, aber für *Decay-Phasen-Alignment*.
-- **Invarianten-Check:** ⚠️ Determinismus (Phasen-Pull empfangs-reihenfolge-abhängig → nur via max-Regel CRDT-safe); ✅ Offline; ✅ CRDT (Epoch = max-merge G-Counter).
-- **Quellen:** [Synchronization of Pulse-Coupled Biological Oscillators (Mirollo & Strogatz, SIAM 1990)](https://www.clear.rice.edu/comp551/papers/MirolloStrogatz-TemporalSynchronization-SIAM1990.pdf)
+### [Quorum response curve instead of a fixed contested threshold]
+- **Principle:** Fish/bird schools follow a *quorum response*: the probability of adoption is a steep **nonlinear** function of the number of neighbors showing a behavior. Amplifies correct majorities, filters noise (Sumpter/Krause/Couzin, *PNAS* 2008). "Many wrongs principle": many noisy estimates average out well — but only via the nonlinear curve.
+- **Mechanism:** P(n) = n^k/(T^k + n^k) (Hill function). Below T almost no reaction (noise suppression), just above a steep rise (decision locks in). Higher safety requirement → higher T.
+- **NSAI-Edge transfer (REPLACES quorum threshold):** Instead of a *hard* threshold (n sources → confirmed) an **integer Hill response** over the *aggregated evidence strength* (not source count!): the confidence with which a contested fact counts as "resolved" rises sigmoidally with winner score/runner-up score. Close races stay uncertain (flat region), clear ones lock in hard.
+- **Invariant check:** ✅ determinism (integer lookup table); ✅ "count never counts" *provided* n is the evidence strength, not the source count — otherwise ❌. This substitution is the crux.
+- **Sources:** [Quorum decision-making facilitates information transfer (PNAS)](https://www.pnas.org/doi/10.1073/pnas.0710344105)
 
 ---
 
-### [CRISPR-Immungedächtnis — signaturbasierte Peer-Abwehr]
-- **Prinzip:** Bakterien speichern in einem CRISPR-Array kurze DNA-Fragmente („Spacer") feindlicher Eindringlinge als vererbbares Immungedächtnis; bei Wiederbegegnung wird die Signatur erkannt und die fremde DNA zerstört.
-- **Mechanismus:** Adaptation (Spacer-Akquise) → Expression (crRNA-Guides) → Interferenz (Sequenz-Match → Schnitt). Memory persistiert (priming).
-- **NSAI-Edge-Übertragung (NEU: adversariales Peer-Immungedächtnis):** Heute TOFU-Fingerprints + Quarantäne, aber kein *positives Gedächtnis schädlicher Muster*. **Spacer-Store**: wird ein Fremd-Fakt als schädlich verworfen/quarantäniert (Signaturfehler, Replay, widerlegter Inhalt, Sybil-Verdacht), speichere eine deterministische **Signatur** (Hash über (peer_pubkey, S–P-Muster, Anomalie-Typ)). Eingehende Tripel werden gegen den Store gematcht → sofortige Interferenz (Reject) ohne erneute teure Prüfung. Föderiert teilbar: Knoten pushen Spacer → kollektive Immunität gegen einen Sybil-Schwarm (im Geist von „Anzahl zählt nie": ein Angriffsmuster reicht zum Impfen). **Siehe Dok 03 für Zensur-/Vergiftungs-Risiko.**
-- **Invarianten-Check:** ✅ Determinismus (Hash-Match); ✅ Offline; ⚠️ Open-World: Spacer dürfen nur *verifizierbar* schädliche Muster blocken (Signatur-/Replay-Fehler), nie inhaltliche Meinungsverschiedenheit — sonst ❌.
-- **Quellen:** [Molecular memory of prior infections activates CRISPR/Cas (Nature Comms)](https://www.nature.com/articles/ncomms1937)
+### [Firefly synchronization as a vector-clock complement]
+- **Principle:** Fireflies synchronize without a central clock: each oscillator fires at threshold, each observed flash pulls the neighbors' phase along. Mirollo & Strogatz (1990): arbitrarily many pulse-coupled oscillators are guaranteed to synchronize.
+- **Mechanism:** Phase φ rises to 1, then fire+reset. Received pulse: φ ← min(1, φ+ε). Convexity of the response curve guarantees convergence.
+- **NSAI-Edge transfer (COMPLEMENTS vector clock):** Vector clocks grow with the peer count. A firefly-like **sync heartbeat** establishes coarse "federation epochs": nodes periodically broadcast an epoch pulse, on receipt they pull their epoch counter along (max rule — CRDT-compatible!). Gives a *deterministic, monotonically growing, coordinator-free* shared decay anchor → reduces re-assertion storms. Does NOT replace the vector clock for causality, but for *decay phase alignment*.
+- **Invariant check:** ⚠️ determinism (phase pull depends on receive order → CRDT-safe only via max rule); ✅ offline; ✅ CRDT (epoch = max-merge G-counter).
+- **Sources:** [Synchronization of Pulse-Coupled Biological Oscillators (Mirollo & Strogatz, SIAM 1990)](https://www.clear.rice.edu/comp551/papers/MirolloStrogatz-TemporalSynchronization-SIAM1990.pdf)
 
 ---
 
-### [Restriction-Modification — „Self"-Methylierung als Fremd-DNA-Filter]
-- **Prinzip:** >80% der Bakterien tragen Restriktions-Modifikations-Systeme: eine Methyltransferase markiert *eigene* DNA („self"), eine Endonuklease zerschneidet alles Unmarkierte („non-self"). Angeborener, schwellenloser Fremd-Filter (komplementär zum *adaptiven* CRISPR).
-- **NSAI-Edge-Übertragung (ERGÄNZT Quarantäne-Eingangsfilter):** Eigene/voll-vertraute Fakten tragen bereits Ed25519-Signaturen = das „Methyl-Tag". RM legt einen **schwellenlosen angeborenen Eingangsfilter** *vor* der teuren Belief-Resolution nahe: route Fremd-Tripel nach Tag-Status (Signatur × Peer-Trust-Tier) in „self/full → direkt" vs. „non-self → Quarantäne-Pipeline". Zweistufige Immunität: RM (angeboren, billig, Tag) + CRISPR-Spacer (adaptiv, gelernt). NSAI-Edge hat den zweiten nicht und den ersten nur implizit — sauber als zwei Schichten trennen.
-- **Invarianten-Check:** ✅ Determinismus (Signaturprüfung); ✅ Trust = lokale Linse; ✅ Offline.
-- **Quellen:** [R-M systems modulate HGT susceptibility (PMC)](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC11736437/)
+### [CRISPR immune memory — signature-based peer defense]
+- **Principle:** Bacteria store short DNA fragments ("spacers") of hostile invaders in a CRISPR array as heritable immune memory; on re-encounter the signature is recognized and the foreign DNA destroyed.
+- **Mechanism:** Adaptation (spacer acquisition) → expression (crRNA guides) → interference (sequence match → cut). Memory persists (priming).
+- **NSAI-Edge transfer (NEW: adversarial peer immune memory):** Today TOFU fingerprints + quarantine, but no *positive memory of harmful patterns*. **Spacer store**: when a foreign fact is discarded/quarantined as harmful (signature error, replay, refuted content, Sybil suspicion), store a deterministic **signature** (hash over (peer_pubkey, S–P pattern, anomaly type)). Incoming triples are matched against the store → immediate interference (reject) without a renewed expensive check. Federatedly shareable: nodes push spacers → collective immunity against a Sybil swarm (in the spirit of "count never counts": one attack pattern is enough to vaccinate). **See doc 03 for censorship/poisoning risk.**
+- **Invariant check:** ✅ determinism (hash match); ✅ offline; ⚠️ open-world: spacers may only block *verifiably* harmful patterns (signature/replay errors), never substantive disagreement — otherwise ❌.
+- **Sources:** [Molecular memory of prior infections activates CRISPR/Cas (Nature Comms)](https://www.nature.com/articles/ncomms1937)
 
 ---
 
-### [Bakterielles Quorum-Sensing — Aktion erst ab Föderations-Dichte]
-- **Prinzip:** Bakterien sezernieren Autoinducer, deren Konzentration mit der Zelldichte steigt; ab Schwellenkonzentration kippt kollektiv die Genexpression. Aktion lohnt erst, wenn „genug" mitmachen (Bassler).
-- **NSAI-Edge-Übertragung (NEU: Föderations-Dichte-Gating):** Ein Fakt wird erst von „provisorisch/quarantäniert" zu „voll integriert" *promoviert*, wenn die kumulierte, **decay-gewichtete Evidenzdichte** (nicht Quellenzahl!) eine Autoinducer-artige Schwelle übersteigt. Subtiler als simples Quorum: das Signal *zerfällt* (Decay = Autoinducer-Abbau), sodass nur *zeitlich konzentrierte* Korroboration die Schwelle erreicht — alte verstreute Hinweise summieren sich nicht auf. Resistent gegen langsame Sybil-Drip-Attacken.
-- **Invarianten-Check:** ⚠️ „Anzahl zählt nie": grenzwertig — erfordert per-Quelle-max-Deckel, sonst ❌; ✅ Determinismus (Integer-Akkumulator mit Decay); ✅ Offline.
-- **Quellen:** [Quorum Sensing in Bacteria (Annual Reviews)](https://www.annualreviews.org/content/journals/10.1146/annurev.micro.55.1.165)
+### [Restriction-modification — "self" methylation as a foreign-DNA filter]
+- **Principle:** >80% of bacteria carry restriction-modification systems: a methyltransferase marks *own* DNA ("self"), an endonuclease cuts everything unmarked ("non-self"). Innate, threshold-free foreign filter (complementary to the *adaptive* CRISPR).
+- **NSAI-Edge transfer (COMPLEMENTS quarantine entry filter):** Own/fully trusted facts already carry Ed25519 signatures = the "methyl tag". RM suggests a **threshold-free innate entry filter** *before* the expensive belief resolution: route foreign triples by tag status (signature × peer trust tier) into "self/full → direct" vs. "non-self → quarantine pipeline". Two-stage immunity: RM (innate, cheap, tag) + CRISPR spacers (adaptive, learned). NSAI-Edge lacks the second and has the first only implicitly — separate cleanly as two layers.
+- **Invariant check:** ✅ determinism (signature check); ✅ trust = local lens; ✅ offline.
+- **Sources:** [R-M systems modulate HGT susceptibility (PMC)](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC11736437/)
 
 ---
 
-### [Tandem-Running — verifizierter Lehrer-Schüler-Wissenstransfer]
-- **Prinzip:** *Temnothorax*-Ameisen lehren Routen per Tandem-Running mit **bidirektionalem Feedback**: der Lehrer verlangsamt bei Rückstand, der Schüler beschleunigt. Lehrer zahlt Zeit (4× langsamer), Schüler lernt verifiziert und wird selbst zum Lehrer. Erster nachgewiesener Lehr-Akt bei Nicht-Menschen (Franks & Richardson, *Nature* 2006).
-- **NSAI-Edge-Übertragung (ERSETZT naiven Bulk-Pull/Push):** Föderations-Sync ist git-artig (Bulk-Pull/Push + CRDT-Merge). Tandem-Running schlägt ein **acknowledged, rate-adaptives Sync-Protokoll** vor: der „Lehrer" pusht Tripel in Tranchen und drosselt, bis der „Schüler" *bestätigt verifiziert* hat (Signaturen geprüft, Spacer-Filter passiert, integriert). Bei Verifikations-Rückstand drosselt der Lehrer automatisch. Kein Quarantäne-Überlauf, Backpressure eingebaut, Schüler wird selbst Lehrer (transitive Ausbreitung mit Provenienzkette).
-- **Invarianten-Check:** ✅ CRDT (Merge bleibt max, Reihenfolge egal — Tandem steuert nur *Rate*); ✅ Determinismus; ✅ Offline (asynchrone Quittungen).
-- **Quellen:** [Teaching in tandem-running ants (Nature 2006)](https://www.nature.com/articles/439153a)
+### [Bacterial quorum sensing — action only above federation density]
+- **Principle:** Bacteria secrete autoinducers whose concentration rises with cell density; above a threshold concentration gene expression tips collectively. Action pays off only when "enough" join in (Bassler).
+- **NSAI-Edge transfer (NEW: federation density gating):** A fact is *promoted* from "provisional/quarantined" to "fully integrated" only when the cumulative, **decay-weighted evidence density** (not source count!) exceeds an autoinducer-like threshold. Subtler than simple quorum: the signal *decays* (decay = autoinducer degradation), so that only *temporally concentrated* corroboration reaches the threshold — old scattered hints do not add up. Resistant to slow Sybil drip attacks.
+- **Invariant check:** ⚠️ "count never counts": borderline — requires per-source max cap, otherwise ❌; ✅ determinism (integer accumulator with decay); ✅ offline.
+- **Sources:** [Quorum Sensing in Bacteria (Annual Reviews)](https://www.annualreviews.org/content/journals/10.1146/annurev.micro.55.1.165)
 
 ---
 
-### [Korviden-Cache-Schutz — adversariales „beobachtet"-Modell ohne Theory-of-Mind]
-- **Prinzip:** Buschhäher cachen Futter; *wenn beobachtet*, cachen sie später um. Ein Computermodell reproduziert das **ohne Theory of Mind** — allein aus EINER Regel („cache weit weg von Artgenossen") + stress-induzierten Gedächtnisfehlern (van der Vaart et al., *PLoS ONE* 2012). Schutzwirkung als Nebenprodukt simpler Heuristiken.
-- **NSAI-Edge-Übertragung (NEU: provenienz-sensitives Re-Hosting / billiger Sybil-Schutz):** (1) *Warnung:* man braucht kein teures „Peer-Intentions-Modell" — simple lokale Regeln liefern denselben Schutz billiger. (2) *Feature:* ein **„observed-while-asserting"-Flag** — wurde ein Tripel zuerst über einen low-trust/öffentlichen Pfad bekannt, markiere es als „exponiert" und priorisiere unabhängige Re-Korroboration, bevor es Belief-Gewicht bekommt (Schutz gegen Cache-Poisoning: der Angreifer weiß, was du gesehen hast). Kostet nur ein Flag + eine lokale Regel.
-- **Invarianten-Check:** ✅ Determinismus (lokale Flag-Regel); ✅ „Nie raten" (Re-Korroboration statt Annahme); ✅ Offline.
-- **Quellen:** [Corvid Re-Caching without 'Theory of Mind' (PLoS ONE 2012)](https://journals.plos.org/plosone/article?id=10.1371/journal.pone.0032904)
+### [Tandem running — verified teacher-pupil knowledge transfer]
+- **Principle:** *Temnothorax* ants teach routes via tandem running with **bidirectional feedback**: the teacher slows down when the pupil lags, the pupil speeds up. The teacher pays time (4× slower), the pupil learns in a verified way and becomes a teacher itself. First demonstrated act of teaching in non-humans (Franks & Richardson, *Nature* 2006).
+- **NSAI-Edge transfer (REPLACES naive bulk pull/push):** Federation sync is git-like (bulk pull/push + CRDT merge). Tandem running suggests an **acknowledged, rate-adaptive sync protocol**: the "teacher" pushes triples in tranches and throttles until the "pupil" has *confirmed verification* (signatures checked, spacer filter passed, integrated). On verification backlog the teacher throttles automatically. No quarantine overflow, backpressure built in, the pupil becomes a teacher itself (transitive spread with provenance chain).
+- **Invariant check:** ✅ CRDT (merge stays max, order irrelevant — tandem only controls *rate*); ✅ determinism; ✅ offline (asynchronous acknowledgments).
+- **Sources:** [Teaching in tandem-running ants (Nature 2006)](https://www.nature.com/articles/439153a)
 
 ---
 
-### [Uninformierte Mehrheit dämpft fanatische Minderheit (Couzin)]
-- **Prinzip:** Couzin et al.: Hinzufügen *uninformierter* Individuen **stärkt die demokratische Mehrheit** und verhindert, dass eine kleine, stark-meinungsstarke Minderheit die Gruppe kapert. Uninformierte = Trägheits-/Verdünnungspuffer gegen Fanatismus.
-- **NSAI-Edge-Übertragung (ERGÄNZT Anti-Echo-Kammer/Belief) — KONTRAPUNKT:** NSAI-Edges max-Regel macht es *immun gegen Echo-Kammern*, aber potenziell *anfällig für einen einzelnen sehr lauten (hoch-conf, hoch-trust) Fanatiker*, der jeden breiten schwächeren Konsens überstimmt. Couzin legt eine optionale **„uninformed-ballast"-Linse** nahe: niedrig-konfidente, breit gestreute korroborierende Signale dürfen — rein als *Tie-Breaker* in contested-Fällen — ein Gegengewicht gegen einen einzelnen Extremwert bilden, *ohne* zur Summe zu werden.
-- **Invarianten-Check:** ❌/⚠️ „Anzahl zählt nie": direkter Konflikt — nur tragbar, wenn deterministisch gedeckelt + auf contested-Tie-Breaks beschränkt. **Bewusst als Spannung dokumentiert, nicht als Empfehlung.**
-- **Quellen:** [Uninformed individuals promote democratic consensus (Couzin et al.)](https://journals.plos.org/ploscompbiol/article?id=10.1371/journal.pcbi.1003762) · [How Is Flocking Like Computing? (Quanta)](https://www.quantamagazine.org/how-is-flocking-like-computing-20240328/)
+### [Corvid cache protection — adversarial "observed" model without theory of mind]
+- **Principle:** Scrub jays cache food; *when observed*, they later re-cache. A computer model reproduces this **without theory of mind** — solely from ONE rule ("cache far away from conspecifics") + stress-induced memory errors (van der Vaart et al., *PLoS ONE* 2012). Protective effect as a by-product of simple heuristics.
+- **NSAI-Edge transfer (NEW: provenance-sensitive re-hosting / cheap Sybil protection):** (1) *Warning:* no expensive "peer intention model" is needed — simple local rules deliver the same protection more cheaply. (2) *Feature:* an **"observed-while-asserting" flag** — if a triple first became known via a low-trust/public path, mark it as "exposed" and prioritize independent re-corroboration before it gets belief weight (protection against cache poisoning: the attacker knows what you have seen). Costs only a flag + a local rule.
+- **Invariant check:** ✅ determinism (local flag rule); ✅ "never guess" (re-corroboration instead of assumption); ✅ offline.
+- **Sources:** [Corvid Re-Caching without 'Theory of Mind' (PLoS ONE 2012)](https://journals.plos.org/plosone/article?id=10.1371/journal.pone.0032904)
 
 ---
 
-## Top 3 wildeste Ideen
+### [Uninformed majority dampens fanatical minority (Couzin)]
+- **Principle:** Couzin et al.: adding *uninformed* individuals **strengthens the democratic majority** and prevents a small, strongly opinionated minority from hijacking the group. Uninformed = inertia/dilution buffer against fanaticism.
+- **NSAI-Edge transfer (COMPLEMENTS anti-echo-chamber/belief) — COUNTERPOINT:** NSAI-Edge's max rule makes it *immune to echo chambers*, but potentially *vulnerable to a single very loud (high-conf, high-trust) fanatic* who outvotes any broad weaker consensus. Couzin suggests an optional **"uninformed-ballast" lens**: low-confidence, widely scattered corroborating signals may — purely as a *tie-breaker* in contested cases — form a counterweight to a single extreme value, *without* becoming a sum.
+- **Invariant check:** ❌/⚠️ "count never counts": direct conflict — only tolerable if deterministically capped + restricted to contested tie-breaks. **Deliberately documented as a tension, not as a recommendation.**
+- **Sources:** [Uninformed individuals promote democratic consensus (Couzin et al.)](https://journals.plos.org/ploscompbiol/article?id=10.1371/journal.pcbi.1003762) · [How Is Flocking Like Computing? (Quanta)](https://www.quantamagazine.org/how-is-flocking-like-computing-20240328/)
 
-1. **CRISPR-Spacer-Store als föderiert teilbares Angriffsmuster-Immungedächtnis.** Knoten impfen sich gegenseitig gegen Sybil-/Replay-/Poisoning-Muster — kollektive Immunität, bei der *ein* erkannter Angriff den Schwarm schützt. „Anzahl zählt nie", angewandt auf Verteidigung statt Wahrheit.
-2. **Cross-Inhibition macht Belief-Resolution value-sensitiv.** Weg vom statischen max-Vergleich, hin zu einem dynamischen Akkumulator mit aktiver Rival-Dämpfung + Pitchfork-Bifurkation. Liefert winner-take-all *und* deadlock-freie, value-sensitive contested-Erkennung — bewiesen optimal (Pais/Marshall).
-3. **Firefly-Sync als koordinatorfreier Decay-Epoch-Takt.** Pulse-coupled Oszillatoren ersetzen pro-Peer-Zeitbuchhaltung durch einen emergenten, offline-fähigen, CRDT-max-kompatiblen gemeinsamen Decay-Anker.
+---
 
-## Welches Tier löst ein NSAI-Edge-Problem eleganter als der aktuelle Entwurf?
+## Top 3 wildest ideas
 
-**Die Honigbiene — bei der Belief-/Quorum-Auflösung.** NSAI-Edges contested-Logik ist *comparison-based und value-INsensitiv*: sie fragt „ist der Zweite nah genug am Ersten?", aber nie „sind beide überhaupt gut genug, um sich zu entscheiden?". **Cross-Inhibition** löst beides in einem Mechanismus: deadlock-frei bei gleich-guten Optionen *und* sensitiv für absolute Qualität (Differenz UND Mittelwert), bewiesen optimal, vollständig integer-/deterministisch und max-kompatibel — ohne „Anzahl zählt nie" zu verletzen.
+1. **CRISPR spacer store as a federatedly shareable attack-pattern immune memory.** Nodes vaccinate each other against Sybil/replay/poisoning patterns — collective immunity in which *one* detected attack protects the swarm. "Count never counts", applied to defense instead of truth.
+2. **Cross-inhibition makes belief resolution value-sensitive.** Away from static max comparison, toward a dynamic accumulator with active rival damping + pitchfork bifurcation. Delivers winner-take-all *and* deadlock-free, value-sensitive contested detection — proven optimal (Pais/Marshall).
+3. **Firefly sync as a coordinator-free decay-epoch clock.** Pulse-coupled oscillators replace per-peer time bookkeeping with an emergent, offline-capable, CRDT-max-compatible shared decay anchor.
 
-**Zweitplatzierter: der Schleimpilz — bei der Graph-/Retrieval-Topologie.** PPR optimiert das Ranking *auf* einem statischen Graph; Physarum optimiert *den Graph selbst* via Fluss-Reinforcement + Decay-Pruning und behält gezielt fehlertolerante Redundanz — adaptive Topologie-Wartung, die NSAI-Edge fehlt.
+## Which animal solves an NSAI-Edge problem more elegantly than the current design?
 
-> *Anmerkung des Agenten zur Quellenlage:* Drei load-bearende Primärquellen (Cross-Inhibition Science 2011, Value-Sensitive PLoS ONE 2013, Physarum Science 2010) waren teils paywalled (403); Mechanismen aus offenen Sekundärdarstellungen + PubMed-Abstracts rekonstruiert. Für eine Implementierungs-Spec die Originalgleichungen (Pais 2013 §Model; Tero 2010 dD/dt = f(|Q|)−rD) direkt verifizieren.
+**The honeybee — for belief/quorum resolution.** NSAI-Edge's contested logic is *comparison-based and value-INsensitive*: it asks "is the second close enough to the first?", but never "are both even good enough to decide?". **Cross-inhibition** solves both in one mechanism: deadlock-free with equally good options *and* sensitive to absolute quality (difference AND mean), proven optimal, fully integer/deterministic and max-compatible — without violating "count never counts".
+
+**Runner-up: the slime mold — for graph/retrieval topology.** PPR optimizes the ranking *on* a static graph; Physarum optimizes *the graph itself* via flow reinforcement + decay pruning and deliberately retains fault-tolerant redundancy — adaptive topology maintenance that NSAI-Edge lacks.
+
+> *Agent's note on the source situation:* Three load-bearing primary sources (cross-inhibition Science 2011, value-sensitive PLoS ONE 2013, Physarum Science 2010) were partly paywalled (403); mechanisms reconstructed from open secondary accounts + PubMed abstracts. For an implementation spec, verify the original equations directly (Pais 2013 §Model; Tero 2010 dD/dt = f(|Q|)−rD).

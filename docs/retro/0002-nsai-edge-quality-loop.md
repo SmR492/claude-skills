@@ -1,28 +1,28 @@
-# Retro-ADR 0002 — NSAI-Edge: autonome Qualitätsschleife auf 9,5/10
+# Retro-ADR 0002 — NSAI-Edge: autonomous quality loop to 9.5/10
 
-**Status:** abgeschlossen (Ziel erreicht: 9,53/10) · PR #1 NICHT gemergt (wartet auf Stefan)
-**Datum:** 2026-05-27
-**Zweck:** Retrospektive der autonomen Loop „Umsetzung → Review → Retro → Refinement", die Stefan über Nacht angestoßen hat, bis die nsai-edge-Umsetzung 9,5/10 Richtung Ziele+Definition erreicht.
+**Status:** completed (goal reached: 9.53/10) · PR #1 NOT merged (waiting for Stefan)
+**Date:** 2026-05-27
+**Purpose:** Retrospective of the autonomous loop "implementation → review → retro → refinement" that Stefan kicked off overnight, until the nsai-edge implementation reaches 9.5/10 against goals+definition.
 
-## Kontext
+## Context
 
-Auftrag: autonom iterieren, bis die Umsetzung finale Qualität 9,5/10 erreicht. Zwei inhaltliche Leitplanken von Stefan: (a) Evidenz-Gewichtung konkurrierender Aussagen nach Autorität × Aktualität × Konfidenz, NIE nach Anzahl; (b) nicht nur Fakten, sondern auch veraltetes + falsches Wissen erkennen + abwerten — echt neuro-symbolisch, keine plumpe DB.
+Assignment: iterate autonomously until the implementation reaches a final quality of 9.5/10. Two substantive guardrails from Stefan: (a) evidence weighting of competing statements by authority × recency × confidence, NEVER by count; (b) not only recognize facts, but also recognize + downgrade outdated + false knowledge — genuinely neuro-symbolic, no crude DB.
 
-## Entscheidungschronik
+## Decision chronicle
 
-- **E1 — Evidenz-Gewichtung gebaut** (NN/BEWA-Vorbild): `source_type`-Autorität × Recency × Konfidenz, Softmax über distinkte Objekte. Erste Form multiplikativ.
-- **E2 — 7 gegnerische Review-Runden (adversarial-auditor) hhärteten das Vertrauensmodell.** Der Auditor fand wiederholt DIESELBE Fehlerklasse („niedriger-vertrauter Input verschiebt das Belief/Lese-Ergebnis eines höher-vertrauten Edges") auf je neuer Achse: Tier → Konfidenz → Recency/Provenienz (Schreibpfad) → Belief (Lesepfad). Punkt-Patches scheiterten; erst das **generelle Prinzip** schloss die Klasse: **Trust-primäre Präzedenz `(Origin-Trust-Rang, effektive Stufe, …)` auf BEIDEN Pfaden** (mergeIncoming + resolveBelief), Tier hart, Trust-Cap gegen source_type-Spoofing, Zukunfts-Datum abgelehnt, Live-Konfidenz nur durch full/auth anhebbar. Verdikt Runde 8: safe-to-merge JA.
-- **E3 — Node-Hälfte der Föderation vervollständigt:** realer HTTP-Transport (getestet übers Netz) + bundleAdapter (docker exec via execFile-Array, kein Shell), GC, MCP-Peer-Tools. AC-Status im Konzept ehrlich auf grün; PHP-Gegenseite als bewusster Phase-2-Known-Issue (§10.4).
-- **E4 — Reife 9,19 → 9,42 → 9,53** (konzept-reviewer). Letzte 0,1 waren NODE-seitig (UC-12-AC-Tabelle, Conformance-Determinismus, Coverage-Gate, Glossar) — nicht die geparkte PHP-Seite.
+- **E1 — Evidence weighting built** (NN/BEWA model): `source_type` authority × recency × confidence, softmax over distinct objects. First form multiplicative.
+- **E2 — 7 adversarial review rounds (adversarial-auditor) hardened the trust model.** The auditor repeatedly found THE SAME error class ("lower-trusted input shifts the belief/read result of a higher-trusted edge") on a new axis each time: tier → confidence → recency/provenance (write path) → belief (read path). Point patches failed; only the **general principle** closed the class: **trust-primary precedence `(Origin-Trust-Rang, effektive Stufe, …)` on BOTH paths** (mergeIncoming + resolveBelief), tier hard, trust cap against source_type spoofing, future date rejected, live confidence raisable only by full/auth. Verdict round 8: safe-to-merge YES.
+- **E3 — Node half of the federation completed:** real HTTP transport (tested over the network) + bundleAdapter (docker exec via execFile array, no shell), GC, MCP peer tools. AC status in the Konzept (concept document) honestly set to green; PHP counterpart as a deliberate phase-2 Known-issue (§10.4).
+- **E4 — Maturity 9.19 → 9.42 → 9.53** (konzept-reviewer). The last 0.1 were NODE-side (UC-12 AC table, conformance determinism, coverage gate, glossary) — not the parked PHP side.
 
-## Ziel-Verdikt
+## Goal verdict
 
-**9,53/10 — Schwelle erreicht.** Ziele 1/2/4/5 (persistentes Wissen, neuro-symbolisch, Evidenz-Gewichtung, Sicherheit) voll erfüllt + getestet (70 Tests). Ziel 3 (Föderation) Node-seitig vollständig; die Bundle-Föderation wartet bewusst auf die PHP-Commands (Stefans geparkte Symfony-Arbeit).
+**9.53/10 — threshold reached.** Goals 1/2/4/5 (persistent knowledge, neuro-symbolic, evidence weighting, security) fully met + tested (70 tests). Goal 3 (federation) complete on the Node side; the bundle federation deliberately waits for the PHP commands (Stefan's parked Symfony work).
 
-## Was gut lief
-- Der gegnerische Review als Loop-Motor: 7 Runden deckten eine systematische Fehlerklasse auf, die grüne Tests komplett verdeckten — TDD allein hätte das Vertrauensmodell nie gehärtet.
-- Verifizierte Quellen + ehrliche Known-Issues statt Schein-Vollständigkeit.
+## What went well
+- The adversarial review as loop engine: 7 rounds uncovered a systematic error class that green tests completely masked — TDD alone would never have hardened the trust model.
+- Verified sources + honest Known-issues instead of sham completeness.
 
-## Was besser muss / Kern-Lehre
-- **Eine Fehlerklasse über Achsen jagen heißt: das Prinzip fixen, nicht die Instanz.** Vier Runden gingen für Achsen-Punktpatches (Tier, Konfidenz, Recency, …) drauf, bis das generelle Trust-primär-Prinzip alle schloss. Lehre: bei wiederkehrendem Fund die invariante Wurzel suchen, nicht den Einzelfall. Siehe Memory [[feedback-green-tests-bypass-security]] (erweitert).
-- Sycophantische Tests (Parameter zum Code passend) verdecken die Lücke — der Auditor wies das mehrfach nach; Tests müssen die *Eigenschaft* prüfen, nicht eine günstige Konstellation.
+## What must be better / core lesson
+- **Chasing one error class across axes means: fix the principle, not the instance.** Four rounds were spent on per-axis point patches (tier, confidence, recency, …) until the general trust-primary principle closed all of them. Lesson: for a recurring finding, look for the invariant root, not the individual case. See memory [[feedback-green-tests-bypass-security]] (extended).
+- Sycophantic tests (parameters fitted to the code) mask the gap — the auditor demonstrated this several times; tests must check the *property*, not a convenient constellation.

@@ -1,6 +1,6 @@
 ---
 name: marketing-knowledge
-description: The marketing subset of the SU startup pack (marketing disciplines, channels, go-to-market, content, funnel, acquisition cost, brand, word of mouth, social proof, viral effects, growth) as supporting files for the marketing-strategist agent. Load the entry a task names.
+description: The marketing subset of the SU startup pack (marketing disciplines, channels, go-to-market, content, funnel, acquisition cost, brand, word of mouth, social proof, viral effects, growth) as supporting files for the marketing-strategist agent. Not a conversational skill; loaded when a marketing task names an entry.
 user-invocable: false
 ---
 

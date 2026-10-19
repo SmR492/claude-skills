@@ -1,29 +1,29 @@
-# Retro-ADR 0009 — Bi-temporale Gültigkeit (NSAI-Edge Slice #5)
+# Retro-ADR 0009 — Bi-temporal validity (NSAI-Edge Slice #5)
 
-**Status:** abgeschlossen (Adversarial NEIN→Fix→safe) · autonom umgesetzt + self-merged (gmail)
-**Datum:** 2026-05-27 (autonome Nacht-Session)
-**Zweck:** Retrospektive des bi-temporalen Slice — „was galt zum Zeitpunkt T" — und der ersten autonom (ohne Mensch-Bestätigung pro Schritt) durchlaufenen + selbst gemergten Schleife.
+**Status:** completed (adversarial NO→fix→safe) · implemented autonomously + self-merged (gmail)
+**Date:** 2026-05-27 (autonomous night session)
+**Purpose:** Retrospective of the bi-temporal slice — "what held at time T" — and the first loop run autonomously (without human confirmation per step) + self-merged.
 
-## Kontext
-Nutzer ging schlafen, autorisierte autonomen Loop + Self-Merge über den gmail/SmR492-Account, mit Auflage: Web-Ideen verifiziert + CDP5-geprüft, bevor sie in Betracht kommen. Slice #5 = §H.2-Punkt 5 (Frontier: Zep/Graphiti, +18,5 % LongMemEval).
+## Context
+The user went to sleep, authorized the autonomous loop + self-merge via the gmail/SmR492 account, with the Auflage (condition): web ideas verified + CDP5-checked before they are considered. Slice #5 = §H.2 item 5 (frontier: Zep/Graphiti, +18.5 % LongMemEval).
 
-## CDP5-geprüfte Architektur-Entscheidungen (vorab, kritisch)
-- **Kein Wire-Bruch:** `valid_from` defaultet auf das signierte `asserted_at`; `valid_to` ist LOKAL (wie `retracted`) — nicht signiert/föderiert. So bi-temporal ohne Wire-v2/PHP-Parität-Bruch. Gegen `signingString`/`_edgeToWire` verifiziert.
-- **Determinismus-Gate:** Graphitis LLM-Widerspruchs-Erkennung NICHT übernommen → temporale Supersession explizit/deterministisch.
+## CDP5-checked architecture decisions (upfront, critical)
+- **No wire break:** `valid_from` defaults to the signed `asserted_at`; `valid_to` is LOCAL (like `retracted`) — not signed/federated. Thus bi-temporal without a wire-v2/PHP-parity break. Verified against `signingString`/`_edgeToWire`.
+- **Determinism gate:** Graphiti's LLM contradiction detection NOT adopted → temporal supersession explicit/deterministic.
 
-## Entscheidungschronik
-- **E1 — Web verifiziert + CDP5-Check:** Zep/Graphiti (4 Zeitstempel, valid-window, non-destruktive Invalidierung), BiTRDF. Übernommen: valid_from/valid_to + as-of + nicht-destruktive Supersession. Verworfen: LLM-Konflikt-Erkennung (Determinismus), föderierte Validität (Wire-Bruch).
-- **E2 — Konzept-first UC-BT:** lint 10/10; reviewer **7,4/10** → 🔴 (Default-Materialisierung via COALESCE; as_of konjunktiv zu active; Migrations-Wechselwirkung mit retracted-Rebuild) eingearbeitet.
-- **E3 — Umsetzung TDD:** valid_*-Spalten (SCHEMA + EDGES_REBUILD + additive ALTER), as_of auf query/resolveBelief, setValidity, supersedeTemporally, 3 MCP-Tools. **Migration an Live-DB-Kopie (12175 Edges + WAL) verifiziert: kein Datenverlust.**
-- **E4 — Adversarial NEIN→Fix:** 🔴-1 supersedeTemporally konnte ein invertiertes Intervall erzeugen (`valid_to < valid_from`) → Vorgänger nirgends mehr sichtbar = stiller lokaler Verlust. + 🟡-5 lexikografischer Zeitvergleich (Offset-Zeiten fehl-sortiert) → UTC-Norm. + 🟡-2 verify ohne as_of. Alle gefixt + Regressionstests. 141/141.
-- **E5 — Self-Merge** nach vollem Gate (lint/reviewer/adversarial safe/Tests grün/Live-Migration verifiziert).
+## Decision chronicle
+- **E1 — Web verified + CDP5 check:** Zep/Graphiti (4 timestamps, valid window, non-destructive invalidation), BiTRDF. Adopted: valid_from/valid_to + as-of + non-destructive supersession. Discarded: LLM conflict detection (determinism), federated validity (wire break).
+- **E2 — Konzept-first UC-BT** (Konzept = concept document): lint 10/10; reviewer **7.4/10** → 🔴 (default materialization via COALESCE; as_of conjunctive with active; migration interaction with the retracted rebuild) incorporated.
+- **E3 — Implementation TDD:** valid_* columns (SCHEMA + EDGES_REBUILD + additive ALTER), as_of on query/resolveBelief, setValidity, supersedeTemporally, 3 MCP tools. **Migration verified on a live-DB copy (12175 edges + WAL): no data loss.**
+- **E4 — Adversarial NO→fix:** 🔴-1 supersedeTemporally could create an inverted interval (`valid_to < valid_from`) → predecessor no longer visible anywhere = silent local loss. + 🟡-5 lexicographic time comparison (offset times mis-sorted) → UTC norm. + 🟡-2 verify without as_of. All fixed + regression tests. 141/141.
+- **E5 — Self-merge** after the full gate (lint/reviewer/adversarial safe/tests green/live migration verified).
 
-## Prozess-Lehre (Kern)
-**Autonomie heißt nicht weniger Rigorosität — sie heißt, das Gate selbst hart zu ziehen.** Vor dem Self-Merge: konzept-reviewer + adversarial-auditor (der einen echten Datenverlust-Pfad fand) + Migration an einer **Kopie der echten Live-DB** (nicht nur In-Memory-Fixtures), weil der Merge → MCP-Reload die Migration auf 12k echte Edges loslässt. Der Datenverlust-Fund (🔴-1) bestätigt erneut: der nicht-getestete Rand (Zukunfts-`valid_from` + Rück-Supersession, nur-`Z`-Tests) ist der Bug. [[feedback-green-tests-bypass-security]].
-**Web-Validierung + CDP5-Check vor Übernahme** ([[feedback-websearch-in-concept-phase]]): Graphitis LLM-Konflikterkennung wäre verlockend gewesen, verletzt aber das Determinismus-Gate → bewusst auf die Agentenseite verwiesen.
+## Process lesson (core)
+**Autonomy does not mean less rigor — it means pulling the gate hard yourself.** Before the self-merge: konzept-reviewer + adversarial-auditor (which found a real data-loss path) + migration on a **copy of the real live DB** (not just in-memory fixtures), because the merge → MCP reload unleashes the migration on 12k real edges. The data-loss finding (🔴-1) confirms again: the untested edge (future `valid_from` + backward supersession, `Z`-only tests) is the bug. [[feedback-green-tests-bypass-security]].
+**Web validation + CDP5 check before adoption** ([[feedback-websearch-in-concept-phase]]): Graphiti's LLM conflict detection would have been tempting, but violates the determinism gate → deliberately referred to the agent side.
 
-## Inhaltliche Lehre
-Bi-temporal ohne Wire-Bruch ist möglich, indem man eine Achse (valid-start) auf das bereits signierte `asserted_at` legt und nur das Ende (`valid_to`) lokal hält. Preis: temporale Ablösung ist lokal, nicht föderiert (🟡-3, dokumentiert). Lexikografischer Zeitvergleich verlangt UTC-Normalisierung — sonst lautlose Fehl-Fensterung bei Offsets.
+## Substantive lesson
+Bi-temporal without a wire break is possible by placing one axis (valid start) on the already signed `asserted_at` and keeping only the end (`valid_to`) local. Price: temporal supersession is local, not federated (🟡-3, documented). Lexicographic time comparison demands UTC normalization — otherwise silent mis-windowing with offsets.
 
-## Offen
-- Slice #5b: föderierte Gültigkeit (Wire-v2), `as_of` auf `search`. #6 (Backlog) gelernte Gewichtung. #1b/#2b/#3b/#4b deferred.
+## Open
+- Slice #5b: federated validity (wire v2), `as_of` on `search`. #6 (backlog) learned weighting. #1b/#2b/#3b/#4b deferred.

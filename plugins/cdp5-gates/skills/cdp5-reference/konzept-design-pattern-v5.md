@@ -1,223 +1,224 @@
 # Konzept Design Implementation Testing Review Pattern
 
-**Kürzel:** CDP5 (Concept Design Pattern, Generation 5) — aktive Doktrin ist **ausschließlich diese Datei**. Vorgänger **CDP4** (v4.7, `konzept-design-pattern-v4.md`) ist **frozen + nicht-aktiv**, gehalten als Fallback-Referenz (Rückfall bei struktureller v5-Grundstruktur-Drift). Das Kürzel KDP bezeichnet v3.1 (frozen, in §1–§26 inlined).
+**Abbreviation:** CDP5 (Concept Design Pattern, Generation 5) — the active doctrine is **exclusively this file**. The predecessor **CDP4** (v4.7, `konzept-design-pattern-v4.md`) is **frozen + not active**, kept as a fallback reference (fallback in case of structural drift of the v5 base structure). The abbreviation KDP denotes v3.1 (frozen, inlined in §1–§26).
 
 **Version:** 5.1
-**Stand:** Oktober 2026 (v5.0: Mai 2026)
-**Provenienz:** Diese Datei ist die gebündelte Kopie der CDP5-Doktrin und bis zur Anbindung der Wissensschicht (Orbit, `riedl/nsai/doktrin/par-*`) der Interims-Master (DECISIONS.md A4). Änderungen nur per PR; Stand der Bündelung v5.0, Orbit-only-Paragraphen siehe Redirect-Tabelle in §26. Eine generierte, hash-geprüfte Fassung ersetzt diese Kopie, sobald der Generator existiert.
-**Charakter dieser Version:** v5 ist eine **Restrukturierung** von v4.7 — gleiche Doktrin, neu geordnet für **kontextarmes Einlesen**. Inhalt wurde verschoben, nicht gelöscht (Ausnahme: zwei reine Vorwärtsverweis-Stubs; drei Themen-Dubletten zusammengeführt). Autoren-Zitate sind in direkte Inline-Regeln überführt (Portabilität: jede Regel steht für sich, keine externe Lektüre nötig). Neu: Teil 0 (Mission + Arbeitsschleife), die Anti-Drift-/Gedächtnis-Mechanik nach vorn gezogen, ein dedizierter Sicherheits-Teil (Teil 3, §33), LLM-Spezifika in einen überspringbaren Teil 5 gebündelt, Referenz-Material (Prompt-Pattern, Golden-Samples, Cases) in den Anhang.
+**Status:** October 2026 (v5.0: May 2026)
+**Provenance:** This file is the bundled copy of the CDP5 doctrine and, until the knowledge layer (Orbit, `riedl/nsai/doktrin/par-*`) is connected, the interim master (DECISIONS.md A4). Changes only via PR; bundling status v5.0, for Orbit-only paragraphs see the redirect table in §26. A generated, hash-checked version replaces this copy as soon as the generator exists.
+**Language:** English translation of the German Orbit original, translated 2026-10-19; § numbering and German identifier terms retained.
+**Character of this version:** v5 is a **restructuring** of v4.7 — same doctrine, reordered for **low-context reading**. Content was moved, not deleted (exception: two pure forward-reference stubs; three topic duplicates merged). Author quotations have been converted into direct inline rules (portability: every rule stands on its own, no external reading required). New: Part 0 (mission + work loop), the anti-drift/memory mechanics pulled forward, a dedicated security part (Part 3, §33), LLM specifics bundled into a skippable Part 5, reference material (prompt patterns, golden samples, cases) in the appendix.
 
-**Stabile Anker:** Die `§`-Nummern sind unverändert und bleiben die zitierfähigen Anker (alle internen `(§X.Y)`-Verweise gelten weiter). Die **Teil**-Gliederung ist die *Lese*-Reihenfolge — darum erscheint z. B. §29 (Modi) vor §10 (Review): der Arbeitsweg steht vor dem Konzept-Handwerk.
+**Stable anchors:** The `§` numbers are unchanged and remain the citable anchors (all internal `(§X.Y)` references continue to apply). The **Part** structure is the *reading* order — which is why, for example, §29 (modes) appears before §10 (review): the working path comes before the Konzept (concept document) craft.
 
-**Zweck:** Ein wiederverwendbares Muster, das (a) eine **Wissensdoktrin samt Patterns einrichtet** und (b) der KI einen **Arbeitsweg vorgibt, auf dem ein Auftrag ohne Drift und ohne Gedächtnisverlust bearbeitet werden kann** — vom Konzept über Design, Implementation, Testing bis Review, für Greenfield wie Brownfield und PoC-Integration neuer KI-Capabilities.
+**Purpose:** A reusable pattern that (a) **establishes a knowledge doctrine including patterns** and (b) **prescribes a working path for the AI on which an assignment can be processed without drift and without memory loss** — from Konzept through design, implementation, testing to review, for greenfield as well as brownfield and PoC integration of new AI capabilities.
 
 ---
 
-## 0. Mission, Lese-Pfad & Arbeitsschleife
+## 0. Mission, Reading Path & Work Loop
 
-### 0.1 Wofür CDP5 da ist
+### 0.1 What CDP5 is for
 
-CDP5 hat genau zwei Aufgaben:
+CDP5 has exactly two tasks:
 
-1. **Wissensdoktrin + Patterns einrichten** — wie ein Konzept aussieht, wie Implementation/Review läuft, welche bewährten Patterns gelten und welche Anti-Patterns verboten sind. Diese Doktrin ist verbindlich, nicht optional.
-2. **Der KI einen drift-/gedächtnisverlust-freien Arbeitsweg vorgeben.** Die zwei tödlichen Gegner jeder KI-gestützten Arbeit sind **Drift** (die KI weicht unbemerkt von Vokabular/Architektur/Entscheidungen ab) und **Gedächtnisverlust** (Kontext läuft voll oder geht zwischen Sessions verloren; das Modell halluziniert frisch ohne Selbst-Erkenntnis). Teil 2 ist die Mechanik, die beides verhindert: Single-Source-Pointer statt Paste, durable Artefakte (CONTEXT.md/ADR/Handoff) als externes Gedächtnis, Determinismus-Gates, Verifikation gegen die Quelle, isolierte Worker mit frischem Kontext, Retro-ADR + Memory-Loop.
+1. **Establish knowledge doctrine + patterns** — what a Konzept looks like, how implementation/review runs, which proven patterns apply and which anti-patterns are forbidden. This doctrine is binding, not optional.
+2. **Prescribe a drift-free and memory-loss-free working path for the AI.** The two deadly enemies of all AI-assisted work are **drift** (the AI deviates unnoticed from vocabulary/architecture/decisions) and **memory loss** (context fills up or is lost between sessions; the model hallucinates afresh without self-awareness). Part 2 is the mechanics that prevents both: single-source pointers instead of paste, durable artifacts (CONTEXT.md/ADR/handoff) as external memory, determinism gates, verification against the source, isolated workers with fresh context, retro ADR + memory loop.
 
-### 0.2 Aufbau (Lese-Pfad)
+### 0.2 Structure (Reading Path)
 
-| Teil | Inhalt | Wann lesen |
+| Part | Content | When to read |
 |---|---|---|
-| **Teil 0** (§0) | Mission, Lese-Pfad, Arbeitsschleife | immer zuerst |
-| **Teil 1** (§1) | Grundprinzipien — die immer geltenden Regeln | immer |
-| **Teil 2** (§29, §32, §10.6/§10.7, §19, §28, §27) | **Der Arbeitsweg** — Modi, Orchestrierung, Drift-Vermeidung, Skill-Gate, Verifikation, durable Artefakte, Implementation-Werkzeuge, Retro/Memory | bei jeder Arbeit am Code |
-| **Teil 3** (§33) | **Sicherheit** — Agent-/Tool-Safety (Lethal Trifecta, MCP-Härtung) + AppSec (Threat-Modeling, Security-Gates, LLM-Bedrohungsklassen) | bei Agent-/Tool-/Security-Anteil |
-| **Teil 4** (§2–§7, §10.1–§10.5, §11, §14, §17, §23) | **Konzept-Doktrin (Authoring)** — Pflicht-Struktur, UC-Aufbau, Review, KI-Grenzen, Glossar, Mensch-Verantwortung | beim Konzept-Schreiben/-Review |
-| **Teil 5** (§13, §15, §16, §18, §20–§22) | **LLM-/Agenten-Erweiterungen** — nur relevant, wenn ein UC ein LLM aufruft | **überspringbar** bei deterministischen Tasks |
-| **Teil 6** (§24, §25) | **Erkenntnisse + Anti-Pattern-Katalog** | als Prüf-Raster im Review |
-| **Anhang A–C + §26** (§9, §31, §30, Changelog) | Prompt-Pattern, Golden-Samples, Referenz-Cases, Changelog | als Nachschlage-Referenz |
+| **Part 0** (§0) | Mission, reading path, work loop | always first |
+| **Part 1** (§1) | Basic principles — the rules that always apply | always |
+| **Part 2** (§29, §32, §10.6/§10.7, §19, §28, §27) | **The working path** — modes, orchestration, drift avoidance, skill gate, verification, durable artifacts, implementation tools, retro/memory | for any work on code |
+| **Part 3** (§33) | **Security** — agent/tool safety (lethal trifecta, MCP hardening) + AppSec (threat modeling, security gates, LLM threat classes) | when there is an agent/tool/security share |
+| **Part 4** (§2–§7, §10.1–§10.5, §11, §14, §17, §23) | **Konzept doctrine (authoring)** — mandatory structure, UC structure, review, AI limits, glossary, human responsibility | when writing/reviewing a Konzept |
+| **Part 5** (§13, §15, §16, §18, §20–§22) | **LLM/agent extensions** — only relevant if a UC calls an LLM | **skippable** for deterministic tasks |
+| **Part 6** (§24, §25) | **Insights + anti-pattern catalog** | as a checking grid in review |
+| **Appendix A–C + §26** (§9, §31, §30, changelog) | Prompt patterns, golden samples, reference cases, changelog | as a lookup reference |
 
-**Charakter:** CDP5 ist **kein Phasen-Workflow**. Der Implementation-Werkzeugkasten (§27) ist eine Bibliothek; die Anwendungs-Modi (§29) wählen situationsabhängig, welche Werkzeuge greifen; die Orchestrator-Regel (§32) regelt, *wer* sie ausführt (der Orchestrator delegiert an isolierte Worker).
+**Character:** CDP5 is **not a phase workflow**. The implementation toolbox (§27) is a library; the application modes (§29) choose, depending on the situation, which tools apply; the orchestrator rule (§32) governs *who* executes them (the orchestrator delegates to isolated workers).
 
-### 0.3 Die Arbeitsschleife (in 30 Sekunden)
+### 0.3 The Work Loop (in 30 seconds)
 
-Jeder nicht-triviale Auftrag läuft so — ein Auftrag, der mehr als eine Stufe berührt, wird **orchestriert, nicht selbst ausgeführt** (§32):
+Every non-trivial assignment runs like this — an assignment that touches more than one stage is **orchestrated, not executed by oneself** (§32):
 
-1. **Modus wählen** (§29): A Greenfield · B Bug/Regression · C Review/Teardown · D UC→Code · E KI-PoC.
-2. **Clarify-First** (§1.9): alles Unklare/Offene **sofort** in die Konversation mit dem Nutzer — nicht annehmen. Eine selbst-geflaggte Annahme ist ein harter Stopp.
-3. **Durable Quelle lesen** (§1.8, §28): CONTEXT.md + ADRs im Touch-Bereich — das externe Gedächtnis. Bei Brownfield Pflicht.
-4. **Pro Delegation: Determinismus-Gate + Pointer-Brief** (§32.8): entscheidbare Aufgabe → deterministischer Skill/Skript (§32.9), kein LLM-Worker. Sonst Worker mit Pointer auf die Single-Source briefen (kein Paste), Modell nach §32.3, parallel nur self-contained.
-5. **Verifizieren vor jeder Folge-Aktion** (§10.6, §32.8 (4)): Worker-Output ist probabilistisch → gegen die Quelle prüfen, deterministisch wo möglich. Keine irreversible Aktion auf unverifizierte Behauptung.
-6. **Mensch-Gates halten** (§23): destruktive/irreversible Schritte nie auto.
-7. **Durable Artefakte pflegen** (§28): CONTEXT.md/ADR aktualisieren, bevor der Kontext verloren geht; bei Token-Limit Handoff-Doc.
-8. **Abschluss: Retro-ADR + Memory-Loop** (§32.6): wie gearbeitet wurde festhalten; jede durable Lehre als Memory persistieren **und verifizieren, dass der zitierte Slug real existiert**.
+1. **Choose mode** (§29): A greenfield · B bug/regression · C review/teardown · D UC→code · E AI PoC.
+2. **Clarify-First** (§1.9): everything unclear/open goes **immediately** into the conversation with the user — do not assume. A self-flagged assumption is a hard stop.
+3. **Read the durable source** (§1.8, §28): CONTEXT.md + ADRs in the touch area — the external memory. Mandatory for brownfield.
+4. **Per delegation: determinism gate + pointer brief** (§32.8): decidable task → deterministic skill/script (§32.9), no LLM worker. Otherwise brief the worker with a pointer to the single source (no paste), model per §32.3, parallel only if self-contained.
+5. **Verify before every follow-up action** (§10.6, §32.8 (4)): worker output is probabilistic → check against the source, deterministically where possible. No irreversible action on an unverified claim.
+6. **Hold Mensch-Gates (human gates)** (§23): destructive/irreversible steps never automatic.
+7. **Maintain durable artifacts** (§28): update CONTEXT.md/ADR before the context is lost; at the token limit, a handoff doc.
+8. **Closing: retro ADR + memory loop** (§32.6): record how the work was done; persist every durable lesson as memory **and verify that the cited slug really exists**.
 
 ---
 
-## 1. Grundprinzipien
+## 1. Basic Principles
 
-### 1.1 Sachbearbeiter-Test
+### 1.1 Sachbearbeiter-Test (clerk test)
 
-Bevor ein Konzept als fertig gilt, muss es den **Sachbearbeiter-Test** bestehen: *Könnte ein geschulter Büromitarbeiter alle Prozesse dieses Systems rein anhand dieses Dokuments manuell durchführen — ohne Zugriff auf das System selbst?* Wenn die Antwort Nein ist, fehlen Details. Der Test erzwingt:
-- Vollständige Feldbeschreibungen (kein „und weitere Felder")
-- Explizite Fehlerfälle (nicht nur Erfolgspfade)
-- Klare Zuständigkeiten je UC
-- Definierte Status-Übergänge
-- Konkrete Validierungsregeln
+Before a Konzept counts as finished, it must pass the **Sachbearbeiter-Test**: *Could a trained office employee carry out all processes of this system manually using only this document — without access to the system itself?* If the answer is no, details are missing. The test enforces:
+- Complete field descriptions (no "and further fields")
+- Explicit error cases (not just success paths)
+- Clear responsibilities per UC
+- Defined status transitions
+- Concrete validation rules
 
-### 1.2 KI ist Konsument der Entwürfe, nicht ihr Urheber
+### 1.2 AI is the consumer of the designs, not their author
 
-KI erstellt keine guten Entwürfe — sie ist **Konsument** der Entwürfe (Provenienz: Leßner 2026). Je präziser das Konzept, desto besser der generierte Code. KI-Assistenten arbeiten nach statistischer Ähnlichkeit — ohne klare Strukturen entstehen plausibel klingende, aber fachlich falsche Implementierungen. **Vage Konzepte erzeugen vagen Code.**
+AI does not create good designs — it is the **consumer** of the designs (provenance: Leßner 2026). The more precise the Konzept, the better the generated code. AI assistants work by statistical similarity — without clear structures, plausible-sounding but technically wrong implementations arise. **A vague Konzept produces vague code.**
 
-**Folgerungen:** Ablauflogik so präzise, dass keine Interpretationsspielräume bleiben · Randbedingungen explizit · Datentypen und Einheiten immer benennen · Singular/Plural-Unterschiede explizit regeln.
+**Consequences:** Process logic so precise that no room for interpretation remains · boundary conditions explicit · always name data types and units · regulate singular/plural differences explicitly.
 
 ### 1.3 Design before Implementation
 
-Coding ohne Design führt innerhalb kürzester Zeit in die Unwartbarkeit (Provenienz: Toth 2026). **Vise Coding statt Vibe Coding:**
+Coding without design leads to unmaintainability within a very short time (provenance: Toth 2026). **Vise Coding instead of Vibe Coding:**
 
 | Vibe Coding | Vise Coding |
 |---|---|
-| Freie Prompts, sofortiger Code | Spec-first, dann gezielter Prompt |
-| KI bestimmt Struktur | Konzept bestimmt Struktur |
-| Schnell, aber fragil | Etwas langsamer, aber wartbar |
-| KI halluziniert Architektur | KI implementiert definierte Architektur |
+| Free prompts, immediate code | Spec-first, then targeted prompt |
+| AI determines structure | Konzept determines structure |
+| Fast but fragile | Somewhat slower but maintainable |
+| AI hallucinates architecture | AI implements defined architecture |
 
-### 1.4 Konzept als lebendes Artefakt
+### 1.4 Konzept as a living artifact
 
-- Abweichung im Code → Konzept wird nachgezogen
-- Neue Anforderung → erst Konzept aktualisieren, dann implementieren
-- Technische Restriktion → Code ist „richtiger" als Konzept → Konzept anpassen, nicht den Code
+- Deviation in the code → the Konzept is updated to match
+- New requirement → first update the Konzept, then implement
+- Technical restriction → code is "more correct" than the Konzept → adapt the Konzept, not the code
 
-Versionshistorie (Changelog) ist ab v2.0 Pflicht.
+A version history (changelog) is mandatory from v2.0.
 
-### 1.5 Probabilistik-Awareness
+### 1.5 Probabilistics Awareness
 
-Jede LLM-Antwort ist probabilistisch. LLMs reproduzieren Syntax und stilistische Muster, können aber **nicht** verifizieren, ob generierter Code kompiliert, korrekt läuft oder sich kohärent ins System integriert (Provenienz: Mahringer 2026). Das Konzept muss das explizit anerkennen:
-- Halluzinationen sind keine „Bugs", sondern systematisch aus der Probabilistik ableitbar.
-- Ein Modell, das zu 75 % korrekt liefert, liegt zu 25 % daneben — pro UC ausweisen, ob das tolerabel ist.
-- 45 % des KI-generierten Codes hat Sicherheitsmängel (Veracode 2024) — KI-Code als **„Untrusted Input"** behandeln (§15.8 + Anti-Pattern §25).
+Every LLM answer is probabilistic. LLMs reproduce syntax and stylistic patterns but **cannot** verify whether generated code compiles, runs correctly or integrates coherently into the system (provenance: Mahringer 2026). The Konzept must acknowledge this explicitly:
+- Hallucinations are not "bugs" but systematically derivable from probabilistics.
+- A model that delivers 75 % correct results is wrong 25 % of the time — state per UC whether that is tolerable.
+- 45 % of AI-generated code has security defects (Veracode 2024) — treat AI code as **"untrusted input"** (§15.8 + anti-pattern §25).
 
-> **Probabilistik wird an drei Stellen konkretisiert, alle gehören zusammen:** das **Probabilistik-Statement im Konzept-Kopf** (§2.6, mit Toleranz-Schwelle + EU-AI-Act-Klasse pro UC), das **Schichten-/Workflow-Bewusstsein** (§18, Kontext-Pyramide + Workflow-Modelle) und die **Validierungs-Schichten** (§15.8). §1.5 ist das Prinzip, §2.6/§18/§15.8 sind seine Pflicht-Artefakte.
+> **Probabilistics is made concrete in three places, all of which belong together:** the **probabilistics statement in the Konzept header** (§2.6, with tolerance threshold + EU AI Act class per UC), the **layer/workflow awareness** (§18, context pyramid + workflow models) and the **validation layers** (§15.8). §1.5 is the principle, §2.6/§18/§15.8 are its mandatory artifacts.
 
-### 1.6 Volle menschliche Verantwortung
+### 1.6 Full human responsibility
 
-Der Entwickelnde trägt die **volle** Verantwortung für den Code — genauso wie früher, als Hilfskräfte zugearbeitet haben (Provenienz: Lischke 2026). Im Konzept explizit festlegen:
-- Wer hat im UC die Entscheidungs-Gewalt? KI ist niemals Entscheider, sondern Vorschlag-Generator.
-- Wer prüft das Endergebnis? Wer haftet?
-- Stakeholder-Kommunikation trägt einen großen nonverbalen Anteil (Tonfall, Körpersprache), der menschlich bleibt; die oft zitierte 7-%-Zahl (Mehrabian, *Silent Messages*) gilt nur für inkongruente Gefühlsaussagen und wird hier nicht als allgemeine Regel geführt. Entscheidungs-Workshops, Domain Storytelling, Event Storming sind LLM-resistent.
+The developer bears **full** responsibility for the code — just as before, when assistants did the preparatory work (provenance: Lischke 2026). Specify explicitly in the Konzept:
+- Who has decision-making power in the UC? AI is never the decider, only a proposal generator.
+- Who checks the final result? Who is liable?
+- Stakeholder communication carries a large non-verbal share (tone of voice, body language) that remains human; the often-cited 7 % figure (Mehrabian, *Silent Messages*) applies only to incongruent emotional statements and is not treated here as a general rule. Decision workshops, domain storytelling, event storming are LLM-resistant.
 
-### 1.7 Konkretheits-Trennung — CDP5 abstrakt, konkrete Cases im Wiki/Trace
+### 1.7 Separation of concreteness — CDP5 abstract, concrete cases in wiki/trace
 
-CDP5 dokumentiert **abstrahierte Patterns**. Konkrete Projekt-Namen, Datei-Pfade, Repo-URLs, Commit-SHAs, PR-Nummern gehören **nicht** ins CDP5 selbst — sie landen im Wiki (`wiki/projects/`, `wiki/sources/`) oder in Trace-Raws (`raw/traces/`).
+CDP5 documents **abstracted patterns**. Concrete project names, file paths, repo URLs, commit SHAs, PR numbers do **not** belong in CDP5 itself — they go into the wiki (`wiki/projects/`, `wiki/sources/`) or into trace raws (`raw/traces/`).
 
-**Begründung:** Manipulationsvermeidung bei automatisierten KI-Reviews. Enthält das CDP5 konkrete Code-Referenzen, kann eine KI sie missinterpretieren, falsche SHAs einsetzen oder Pfade konfabulieren. Das Pattern-Doc bleibt manipulationsresistenter, wenn es abstrakt ist.
+**Rationale:** Avoiding manipulation in automated AI reviews. If CDP5 contains concrete code references, an AI can misinterpret them, insert wrong SHAs or confabulate paths. The pattern doc remains more resistant to manipulation when it is abstract.
 
-**Ausnahme:** Konkrete Code-Details landen nur dann im CDP5, wenn aus ihnen ein abstraktes, übertragbares Pattern unmittelbar ableitbar ist — dann wird das Pattern formuliert, nicht die Episode dokumentiert. **Konsequenz:** Referenz-Cases (Anhang C) sind pseudonymisiert (Case A, B …).
+**Exception:** Concrete code details go into CDP5 only if an abstract, transferable pattern can be derived from them directly — then the pattern is formulated, not the episode documented. **Consequence:** Reference cases (Appendix C) are pseudonymized (Case A, B …).
 
-### 1.8 CONTEXT.md + ADRs als Pflicht-Single-Source-of-Truth bei Brownfield
+### 1.8 CONTEXT.md + ADRs as mandatory single source of truth for brownfield
 
-Hat das Konzept Brownfield-/Erweiterungs- oder Review/Teardown-Anteil, sind CONTEXT.md + alle ADRs im Touch-Bereich die **Single Source of Truth** für Domain-Vokabular + Architektur-Annahmen. Sie sind zugleich das **externe Gedächtnis** gegen Gedächtnisverlust (§28).
+If the Konzept has a brownfield/extension or review/teardown share, CONTEXT.md + all ADRs in the touch area are the **single source of truth** for domain vocabulary + architecture assumptions. They are at the same time the **external memory** against memory loss (§28).
 
-**Pflicht-Reihenfolge bei jeder Brownfield-Erweiterung:**
-1. CONTEXT.md lesen (oder anlegen, wenn fehlt)
-2. ADRs im Touch-Bereich lesen
-3. Bei Konflikt zwischen Konzept-Erweiterung und ADR: **ADR-Update zuerst**, dann Erweiterung
-4. Nach Abschluss: CONTEXT.md aktualisieren (neue Architektur-Annahmen, ergänztes Glossar)
+**Mandatory order for every brownfield extension:**
+1. Read CONTEXT.md (or create it if missing)
+2. Read ADRs in the touch area
+3. On conflict between Konzept extension and ADR: **ADR update first**, then the extension
+4. After completion: update CONTEXT.md (new architecture assumptions, extended glossary)
 
-**Goldene Regel:** Was nicht in CONTEXT.md oder einem ADR steht, wird in der Implementation willkürlich interpretiert. Gilt symmetrisch für beide Quellen. Konkrete Definitionen + Pflicht-Inhalt: §28.1 (CONTEXT.md) und §28.2 (ADRs).
+**Golden rule:** What is not in CONTEXT.md or an ADR is interpreted arbitrarily in the implementation. Applies symmetrically to both sources. Concrete definitions + mandatory content: §28.1 (CONTEXT.md) and §28.2 (ADRs).
 
-### 1.9 Clarify-First — in die Konversation gehen statt annehmen
+### 1.9 Clarify-First — go into the conversation instead of assuming
 
-Sobald etwas **unklar, nicht definiert oder nicht eindeutig aus Konzept / CONTEXT.md / ADR ableitbar** ist — oder eine **Entscheidung offen** ist —, **geht man sofort in die Konversation mit dem Nutzer**, bevor weitergebaut wird. Kein stillschweigendes Annehmen, kein „kläre ich später" — und **keine einzelne Drive-by-Frage**: ein echter Dialog, der läuft, bis die Lücke wirklich geschlossen ist.
+As soon as something is **unclear, undefined or not unambiguously derivable from Konzept / CONTEXT.md / ADR** — or a **decision is open** —, **one goes into the conversation with the user immediately**, before building further. No silent assuming, no "I'll clarify later" — and **no single drive-by question**: a real dialogue that runs until the gap is actually closed.
 
-**Warum:** Eine früh geklärte Lücke kostet ein Gespräch. Dieselbe Lücke, auf der bereits Arbeit, mehrere UCs oder Code aufbauen, kostet Rückbau — und eine falsche Annahme verteilt den Fehler über alles, was darauf aufsetzt. Ein Dialog deckt zusammenhängende Lücken oft gleich mit auf.
+**Why:** A gap clarified early costs one conversation. The same gap, with work, several UCs or code already built on it, costs teardown — and a wrong assumption spreads the error across everything built on top of it. A dialogue often uncovers related gaps at the same time.
 
-**Regel:**
-- Unklarer/undefinierter Begriff → ins Gespräch gehen oder Glossar-Eintrag (§14) anstoßen, nicht raten.
-- Mehrdeutige Anforderung → die Varianten mit dem Nutzer durchsprechen, nicht still eine wählen.
-- Offene Entscheidung (Scope, Architektur, Vokabular, Datenmodell) → gemeinsam entscheiden, nicht implizit festlegen.
-- **Selbst-geflaggte Annahme = harter Stopp:** Flaggt ein Worker (oder der Orchestrator) eine eigene Annahme **selbst als offen**, ist Weiterlaufen darauf **verboten** — der Orchestrator geht sofort in die Konversation (§32.8 (3)), statt die Annahme durchzureichen. *(Praxis-Lehre: eine durchgereichte Scope-/Mapping-Annahme, die ein Sub-Agent als offen markiert hatte, kostete einen ganzen Rework-Zyklus.)*
-- Fortfahren ohne Rückkopplung ist nur erlaubt, wenn die Antwort **eindeutig** aus dem Vorhandenen ableitbar ist.
+**Rule:**
+- Unclear/undefined term → go into the conversation or trigger a glossary entry (§14), do not guess.
+- Ambiguous requirement → talk through the variants with the user, do not silently pick one.
+- Open decision (scope, architecture, vocabulary, data model) → decide together, do not fix it implicitly.
+- **Self-flagged assumption = hard stop:** If a worker (or the orchestrator) **itself flags** one of its own assumptions **as open**, continuing on it is **forbidden** — the orchestrator goes into the conversation immediately (§32.8 (3)) instead of passing the assumption through. *(Practice lesson: a passed-through scope/mapping assumption that a sub-agent had marked as open cost a whole rework cycle.)*
+- Proceeding without feedback is only permitted if the answer is **unambiguously** derivable from what exists.
 
-Gilt für jede Stufe (Konzept · Design · Implementation · Testing · Review). Im Orchestrator-Modell (§32) bringt der Orchestrator offene Punkte sofort in die Konversation, statt sie an einen Worker durchzureichen oder selbst zu raten; ein Worker, dem Kontext fehlt, meldet die Lücke zurück (§32.8).
+Applies to every stage (Konzept · design · implementation · testing · review). In the orchestrator model (§32), the orchestrator brings open points into the conversation immediately instead of passing them to a worker or guessing itself; a worker lacking context reports the gap back (§32.8).
 
-### 1.10 Research-after-Failure — Fehlversuchsregelung (zwingend)
+### 1.10 Research-after-Failure — failed-attempt rule (mandatory)
 
-Schlägt ein Lösungsansatz **nach dem zweiten Anlauf** fehl ODER äußert der Nutzer **Unzufriedenheit** mit dem Vorgehen: **harter Stopp des Trial-and-Error** — ab diesem Punkt ist **Recherche zwingend** (WebSearch / offizielle Doku / Issue-Tracker), bevor ein weiterer Versuch unternommen wird. Trainingswissen und weiteres Probieren sind dann per Definition NICHT die Lösung.
+If a solution approach fails **after the second attempt** OR the user expresses **dissatisfaction** with the approach: **hard stop of trial-and-error** — from this point on, **research is mandatory** (WebSearch / official docs / issue tracker) before another attempt is made. Training knowledge and further trying are then by definition NOT the solution.
 
-**Warum:** *(Praxis-Lehre: Bei einem Server-Deploy lief die Lösungssuche stundenlang im Kreis — „lokal geht's, auf dem Server scheitert es" — und wurde unter Zeitdruck zunehmend destruktiv: sweeping Edits, Überschreiben von Nutzer-Änderungen, geratene Umbauten. Eine einzige WebSearch lieferte die echte Ursache — eine dokumentierte Plattform-Eigenheit des Deploy-Tools — in Minuten.)*
+**Why:** *(Practice lesson: During a server deploy, the search for a solution ran in circles for hours — "works locally, fails on the server" — and under time pressure became increasingly destructive: sweeping edits, overwriting user changes, guessed rebuilds. A single WebSearch delivered the real cause — a documented platform quirk of the deploy tool — within minutes.)*
 
-**Regel:**
-- **Zähler:** 2 gescheiterte Anläufe für dieselbe Hypothese → Recherche-Pflicht. Nutzer-Unzufriedenheit (explizit oder erkennbar) → sofortige Recherche-Pflicht, unabhängig vom Zähler.
-- **Recherche heißt:** das exakte Fehlerbild/Symptom extern suchen (Fehlermeldung wörtlich, Tool + Kontext), offizielle Doku der beteiligten Plattform lesen, bekannte Issues prüfen — und die gefundene Ursache **belegen**, bevor erneut geändert wird.
-- **„Lokal geht's, remote nicht"** (oder umgekehrt) ist fast immer ein **Umgebungs-/Plattform-Unterschied**, kein Code-Problem — die Recherche beginnt bei der Plattform (Deploy-Tool, Proxy, Runtime), nicht im eigenen Code.
-- **Unter Druck nicht destruktiv werden:** keine sweeping Edits, kein Überschreiben fremder/eigener Nutzer-Änderungen, kein Raten-und-Pushen. Vor erneuten Eingriffen wird die belegte Ursache + der geplante Fix benannt (bei strittigen Eingriffen: bestätigen lassen, §1.9).
-- Die gefundene Ursache wird festgehalten (Memory/ADR/Retro, §32.6), damit dieselbe Schleife nicht erneut gelaufen wird.
+**Rule:**
+- **Counter:** 2 failed attempts for the same hypothesis → research obligation. User dissatisfaction (explicit or recognizable) → immediate research obligation, regardless of the counter.
+- **Research means:** search externally for the exact error picture/symptom (error message verbatim, tool + context), read the official docs of the platform involved, check known issues — and **substantiate** the cause found before changing anything again.
+- **"Works locally, not remotely"** (or vice versa) is almost always an **environment/platform difference**, not a code problem — research starts with the platform (deploy tool, proxy, runtime), not in one's own code.
+- **Do not become destructive under pressure:** no sweeping edits, no overwriting of others' or one's own user changes, no guess-and-push. Before intervening again, the substantiated cause + the planned fix are named (for contentious interventions: have them confirmed, §1.9).
+- The cause found is recorded (memory/ADR/retro, §32.6) so that the same loop is not run again.
 
 ---
 
-# Teil 2 — Der Arbeitsweg (drift-/gedächtnisverlust-frei)
+# Part 2 — The Working Path (drift-free / memory-loss-free)
 
-Dieser Teil ist der operative Kern: *wie* ein Auftrag bearbeitet wird, ohne dass die KS abdriftet oder den Kontext verliert. Reihenfolge: Modus wählen (§29) → orchestrieren statt selbst tun (§32, inkl. Drift-Vermeidung §32.8 + Skill-Gate §32.9) → gegen die Quelle verifizieren (§10.6/§10.7/§19) → durable Artefakte als Gedächtnis pflegen (§28) → Implementation-Werkzeuge greifen (§27).
+This part is the operational core: *how* an assignment is processed without the AI drifting off or losing context. Order: choose mode (§29) → orchestrate instead of doing it yourself (§32, incl. drift avoidance §32.8 + skill gate §32.9) → verify against the source (§10.6/§10.7/§19) → maintain durable artifacts as memory (§28) → implementation tools apply (§27).
 
-## 29. Vier Anwendungs-Modi + Modus E
+## 29. Four Application Modes + Mode E
 
-§29 entscheidet, welche §27-Werkzeuge in welchem Modus greifen. Modi sind nicht-linear — eine Session kann zwischen Modi wechseln.
+§29 decides which §27 tools apply in which mode. Modes are non-linear — a session can switch between modes.
 
-### Modus A — Greenfield-Feature im bestehenden Repo
+### Mode A — Greenfield feature in an existing repo
 
-**Situation:** Neue Capability, mehrere Schichten, kein Bezug auf existierenden Bug oder existierende Schuld.
+**Situation:** New capability, several layers, no relation to an existing bug or existing debt.
 
-**Werkzeug-Kombination:**
-1. CONTEXT.md / ADRs lesen (§1.8 + §27.6)
-2. PRD synthesizen (Pocock `to-prd` oder §3 UC-Aufbau)
-3. Vertical-Slice-Plan (§27.2) — HITL/AFK
-4. AC-Tabelle pro UC (§11.7)
-5. Slice 1 starten mit Vertical-TDD (§27.4)
-6. CONTEXT.md aktualisieren, ggf. neue ADRs
+**Tool combination:**
+1. Read CONTEXT.md / ADRs (§1.8 + §27.6)
+2. Synthesize PRD (Pocock `to-prd` or §3 UC structure)
+3. Vertical-slice plan (§27.2) — HITL/AFK
+4. AC table per UC (§11.7)
+5. Start slice 1 with vertical TDD (§27.4)
+6. Update CONTEXT.md, new ADRs if necessary
 
-### Modus B — Bug / Regression
+### Mode B — Bug / Regression
 
-**Situation:** Etwas funktioniert nicht.
+**Situation:** Something does not work.
 
-**Werkzeug-Kombination:**
-1. **Feedback-Loop bauen** (§27.5) — vor allem anderen
-2. Loop iterieren bis schnell + deterministisch + scharf
-3. **Stale-Data zuerst ausschließen** (§32.8 (6)) — saubere Reproduktion vor jedem Code-Fix
-4. Hypothese, Loop fahren, Hypothese verifizieren / verwerfen
-5. Fix als Vertical-Slice (Fix + Regressionstest + Audit anderer Stellen)
-6. CONTEXT.md aktualisieren falls Annahme widerlegt; ADR-Update falls Annahme im ADR stand
+**Tool combination:**
+1. **Build a feedback loop** (§27.5) — before anything else
+2. Iterate the loop until fast + deterministic + sharp
+3. **Rule out stale data first** (§32.8 (6)) — clean reproduction before any code fix
+4. Hypothesis, run the loop, verify / discard hypothesis
+5. Fix as a vertical slice (fix + regression test + audit of other places)
+6. Update CONTEXT.md if an assumption was refuted; ADR update if the assumption was in the ADR
 
-### Modus C — Architektur-Review / Teardown
+### Mode C — Architecture Review / Teardown
 
-**Situation:** Review oder geplanter Teardown.
+**Situation:** Review or planned teardown.
 
-**Werkzeug-Kombination (Review):**
-1. CONTEXT.md + alle ADRs lesen — wo waren die ursprünglichen Annahmen?
-2. Decisions-Archäologie (§27.7)
-3. Depth-Inventur (§27.7)
-4. Seam-Inventur (§27.7)
-5. Anti-Pattern-Scan gegen §25
-6. Review-Output nach **Schema C.1**
+**Tool combination (review):**
+1. Read CONTEXT.md + all ADRs — where were the original assumptions?
+2. Decisions archaeology (§27.7)
+3. Depth inventory (§27.7)
+4. Seam inventory (§27.7)
+5. Anti-pattern scan against §25
+6. Review output per **Schema C.1**
 
-**Werkzeug-Kombination (Teardown):**
-1. Reverse-Slicing (§27.7)
-2. Adapter-Roll-Back pro Seam
-3. Tests an stabilen Interfaces als Verifikation
-4. CONTEXT.md + neuer ADR für Teardown-Entscheidung
-5. Teardown-Output nach **Schema C.2**
+**Tool combination (teardown):**
+1. Reverse slicing (§27.7)
+2. Adapter roll-back per seam
+3. Tests at stable interfaces as verification
+4. CONTEXT.md + new ADR for the teardown decision
+5. Teardown output per **Schema C.2**
 
-#### Output-Schema C.1 — Review (pro Deepening-Kandidat)
+#### Output Schema C.1 — Review (per deepening candidate)
 
-Pflicht-Felder pro Kandidat (Pocock-`improve-codebase-architecture`-Schema + Severity):
-- **Modul / Files** — welche Module sind involviert (CONTEXT.md-Vokabular)
-- **Problem** — warum die aktuelle Architektur Friktion erzeugt (Mechanik, nicht nur Symptom)
-- **Solution** — plain-English-Beschreibung der geplanten Änderung
-- **Benefits** — in Begriffen von Locality + Leverage + Test-Verbesserung
-- **ADR-Konflikt** — wenn Kandidat einem bestehenden ADR widerspricht, markieren mit Begründung „warum ADR-Update gerechtfertigt"
-- **Severity** — 🔴 kritisch / 🟡 mittel / 🟢 leicht
+Mandatory fields per candidate (Pocock `improve-codebase-architecture` schema + severity):
+- **Module / files** — which modules are involved (CONTEXT.md vocabulary)
+- **Problem** — why the current architecture creates friction (mechanics, not just symptom)
+- **Solution** — plain-English description of the planned change
+- **Benefits** — in terms of locality + leverage + test improvement
+- **ADR conflict** — if the candidate contradicts an existing ADR, mark it with the rationale "why an ADR update is justified"
+- **Severity** — 🔴 critical / 🟡 medium / 🟢 minor
 
-Format: nummerierte Liste mit den Pflicht-Feldern pro Eintrag.
+Format: numbered list with the mandatory fields per entry.
 
-#### Output-Schema C.2 — Teardown (Reverse-Slice-Tabelle + Pflicht-ADR)
+#### Output Schema C.2 — Teardown (reverse-slice table + mandatory ADR)
 
 ```markdown
 ### Teardown-Plan: <Subsystem-Name>
@@ -234,120 +235,120 @@ Format: nummerierte Liste mit den Pflicht-Feldern pro Eintrag.
 **Alternativen erwogen:** …
 ```
 
-### Modus D — UC → Code-Übergang (Konzept verlässt das Doc)
+### Mode D — UC → code transition (the Konzept leaves the doc)
 
-**Situation:** Ein Konzept nach §1–§23 ist fertig (Gate der Reife-Policy bestanden, Score ≥ Projekt-Schwelle, Walk-Through bestanden, AC-Tabellen vollständig). Geht in die Implementation.
+**Situation:** A Konzept per §1–§23 is finished (gate of the Reife-Policy (maturity policy) passed, score ≥ project threshold, walk-through passed, AC tables complete). Goes into implementation.
 
-**Werkzeug-Kombination:**
-1. CONTEXT.md anlegen oder aktualisieren mit Konzept-Glossar
-2. ADRs für asymmetrische Konzept-Entscheidungen anlegen
-3. Slice-Plan aus UCs ableiten — pro UC mindestens ein Slice, oft mehrere
-4. AC-Tabelle pro UC wird in Vertical-TDD-Loop (§27.4) gefahren
-5. Prototyping (§27.3) für offene Logik-/UX-Fragen
-6. Slice für Slice committen; CONTEXT.md mitwachsen lassen
+**Tool combination:**
+1. Create or update CONTEXT.md with the Konzept glossary
+2. Create ADRs for asymmetric Konzept decisions
+3. Derive the slice plan from the UCs — at least one slice per UC, often several
+4. The AC table per UC is run in the vertical TDD loop (§27.4)
+5. Prototyping (§27.3) for open logic/UX questions
+6. Commit slice by slice; let CONTEXT.md grow along
 
-### Modus E — KI-Capability-PoC integriert in bestehendes System
+### Mode E — AI capability PoC integrated into an existing system
 
-**Situation:** Neue LLM-Capability soll in eine bestehende Codebase eingeführt werden. Kombiniert §22 (PoC-Phasen) mit Brownfield-Pattern (Modus A + §27.6).
+**Situation:** A new LLM capability is to be introduced into an existing codebase. Combines §22 (PoC phases) with the brownfield pattern (Mode A + §27.6).
 
-**Werkzeug-Kombination:**
-1. **CONTEXT.md / ADRs lesen** (§1.8 + §27.6) — wo wird die KI-Capability integriert?
-2. **§22.1 Phase 1 Lernen & Experimentieren** — fokussierte Test-Gruppe, 3–5 UCs, Compliance/Security-Enabler-Kick-off
-3. **Probabilistik-Statement + Vendor-Risiko + EU-AI-Act-Klasse** (§2.6 + §2.7) anlegen
-4. **Vertical-Slice-Plan** (§27.2) — Slice 1 = riskantester PoC-Pfad mit höchster Lernchance
-5. **Pre/Inline/Post-Validierungs-Phasen** (§13.2) pro Slice definieren
-6. **Hybrid-Validierungs-Schichten** (§15.8) für LLM-Code-Output dokumentieren
-7. **§22.2 Phase 2 Verstetigen** — quantitative Erfolgsmessung pro Slice (§22.2-Tabelle)
-8. **CONTEXT.md + ADRs aktualisieren** mit der neuen Capability-Schicht
-9. **Skalierungs-Plan** = Vertical-Slices in Folge-Sprints
+**Tool combination:**
+1. **Read CONTEXT.md / ADRs** (§1.8 + §27.6) — where is the AI capability integrated?
+2. **§22.1 Phase 1 Learn & Experiment** — focused test group, 3–5 UCs, compliance/security enabler kick-off
+3. **Probabilistics statement + vendor risk + EU AI Act class** (§2.6 + §2.7) created
+4. **Vertical-slice plan** (§27.2) — slice 1 = riskiest PoC path with the highest learning opportunity
+5. **Pre/inline/post validation phases** (§13.2) defined per slice
+6. **Hybrid validation layers** (§15.8) for LLM code output documented
+7. **§22.2 Phase 2 Consolidate** — quantitative success measurement per slice (§22.2 table)
+8. **Update CONTEXT.md + ADRs** with the new capability layer
+9. **Scaling plan** = vertical slices in follow-up sprints
 
-> **Bridge:** Modus E ist die explizite Brücke zwischen §22 (PoC-Phasen) und Modus A (Brownfield-Greenfield-Hybrid).
+> **Bridge:** Mode E is the explicit bridge between §22 (PoC phases) and Mode A (brownfield-greenfield hybrid).
 
 ---
 
-## 32. Orchestrator-Regel (Pflicht — Delegations-Doktrin)
+## 32. Orchestrator Rule (mandatory — delegation doctrine)
 
-**Diese Sektion ist verbindlich, nicht optional.** Der Haupt-Agent (Main-Session) führt einen nicht-trivialen CDP5-Auftrag NICHT selbst aus, sondern **orchestriert** ihn. „Kann ich machen, muss ich aber nicht" gilt hier nicht: Sobald ein Auftrag mehr als eine Stufe berührt, ist Delegation Pflicht. Delegation an isolierte Worker mit frischem Kontext ist zugleich die primäre Abwehr gegen Gedächtnisverlust (Context-Rot) im Haupt-Agenten.
+**This section is binding, not optional.** The main agent (main session) does NOT execute a non-trivial CDP5 assignment itself but **orchestrates** it. "I could do it, but I don't have to" does not apply here: as soon as an assignment touches more than one stage, delegation is mandatory. Delegation to isolated workers with fresh context is at the same time the primary defense against memory loss (context rot) in the main agent.
 
-### 32.1 Firmen-Modell
+### 32.1 Company Model
 
-| Rolle | Wer | Aufgabe |
+| Role | Who | Task |
 |---|---|---|
-| **Unternehmung / Geschäftsleitung** | Main-Session (Orchestrator) | Auftrag verstehen, CDP5-Modus (§29) wählen, an Stufen-Worker delegieren, überwachen, **verifizieren** (§32.8 (4)), Ergebnisse **synthetisieren**, Mensch-Gates (§23) halten. Der Orchestrator entscheidet, briefed, verifiziert und synthetisiert; er analysiert, recherchiert und implementiert nicht selbst, dafür holt er Experten-Worker. Aufwandsskalierung gehört zu seiner Rolle: ein Agent mit wenigen Tool-Calls für einen Fakt, zwei bis vier Worker für einen Vergleich, mehr nur bei komplexer Recherche; vor einem Team erst prüfen, ob ein Subagent reicht (Rollentext: Skill `orchestrate` im Plugin cdp5-agents) |
-| **Fachabteilung / Worker** | Subagent pro Stufe-Rolle | Isolierte Facharbeit in **frischem, kleinem Kontext** (Drift-Schutz), mit eingebackener Methodik + gebundenen Tools |
-| **Werkzeug / Verfahren** | Skill | Entweder (A) als Methodik in den Worker eingebacken oder (B) vom Orchestrator gefahren (MCP/Interaktion) |
+| **Enterprise / management** | Main session (orchestrator) | Understand the assignment, choose the CDP5 mode (§29), delegate to stage workers, supervise, **verify** (§32.8 (4)), **synthesize** results, hold Mensch-Gates (§23). The orchestrator decides, briefs, verifies and synthesizes; it does not analyze, research or implement itself, it brings in expert workers for that. Effort scaling is part of its role: one agent with a few tool calls for a fact, two to four workers for a comparison, more only for complex research; before a team, first check whether a subagent suffices (role text: skill `orchestrate` in the plugin cdp5-agents) |
+| **Department / worker** | Subagent per stage role | Isolated specialist work in a **fresh, small context** (drift protection), with baked-in methodology + bound tools |
+| **Tool / procedure** | Skill | Either (A) baked into the worker as methodology or (B) run by the orchestrator (MCP/interaction) |
 
-### 32.2 Pflicht-Ablauf des Orchestrators
+### 32.2 Mandatory Orchestrator Procedure
 
-1. **Modus wählen (§29):** A Greenfield · B Bug/Regression · C Review/Teardown · D UC→Code · E KI-PoC.
-2. **Walk-Through + Verantwortungs-Matrix (§23)** vor Delegation, wenn der Auftrag einen Sprint umfasst.
-3. **Vor jeder Delegation: Determinismus-Gate + Pointer-Brief (§32.8)** — entscheidbare Aufgabe → Skript statt LLM-Worker; sonst Brief = Pointer auf Single-Source + enger Task + Scope/AC + Stop-Regel. Dann **pro Stufe an den zuständigen Worker delegieren** (Tabelle §32.4); unabhängige Worker **asynchron/parallel** (mehrere `Agent`-Calls in einer Nachricht), abhängige sequenziell.
-4. **Pro Worker das günstigste ausreichende Modell wählen** (§32.3) — Token-Sparen ist Pflicht, nicht Kür.
-5. **Ergebnisse verifizieren (§1.5 + §10.6):** Worker-Output ist probabilistisch → vor Folge-Aktion durch `review-verify` (Verifikationsagent) gegen Code/Quelle prüfen. Keine irreversible Aktion auf unverifizierte Worker-Behauptung.
-6. **MCP-/Interaktions-Skills (B) bleiben beim Orchestrator** — Subagents bekommen keine MCP-Tools und können keine Skills/Agents rufen. Der Orchestrator fährt sie und reicht das Ergebnis an die Worker.
-7. **Mensch-Gates halten (§23):** destruktive/irreversible Schritte (Schema-Drop, force-push, Migration-Cutoff, Branch-Delete) nie auto — immer Mensch.
+1. **Choose mode (§29):** A greenfield · B bug/regression · C review/teardown · D UC→code · E AI PoC.
+2. **Walk-through + responsibility matrix (§23)** before delegation if the assignment spans a sprint.
+3. **Before every delegation: determinism gate + pointer brief (§32.8)** — decidable task → script instead of LLM worker; otherwise brief = pointer to the single source + narrow task + scope/AC + stop rule. Then **delegate per stage to the responsible worker** (table §32.4); independent workers **asynchronously/in parallel** (several `Agent` calls in one message), dependent ones sequentially.
+4. **Choose the cheapest sufficient model per worker** (§32.3) — saving tokens is mandatory, not optional.
+5. **Verify results (§1.5 + §10.6):** worker output is probabilistic → before any follow-up action, check it against code/source via `review-verify` (verification agent). No irreversible action on an unverified worker claim.
+6. **MCP/interaction skills (B) stay with the orchestrator** — subagents get no MCP tools and cannot call skills/agents. The orchestrator runs them and passes the result to the workers.
+7. **Hold Mensch-Gates (§23):** destructive/irreversible steps (schema drop, force-push, migration cutoff, branch delete) never automatic — always a human.
 
-### 32.3 Modell-Wahl pro Worker (Token-Disziplin)
+### 32.3 Model Choice per Worker (token discipline)
 
-| Worker-Klasse | Default-Modell | Begründung |
+| Worker class | Default model | Rationale |
 |---|---|---|
-| Read-only / mechanisch (Mapping, Wiki-Query, Lint, Git) | **haiku** | billig, kein tiefes Reasoning nötig |
-| Implementation / Scaffolding / Debug / Refactor | **sonnet** | guter Code-Reasoning-/Kosten-Tradeoff |
-| Security · Architektur · Konzept-Review · Verifikation · Gegenrollen | **opus** (`effort: high`) | Fehler hier sind teuer/irreversibel |
+| Read-only / mechanical (mapping, wiki query, lint, git) | **haiku** | cheap, no deep reasoning needed |
+| Implementation / scaffolding / debug / refactor | **sonnet** | good code-reasoning/cost trade-off |
+| Security · architecture · Konzept review · verification · counter-roles | **opus** (`effort: high`) | errors here are expensive/irreversible |
 
-Der Orchestrator selbst läuft im stärksten verfügbaren Modell (Reasoning-Last liegt in Delegation + Verifikation), die Facharbeit wird ins passende günstigere Modell ausgelagert.
+The orchestrator itself runs on the strongest available model (the reasoning load lies in delegation + verification); the specialist work is offloaded to the appropriate cheaper model.
 
-### 32.4 Stufen → Worker → Skills (A eingebacken / B Orchestrator)
+### 32.4 Stages → Workers → Skills (A baked in / B orchestrator)
 
-| Stufe | Worker-Agents (`stufe-rolle`) | Methodik eingebacken (A) | Orchestrator-Skills (B) |
+| Stage | Worker agents (`stufe-rolle`) | Methodology baked in (A) | Orchestrator skills (B) |
 |---|---|---|---|
-| **Konzept** | `konzept-reviewer` (opus), `konzept-mapper` (haiku), `konzept-model-api` (sonnet), `konzept-sync` (sonnet) | §2/§3/§14-Checks, §19 Modell↔API | `spec-interview`, `spec-review`, `walk-through`, `repomix` |
-| **Design** | `design-db` (opus), `design-agent-uc` (sonnet), `design-doc` (sonnet) | §27 Slice/Module-Depth, §28 CONTEXT.md/ADR, §13/§16/§21 LLM-UC | `prototype` |
-| **Implementation** | `impl-uc`, `impl-tenant`, `impl-optional`, `impl-refactor`, `impl-debug`, `impl-template`, `impl-csrf`, `impl-imagic`, `impl-frontend` (alle sonnet), `impl-vendor-patch` (opus) | §11.7 TDD-First, **phpunit/phpstan** | `fan-out-migrate`, `writer-reviewer-loop` |
-| **Testing/Eval** | `test-runner` (sonnet), `test-gap` (sonnet) | §15-Validierung, **phpunit/phpstan** | `llm-eval-harness`, `playwright-ui-sweep`, `diagnose`, `chrome-devtools` |
-| **Review** | `review-symfony` (opus), `review-code` (opus), `review-security` (opus), `review-access` (opus), `review-verify` (opus) | §10 Review-Checkliste, §10.6 Verifikation | `adversarial-review`, `pr-review` |
+| **Konzept** | `konzept-reviewer` (opus), `konzept-mapper` (haiku), `konzept-model-api` (sonnet), `konzept-sync` (sonnet) | §2/§3/§14 checks, §19 model↔API | `spec-interview`, `spec-review`, `walk-through`, `repomix` |
+| **Design** | `design-db` (opus), `design-agent-uc` (sonnet), `design-doc` (sonnet) | §27 slice/module depth, §28 CONTEXT.md/ADR, §13/§16/§21 LLM UC | `prototype` |
+| **Implementation** | `impl-uc`, `impl-tenant`, `impl-optional`, `impl-refactor`, `impl-debug`, `impl-template`, `impl-csrf`, `impl-imagic`, `impl-frontend` (all sonnet), `impl-vendor-patch` (opus) | §11.7 TDD-First, **phpunit/phpstan** | `fan-out-migrate`, `writer-reviewer-loop` |
+| **Testing/Eval** | `test-runner` (sonnet), `test-gap` (sonnet) | §15 validation, **phpunit/phpstan** | `llm-eval-harness`, `playwright-ui-sweep`, `diagnose`, `chrome-devtools` |
+| **Review** | `review-symfony` (opus), `review-code` (opus), `review-security` (opus), `review-access` (opus), `review-verify` (opus) | §10 review checklist, §10.6 verification | `adversarial-review`, `pr-review` |
 
-Querschnitt-Worker (keiner Stufe fest zugeordnet): Infra (`infra-portainer`, `infra-frankenphp`, `infra-traefik`), Git (`git-ops`, `git-branch`, `git-cross-repo`), Wiki (`wiki-ingest`, `wiki-lint`, `wiki-query`).
+Cross-cutting workers (not assigned to any fixed stage): infra (`infra-portainer`, `infra-frankenphp`, `infra-traefik`), git (`git-ops`, `git-branch`, `git-cross-repo`), wiki (`wiki-ingest`, `wiki-lint`, `wiki-query`).
 
-### 32.5 Anti-Pattern
+### 32.5 Anti-Patterns
 
-- ❌ Orchestrator macht die Facharbeit selbst, statt zu delegieren (Kontext läuft voll → Drift).
-- ❌ Alle Worker auf opus (Token-Verschwendung — §32.3 ignoriert).
-- ❌ Worker-Behauptung ungeprüft umsetzen (§1.5/§10.6 verletzt).
-- ❌ Versuch, einen Subagenten Skills/MCP/weitere Agents rufen zu lassen (technisch nicht möglich → B-Skills gehören zum Orchestrator).
-- ❌ Sequenziell abarbeiten was parallel ginge (Async-Chance vertan).
-- ❌ LLM-Worker für eine entscheidbare (deterministische) Aufgabe starten statt eines Skripts (§32.8 (1)).
-- ❌ Worker mit kopierten Kontext-Walls briefen statt mit Pointern (Overflow + Paraphrase-Drift, §32.8 (2)).
-- ❌ Worker stoppt mit „geht nicht" ohne Stop-Retro — der Main-Agent muss raten, was passiert ist (§32.8 (3)).
-- ❌ Paralleles Fan-out an viele Worker ohne Wert/Parallelisierbarkeit (~15× Token verbrannt — §32.10) statt einem Worker oder direkt.
+- ❌ Orchestrator does the specialist work itself instead of delegating (context fills up → drift).
+- ❌ All workers on opus (token waste — §32.3 ignored).
+- ❌ Implementing a worker claim unchecked (§1.5/§10.6 violated).
+- ❌ Trying to let a subagent call skills/MCP/further agents (technically impossible → B skills belong to the orchestrator).
+- ❌ Processing sequentially what could run in parallel (async opportunity wasted).
+- ❌ Starting an LLM worker for a decidable (deterministic) task instead of a script (§32.8 (1)).
+- ❌ Briefing workers with copied context walls instead of pointers (overflow + paraphrase drift, §32.8 (2)).
+- ❌ Worker stops with "doesn't work" without a Stop-Retro — the main agent has to guess what happened (§32.8 (3)).
+- ❌ Parallel fan-out to many workers without value/parallelizability (~15× tokens burned — §32.10) instead of one worker or doing it directly.
 
-### 32.6 Retro-ADR nach Review (Pflicht-Abschluss) + Memory-Loop
+### 32.6 Retro ADR after Review (mandatory closing) + Memory Loop
 
-Nach Abschluss der **Review-Stufe** ist ein **Retro-ADR** Pflicht. Lessons liegen **projektspezifisch beim Code**, damit sie dort greifbar sind, wo sie gebraucht werden.
+After completion of the **review stage**, a **retro ADR** is mandatory. Lessons live **project-specifically with the code**, so they are at hand where they are needed.
 
-- **Ort:** `docs/retro/<NNNN>-<slug>.md` im jeweiligen Projekt-Repo (fortlaufende Nummer pro Session/Sprint).
-- **Layout:** Status/Datum/Zweck → Kontext → Entscheidungschronik E1…En → Was gut lief / besser → Kern-Lehre.
-- **Wer:** Der Orchestrator stößt es als letzten Schritt an; der Skill `reflection-toolkit:reflection-collector` schreibt das Retro-ADR.
-- **Dauerhafte Lehren:** zusätzlich in Memory `feedback_<slug>` persistieren und im Retro-ADR verlinken.
-- **Memory-Loop-Verifikation (Pflicht):** Jeder im Retro-ADR zitierte Memory-Slug **muss real existieren** (Datei `memory/<slug>.md` angelegt **und** MEMORY.md-Pointer gesetzt). Beim Retro-Abschluss prüfen — ein zitierter, aber nicht angelegter Slug ist ein gebrochener Lern-Loop: die Lehre verdampft, und derselbe Fehler kann wiederkehren. Die Prüfung ist entscheidbar → T1-Skript-Kandidat (§32.9). *(Praxis-Lehre: mehrere Retros zitierten `feedback_*`-Slugs als persistiert, die nie geschrieben wurden.)*
-- **Abgrenzung:** Architektur-ADRs (*was* entschieden) liegen in `docs/adr/`; Retro-ADRs (*wie* gearbeitet) in `docs/retro/`.
+- **Location:** `docs/retro/<NNNN>-<slug>.md` in the respective project repo (consecutive number per session/sprint).
+- **Layout:** status/date/purpose → context → decision chronicle E1…En → what went well / better → core lesson.
+- **Who:** The orchestrator triggers it as the last step; the skill `reflection-toolkit:reflection-collector` writes the retro ADR.
+- **Durable lessons:** additionally persist in memory `feedback_<slug>` and link in the retro ADR.
+- **Memory-loop verification (mandatory):** Every memory slug cited in the retro ADR **must really exist** (file `memory/<slug>.md` created **and** MEMORY.md pointer set). Check at retro closing — a cited but not created slug is a broken learning loop: the lesson evaporates, and the same error can recur. The check is decidable → T1 script candidate (§32.9). *(Practice lesson: several retros cited `feedback_*` slugs as persisted that were never written.)*
+- **Distinction:** Architecture ADRs (*what* was decided) live in `docs/adr/`; retro ADRs (*how* the work was done) in `docs/retro/`.
 
-### 32.7 Worker-Agent: Bedarf, Spec-Format + Scaffolding
+### 32.7 Worker Agent: Need, Spec Format + Scaffolding
 
-**Bedarf — wann ein eigener Worker entsteht (vor dem Anlegen prüfen):**
-1. **Stufen-Rolle als Baseline:** Jede der fünf Stufen (§32.4) hat wiederkehrende Rollen. Eine Rolle verdient einen eigenen Worker, wenn sie eine **abgrenzbare, wiederkehrende** Tätigkeit der Stufe ist (z. B. Review → symfony / code / security / access / verify).
-2. **Wiederholungs-Schwelle:** ab der **3. Wiederholung** derselben manuell ausgeführten Tätigkeit → eigener Worker. Gezählt werden **Läufe** im Nutzungslog (`usage-log.jsonl`, geschrieben vom SubagentStop-Hook des Plugins cdp5-agents; manuelle Tätigkeiten trägt der Orchestrator als `manual:<tätigkeit>` ein), nicht Dokumente oder Zitate.
-3. **Sofort-Trigger:** ein einzelner manueller Prozess mit vielen unterschiedlichen Teilaufgaben (multi-step) → **sofort** als Worker evaluieren, nicht erst nach 3×.
-4. **Abgrenzungs-/Merge-Check:** überschneidet die Tätigkeit einen bestehenden Worker, wird dieser **erweitert oder gemergt** statt einen zweiten anzulegen.
-5. **Kosten/Nutzen (Anti-Pattern):** **kein** Worker für eine Ein-Schuss-Aktivität — Wartungs-Burden ohne Wiederverwendung lohnt nicht. Im Zweifel macht der Orchestrator es einmal selbst, oder ein Querschnitt-Skill greift.
+**Need — when a dedicated worker comes into being (check before creating):**
+1. **Stage role as baseline:** Each of the five stages (§32.4) has recurring roles. A role deserves its own worker if it is a **delimitable, recurring** activity of the stage (e.g. review → symfony / code / security / access / verify).
+2. **Repetition threshold:** from the **3rd repetition** of the same manually performed activity → dedicated worker. What is counted are **runs** in the usage log (`usage-log.jsonl`, written by the SubagentStop hook of the plugin cdp5-agents; the orchestrator records manual activities as `manual:<tätigkeit>`), not documents or citations.
+3. **Immediate trigger:** a single manual process with many different subtasks (multi-step) → evaluate as a worker **immediately**, not only after 3×.
+4. **Delimitation/merge check:** if the activity overlaps an existing worker, that worker is **extended or merged** instead of creating a second one.
+5. **Cost/benefit (anti-pattern):** **no** worker for a one-shot activity — maintenance burden without reuse is not worth it. When in doubt, the orchestrator does it once itself, or a cross-cutting skill applies.
 
-**Spec-Format** — pro Worker eine Datei `agents/<stufe-rolle>.md`, projektunabhängig aus Stufe + Rolle abgeleitet:
+**Spec format** — one file `agents/<stufe-rolle>.md` per worker, derived project-independently from stage + role:
 
 ```yaml
 ---
 name: <stufe-rolle>            # z. B. impl-uc, review-security — Bindestrich; Doppelpunkt ist plugin:skill vorbehalten
 description: <Zweck in einem Satz + „Use when …"-Trigger>
-tools: <minimal nötige Tools>  # z. B. Read, Edit, Write, Bash, Grep, Glob; Write/Edit nur für Implementierungs-Worker
+tools: <minimal tools needed>  # e.g. Read, Edit, Write, Bash, Grep, Glob; Write/Edit only for implementation workers
 model: haiku | sonnet | opus   # nach §32.3
 effort: low | medium | high | xhigh | max   # Denk-Tiefe: Gegenrollen/Reviewer high, Implementierungs-Worker medium
 color: <optional>
@@ -355,22 +356,22 @@ color: <optional>
 ```
 
 **Body:**
-1. **Keine Thinking-Phrasen.** Die Denk-Tiefe setzt das Frontmatter-Feld `effort`, nicht eine Zeile wie „think harder" (aktuelle Modelle übersteuern auf solche Phrasen; Anweisungen, das eigene Reasoning wiederzugeben, lösen Verweigerungen aus). Der Worker-Vertrag (Skill `worker-contract`) wird vom SubagentStart-Hook injiziert; die erste Ausgabezeile des Workers ist die Quittung `contract: v<N> <hash>`.
-2. **Rolle in einem Satz** + Abgrenzung zu Nachbar-Workern.
-3. **Inputs** — was der Orchestrator übergibt.
-4. **Workflow** — nummerierte Schritte = die eingebackene Stufen-Methodik (§32.4 Spalte A).
-5. **Tool-Binding:** deterministische Verfahren inline (z. B. Test-Worker ruft die Suite via Bash). **Keine MCP-Tools** — MCP-/Interaktions-Skills fährt der Orchestrator (§32.4 Spalte B) und reicht das Ergebnis hinein.
-6. **Rechte und Pflichten (§5 der Rolle):** mindestens drei Rechte und drei Pflichten über den Worker-Vertrag hinaus; ein Recht, dessen Grundlage ein MUSS in Doktrin oder Playbook ist, hat eine Zwillingspflicht mit Prüfung.
-7. **Output-Format** — Rückgabe an den Orchestrator; Behauptungen mit Beleg (§32.8 (3)/(4)); erste Zeile die Vertrags-Quittung, dann das Ergebnis in einem Satz, dann die Belege.
+1. **No thinking phrases.** The depth of thinking is set by the frontmatter field `effort`, not by a line like "think harder" (current models over-steer on such phrases; instructions to reproduce one's own reasoning trigger refusals). The worker contract (skill `worker-contract`) is injected by the SubagentStart hook; the worker's first output line is the receipt `contract: v<N> <hash>`.
+2. **Role in one sentence** + delimitation from neighboring workers.
+3. **Inputs** — what the orchestrator hands over.
+4. **Workflow** — numbered steps = the baked-in stage methodology (§32.4 column A).
+5. **Tool binding:** deterministic procedures inline (e.g. the test worker calls the suite via Bash). **No MCP tools** — MCP/interaction skills are run by the orchestrator (§32.4 column B), which passes the result in.
+6. **Rights and duties (§5 of the role):** at least three rights and three duties beyond the worker contract; a right whose basis is a MUST in doctrine or playbook has a twin duty with a check.
+7. **Output format** — return to the orchestrator; claims with evidence (§32.8 (3)/(4)); first line the contract receipt, then the result in one sentence, then the evidence.
 
-**Scaffolding-Ablauf (Orchestrator oder `skill-creator`):**
-1. Stufe + Rolle wählen (§32.4); Name `stufe-rolle`.
-2. Modell nach §32.3 setzen, Tools minimal halten.
-3. Stufen-Methodik (§32.4 Spalte A) als Workflow einbacken.
-4. Datei unter `agents/<name>.md` anlegen **und** in den Live-Speicher `~/.claude/agents/` spiegeln, damit der `Agent`-Aufruf den Worker findet.
-5. Im Worker-Inventar registrieren.
+**Scaffolding procedure (orchestrator or `skill-creator`):**
+1. Choose stage + role (§32.4); name `stufe-rolle`.
+2. Set the model per §32.3, keep tools minimal.
+3. Bake the stage methodology (§32.4 column A) in as the workflow.
+4. Create the file under `agents/<name>.md` **and** mirror it into the live store `~/.claude/agents/` so that the `Agent` call finds the worker.
+5. Register in the worker inventory.
 
-**Minimal-Template (generisch):**
+**Minimal template (generic):**
 ```markdown
 ---
 name: <stufe-rolle>
@@ -391,283 +392,282 @@ Du bist der <Rolle>-Worker der Stufe <Stufe>. <Abgrenzung zu Nachbar-Workern>.
 2. …
 
 ## Anti-Patterns
-- <was dieser Worker NICHT tut>
+- <what this worker does NOT do>
 
 ## Output
-- <Rückgabe an den Orchestrator; Behauptungen mit Beleg; bei fehlendem Kontext STOP + Stop-Retro statt Annahme (§32.8)>
+- <return to the orchestrator; claims with evidence; on missing context STOP + Stop-Retro instead of an assumption (§32.8)>
 ```
 
-### 32.8 Drift-Vermeidung bei Delegation (narrensicher)
+### 32.8 Drift Avoidance in Delegation (foolproof)
 
-Zwei Drift-Richtungen, beide tödlich: **Context-Rot** (Worker-Kontext läuft voll) und **Under-Context** (Worker rät, weil Kontext fehlt → Behauptungen). Isolation allein löst nur die erste. Pflicht-Mechanik:
+Two drift directions, both deadly: **context rot** (worker context fills up) and **under-context** (worker guesses because context is missing → claims). Isolation alone solves only the first. Mandatory mechanics:
 
-**(1) Determinismus-Gate (Pflicht vor jeder Delegation):** Bevor an einen LLM-Worker delegiert wird, prüft der Orchestrator: Ist die Aufgabe **entscheidbar** (eindeutiges Pass/Fail mit Beleg)? Wenn ja → **deterministischer Skill/Script statt LLM-Worker**; ein LLM-Worker wird nur für **echtes Judgment** gestartet. Begründung: Ein Skript halluziniert keine Behauptung — seine Ausgabe *ist* der Beleg (deckt §10.7 + §15.8).
-- Deterministisch (→ Code/Skill): Tests (phpunit/phpstan), Lints, Modell↔OpenAPI-Diff, Enum-Drift, Link-/Broken-Ref-Scan, Frontmatter-/Tabellen-Konsistenz, Route-Discovery, Massen-Rename, Roadmap↔Code-Inventur, Retro↔Memory-Loop-Check.
-- Judgment (→ LLM-Worker): Reife-Score, Gap-Bewertung, UC→Code-Logik, Code-Qualitäts-Urteil, LLM-as-Judge-Eval.
+**(1) Determinism gate (mandatory before every delegation):** Before delegating to an LLM worker, the orchestrator checks: Is the task **decidable** (unambiguous pass/fail with evidence)? If yes → **deterministic skill/script instead of LLM worker**; an LLM worker is started only for **genuine judgment**. Rationale: A script does not hallucinate a claim — its output *is* the evidence (covers §10.7 + §15.8).
+- Deterministic (→ code/skill): tests (phpunit/phpstan), lints, model↔OpenAPI diff, enum drift, link/broken-ref scan, frontmatter/table consistency, route discovery, mass rename, roadmap↔code inventory, retro↔memory-loop check.
+- Judgment (→ LLM worker): Reife-Score (maturity score), gap assessment, UC→code logic, code quality judgment, LLM-as-judge eval.
 
-**(2) Task-Brief = Pointer, nicht Paste (Pflicht):** Der Brief enthält den Auftrag **wörtlich**, das Output-Format, das exakte Target (Repo + Commit, Container, Dokument-ID + Fassung, URL + Datum), engen Task (eine Stufe, eine Rolle), **Pointer auf die Single-Source-Dateien** (CONTEXT.md, Spec-/UC-Pfad, einschlägige ADR-Pfade, Glossar) — der Worker liest das **Original lazy + scoped** —, Scope + AC, explizites Out-of-Scope, die Werkzeuge und Quellen, die Wegwerf-Umgebung für Probeläufe oder „keine", die benötigten Doktrin-Abschnitte als Auszug oder den Pfad der Doktrin-Kopie, und die Stop-Regel (3). Als **Original** gilt auch eine aus der Wissensschicht **generierte, hash-geprüfte Kopie** (Provenienzzeile je Abschnitt, Diff-und-Hash-Review vor dem Commit, keine Handänderung); bis die Wissensschicht angebunden ist, ist die gebündelte Kopie `konzept-design-pattern-v5.md` der Master und wird nur per PR geändert. Kopierte Kontext-Walls bleiben verboten: sie erzeugen Overflow (Context-Rot) **und** Paraphrase-Drift (Worker arbeitet an der Zusammenfassung statt am Original).
+**(2) Task brief = pointer, not paste (mandatory):** The brief contains the assignment **verbatim**, the output format, the exact target (repo + commit, container, document ID + version, URL + date), a narrow task (one stage, one role), **pointers to the single-source files** (CONTEXT.md, spec/UC path, relevant ADR paths, glossary) — the worker reads the **original lazily + scoped** —, scope + AC, explicit out-of-scope, the tools and sources, the throwaway environment for trial runs or "none", the required doctrine sections as an excerpt or the path of the doctrine copy, and the stop rule (3). A **generated, hash-checked copy** from the knowledge layer also counts as the **original** (provenance line per section, diff-and-hash review before the commit, no manual change); until the knowledge layer is connected, the bundled copy `konzept-design-pattern-v5.md` is the master and is changed only via PR. Copied context walls remain forbidden: they create overflow (context rot) **and** paraphrase drift (the worker works on the summary instead of the original).
 
-**(3) Worker-Contract — Beleg-Pflicht + Stop-Retro:**
-- Output **immer mit Beleg** (Datei:Zeile / Befehlsausgabe).
-- Fehlt Kontext zum eindeutigen Arbeiten → **STOP, keine Annahme.** Der Worker liefert ein **Stop-Retro-ADR** (Layout §32.6) zurück: **was** er getan hat (Entscheidungschronik bis zum Stop), **warum** er stoppt (die konkrete Lücke + warum nicht eindeutig auflösbar), **was** er braucht (welche Info/Entscheidung schließt sie). So weiß der Main-Agent vollständig, was passiert ist — und geht gezielt mit dem Nutzer in die Konversation (§1.9), statt blind weiterzumachen oder neu herzuleiten.
-- Der Worker gibt das Stop-Retro im Output zurück; der Orchestrator persistiert es nach der **Ablage-Weiche** (§28): eigene Repos → `docs/retro/`; Firmen-Repos → nichts KI-Generiertes ins Repo, sondern das Memory-Verzeichnis außerhalb des Repos (`~/.claude/projects/<projekt>/memory/`) bzw. später die Wissensschicht; Flüchtiges in den Scratch-Bereich. Es fließt ins finale Retro-ADR (§32.6) ein.
-- Weitere Vertragsregeln (Severity-Skala, Urteils-Mapping pass / pass-mit-Auflage / block, begrenzte Versuche, Provenienz je Aussage, Frischkontext der Gegenrollen, Sprache) stehen im Skill `worker-contract` des Plugins cdp5-agents; er ist die eine Quelle und wird je Worker-Start injiziert.
+**(3) Worker contract — evidence obligation + Stop-Retro:**
+- Output **always with evidence** (file:line / command output).
+- If context for unambiguous work is missing → **STOP, no assumption.** The worker returns a **Stop-Retro ADR** (layout §32.6): **what** it did (decision chronicle up to the stop), **why** it stops (the concrete gap + why it cannot be resolved unambiguously), **what** it needs (which info/decision closes it). This way the main agent knows completely what happened — and goes into the conversation with the user in a targeted way (§1.9), instead of blindly continuing or re-deriving.
+- The worker returns the Stop-Retro in its output; the orchestrator persists it according to the **filing switch** (§28): own repos → `docs/retro/`; company repos → nothing AI-generated into the repo, but the memory directory outside the repo (`~/.claude/projects/<projekt>/memory/`) or later the knowledge layer; ephemeral things into the scratch area. It flows into the final retro ADR (§32.6).
+- Further contract rules (severity scale, verdict mapping pass / pass-mit-Auflage (Auflage = condition) / block, limited attempts, provenance per statement, fresh context of the counter-roles, language) are in the skill `worker-contract` of the plugin cdp5-agents; it is the single source and is injected per worker start.
 
-**(4) Verifikations-Gate:** Worker-Behauptungen werden vor jeder Folge-Aktion gegen die Quelle geprüft — deterministisch wo möglich, sonst `review-verify` (§10.6). Under-Context-Behauptungen werden genau hier abgefangen.
+**(4) Verification gate:** Worker claims are checked against the source before every follow-up action — deterministically where possible, otherwise `review-verify` (§10.6). Under-context claims are caught exactly here.
 
-**(5) Parallelität nur self-contained:** Nur Worker mit **unabhängigen, self-contained Briefs** laufen parallel. Gemeinsam-evolvierender Kontext → sequenziell oder neu briefen, sonst arbeiten parallele Worker auf veralteten Annahmen.
+**(5) Parallelism only if self-contained:** Only workers with **independent, self-contained briefs** run in parallel. Jointly evolving context → sequential or re-brief, otherwise parallel workers work on outdated assumptions.
 
-**(6) Reproduktions-/Empirie-Gate (vor jedem Diff-/Bugfix):** Bevor ein abweichendes Ergebnis als Bug gefixt wird, schließt der Orchestrator **stale-/altes-State zuerst aus** (saubere Reproduktion / Clean-Re-Run), dann klassifiziert er pro Diff False-Positive (Rekonstruktions-/Mess-Lücke) vs. echten Defekt — nie den Soll-Vergleich aufweichen, um „grün" zu werden. Sprach-/Plattform-Semantik wird **ausführbar belegt** (`php -r`, kurzer Probelauf), nicht aus dem Gedächtnis behauptet (auch nicht aus dem des Reviewers). Reviewer/Worker bekommen das **exakte Target** (Container/Checkout/Pfad) im Brief genannt.
+**(6) Reproduction/empirics gate (before every diff/bugfix):** Before a deviating result is fixed as a bug, the orchestrator **rules out stale/old state first** (clean reproduction / clean re-run), then classifies per diff false positive (reconstruction/measurement gap) vs. genuine defect — never soften the target comparison in order to get "green". Language/platform semantics are **substantiated executably** (`php -r`, short trial run), not claimed from memory (not from the reviewer's either). Reviewers/workers are given the **exact target** (container/checkout/path) in the brief.
 
-**(7) Vorbedingung = Stopp, nicht Verhandlungsbasis:** Eine in ADR/Konzept notierte Vorbedingung („X ist Voraussetzung") ist ein **Gate**. Ist sie offen, ist die Slice **blockiert** — kein „Rescue"-Versuch im selben Lauf.
+**(7) Precondition = stop, not a basis for negotiation:** A precondition noted in ADR/Konzept ("X is a prerequisite") is a **gate**. If it is open, the slice is **blocked** — no "rescue" attempt in the same run.
 
-### 32.9 Skill-Determinismus-Gate (Tier-Klassifikation)
+### 32.9 Skill Determinism Gate (tier classification)
 
-§32.8 (1) gilt nicht nur für die Delegation, sondern für **jedes Werkzeug**: Ein **Text-Skill läuft über ein LLM** und ist nicht reproduzierbar (gleicher Auftrag, n Läufe → bis zu n Ergebnisse). Ein **programmierter Skill hat feste Struktur** — gleicher Input → gleiches Ergebnis, und seine Ausgabe *ist* der Beleg. Jeder Skill/Agent bekommt darum bei Anlage (`skill-creator`) und im Quartals-Audit ein **Tier:**
+§32.8 (1) applies not only to delegation but to **every tool**: A **text skill runs through an LLM** and is not reproducible (same assignment, n runs → up to n results). A **programmed skill has a fixed structure** — same input → same result, and its output *is* the evidence. Every skill/agent therefore receives a **tier** at creation (`skill-creator`) and in the quarterly audit:
 
-| Tier | Wann | Form |
+| Tier | When | Form |
 |---|---|---|
-| **T1 — Deterministischer Kern** | entscheidbar (Pass/Fail mit Beleg) **+** wiederholt **+** strukturierter Input | programmierter Skill in einer **host-verfügbaren** Runtime (Default Node.js) + eigene Tests; Output = Beleg |
-| **T2 — Agent (LLM-Worker)** | echtes Judgment, begrenzter Scope | Subagent (§32.3), Behauptung mit Beleg |
-| **T3 — Text-Skill** | nur interaktiver Mensch-Dialog-Wert (Reproduzierbarkeit ist nicht das Ziel) | Markdown-Skill (z. B. `spec-interview`, `walk-through`, `adversarial-review`) |
-| **Hybrid** | LLM-Framing → T1-Kern → LLM-Interpretation | Text-Skill, der ein T1-Programm ruft (z. B. `review-verify`, `konzept-mapper`) |
+| **T1 — Deterministic core** | decidable (pass/fail with evidence) **+** repeated **+** structured input | programmed skill in a **host-available** runtime (default Node.js) + own tests; output = evidence |
+| **T2 — Agent (LLM worker)** | genuine judgment, limited scope | subagent (§32.3), claim with evidence |
+| **T3 — Text skill** | only interactive human-dialogue value (reproducibility is not the goal) | Markdown skill (e.g. `spec-interview`, `walk-through`, `adversarial-review`) |
+| **Hybrid** | LLM framing → T1 core → LLM interpretation | text skill that calls a T1 program (e.g. `review-verify`, `konzept-mapper`) |
 
-**Runtime (verbindlich):** T1-Skills laufen auf dem **Host**, auf dem Claude Code läuft — die Runtime muss dort **garantiert installiert** sein. Default ist **Node.js**, weil Claude Code selbst eine Node-CLI ist und damit immer präsent (eine Toolchain für alle host-seitigen Skills). **PHP ist keine Host-Garantie:** die Projekte laufen in Docker, PHP lebt *in* den Containern, nicht auf dem Host. Ein Gate, das die Projekt-PHP-Runtime braucht, läuft daher **im Container via `docker exec`**, angestoßen von einem dünnen host-seitigen (Node-)Wrapper. T1-Skills kommen **mit eigener Testsuite**, sonst tauscht man LLM-Nicht-Determinität nur gegen ungetestete Code-Bugs (real: ein deterministischer Evaluator hatte einen 🔴-Bug bei PHP-Array-Auto-Index, den nur eine ausführbare Gegenprobe fand).
+**Runtime (binding):** T1 skills run on the **host** on which Claude Code runs — the runtime must be **guaranteed installed** there. Default is **Node.js**, because Claude Code itself is a Node CLI and is therefore always present (one toolchain for all host-side skills). **PHP is not a host guarantee:** the projects run in Docker, PHP lives *in* the containers, not on the host. A gate that needs the project PHP runtime therefore runs **in the container via `docker exec`**, triggered by a thin host-side (Node) wrapper. T1 skills come **with their own test suite**, otherwise one merely trades LLM non-determinism for untested code bugs (real: a deterministic evaluator had a 🔴 bug with PHP array auto-index that only an executable cross-check found).
 
-**Architektur-Regel:** Der deterministische Kern ist das **Rückgrat, nicht der ganze Körper.** Nimmt ein Skill Fließtext-Input, macht ein LLM das unscharfe Framing und übergibt **strukturierten** Input an den T1-Kern — sonst wird die Nicht-Determinität nur nach oben (in die Auswahl/Extraktion) verschoben, nicht getilgt.
+**Architecture rule:** The deterministic core is the **backbone, not the whole body.** If a skill takes free-text input, an LLM does the fuzzy framing and hands **structured** input to the T1 core — otherwise the non-determinism is only shifted upward (into selection/extraction), not eliminated.
 
-**Governance:** Eine **entscheidbare** Tätigkeit, die als T3-Text-Skill läuft, ist ein **Tier-Fehler** und wird portiert (Trigger: Quartals-Audit oder ab 3. Wiederholung, §32.7). Umgekehrt **kein** T1-Programm für Ein-Schuss-Aktivitäten (§32.7 (5)) und **kein** Zwang von Judgment-Tasks in ein Skript (das gibt ein schlechteres, sprödes Ergebnis).
+**Governance:** A **decidable** activity that runs as a T3 text skill is a **tier error** and is ported (trigger: quarterly audit or from the 3rd repetition, §32.7). Conversely, **no** T1 program for one-shot activities (§32.7 (5)) and **no** forcing of judgment tasks into a script (that yields a worse, brittle result).
 
-### 32.10 Fan-out-Ökonomie — wann Multi-Agent lohnt
+### 32.10 Fan-out Economics — when multi-agent pays off
 
-Orchestrierung heißt **nicht** automatisch viele parallele Agenten. Drei Stufen, von günstig nach teuer:
-- **Direkt selbst** (kein Worker) — bei kleinem, klarem Scope, wenn ein Brief teurer wäre als die Arbeit. *Start simple* (Provenienz: Anthropic „building effective agents": einfachste Lösung zuerst; Agenten tauschen Latenz + Kosten gegen Flexibilität — nur einsetzen, wenn Einfacheres nachweislich nicht reicht).
-- **Ein Stufen-Worker** (Default für abgegrenzte Facharbeit) — Drift-Isolation durch frischen Kontext (§32.1).
-- **Paralleles Fan-out an mehrere Worker** — teuer (Multi-Agent verbraucht **~15× Chat-Token**, Anthropic Multi-Agent-Research). Lohnt nur, wenn (a) die Subtasks **unabhängig + parallelisierbar** sind (§32.8 (5) self-contained) **und** (b) der Wert den Token-/Latenz-Overhead rechtfertigt.
+Orchestration does **not** automatically mean many parallel agents. Three levels, from cheap to expensive:
+- **Directly oneself** (no worker) — for small, clear scope, when a brief would be more expensive than the work. *Start simple* (provenance: Anthropic "building effective agents": simplest solution first; agents trade latency + cost for flexibility — use only when something simpler demonstrably does not suffice).
+- **One stage worker** (default for delimited specialist work) — drift isolation through fresh context (§32.1).
+- **Parallel fan-out to several workers** — expensive (multi-agent consumes **~15× chat tokens**, Anthropic multi-agent research). Pays off only if (a) the subtasks are **independent + parallelizable** (§32.8 (5) self-contained) **and** (b) the value justifies the token/latency overhead.
 
-**Gate vor Fan-out:** unabhängig + parallelisierbar + wertig? → fan-out; sonst sequenziell oder direkt. (Komplement zum §32.5-Anti-Pattern „sequenziell, was parallel ginge".)
+**Gate before fan-out:** independent + parallelizable + valuable? → fan-out; otherwise sequential or direct. (Complement to the §32.5 anti-pattern "sequentially what could run in parallel".)
 
-**Agent-Architektur (Produktion):** Für agentische Produktions-UCs ist das **GOAP-/Embabel-Pattern (§13.2)** die Referenz — ein deterministischer Planer steuert den Flow, das LLM ist Werkzeug in typisierten Actions („das LLM steuert nicht den Flow, der Planer tut es"). Agenten nur bei Entscheidungen unter Unsicherheit mit mehreren Lösungspfaden; nicht für CRUD/regelbasierte Prozesse (§13.2/§13.3).
+**Agent architecture (production):** For agentic production UCs, the **GOAP/Embabel pattern (§13.2)** is the reference — a deterministic planner controls the flow, the LLM is a tool in typed actions ("the LLM does not control the flow, the planner does"). Agents only for decisions under uncertainty with several solution paths; not for CRUD/rule-based processes (§13.2/§13.3).
 
 ---
 
-### 32.11 Devil's-Advocate-Gate (Pflicht-Pass vor irreversiblen Wahlen)
+### 32.11 Devil's-Advocate Gate (mandatory pass before irreversible choices)
 
-**Trigger:** jedes ADR mit Status „vorgeschlagen", jede Einführung eines neuen Subsystems, Moduls oder Modus (§27.1.1; dieser Paragraph liegt nur in der Wissensschicht, in dieser Kopie gilt der Deletion-Test §27.1 als Proxy, siehe Redirect-Tabelle §26), jede Wahl, die irreversibel wird, und der Gesamt-Abschluss eines Auftrags. §11.4 fordert den Pass für „Decide" wörtlich; dieser Paragraph macht ihn zum Gate.
+**Trigger:** every ADR with status "proposed", every introduction of a new subsystem, module or mode (§27.1.1; this paragraph lives only in the knowledge layer, in this copy the Deletion-Test §27.1 applies as a proxy, see redirect table §26), every choice that becomes irreversible, and the overall closing of an assignment. §11.4 demands the pass for "Decide" verbatim; this paragraph makes it a gate.
 
-**Ablauf:** Der Orchestrator startet `devils-advocate` in frischem Kontext (kein Anteil an der Wahl) mit dem wörtlichen Auftrag, der gewählten Option, den verworfenen Alternativen und ihren Kosten. Fehlt die verworfene Alternative, wird sie angefordert, nicht erfunden; die Nulloption darf der Pass selbst bilden. Der Pass liefert je Einwand einen Beleg-Ort und ein ex ante prüfbares Entkräftungs-Kriterium, prüft die Existenz-Frage (§27.1.1) und gibt ein dreiwertiges Verdikt: (a) die Begründung trägt, (b) die Alternative ist stärker, (c) die Nulloption schlägt beide.
+**Procedure:** The orchestrator starts `devils-advocate` in fresh context (no share in the choice) with the verbatim assignment, the chosen option, the discarded alternatives and their costs. If the discarded alternative is missing, it is requested, not invented; the pass itself may form the null option. The pass delivers, per objection, an evidence location and an ex ante verifiable refutation criterion, checks the existence question (§27.1.1) and gives a three-valued verdict: (a) the rationale holds, (b) the alternative is stronger, (c) the null option beats both.
 
-**Gate-Regel:** Bei (b) oder (c) bleibt die Ausführung blockiert, bis der menschliche Entscheider je Einwand Annahme oder begründete Ablehnung im ADR dokumentiert (§28.2). Ein Pass ohne frischen Kontext oder ohne benannte Alternative ist ungültig und wird wiederholt. Der Pass ist ein Gegenvotum, kein Veto: entscheiden tut der Mensch (§23.3).
+**Gate rule:** In case of (b) or (c), execution remains blocked until the human decider documents, per objection, acceptance or reasoned rejection in the ADR (§28.2). A pass without fresh context or without a named alternative is invalid and is repeated. The pass is a counter-vote, not a veto: the human decides (§23.3).
 
-**Ausschlüsse:** keine Devil's-Advocate-Pässe in blameless Retros (§32.6) und nicht in menschlich sensiblen oder privaten Playbooks; dort ist die Gegenprobe `psy-grenzwaechter`. Private Entscheidungen zu Gesundheit, Beziehungen, Therapie oder Kindern sind ausgeschlossen; private Verwaltungs-, Finanz- und Rechtsentscheidungen nicht.
+**Exclusions:** no Devil's-Advocate passes in blameless retros (§32.6) and not in humanly sensitive or private playbooks; there the cross-check is `psy-grenzwaechter`. Private decisions on health, relationships, therapy or children are excluded; private administrative, financial and legal decisions are not.
 
-**Abgrenzung:** Artefakte prüft `adversarial-auditor` (ex post, empirisch), Prognosen `pessimistic-realist`; die drei bilden die Gegenrollen-Triade (§32.17). Der Pass zählt im Nutzungslog (§32.7 (2)).
+**Distinction:** Artifacts are checked by `adversarial-auditor` (ex post, empirically), forecasts by `pessimistic-realist`; the three form the counter-role triad (§32.17). The pass counts in the usage log (§32.7 (2)).
 
-## 10.6 / 10.7 / 19 — Verifikation & Modell↔API-Konsistenz
+## 10.6 / 10.7 / 19 — Verification & Model↔API Consistency
 
-Die Verifikations-Mechanik gehört zum Arbeitsweg: sie fängt Drift zwischen Soll (Spec/Modell) und Ist (Code) ab.
+The verification mechanics belong to the working path: they catch drift between target (spec/model) and actual (code).
 
-### 10.6 Verifikationsagent neben Review-Agent
+### 10.6 Verification agent alongside review agent
 
-Ein KI-Agent, der sowohl die geschriebene Spezifikation (das „Soll") als auch den geschriebenen Code (das „Ist") liest, kann beide stets in Einklang halten (Provenienz: Bartels 2026).
+An AI agent that reads both the written specification (the "target") and the written code (the "actual") can keep both in harmony at all times (provenance: Bartels 2026).
 
-| Rolle | Aufgabe | Zeitpunkt |
+| Role | Task | Point in time |
 |---|---|---|
-| **Review-Agent** | Spec gegen Policies prüfen | Vor Implementierung |
-| **Verifikationsagent** | Spec ↔ Code-Drift erkennen | Nach jedem Sprint |
+| **Review agent** | Check spec against policies | Before implementation |
+| **Verification agent** | Detect spec ↔ code drift | After every sprint |
 
-Beide sind im `.claude/agents/`- bzw. `.github/agents/`-Verzeichnis als separate Personas zu definieren.
+Both are to be defined as separate personas in the `.claude/agents/` or `.github/agents/` directory.
 
-### 10.7 Verifikations-Konvention für Pflichten
+### 10.7 Verification convention for obligations
 
-**Regel:** Jede mit „Pflicht" markierte Aussage in einem Konzept muss einen objektiv prüfbaren **Nachweis-Typ** haben — sonst kann ein Review-Agent „erfüllt ja/nein" nicht feststellen, und die Pflicht ist faktisch unverbindlich. Vier zulässige Nachweis-Typen:
+**Rule:** Every statement marked "mandatory" in a Konzept must have an objectively verifiable **Nachweis-Typ (evidence type)** — otherwise a review agent cannot determine "fulfilled yes/no", and the obligation is de facto non-binding. Four permissible Nachweis-Typen:
 
-| Nachweis-Typ | Wo verankert | Beispiel |
+| Nachweis-Typ | Where anchored | Example |
 |---|---|---|
-| **Test / AC** | Akzeptanzkriterien-Tabelle (§11.7) | „AC-2: Anonymer Besucher bekommt 401" |
-| **Policy-Score** | Reife-Policy (`cdp5-gates/policy/reife-rubrik.policy.md`, §7) | Dimension `ac`, Gewicht 0,15; Gate-Item G7 |
-| **Checklist-Item** | Pflicht-Checkliste (§7) | „[ ] Probabilistik-Statement im Kopf" |
-| **Trace-Span** | OpenTelemetry-Span (§15.1) | `gen_ai.*`-Attribut pro LLM-Call |
+| **Test / AC** | Acceptance criteria table (§11.7) | "AC-2: Anonymous visitor gets 401" |
+| **Policy score** | Reife-Policy (`cdp5-gates/policy/reife-rubrik.policy.md`, §7) | Dimension `ac`, weight 0,15; gate item G7 |
+| **Checklist item** | Mandatory checklist (§7) | "[ ] Probabilistics statement in the header" |
+| **Trace span** | OpenTelemetry span (§15.1) | `gen_ai.*` attribute per LLM call |
 
-**Konzept-Bug:** Eine „Pflicht" ohne zugeordneten Nachweis-Typ ist ein Konzept-Bug und im Review zu flaggen.
+**Konzept bug:** A "mandatory" without an assigned Nachweis-Typ is a Konzept bug and is to be flagged in review.
 
-**Mapping bisher prosa-formulierter Pflichten auf ihren Nachweis:**
+**Mapping of previously prose-formulated obligations to their evidence:**
 
-| Pflicht (Sektion) | Nachweis-Typ | Konkreter Nachweis |
+| Obligation (section) | Nachweis-Typ | Concrete evidence |
 |---|---|---|
-| Red Teaming pro LLM-UC (§15.4) | Test/AC + Trace | Promptfoo-`redteam`-Config im Repo; pro LLM-UC AC-Eintrag „welche `harmful:*`-Plugins + Strategien" |
-| OAuth pro MCP-Server (§16.5) | Checklist-Item | Pro MCP-Server-Eintrag im Konzept Feld „OAuth: ja/nein + Token-Rotation" |
-| Streaming als UX-Pflicht (§20.1) | Test/AC | Pro LLM-UC benanntes Streaming-Verhalten (SSE/Chunked) + Integration-Test |
-| Kontext-Pyramide-Schichten (§18.2) | Checklist-Item | Pro LLM-UC Schichten-Liste + Cache-Strategie dokumentiert |
-| TAO-Logging pro Agent-UC (§21.1) | Trace-Span | OTEL-Span je Thought / Action / Observation (§15.1) |
-| Knowledge-Cutoff-Umgang (§15.5) | Test/AC | Cutoff-Test-Case („iPhone 17") in der AC-Tabelle des UC |
-| Vendor-Risiko-Statement (§2.7) | Checklist-Item | §7-Eintrag „Vendor-Risiko-Statement vorhanden bei LLM-UC" |
-| Hybrid-Validierungs-Phasen (§13.2/§15.8) | Test/AC + Trace | Post-Phase-Checks (LSP/AST/CodeQL) als CI-Gate + AC pro Phase |
+| Red teaming per LLM UC (§15.4) | Test/AC + trace | Promptfoo `redteam` config in the repo; per LLM UC an AC entry "which `harmful:*` plugins + strategies" |
+| OAuth per MCP server (§16.5) | Checklist item | Per MCP server entry in the Konzept a field "OAuth: yes/no + token rotation" |
+| Streaming as UX obligation (§20.1) | Test/AC | Per LLM UC a named streaming behavior (SSE/chunked) + integration test |
+| Context pyramid layers (§18.2) | Checklist item | Per LLM UC a layer list + cache strategy documented |
+| TAO logging per agent UC (§21.1) | Trace span | OTEL span per thought / action / observation (§15.1) |
+| Knowledge cutoff handling (§15.5) | Test/AC | Cutoff test case ("iPhone 17") in the UC's AC table |
+| Vendor risk statement (§2.7) | Checklist item | §7 entry "vendor risk statement present for LLM UC" |
+| Hybrid validation phases (§13.2/§15.8) | Test/AC + trace | Post-phase checks (LSP/AST/CodeQL) as CI gate + AC per phase |
 
-### 19. Konsistenzcheck Modell ↔ API (Junker-Pattern)
+### 19. Consistency Check Model ↔ API (Junker pattern)
 
-#### 19.1 Pflicht-Modelle die synchron gehalten werden müssen
+#### 19.1 Mandatory models that must be kept in sync
 
-| Modell | Format | Wer pflegt | Wann gegen Code prüfen |
+| Model | Format | Who maintains | When to check against code |
 |---|---|---|---|
-| Visual Glossary | Bild + Markdown | Domain Expert | Pro Sprint-Ende |
-| Context Map (DDD) | Mermaid / draw.io | Architekt | Pro Sprint-Ende |
-| OpenAPI-Spec | YAML im Repo | Backend | Pro PR |
-| AsyncAPI-Spec | YAML im Repo | Backend | Pro PR |
-| ER-Diagramm | Mermaid | DB-Architekt | Pro Migration |
+| Visual Glossary | Image + Markdown | Domain expert | Per sprint end |
+| Context Map (DDD) | Mermaid / draw.io | Architect | Per sprint end |
+| OpenAPI spec | YAML in the repo | Backend | Per PR |
+| AsyncAPI spec | YAML in the repo | Backend | Per PR |
+| ER diagram | Mermaid | DB architect | Per migration |
 
-#### 19.2 Zyklus
+#### 19.2 Cycle
 
 ```
 Modell-Änderung → LLM-Konsistenzcheck-Prompt (Anhang A.6) → Refactoring-Empfehlungen
-  → Domain-Experten validieren → Code wird angepasst (oder Modell wird angepasst)
+  → domain experts validate → the code is adjusted (or the model is adjusted)
 ```
 
-#### 19.3 Trennung Modell ↔ Diagramm
+#### 19.3 Separation model ↔ diagram
 
-Modelle sind die Single Source of Truth, Diagramme nur eine eingeschränkte Ansicht (Provenienz: Junker 2026). LLM-Konsistenzchecks gehen IMMER gegen das Modell, nie gegen das Diagramm.
+Models are the single source of truth, diagrams only a restricted view (provenance: Junker 2026). LLM consistency checks ALWAYS go against the model, never against the diagram.
 
-#### 19.4 AsyncAPI ↔ Context Map (event-getriebene Systeme)
+#### 19.4 AsyncAPI ↔ Context Map (event-driven systems)
 
-Neben OpenAPI↔Visual-Glossary (Anhang A.6) braucht ein event-getriebenes/Messaging-System einen zweiten Konsistenzcheck: **AsyncAPI gegen die DDD-Context-Map.** Prüf-Dimensionen (Junker): Service-Identität · Relationship-Patterns (Conformist / ACL / Partnership / Shared Kernel) · Event-Namen · Channel-Namen · Context-Boundaries · fehlende Elemente · Versionierung. Typischer Fund: „Service publiziert nicht alle aus der Context Map ableitbaren Events." Pro Sprint-Ende, versionierter Prompt.
+Besides OpenAPI↔Visual Glossary (Appendix A.6), an event-driven/messaging system needs a second consistency check: **AsyncAPI against the DDD context map.** Check dimensions (Junker): service identity · relationship patterns (Conformist / ACL / Partnership / Shared Kernel) · event names · channel names · context boundaries · missing elements · versioning. Typical finding: "Service does not publish all events derivable from the context map." Per sprint end, versioned prompt.
 
 ---
+## 28. Durable Plan Artifacts (the external memory)
 
-## 28. Durable Plan-Artefakte (das externe Gedächtnis)
-
-Durable Artefakte sind die Abwehr gegen **Gedächtnisverlust**: sie halten Domain-Vokabular, Architektur-Entscheidungen und Sprint-Stand außerhalb des flüchtigen Session-Kontexts.
+Durable artifacts are the defense against **memory loss**: they keep domain vocabulary, architecture decisions and sprint state outside the volatile session context.
 
 ### 28.1 CONTEXT.md
 
-**Zweck:** Lebendes Glossar + Architektur-Annahmen + Sprint-Strategie. SSOT zwischen Sessions.
+**Purpose:** Living glossary + architecture assumptions + sprint strategy. SSOT between sessions.
 
-**Pflicht-Inhalte:** Stack-Übersicht · Domain-Glossar (§14) · Architektur-Annahmen (verifiziert + entschieden) mit ADR-Referenzen · Rollen / Permissions / Drift-Markierungen · Sprint-Strategie (falls aktiv).
+**Mandatory contents:** Stack overview · Domain glossary (§14) · Architecture assumptions (verified + decided) with ADR references · Roles / permissions / drift markers · Sprint strategy (if active).
 
-**Wo:** Repo-Root oder `src/<context>/CONTEXT.md` (Multi-Context via `CONTEXT-MAP.md`).
+**Where:** Repo root or `src/<context>/CONTEXT.md` (multi-context via `CONTEXT-MAP.md`).
 
 ### 28.2 ADRs (Architecture Decision Records)
 
-**Zweck:** Harte / asymmetrische Entscheidungen durabel machen.
+**Purpose:** Make hard / asymmetric decisions durable.
 
-**Pflicht-Struktur:** **Titel + Datum** · **Entscheider** (Mensch; der Agent bereitet vor, der Mensch entscheidet, §23) · **Quelle** (wörtliches Zitat der Entscheidung, z. B. aus dem Brief oder Chat) · **Status** (vorgeschlagen / entschieden / abgelöst durch …) · **Kontext** (Situation) · **Optionen inkl. Nulloption** · **Entscheidung** (was wurde entschieden) · **Konsequenzen** (Plus / Minus / Tests / Audit-Scope) · **Alternativen erwogen** (was verworfen wurde und warum) · bei Einführung eines neuen Subsystems/Moduls/Modus die **vier Antworten der Existenz-Frage (§27.1.1)** und das Ergebnis des Devil's-Advocate-Passes (§32.11) · **Supersede-Link**, wenn eine frühere Entscheidung abgelöst wird (nie stilles Umschreiben). Je Key-Risk-Indicator: Schwelle, Beobachter, Prüfdatum. Ohne Entscheider und Datum ist ein ADR ein Vorschlag (FEHLER-08/FEHLER-13).
+**Mandatory structure:** **Title + date** · **Decider** (human; the agent prepares, the human decides, §23) · **Source** (verbatim quote of the decision, e.g. from the brief or chat) · **Status** (proposed / decided / superseded by …) · **Context** (situation) · **Options incl. null option** · **Decision** (what was decided) · **Consequences** (plus / minus / tests / audit scope) · **Alternatives considered** (what was rejected and why) · when introducing a new subsystem/module/mode, the **four answers to the existence question (§27.1.1)** and the result of the Devil's Advocate pass (§32.11) · **Supersede link** when an earlier decision is superseded (never silent rewriting). Per key risk indicator: threshold, observer, review date. Without decider and date, an ADR is a proposal (FEHLER-08/FEHLER-13).
 
-**Known-Issue-Zeile** für bewusst akzeptierte Risiken und verworfene Lint-Befunde: `known-issue: <Punkt> | decided by: <Person> | date: <YYYY-MM-DD> | reason: <ein Satz> | source: <Ablage>`.
+**Known-issue line** (Known-issue) for consciously accepted risks and rejected lint findings: `known-issue: <Punkt> | decided by: <Person> | date: <YYYY-MM-DD> | reason: <ein Satz> | source: <Ablage>`.
 
-**Pfad (Ablage-Weiche):** eigene Repos → `docs/adr/ADR-NNN-<slug>.md`, fortlaufend nummeriert; Firmen-Repos → nur KI-freie ADRs im Repo, alles KI-Generierte in das Memory-Verzeichnis außerhalb des Repos bzw. später die Wissensschicht; Privates → beim Nutzer, in keinem Dienst.
+**Path (storage switch):** own repos → `docs/adr/ADR-NNN-<slug>.md`, numbered consecutively; company repos → only AI-free ADRs in the repo, everything AI-generated goes into the memory directory outside the repo or later the knowledge layer; private matters → with the user, in no service.
 
-### 28.3 Slice-Issue-Briefs
+### 28.3 Slice Issue Briefs
 
-**Zweck:** Pro Vertical-Slice ein Brief im Tracker, der Agent oder Mensch unbeaufsichtigt arbeiten lässt (AFK) oder Architektur-Entscheidung antriggert (HITL).
+**Purpose:** One brief per vertical slice in the tracker that lets agent or human work unattended (AFK) or triggers an architecture decision (HITL).
 
-**Pflicht-Felder im Brief:** Slice-Nummer + Titel · HITL / AFK · Branch-Target (fold-in vs. eigene Feature-Branch) · Scope (E2E — welche Schichten) · Risk-Einschätzung · Lernchance (für Slice 1) · Dependencies (welche Slices müssen vorher gemerged sein?) · AC-Liste (aus §11.7) · **Optional:** User-Stories im Pocock-Format „Als <Akteur> möchte ich <Feature>, damit <Benefit>".
+**Mandatory fields in the brief:** Slice number + title · HITL / AFK · Branch target (fold-in vs. own feature branch) · Scope (E2E — which layers) · Risk assessment · Learning opportunity (for slice 1) · Dependencies (which slices must be merged beforehand?) · AC list (from §11.7) · **Optional:** User stories in Pocock format "As <actor> I want <feature>, so that <benefit>".
 
-#### AFK-Hardening — zusätzliche Pflicht-Bedingungen
+#### AFK hardening — additional mandatory conditions
 
-Ein Slice darf nur AFK markiert sein, wenn ALLE folgenden Bedingungen erfüllt sind. Fehlt auch nur eine: Slice ist HITL.
+A slice may only be marked AFK if ALL of the following conditions are met. If even one is missing: the slice is HITL.
 
-- [ ] Test-Setup für den Slice-Scope ist im Repo lauffähig (CI grün auf Branch-Target)
-- [ ] AC-Liste ist vollständig — keine „noch zu klären"-Marker
-- [ ] Domain-Vokabular aus CONTEXT.md / Konzept-Glossar ist im Brief durchgängig verwendet
-- [ ] Alle in „Dependencies" gelisteten Slices sind bereits gemerged (nicht nur geplant)
-- [ ] Branch-Target ist konkret benannt (Branch-Name oder PR-Nummer)
-- [ ] Reviewer-Kette für den auto-generierten PR ist definiert (menschlicher Approver Pflicht)
+- [ ] Test setup for the slice scope is runnable in the repo (CI green on branch target)
+- [ ] AC list is complete — no "still to be clarified" markers
+- [ ] Domain vocabulary from CONTEXT.md / Konzept (concept document) glossary is used consistently throughout the brief
+- [ ] All slices listed under "Dependencies" are already merged (not just planned)
+- [ ] Branch target is named concretely (branch name or PR number)
+- [ ] Reviewer chain for the auto-generated PR is defined (human approver mandatory)
 
-### 28.4 Handoff-Docs
+### 28.4 Handoff Docs
 
-**Zweck:** Wenn eine Session am Token-Limit ist, eine Slice mehrere Sessions braucht, oder Team wechselt — die Hauptabwehr gegen Gedächtnisverlust *zwischen* Sessions.
+**Purpose:** When a session is at the token limit, a slice needs several sessions, or the team changes — the main defense against memory loss *between* sessions.
 
-**Pflicht-Inhalte:** Was wurde erledigt? (Verweis auf Slice-Issue / PR / Commit-Range — keine Wiederholung) · Was steht als Nächstes an? · Welche Artefakte sind SSOT? (CONTEXT.md / ADR / Slice-Brief) · Welche Skills / Tools sollte die nächste Session einsetzen?
+**Mandatory contents:** What was done? (reference to slice issue / PR / commit range — no repetition) · What is next? · Which artifacts are SSOT? (CONTEXT.md / ADR / slice brief) · Which skills / tools should the next session use?
 
-**Pfad:** `mktemp -t handoff-XXXXXX.md` oder `.tmp/handoffs/YYYY-MM-DD-<slug>.md`.
+**Path:** `mktemp -t handoff-XXXXXX.md` or `.tmp/handoffs/YYYY-MM-DD-<slug>.md`.
 
-### 28.5 Temporäre vs. durable Plan-Doks
+### 28.5 Temporary vs. durable plan docs
 
-| Artefakt | Lebensdauer | Wo |
+| Artifact | Lifetime | Where |
 |---|---|---|
-| `CONTEXT.md` | durabel | Repo-Root |
-| `docs/adr/*.md` | durabel | Repo `docs/adr/` |
-| Slice-Issue im Tracker | durabel | Issue-Tracker |
-| **PRD** (Problem Statement + Solution + User-Stories + Implementation Decisions) | **durabel** | **Issue-Tracker mit `ready-for-agent`-Label** |
-| Handoff-Doc | semi-durabel (löschbar nach Session-Übergang) | `.tmp/handoffs/` |
-| **Slice-Plan / Sprint-Brief / Roadmap** | temporär (bis Slice abgeschlossen) | `.tmp/` |
-| Brainstorm-Notes | temporär | `.tmp/brainstorm.md` |
-| Prototype-Code | temporär (löschen oder absorbieren) | nahe Zielmodul, klar markiert |
+| `CONTEXT.md` | durable | Repo root |
+| `docs/adr/*.md` | durable | Repo `docs/adr/` |
+| Slice issue in tracker | durable | Issue tracker |
+| **PRD** (Problem Statement + Solution + User Stories + Implementation Decisions) | **durable** | **Issue tracker with `ready-for-agent` label** |
+| Handoff doc | semi-durable (deletable after session handover) | `.tmp/handoffs/` |
+| **Slice plan / sprint brief / roadmap** | temporary (until slice is completed) | `.tmp/` |
+| Brainstorm notes | temporary | `.tmp/brainstorm.md` |
+| Prototype code | temporary (delete or absorb) | near target module, clearly marked |
 
-**PRD vs. Slice-Plan:** Das **PRD** ist ein durables Issue-Tracker-Artefakt (Problem Statement, Solution, User-Stories, Implementation Decisions, `ready-for-agent`-Label). Der **Slice-Plan / Sprint-Brief** ist ein temporäres `.tmp/`-Doc (Vertical-Slices mit HITL/AFK + Dependencies + AC-Refs), wird vor PR gelöscht. **Roadmaps sind temporär** und driften → vor Sprint-Planung gegen den Code abgleichen (Roadmap↔Code-Inventur, T1-Skript / `konzept-mapper`; §25 Anti-Pattern).
+**PRD vs. slice plan:** The **PRD** is a durable issue-tracker artifact (Problem Statement, Solution, User Stories, Implementation Decisions, `ready-for-agent` label). The **slice plan / sprint brief** is a temporary `.tmp/` doc (vertical slices with HITL/AFK + dependencies + AC refs), deleted before PR. **Roadmaps are temporary** and drift → reconcile against the code before sprint planning (roadmap↔code inventory, T1 script / `konzept-mapper`; §25 anti-pattern).
 
-> **Pflicht vor PR:** Temporäre Plan-Doks aus `.tmp/` löschen. Wahrheit lebt im Code.
+> **Mandatory before PR:** Delete temporary plan docs from `.tmp/`. Truth lives in the code.
 
-### 28.6 Kontext-Hygiene & Instruktions-Dateien
+### 28.6 Context hygiene & instruction files
 
-Durable Artefakte (§28.1–§28.5) sind das **externe** Gedächtnis; hier die Pflege des **flüchtigen** Kontexts (Provenienz: Anthropic „effective context engineering" + „Claude Code best practices"):
+Durable artifacts (§28.1–§28.5) are the **external** memory; here is the maintenance of the **volatile** context (provenance: Anthropic "effective context engineering" + "Claude Code best practices"):
 
-- **Kontext ist endliche Ressource.** Genauigkeit fällt messbar **ab ~60–70 % Fenster-Auslastung** (Context-Rot) — hochwertige Info priorisieren, low-value-Tokens prunen.
-- **Frühwarnsignal:** Coding-Assistenten legen ihre Restkapazität nicht offen; **plötzliches Scheitern großer Changes** oder stilles Kompaktieren = Memento-Effekt-Risiko. Bei Annäherung ans Limit → Handoff-Doc (§28.4).
-- **Reset-Regeln:** zwischen **unzusammenhängenden** Tasks Kontext leeren (`/clear`); **nach 2 fehlgeschlagenen Korrekturen** desselben Problems neu starten mit besserem Prompt — ein sauberer Kontext schlägt einen verschmutzten mit angesammelten Fehlversuchen fast immer.
-- **Just-in-time-Retrieval:** leichte Identifier (Pfade, Queries, Links) halten und Daten **zur Laufzeit lazy** laden, statt alles vorab in den Kontext zu ziehen — die Generalisierung des Pointer-Briefs (§32.8 (2)).
-- **Compaction bewahrt Entscheidungen:** beim Zusammenfassen Architektur-Entscheidungen, offene Punkte, geänderte Dateien und Test-Befehle erhalten; redundante Outputs verwerfen.
-- **CLAUDE.md/AGENTS.md-Disziplin:** Die Instruktions-Datei wird **jede Session geladen** → kurz halten, **regelmäßig prunen** (Test je Zeile: „würde Entfernen einen Fehler verursachen? wenn nein, raus"). Bloat → Regeln gehen unter und werden ignoriert. Nur, was die KI **nicht aus dem Code ableiten** kann (Befehle, projektspezifische Gotchas, Konventionen); situatives Wissen gehört in **Skills (on-demand)**, nicht in die immer-geladene Datei. Bei mehreren KI-Tools: **`AGENTS.md`** als tool-agnostischer Standard (ein Regel-Set, kein Drift zwischen Tools), `CLAUDE.md` nur für Claude-Spezifika.
+- **Context is a finite resource.** Accuracy drops measurably **from ~60–70 % window utilization** (context rot) — prioritize high-value info, prune low-value tokens.
+- **Early warning signal:** Coding assistants do not disclose their remaining capacity; **sudden failure of large changes** or silent compaction = Memento-effect risk. When approaching the limit → handoff doc (§28.4).
+- **Reset rules:** clear context between **unrelated** tasks (`/clear`); **after 2 failed corrections** of the same problem, restart with a better prompt — a clean context almost always beats a polluted one with accumulated failed attempts.
+- **Just-in-time retrieval:** keep lightweight identifiers (paths, queries, links) and load data **lazily at runtime** instead of pulling everything into the context up front — the generalization of the pointer brief (§32.8 (2)).
+- **Compaction preserves decisions:** when summarizing, keep architecture decisions, open points, changed files and test commands; discard redundant outputs.
+- **CLAUDE.md/AGENTS.md discipline:** The instruction file is **loaded every session** → keep it short, **prune regularly** (test per line: "would removing it cause an error? if not, out"). Bloat → rules get buried and are ignored. Only what the AI **cannot derive from the code** (commands, project-specific gotchas, conventions); situational knowledge belongs in **skills (on-demand)**, not in the always-loaded file. With multiple AI tools: **`AGENTS.md`** as the tool-agnostic standard (one rule set, no drift between tools), `CLAUDE.md` only for Claude specifics.
 
-> **Dogfood:** Genau dieser Grund trägt die v5-Struktur — Teil 4/5 + Anhang sind überspringbar, damit ein Task nur den relevanten Kontext lädt; CDP5 selbst unterliegt der Pruning-Disziplin.
+> **Dogfood:** Exactly this reason carries the v5 structure — Parts 4/5 + appendix are skippable so that a task loads only the relevant context; CDP5 itself is subject to the pruning discipline.
 
 ---
 
-## 27. Implementation-Plan (Werkzeug-Kasten)
+## 27. Implementation Plan (toolbox)
 
-**Charakter:** §27 ist **kein Workflow** und **keine Phasen-Doktrin**, sondern ein Werkzeug-Kasten. Welches Werkzeug man wann greift, entscheidet §29. Der Orchestrator (§32) wählt den Modus und delegiert die hier definierten Werkzeuge an die zuständigen Stufen-Worker (z. B. Vertical-TDD §27.4 → `impl-uc`, Diagnose-Loop §27.5 → `impl-debug`).
+**Character:** §27 is **not a workflow** and **not a phase doctrine**, but a toolbox. Which tool to pick when is decided by §29. The orchestrator (§32) selects the mode and delegates the tools defined here to the responsible stage workers (e.g. Vertical TDD §27.4 → `impl-uc`, Diagnosis loop §27.5 → `impl-debug`).
 
-**Quellen-Fundament (inline — trägt ohne externe Lektüre):** Die Implementation-/Review-/Teardown-Doktrin ruht auf zwei Wissensbasen, deren Kernthesen hier zusammengefasst sind:
+**Source foundation (inline — stands without external reading):** The implementation/review/teardown doctrine rests on two knowledge bases whose core theses are summarized here:
 
-- **Ousterhout — „A Philosophy of Software Design":** Komplexität ist der Feind; sie akkumuliert aus *Dependencies* und *Obscurity* und zeigt sich als Change-Amplification, hohe kognitive Last und „unknown unknowns". Gegenmittel: **deep modules** (viel Verhalten hinter schmaler Schnittstelle), konsequentes Information Hiding, „define errors out of existence", strategisches statt taktisches Programmieren. Daraus: Module-Depth-Vokabular (§27.1) + Deletion-Test.
-- **Pocock (`mattpocock-skills`-Toolkit):** operative KI-Coding-Praktiken — Vertical-Slicing / Tracer-Bullets (§27.2), Throwaway-Prototyping (§27.3), Vertical-TDD-Loop (§27.4), Diagnose-Feedback-Loop (§27.5), HITL/AFK-Markierung pro Slice, durable Artefakte (§28). Skills `to-prd`, `to-issues`, `tdd`, `improve-codebase-architecture`, `diagnose`, `zoom-out` operationalisieren sie.
+- **Ousterhout — "A Philosophy of Software Design":** Complexity is the enemy; it accumulates from *dependencies* and *obscurity* and shows up as change amplification, high cognitive load and "unknown unknowns". Remedies: **deep modules** (lots of behavior behind a narrow interface), consistent information hiding, "define errors out of existence", strategic rather than tactical programming. From this: module-depth vocabulary (§27.1) + Deletion-Test.
+- **Pocock (`mattpocock-skills` toolkit):** operational AI-coding practices — vertical slicing / Tracer-Bullets (§27.2), throwaway prototyping (§27.3), vertical TDD loop (§27.4), diagnosis feedback loop (§27.5), HITL/AFK marking per slice, durable artifacts (§28). Skills `to-prd`, `to-issues`, `tdd`, `improve-codebase-architecture`, `diagnose`, `zoom-out` operationalize them.
 
-### 27.1 Module-Depth-Vokabular (Ousterhout-Erbe)
+### 27.1 Module-depth vocabulary (Ousterhout heritage)
 
-| Begriff | Definition |
+| Term | Definition |
 |---|---|
-| **Modul** | Alles mit Interface + Implementation |
-| **Interface** | Alles, was ein Aufrufer wissen muss: Typen, Invarianten, Fehler-Modi, Ordering, Konfiguration. Nicht nur Typ-Signatur. |
-| **Implementation** | Der Code im Inneren |
-| **Depth** | Hebel am Interface: viel Verhalten hinter schmaler Schnittstelle. **Deep** = hoher Hebel. **Shallow** = Schnittstelle fast so komplex wie Implementation. |
-| **Seam** | Ort, an dem ein Interface lebt — eine Stelle, an der Verhalten ohne Code-Edit austauschbar ist |
-| **Adapter** | Konkrete Sache, die ein Interface an einem Seam erfüllt |
-| **Leverage** | Was der Aufrufer aus Depth zieht |
-| **Locality** | Was der Wartende aus Depth zieht: Änderungen, Bugs, Wissen konzentriert an einem Ort |
+| **Module** | Anything with interface + implementation |
+| **Interface** | Everything a caller must know: types, invariants, error modes, ordering, configuration. Not just the type signature. |
+| **Implementation** | The code inside |
+| **Depth** | Leverage at the interface: lots of behavior behind a narrow interface. **Deep** = high leverage. **Shallow** = interface almost as complex as implementation. |
+| **Seam** | Place where an interface lives — a spot where behavior can be swapped without a code edit |
+| **Adapter** | Concrete thing that fulfills an interface at a seam |
+| **Leverage** | What the caller gets out of depth |
+| **Locality** | What the maintainer gets out of depth: changes, bugs, knowledge concentrated in one place |
 
-#### Pflicht-Heuristiken
+#### Mandatory heuristics
 
-- **Deletion-Test:** Würde Löschen die Komplexität verschwinden lassen oder über N Aufrufer wieder auftauchen? Verschwinden → war Pass-Through. Wieder auftauchen → verdient seine Existenz.
-- **Interface = Test-Surface:** Tests gehen durch das Interface, nicht durch die Implementation.
-- **Ein Adapter = hypothetischer Seam. Zwei Adapter = realer Seam.**
+- **Deletion-Test:** Would deleting make the complexity disappear or reappear across N callers? Disappears → it was pass-through. Reappears → it earns its existence.
+- **Interface = test surface:** Tests go through the interface, not through the implementation.
+- **One adapter = hypothetical seam. Two adapters = real seam.**
 
-> **Im Konzept ausweisen:** Bei jeder Modul-Extraktion in §3 UC-Strukturplan oder ADR wird der Deletion-Test als 1-Satz-Antwort notiert.
+> **State in the Konzept:** For every module extraction in §3 UC structure plan or ADR, the Deletion-Test is noted as a one-sentence answer.
 
-### 27.2 Vertical-Slice / Tracer-Bullet als Decomposition-Default
+### 27.2 Vertical slice / Tracer-Bullet as decomposition default
 
-| Horizontal (Anti-Pattern) | Vertical (Default) |
+| Horizontal (anti-pattern) | Vertical (default) |
 |---|---|
-| Alle Migrationen → alle Repositories → … → alle Tests | Ein Tracer-Bullet, das durch alle Schichten für einen schmalen Pfad geht |
-| Refactor in Bulk | Refactor pro Slice |
-| PR wird gigantisch | PR pro Slice ist demoable + review-bar |
+| All migrations → all repositories → … → all tests | One Tracer-Bullet that goes through all layers for a narrow path |
+| Refactor in bulk | Refactor per slice |
+| PR becomes gigantic | PR per slice is demoable + reviewable |
 
-#### Slice-Regeln
+#### Slice rules
 
-- Jeder Slice durchquert ALLE Schichten (Schema, API, UI, Tests) für einen schmalen Pfad
-- Ein abgeschlossener Slice ist **eigenständig demoable oder verifizierbar**
-- Viele dünne Slices > wenige dicke
-- **Slice 1 = riskantester Pfad mit höchster Lernchance**, nicht der einfachste
-- Slices haben explizite **Dependencies**
+- Every slice crosses ALL layers (schema, API, UI, tests) for a narrow path
+- A completed slice is **independently demoable or verifiable**
+- Many thin slices > few thick ones
+- **Slice 1 = riskiest path with the highest learning opportunity**, not the easiest
+- Slices have explicit **dependencies**
 
-#### HITL / AFK-Markierung pro Slice
+#### HITL / AFK marking per slice
 
-| Marker | Bedeutung |
+| Marker | Meaning |
 |---|---|
-| **HITL** | Architektur-Entscheidung, Design-Review, Stakeholder-Sign-off nötig |
-| **AFK** | Vollständig spezifiziert, Agent kann unbeaufsichtigt implementieren und PR liefern |
+| **HITL** | Architecture decision, design review, stakeholder sign-off needed |
+| **AFK** | Fully specified, agent can implement unattended and deliver a PR |
 
-Konkrete AFK-Pflicht-Felder in §28.3.
+Concrete AFK mandatory fields in §28.3.
 
-#### Im Konzept abzubilden
+#### To be represented in the Konzept
 
 ```markdown
 ### Slice-Plan
@@ -679,29 +679,29 @@ Konkrete AFK-Pflicht-Felder in §28.3.
 | 3 | Rate-Limit-Foundation (Redis) | HITL | 2 | UC-04, UC-06, UC-08 | AC-9, AC-10 |
 ```
 
-UC-Refs können auf konkrete UC-Schritte verweisen (z. B. `UC-04.3.2`). User-Stories gehören in den Slice-Brief (§28.3), nicht in die Slice-Plan-Tabelle.
+UC refs can point to concrete UC steps (e.g. `UC-04.3.2`). User stories belong in the slice brief (§28.3), not in the slice-plan table.
 
-### 27.3 Throwaway-Prototype als Frage-Beantwortung
+### 27.3 Throwaway prototype as question answering
 
-| Branch | Frage | Form |
+| Branch | Question | Form |
 |---|---|---|
-| **Logic-Branch** | „Fühlt sich diese Logik / dieses State-Modell richtig an?" | Winzige interaktive Terminal-App |
-| **UI-Branch** | „Wie sollte das aussehen?" | Mehrere radikal verschiedene UI-Varianten auf einer Route, umschaltbar via Query-Param |
+| **Logic branch** | "Does this logic / this state model feel right?" | Tiny interactive terminal app |
+| **UI branch** | "What should this look like?" | Several radically different UI variants on one route, switchable via query param |
 
-#### Pflicht-Regeln (beide Branches)
+#### Mandatory rules (both branches)
 
-1. **Throwaway from day one** — als solcher markiert
-2. **Ein Befehl zum Starten**
-3. **Keine Persistenz per default** — In-Memory-State
-4. **Keine Polish** — keine Tests, kein Error-Handling jenseits des Lauffähigen
-5. **Surface the state** — nach jeder Aktion / jedem Switch
-6. **Delete or absorb when done** — nie rotten lassen
+1. **Throwaway from day one** — marked as such
+2. **One command to start**
+3. **No persistence by default** — in-memory state
+4. **No polish** — no tests, no error handling beyond what runs
+5. **Surface the state** — after every action / every switch
+6. **Delete or absorb when done** — never let it rot
 
-### 27.4 Vertical-TDD-Loop (verschärft §11.7)
+### 27.4 Vertical TDD loop (tightens §11.7)
 
-§11.7 verlangt eine AC-Tabelle pro UC. §27.4 sagt, **wie** sie gefahren wird.
+§11.7 requires an AC table per UC. §27.4 says **how** it is driven.
 
-#### Anti-Pattern: Horizontal-TDD
+#### Anti-pattern: horizontal TDD
 
 ```
 WRONG (horizontal):
@@ -709,7 +709,7 @@ WRONG (horizontal):
   GREEN: impl1, impl2, impl3, impl4, impl5
 ```
 
-#### Korrekt: Vertical-TDD-Loop
+#### Correct: vertical TDD loop
 
 ```
 RIGHT (vertical):
@@ -718,661 +718,659 @@ RIGHT (vertical):
   RED→GREEN: test3→impl3
 ```
 
-#### Test-Eigenschaften (Pocock-Definition)
+#### Test properties (Pocock definition)
 
-- Tests prüfen **Verhalten durch öffentliche Interfaces**, nicht Implementation-Details
-- Gute Tests sind **integration-style**: durchlaufen echte Code-Pfade durch public APIs
-- Schlechte Tests: Mocking interner Kollaborateure, Testen privater Methoden
+- Tests check **behavior through public interfaces**, not implementation details
+- Good tests are **integration-style**: they run real code paths through public APIs
+- Bad tests: mocking internal collaborators, testing private methods
 
-### 27.5 Diagnose-Feedback-Loop
+### 27.5 Diagnosis feedback loop
 
-**„Build the right feedback loop, and the bug is 90 % fixed."** Der Feedback-Loop ist die eigentliche Debug-Skill (Provenienz: Pocock). Loop-Konstruktion (in dieser Reihenfolge probieren):
+**"Build the right feedback loop, and the bug is 90 % fixed."** The feedback loop is the actual debugging skill (provenance: Pocock). Loop construction (try in this order):
 
-1. Failing Test am Seam, der den Bug erreicht
-2. Curl / HTTP-Script gegen Dev-Server
-3. CLI-Invocation mit Fixture-Input, Diff gegen Snapshot
-4. Headless-Browser-Script
-5. Replay aufgezeichneter Trace
-6. Throwaway-Harness
-7. Property / Fuzz Loop
-8. Bisektions-Harness (`git bisect run`)
-9. Differential Loop
-10. HITL Bash-Script (letzter Ausweg)
+1. Failing test at the seam that reaches the bug
+2. Curl / HTTP script against dev server
+3. CLI invocation with fixture input, diff against snapshot
+4. Headless browser script
+5. Replay of recorded trace
+6. Throwaway harness
+7. Property / fuzz loop
+8. Bisection harness (`git bisect run`)
+9. Differential loop
+10. HITL bash script (last resort)
 
-#### Loop iterieren
+#### Iterate the loop
 
-- Schneller? (Setup cachen, Test-Scope verengen)
-- Schärferes Signal? (auf Symptom asserten)
-- Deterministischer? (Zeit pinnen, RNG seeden, FS isolieren)
+- Faster? (cache setup, narrow test scope)
+- Sharper signal? (assert on the symptom)
+- More deterministic? (pin time, seed RNG, isolate FS)
 
-#### Wenn keine Loop baubar ist
+#### When no loop can be built
 
-Stoppen, explizit sagen, Aufzählen was probiert wurde. Den User bitten um (a) Repro-Umgebung, (b) erfasstes Artefakt (HAR, Log, Core-Dump, Bildschirmaufnahme), oder (c) Erlaubnis für temporäre Production-Instrumentierung. **Nicht** zur Hypothese ohne Loop fortschreiten.
+Stop, say so explicitly, list what was tried. Ask the user for (a) a repro environment, (b) a captured artifact (HAR, log, core dump, screen recording), or (c) permission for temporary production instrumentation. Do **not** proceed to a hypothesis without a loop.
 
-### 27.6 Brownfield-Erweiterungs-Pattern
+### 27.6 Brownfield extension pattern
 
-Pflicht-Reihenfolge bei Erweiterung bestehender Software:
+Mandatory order when extending existing software:
 
-1. **CONTEXT.md lesen** (oder anlegen, §28.1) — §1.8 Goldene Regel
-2. **ADRs im Touch-Bereich lesen** — bei Konflikt ADR-Update zuerst
-3. **Domain-Glossar-Vokabular** in Test-Namen, Interface-Vokabular, PRDs, Issue-Titeln verwenden — **keine Drift**
-4. **Bestehende Voter / Services / Repositories sichten** bevor neue parallel angelegt werden (Deletion-Test als Filter)
-5. **Slice-Plan** (§27.2) erstellen mit Dependencies zwischen Slice und Bestand
-6. **Vertical-TDD-Loop** (§27.4) — Tests an bestehenden Seams aufhängen
-7. **CONTEXT.md aktualisieren** vor PR
+1. **Read CONTEXT.md** (or create it, §28.1) — §1.8 golden rule
+2. **Read ADRs in the touch area** — on conflict, ADR update first
+3. Use **domain glossary vocabulary** in test names, interface vocabulary, PRDs, issue titles — **no drift**
+4. **Survey existing voters / services / repositories** before new ones are created in parallel (Deletion-Test as filter)
+5. Create **slice plan** (§27.2) with dependencies between slice and existing code
+6. **Vertical TDD loop** (§27.4) — hang tests on existing seams
+7. **Update CONTEXT.md** before PR
 
-**Zwei Anker für KI in Bestandscode:** **Insel der Ordnung** (Provenienz: Leßner) — in Legacy-Code einen separaten Ordner mit blitzsauberen Minimal-Referenzimplementierungen aller Bausteine (Entity, Repository, Test-Builder) anlegen; die KI **imitiert, was sie sieht**, also unverschmutzte Vorbilder geben (wird nicht ausgeliefert). **Self-Contained Systems** (SCS) — Subsysteme mit eigener Datenhaltung/UI halten den KI-Kontext pro UC klein: ein System-UC bezieht sich nur auf ein Subsystem (Deep-Module-Geist, §27.1).
+**Two anchors for AI in existing code:** **Island of order** (provenance: Leßner) — in legacy code, create a separate folder with spotless minimal reference implementations of all building blocks (entity, repository, test builder); the AI **imitates what it sees**, so give it unpolluted models (not shipped). **Self-Contained Systems** (SCS) — subsystems with their own data storage/UI keep the AI context per UC small: a system UC refers to only one subsystem (deep-module spirit, §27.1).
 
-### 27.7 Review/Teardown-Modus
+### 27.7 Review/teardown mode
 
-Architektur-Review oder geplanter Teardown nutzt §27 rückwärts.
+Architecture review or planned teardown uses §27 in reverse.
 
-#### Review-Werkzeuge
+#### Review tools
 
-- **Deletion-Test pro Modul** (§27.1) — Pass-Through identifizieren
-- **Depth-Inventur** — Interface- vs. Implementation-Komplexität
-- **Seam-Inventur** — hypothetische vs. reale Seams
-- **Decisions-Archäologie** — bestehende ADRs gegen heutige Realität prüfen
-- **Anti-Pattern-Scan** (§25-Liste)
+- **Deletion-Test per module** (§27.1) — identify pass-through
+- **Depth inventory** — interface vs. implementation complexity
+- **Seam inventory** — hypothetical vs. real seams
+- **Decisions archaeology** — check existing ADRs against today's reality
+- **Anti-pattern scan** (§25 list)
 
-Output: siehe §29 Modus C.1.
+Output: see §29 mode C.1.
 
-#### Teardown-Werkzeuge
+#### Teardown tools
 
-- **Reverse-Slicing** — Teardown als Vertical-Slice-Sequenz; Slice 1 = riskantester Roll-Back
-- **Adapter-Roll-Back** — Seam beibehalten, Adapter außer einem entfernen → Seam wird hypothetisch → kann gelöscht werden
-- **Tests an stabilen Interfaces** halten als Verifikation
-- **Pflicht-ADR** für die Teardown-Entscheidung
+- **Reverse slicing** — teardown as a vertical-slice sequence; slice 1 = riskiest rollback
+- **Adapter rollback** — keep the seam, remove all adapters but one → seam becomes hypothetical → can be deleted
+- Keep **tests at stable interfaces** as verification
+- **Mandatory ADR** for the teardown decision
 
-Output: siehe §29 Modus C.2.
+Output: see §29 mode C.2.
 
 ---
 
-# Teil 3 — Sicherheit (Agent-/Tool-Safety + AppSec)
+# Part 3 — Security (agent/tool safety + AppSec)
 
-**Dieser Teil ist verbindlich, sobald ein UC tool-/agentisch ist, nach außen kommuniziert oder schützenswerte Daten/Endpunkte berührt** — sonst überspringbar (analog Teil 5/LLM). Security ist **Build-Zeit-Doktrin**: Bedrohungen im Design modellieren, Gates in CI erzwingen, sichere Patterns vorgeben — nicht erst im Betrieb reagieren. Betriebs-/Org-Security ist bewusst draußen (§33.8); regulatorische Compliance läuft über §2.6 + Cross-Ref (§33.8).
+**This part is binding as soon as a UC is tool-based/agentic, communicates externally or touches data/endpoints worth protecting** — otherwise skippable (analogous to Part 5/LLM). Security is **build-time doctrine**: model threats in the design, enforce gates in CI, prescribe secure patterns — do not react only in operation. Operational/org security is deliberately out (§33.8); regulatory compliance runs via §2.6 + cross-ref (§33.8).
 
-## 33. Sicherheit
+## 33. Security
 
-### 33.1 Lethal-Trifecta-Gate (Agent-Gefahrenmodell)
+### 33.1 Lethal-Trifecta gate (agent threat model)
 
-Ein tool-nutzender Agent ist gefährlich, sobald **drei Bedingungen zusammentreffen** (Lethal Trifecta, Provenienz: Willison 2025):
-1. **Zugang zu sensiblen Daten** (Secrets, Kundendaten, interne APIs, Dateisystem),
-2. **Kontakt mit nicht-vertrauenswürdigen Inhalten** — Web, E-Mail, RAG-Dokumente, **MCP-/Tool-Responses**, fremder Code / abhängige Libraries,
-3. **Fähigkeit zur externen Kommunikation** (Netz-Egress, Tool-Calls nach außen).
+A tool-using agent is dangerous as soon as **three conditions coincide** (Lethal Trifecta, provenance: Willison 2025):
+1. **Access to sensitive data** (secrets, customer data, internal APIs, file system),
+2. **Contact with untrusted content** — web, e-mail, RAG documents, **MCP/tool responses**, third-party code / dependent libraries,
+3. **Ability to communicate externally** (network egress, outbound tool calls).
 
-**Gate-Regel:** Treffen alle drei zu, ist mindestens **eine Achse zu brechen** — Egress auf Allowlist beschränken **oder** Daten-Scope minimieren **oder** untrusted-Content isolieren — **oder** ein Human-Approval-Gate (§23) vor der riskanten Aktion. Pro Agent-/LLM-UC im Konzept ausweisen: welche der drei Achsen zutreffen und welche Gegenmaßnahme greift. *(Praxis: ein injizierter Prompt aus einer kompromittierten Library exfiltrierte `.env`-Secrets via Tool-Call — Prompt-Injection steht auf OWASP-LLM-Top-10 Platz 1.)*
+**Gate rule:** If all three apply, at least **one axis must be broken** — restrict egress to an allowlist **or** minimize data scope **or** isolate untrusted content — **or** a human-approval gate (§23) before the risky action. Per agent/LLM UC, state in the Konzept: which of the three axes apply and which countermeasure takes effect. *(Practice: an injected prompt from a compromised library exfiltrated `.env` secrets via tool call — prompt injection is number 1 on the OWASP LLM Top 10.)*
 
-### 33.2 Agent-Runtime-Härtung (Pflichtfelder pro agentischem UC)
+### 33.2 Agent runtime hardening (mandatory fields per agentic UC)
 
-- **Sandboxing** (VM/Container) mit **Netz-Egress-Allowlist** — bricht die dritte Trifecta-Achse.
-- **Keine Klartext-Secrets im Agent-Kontext** — Secret-Store → Umgebungsvariablen (z. B. KeePass/Vault per Skript); sensible Pfade per ignore/exclude aus dem Tool-Kontext nehmen; besonders sensible Repos ggf. ganz ohne KI-Plug-in bearbeiten.
-- **Tool-/Web-Response = untrusted input** (§15.8) — an jeder Grenze sanitisieren; WebFetch/Browse nur auf Allowlist.
-- **Diffs/Commits auf injizierte Prompts prüfen** (Review-Schritt) — gegen eingeschleuste Instruktionen.
-- Vom Coding-Agent mitgelieferte Schutzmechanismen (Sandbox, automated security reviews) **explizit aktivieren**, nicht annehmen.
+- **Sandboxing** (VM/container) with **network egress allowlist** — breaks the third trifecta axis.
+- **No plaintext secrets in the agent context** — secret store → environment variables (e.g. KeePass/Vault via script); remove sensitive paths from the tool context via ignore/exclude; work on particularly sensitive repos entirely without an AI plug-in where appropriate.
+- **Tool/web response = untrusted input** (§15.8) — sanitize at every boundary; WebFetch/Browse only on allowlist.
+- **Check diffs/commits for injected prompts** (review step) — against smuggled-in instructions.
+- **Explicitly activate** protective mechanisms shipped with the coding agent (sandbox, automated security reviews), do not assume them.
 
-### 33.3 MCP-Tool-/Server-Sicherheit (erweitert §16)
+### 33.3 MCP tool/server security (extends §16)
 
-Pro MCP-Server im Konzept führen:
+Maintain per MCP server in the Konzept:
 
-| Pflichtfeld | Schützt gegen |
+| Mandatory field | Protects against |
 |---|---|
-| **Trust-Source** — Eigenbau vs. Drittanbieter; Drittanbieter vetten (Registry/Signatur/Pinning, Qualität prüfen) | Name-Spoofing, qualitativ durchwachsene Fremd-Server |
-| **Beschreibungen sind untrusted** — Approval-Hash + **Re-Verifikation bei `list_changed`** | Tool-Description-Injection, Rug-Pull (Post-Approval-Mutation) |
-| **Tool-Level-Autorisierung** — wer darf welches Tool / welche Daten: OAuth2/JWT/mTLS, API-Gateway/Reverse-Proxy, Rate-Limit, Auditing | unautorisierter Zugriff, ungebremste autonome Aktionen |
-| **Deployment-Isolation** — Sandbox/OCI-Container | Ausbruch, Lateral Movement |
-| **Spec-Version + Upgrade-Strategie** | Versionsdrift (Auth/Transport ändern sich schnell) |
+| **Trust source** — self-built vs. third-party; vet third parties (registry/signature/pinning, check quality) | Name spoofing, third-party servers of mixed quality |
+| **Descriptions are untrusted** — approval hash + **re-verification on `list_changed`** | Tool-description injection, rug pull (post-approval mutation) |
+| **Tool-level authorization** — who may use which tool / which data: OAuth2/JWT/mTLS, API gateway/reverse proxy, rate limit, auditing | unauthorized access, unchecked autonomous actions |
+| **Deployment isolation** — sandbox/OCI container | breakout, lateral movement |
+| **Spec version + upgrade strategy** | version drift (auth/transport change quickly) |
 
-Default = **least privilege**: nur UC-relevante Server/Tools sichtbar (Tool-Budget, §16.6/§16.7).
+Default = **least privilege**: only UC-relevant servers/tools visible (tool budget, §16.6/§16.7).
 
-### 33.4 Threat-Modeling „light" im Design
+### 33.4 Threat modeling "light" in the design
 
-Pflicht bei **neuen APIs, neuen Trust-Boundaries, externen Schnittstellen oder Agent-/Tool-UCs** — ein kurzer Pass (45-Min-Format genügt) im Design, **bevor** Code entsteht:
-1. **Was bauen wir?** — eine Data-Flow-Skizze (Entry-Points, Trust-Boundaries, Datensenken).
-2. **Was kann schiefgehen?** — STRIDE über die Boundaries (Spoofing / Tampering / Repudiation / Info-Disclosure / DoS / Elevation); bei LLM-UC zusätzlich §33.6.
-3. **Was tun wir?** — priorisierte Bedrohungsliste (grobes Risiko = Eintritt × Schaden); je Top-Bedrohung eine Gegenmaßnahme als **AC** (§11.7).
-4. **Gut genug?** — Rest-Risiko notieren; bei Hochrisiko zusätzlich §2.6.
+Mandatory for **new APIs, new trust boundaries, external interfaces or agent/tool UCs** — a short pass (45-minute format suffices) in the design, **before** code is written:
+1. **What are we building?** — a data-flow sketch (entry points, trust boundaries, data sinks).
+2. **What can go wrong?** — STRIDE across the boundaries (Spoofing / Tampering / Repudiation / Info Disclosure / DoS / Elevation); for LLM UCs additionally §33.6.
+3. **What do we do?** — prioritized threat list (rough risk = likelihood × damage); one countermeasure per top threat as an **AC** (§11.7).
+4. **Good enough?** — note residual risk; for high risk additionally §2.6.
 
-Output (Skizze + Bedrohungsliste) ins Konzept; Pflicht-Section bei sicherheitsrelevantem Anteil (§7).
+Output (sketch + threat list) into the Konzept; mandatory section when there is a security-relevant share (§7).
 
-### 33.5 Security-Gates (Build-Blocker, strenger als Quality-Gates)
+### 33.5 Security gates (build blockers, stricter than quality gates)
 
-KI-Code ist **prüfpflichtig wie ein Junior-Beitrag**. Security-Gates sind verbindlicher als Quality-Gates und laufen **projektweit** (nicht nur für KI-Code wie §15.8):
-- **SAST** (CodeQL/SonarQube/Semgrep) — CRITICAL blockt den Build.
-- **Dependency-Scan + SBOM** (CycloneDX/SPDX pro Release); OSS-Aufnahme-Kriterien (OpenSSF-Scorecard, aktive Maintenance, Lizenz-Whitelist); CVE-CRITICAL blockt.
-- **Secret-Scan** (gitleaks pre-commit) + Secrets-Management (Vault/KMS, IaC-Secrets separat) — kein Klartext-Secret im Repo.
-- **Security-Linter** + optional KI-gestützte Security-Reviews (gezielte Prompts/Agenten gegen OWASP-Top-10-Klassen) **als zusätzliche Prüfspur, nicht als Ersatz** für menschliche Reviews; bei kritischen Pfaden Pen-Test / automatisierte Security-Tests.
+AI code is **subject to review like a junior contribution**. Security gates are more binding than quality gates and run **project-wide** (not only for AI code as in §15.8):
+- **SAST** (CodeQL/SonarQube/Semgrep) — CRITICAL blocks the build.
+- **Dependency scan + SBOM** (CycloneDX/SPDX per release); OSS intake criteria (OpenSSF Scorecard, active maintenance, license whitelist); CVE CRITICAL blocks.
+- **Secret scan** (gitleaks pre-commit) + secrets management (Vault/KMS, IaC secrets separate) — no plaintext secret in the repo.
+- **Security linter** + optionally AI-assisted security reviews (targeted prompts/agents against OWASP Top 10 classes) **as an additional review track, not as a replacement** for human reviews; for critical paths, pen test / automated security tests.
 
-### 33.6 LLM-Bedrohungsklassen (erweitert §15.4)
+### 33.6 LLM threat classes (extends §15.4)
 
-Pro LLM-UC die relevanten Klassen + Gegenmaßnahme ausweisen (Orientierung: OWASP GenAI Top 10, §15.7):
+Per LLM UC, state the relevant classes + countermeasure (orientation: OWASP GenAI Top 10, §15.7):
 
-| Klasse | Angriff | Gegenmaßnahme |
+| Class | Attack | Countermeasure |
 |---|---|---|
-| **Input** | Prompt-Injection, Jailbreak | §15.4 Red-Teaming · untrusted-input §15.8 · Lethal-Trifecta-Gate §33.1 |
-| **Output** | Halluzination, unsicherer Code | §15.8 Hybrid-Validierung · §33.5 Gates |
-| **Model** | Model-Stealing, Model-Inversion | API-Rate-Limit/Auth · Output-Monitoring · keine internen Modelldetails preisgeben |
-| **Dataset** | Data-Poisoning, Training-Data-Extraktion | Training-Data-Provenance · RAG-Quellen auf Zugriffsrechte prüfen |
+| **Input** | Prompt injection, jailbreak | §15.4 red teaming · untrusted input §15.8 · Lethal-Trifecta gate §33.1 |
+| **Output** | Hallucination, insecure code | §15.8 hybrid validation · §33.5 gates |
+| **Model** | Model stealing, model inversion | API rate limit/auth · output monitoring · do not disclose internal model details |
+| **Dataset** | Data poisoning, training-data extraction | Training-data provenance · check RAG sources for access rights |
 
-### 33.7 Doppel-Review + Lizenz/IP für KI-Code
+### 33.7 Double review + license/IP for AI code
 
-**Doppel-Review (Pflicht bei KI-Anteil):** (1) **Self-Review vor Commit** durch den KI-nutzenden Dev — Vorschlag verstehen, hinterfragen, refactorn; (2) **dann** regulärer PR-Review durch einen zweiten Menschen. So wird KI-Code von zwei Personen geprüft (KI-Code = Junior-Beitrag, prüfpflichtig; nur ~3 % der Profis übernehmen KI-Output ungeprüft).
+**Double review (mandatory when there is an AI share):** (1) **Self-review before commit** by the AI-using dev — understand, question, refactor the suggestion; (2) **then** regular PR review by a second human. This way AI code is checked by two people (AI code = junior contribution, subject to review; only ~3 % of professionals adopt AI output unchecked).
 
-**Lizenz/IP:** Public-Code-Filter aktiv halten (z. B. Copilot); Vorsicht bei großen, zusammenhängenden, kaum angepassten KI-Blöcken (z. B. Algorithmen) — Copy-Left/GPL-Risiko. Triviale Snippets/Standard-Patterns sind i. d. R. unkritisch.
+**License/IP:** Keep the public-code filter active (e.g. Copilot); be careful with large, contiguous, barely adapted AI blocks (e.g. algorithms) — copyleft/GPL risk. Trivial snippets/standard patterns are usually uncritical.
 
-### 33.8 Prinzipien-Pointer, Scope-Abgrenzung, Compliance-Cross-Ref
+### 33.8 Principle pointers, scope delimitation, compliance cross-ref
 
-- **Zero-Trust** (Prinzip): keine Komponente implizit vertrauen, jeden Zugriff authentifizieren, least privilege, Mikrosegmentierung — für Service-zu-Service **und** Agent-zu-Tool.
-- **IaC-Security** (Pointer): KI-generiertes IaC durchläuft die §33.5-Gates; zusätzlich IaC-Scanner (Checkov/tfsec) gegen Misconfiguration/Drift.
-- **Außerhalb Build-Zeit-Scope** (→ Wiki, nicht Doktrin, §1.7): Incident-Response/Runbooks, Kubernetes-RBAC-Detail, Security-Awareness/Gamification, OWASP-SAMM-Org-Reifegrad.
-- **Regulatorische Compliance:** EU-AI-Act-Risikoklasse + Hochrisiko-Pflichten → §2.6. CRA/NIS2 sowie die Hochrisiko-Detailpflichten (Konformitätsbewertung, EU-DB-Registrierung, FRIA, Post-Market-Monitoring, Log-Aufbewahrung) sind ein eigener Compliance-Strang — Cross-Ref, hier nicht ausgewalzt.
+- **Zero trust** (principle): trust no component implicitly, authenticate every access, least privilege, micro-segmentation — for service-to-service **and** agent-to-tool.
+- **IaC security** (pointer): AI-generated IaC passes through the §33.5 gates; additionally IaC scanners (Checkov/tfsec) against misconfiguration/drift.
+- **Outside build-time scope** (→ wiki, not doctrine, §1.7): incident response/runbooks, Kubernetes RBAC detail, security awareness/gamification, OWASP SAMM org maturity.
+- **Regulatory compliance:** EU AI Act risk class + high-risk obligations → §2.6. CRA/NIS2 as well as the detailed high-risk obligations (conformity assessment, EU database registration, FRIA, post-market monitoring, log retention) are a separate compliance strand — cross-ref, not elaborated here.
 
 ---
 
-# Teil 4 — Konzept-Doktrin (Authoring)
+# Part 4 — Konzept Doctrine (authoring)
 
-Wie ein Konzept geschrieben und reviewt wird. Pflicht-Struktur, UC-Aufbau, Review (Shift-Left), KI-Grenzen, Glossar. *(Die Prompt-Pattern zum Konzept-Lebenszyklus stehen in Anhang A; zwei vollständig durchgerechnete Beispiel-UCs in Anhang B.)*
+How a Konzept is written and reviewed. Mandatory structure, UC build-up, review (shift-left), AI limits, glossary. *(The prompt patterns for the Konzept lifecycle are in Appendix A; two fully worked example UCs in Appendix B.)*
+## 2. Mandatory Structure of a Konzept (concept document)
 
-## 2. Pflicht-Struktur eines Konzepts
+Every Konzept must contain these sections, in this order: §2.1 Header, §2.2 Table of Contents, §2.3 Role Overview, §2.4 Use Cases, §2.5 Technical Appendices, plus §2.6 (Probabilistics Statement) and §2.7 (Vendor Risk Statement) for LLM UCs.
 
-Jedes Konzept muss diese Abschnitte enthalten, in dieser Reihenfolge: §2.1 Kopf, §2.2 Inhaltsverzeichnis, §2.3 Rollen-Übersicht, §2.4 Use Cases, §2.5 Technische Anhänge, plus §2.6 (Probabilistik-Statement) und §2.7 (Vendor-Risiko-Statement) bei LLM-UCs.
-
-### 2.1 Kopf
+### 2.1 Header
 
 ```markdown
-# {Projektname} – Anwender-Konzept
+# {Project name} – User Konzept
 
 **Version:** X.Y
-**Stand:** {Monat Jahr}
-**Scope:** {1–3 Sätze: Was macht dieses System? Für wen? Welche Grenzen hat es?}
+**As of:** {Month Year}
+**Scope:** {1–3 sentences: What does this system do? For whom? What are its limits?}
 ```
 
-**Scope-Regel:** Der Scope beschreibt auch explizit, was das System **nicht** tut. Das verhindert Scope-Creep. Beispiel: *„Symfony Bundle für Datei-Upload, Verwaltung, Varianten-Generierung, Zugriffsschutz und Storage-Adapter. **Nicht enthalten:** Bildbearbeitung, OCR, Viren-Quarantäne."*
+**Scope rule:** The scope also states explicitly what the system does **not** do. This prevents scope creep. Example: *"Symfony bundle for file upload, management, variant generation, access protection and storage adapters. **Not included:** image editing, OCR, virus quarantine."*
 
-### 2.2 Inhaltsverzeichnis
+### 2.2 Table of Contents
 
-Nummerierte Liste aller UCs mit Anchor-Links. Gruppiert nach thematischen Blöcken, wenn > 10 UCs vorhanden.
+Numbered list of all UCs with anchor links. Grouped into thematic blocks when there are > 10 UCs.
 
-### 2.3 Rollen-Übersicht
+### 2.3 Role Overview
 
-Tabelle aller Akteure **bevor** die UCs beginnen. Jede Rolle braucht: technischen Namen (für Code), Scope (Global / Ressource-gebunden), Beschreibung in einem Satz, typische reale Person.
+Table of all actors **before** the UCs begin. Every role needs: a technical name (for code), scope (global / resource-bound), a one-sentence description, a typical real person.
 
 ```markdown
-| Rolle | Scope | Beschreibung | Typische Person |
+| Role | Scope | Description | Typical person |
 |-------|-------|-------------|-----------------|
-| `Admin` | Global | Vollzugriff + Konfiguration | IT-Verantwortlicher |
-| `Sachbearbeiter` | Global | Tagesgeschäft | Bürokraft |
+| `Admin` | Global | Full access + configuration | IT lead |
+| `Sachbearbeiter` | Global | Day-to-day business | Office clerk |
 ```
 
-**Regel:** Rollen in Backticks → direkt als Code verwendbar.
+**Rule:** Roles in backticks → directly usable as code.
 
-### 2.4 Use Cases (Hauptteil)
+### 2.4 Use Cases (Main Part)
 
 ```markdown
-## UC-{Nr.}: {Verb + Objekt}
+## UC-{No.}: {Verb + Object}
 
-**Akteur:** {Rolle(n)}
+**Actor:** {Role(s)}
 **Route:** `{/pfad}` (optional: API: `METHOD /api/...`)
 
-### {Kontextabschnitt}
+### {Context section}
 ...
 
-### Fehlerfälle / Sonderfälle
+### Error cases / Special cases
 ...
 ```
 
-Detaillierter Aufbau siehe §3.
+Detailed structure see §3.
 
-### 2.5 Technische Anhänge
+### 2.5 Technical Appendices
 
-Am Ende des Dokuments, nach allen UCs: Entitäten-Übersicht (Tabelle: Entity, Tabelle, Beschreibung) · Status-Lifecycles (ASCII) · Mercure-Topics (wenn Echtzeit) · API Platform Endpunkte (wenn API) · Externe Abhängigkeiten (Libraries, Dienste).
+At the end of the document, after all UCs: entity overview (table: Entity, Table, Description) · status lifecycles (ASCII) · Mercure topics (if real-time) · API Platform endpoints (if API) · external dependencies (libraries, services).
 
-### 2.6 Probabilistik-Statement im Kopf
+### 2.6 Probabilistics Statement in the Header
 
-Falls das System LLM-Komponenten enthält, ist im Kopf-Abschnitt ein **Probabilistik-Statement** Pflicht (Prinzip §1.5):
-
-```markdown
-## Probabilistik-Statement
-
-Dieses System nutzt LLM-Komponenten in den UCs: {Liste}.
-
-| UC | Toleranz-Schwelle | Validierungsstrategie | Fallback | EU-AI-Act-Risiko-Klasse |
-|---|---|---|---|---|
-| UC-XX | 95 % Korrektheit | LLM-as-Judge + Schema-Validation | Eskalation an Sachbearbeiter | begrenzt |
-| UC-YY | 70 % Korrektheit | Schema + Substring-Match | Default-Antwort | minimal |
-| UC-ZZ | n/a (deterministisch + Senior-Sign-off) | LSP/AST + Senior-Review | manueller Eingriff | **hoch** (Personalentscheidung) |
-
-Sicherheitskritische UCs ohne LLM: {Liste}.
-```
-
-**Bei Hochrisiko-UCs zusätzlich Pflicht (EU AI Act):** Data Governance dokumentiert · Logging aller LLM-Calls + menschlicher Validierungs-Schritte · Human Oversight als expliziter UC-Schritt · Robustheits-/Genauigkeits-Tests · Transparenz-Pflicht (User weiß, dass KI involviert ist) bei begrenzt + hoch. **Provider-/Deployer-Pflichten vor Inverkehrbringen:** Konformitätsbewertung · Registrierung in der EU-Datenbank · Qualitätsmanagementsystem · Post-Market-Monitoring · **FRIA** (Grundrechte-Folgenabschätzung, wo gefordert) · automatisierte Log-Aufbewahrung **≥ 6 Monate**.
-
-**Über den EU AI Act hinaus** (für Produkte mit digitalen Elementen, eigener Compliance-Strang — vgl. §33.8): **CRA** (Cyber Resilience Act — Schwachstellenmanagement-Pflicht ab Inverkehrbringen) und **NIS2** (Art. 21, inkl. Lieferketten-Risikobewertung). Bei personenbezogenen Hochrisiko-UCs zusätzlich **DSK-Maßnahmen**: Intervenierbarkeit/Machine-Unlearning, Adversarial-Input-Filter, Schutz vor Model-Stealing, RAG-Quellen-Zugriffsrechte prüfen.
-
-**Sicherheitskritische Entscheidungen bleiben deterministisch (§13.3)** — Eintrag „n/a (deterministisch + Senior-Sign-off)", nicht als probabilistischer LLM-UC.
-
-**Risiko-Klassen-Skala (EU AI Act):** **Inakzeptabel** — verboten (z. B. Social Scoring durch Behörden), darf nicht implementiert werden · **Hoch** — strenge Pflichten (Data Governance, Logging, Human Oversight, Robustheit); z. B. medizinische Diagnostik, Personalentscheidungen · **Begrenzt** — Transparenz-Pflicht; z. B. Chatbots, Deepfakes · **Minimal** — keine Zusatzpflichten; z. B. Spam-Filter, Spiele-KI.
-
-**Rechtsgrundlage + Zeitplan (inline, Stand Mai 2026):** Verordnung (EU) 2024/1689 („KI-VO" / EU AI Act), in Kraft seit August 2024, gestaffelte Anwendbarkeit:
-- seit **Feb 2025**: Verbot inakzeptabler Praktiken + KI-Kompetenzpflicht
-- seit **Aug 2025**: Pflichten für General-Purpose-AI-Modelle (GPAI)
-- ab **Aug 2026**: Transparenzpflichten; Governance-Strukturen für Hochrisiko nach Anhang III müssen stehen
-- ab **2. Dez 2027**: volle Hochrisiko-Pflichten für eigenständige Anhang-III-Systeme (biometrische Systeme, Personalauswahl, Bildung, Kreditwürdigkeit)
-- ab **2. Aug 2028**: Hochrisiko-Pflichten für in regulierte Produkte eingebettete KI nach Anhang I
-
-Die Verschiebung der Anhang-III/I-Fristen erfolgte durch den **Digital-Omnibus vom 7. Mai 2026**. Im Konzept bei Hochrisiko-UC: einschlägige Frist + Anhang-Zuordnung (III vs. I) explizit nennen.
-
-### 2.7 Vendor-Risiko-Statement (Pflicht bei LLM-UCs)
+If the system contains LLM components, a **Probabilistics Statement** in the header section is mandatory (principle §1.5):
 
 ```markdown
-## Vendor-Risiko-Statement
+## Probabilistics Statement
 
-| UC | Provider | Modell | Migrations-Strategie | Daten-Souveränität |
+This system uses LLM components in the UCs: {list}.
+
+| UC | Tolerance threshold | Validation strategy | Fallback | EU AI Act risk class |
 |---|---|---|---|---|
-| UC-XX | Anthropic | claude-opus-4-8 | Spring AI Adapter (Provider-Wechsel über Config) | PII-Anonymisierung via Presidio vor Send |
-| UC-YY | lokal (Ollama) | llama-3.1-70b | self-hosted, kein Vendor | volle Souveränität |
+| UC-XX | 95 % correctness | LLM-as-Judge + schema validation | Escalation to case worker | limited |
+| UC-YY | 70 % correctness | Schema + substring match | Default answer | minimal |
+| UC-ZZ | n/a (deterministic + senior sign-off) | LSP/AST + senior review | manual intervention | **high** (HR decision) |
+
+Safety-critical UCs without LLM: {list}.
 ```
 
-**Pflicht-Schwelle:** bei **jedem** LLM-UC (auch lokal/PoC). Sobald irgendein LLM im Spiel ist, muss transparent sein: welcher Provider, wie ein Wechsel funktioniert (Spring AI / LangChain / Model-Layer-Abstraktion), wo die Daten verlaufen (PII vor Send anonymisiert? Self-Hosting-Fallback?). Nur bei rein deterministischen Konzepten **ohne** LLM-UC entfällt §2.7.
+**Additionally mandatory for high-risk UCs (EU AI Act):** data governance documented · logging of all LLM calls + human validation steps · human oversight as an explicit UC step · robustness/accuracy tests · transparency obligation (user knows that AI is involved) for limited + high. **Provider/deployer obligations before placing on the market:** conformity assessment · registration in the EU database · quality management system · post-market monitoring · **FRIA** (fundamental rights impact assessment, where required) · automated log retention **≥ 6 months**.
+
+**Beyond the EU AI Act** (for products with digital elements, separate compliance track — cf. §33.8): **CRA** (Cyber Resilience Act — vulnerability management obligation from placing on the market) and **NIS2** (Art. 21, incl. supply-chain risk assessment). For high-risk UCs involving personal data additionally **DSK measures**: intervenability/machine unlearning, adversarial input filter, protection against model stealing, check RAG source access rights.
+
+**Safety-critical decisions remain deterministic (§13.3)** — entry "n/a (deterministic + senior sign-off)", not as a probabilistic LLM UC.
+
+**Risk class scale (EU AI Act):** **Unacceptable** — prohibited (e.g. social scoring by authorities), must not be implemented · **High** — strict obligations (data governance, logging, human oversight, robustness); e.g. medical diagnostics, HR decisions · **Limited** — transparency obligation; e.g. chatbots, deepfakes · **Minimal** — no additional obligations; e.g. spam filters, game AI.
+
+**Legal basis + timeline (inline, as of May 2026):** Regulation (EU) 2024/1689 ("KI-VO" / EU AI Act), in force since August 2024, staggered applicability:
+- since **Feb 2025**: ban on unacceptable practices + AI literacy obligation
+- since **Aug 2025**: obligations for general-purpose AI models (GPAI)
+- from **Aug 2026**: transparency obligations; governance structures for high-risk under Annex III must be in place
+- from **2 Dec 2027**: full high-risk obligations for standalone Annex III systems (biometric systems, recruitment, education, creditworthiness)
+- from **2 Aug 2028**: high-risk obligations for AI embedded in regulated products under Annex I
+
+The postponement of the Annex III/I deadlines was made by the **Digital Omnibus of 7 May 2026**. In the Konzept, for a high-risk UC: name the applicable deadline + annex assignment (III vs. I) explicitly.
+
+### 2.7 Vendor Risk Statement (Mandatory for LLM UCs)
+
+```markdown
+## Vendor Risk Statement
+
+| UC | Provider | Model | Migration strategy | Data sovereignty |
+|---|---|---|---|---|
+| UC-XX | Anthropic | claude-opus-4-8 | Spring AI adapter (provider switch via config) | PII anonymization via Presidio before send |
+| UC-YY | local (Ollama) | llama-3.1-70b | self-hosted, no vendor | full sovereignty |
+```
+
+**Mandatory threshold:** for **every** LLM UC (including local/PoC). As soon as any LLM is involved, it must be transparent: which provider, how a switch works (Spring AI / LangChain / model-layer abstraction), where the data flows (PII anonymized before send? Self-hosting fallback?). Only for purely deterministic Konzept documents **without** an LLM UC does §2.7 not apply.
 
 ---
 
-## 3. UC-Struktur im Detail
+## 3. UC Structure in Detail
 
-### Pflichtfelder je UC
+### Mandatory fields per UC
 
-| Element | Pflicht | Beschreibung |
+| Element | Mandatory | Description |
 |---------|---------|-------------|
-| Akteur | Ja | Wer löst diesen UC aus? |
-| Route | Ja | HTTP-Pfad. Bei rein systemischen UCs: „System (automatisch)" |
-| Formularfelder | Bedingt | Wenn Nutzereingaben vorhanden |
-| Verhalten / Ablauf | Ja | Was passiert Schritt für Schritt — **nummeriert** |
-| Fehlerfälle | Ja | Mindestens die wahrscheinlichsten 2–3 |
+| Actor | Yes | Who triggers this UC? |
+| Route | Yes | HTTP path. For purely systemic UCs: "System (automatic)" |
+| Form fields | Conditional | If user input is present |
+| Behavior / Flow | Yes | What happens step by step — **numbered** |
+| Error cases | Yes | At least the 2–3 most likely |
 
-### 3.0 Ablauf-Nummerierung
+### 3.0 Flow Numbering
 
-Ablaufschritte im Verhalten-Abschnitt **immer nummerieren** (Aktogramm-Prinzip). Ermöglicht präzise KI-Prompts: „Implementiere Schritt 3.2 aus UC-05."
+**Always number** the flow steps in the behavior section (Aktogramm principle). Enables precise AI prompts: "Implement step 3.2 from UC-05."
 
 ```markdown
-### Verhalten
+### Behavior
 
-1. Nutzer klickt „Speichern"
-2. Validierung der Pflichtfelder
-   2.1 E-Mail-Format prüfen
-   2.2 Passwörter auf Übereinstimmung prüfen
-   2.3 Benutzername auf Eindeutigkeit prüfen (DB-Query)
-3. Bei Validierungsfehler: Fehlermeldung inline, Formular bleibt offen
-4. Bei Erfolg: Datensatz speichern, Bestätigungs-E-Mail senden (async)
+1. User clicks "Save"
+2. Validation of the mandatory fields
+   2.1 Check e-mail format
+   2.2 Check passwords for match
+   2.3 Check username for uniqueness (DB query)
+3. On validation error: error message inline, form stays open
+4. On success: save record, send confirmation e-mail (async)
 5. Redirect → `/dashboard?registered=1`
 ```
 
-**Warum Nummern wichtig sind:** KI kann gezielt auf Schritt X.Y verwiesen werden · Änderungsverfolgung · sprachliche Referenzen in anderen UCs · Testfälle verweisen direkt auf Schrittnummern.
+**Why numbers matter:** AI can be pointed precisely at step X.Y · change tracking · verbal references in other UCs · test cases refer directly to step numbers.
 
-### Optionale Elemente (situationsabhängig)
+### Optional elements (situational)
 
-| Element | Wann |
+| Element | When |
 |---------|------|
-| Status-Lifecycle | Wenn Objekt einen Status hat |
-| Validierungsregeln | Wenn Felder komplexe Regeln haben |
-| Rate-Limits | Wenn Missbrauch möglich ist |
-| Sicherheitsregeln | Wenn Auth/Datenschutz betroffen |
-| Sonderfälle | Wenn Standardpfad Ausnahmen hat |
-| Manuelles Äquivalent | Wenn technisch komplex und nicht intuitiv |
+| Status lifecycle | When the object has a status |
+| Validation rules | When fields have complex rules |
+| Rate limits | When abuse is possible |
+| Security rules | When auth/data protection is affected |
+| Special cases | When the standard path has exceptions |
+| Manual equivalent | When technically complex and not intuitive |
 
-### 3.1 Formularfelder-Tabelle
+### 3.1 Form Fields Table
 
 ```markdown
-| Feld | Typ | Pflicht | Hinweis |
+| Field | Type | Mandatory | Note |
 |------|-----|---------|---------|
-| Name | Text | Ja | max. 200 Zeichen |
+| Name | Text | Ja | max. 200 characters |
 | Status | Auswahl | Ja | `aktiv` / `inaktiv` / `archiviert` |
-| Datei | Datei | Nein | PDF, max. 10 MB |
+| File | Datei | Nein | PDF, max. 10 MB |
 ```
 
-**Typen-Vokabular:** `Text`, `Textarea`, `Rich-Text`, `E-Mail`, `Tel`, `URL`, `Zahl`, `EUR`, `Datum`, `Datetime`, `Auswahl`, `Multi-Auswahl`, `Tag-Input`, `Toggle`, `Checkbox`, `Datei`, `Bild-Upload`, `Passwort`, `Signatur-Pad`, `User-Auswahl`, `Adresse`.
-**Pflicht-Werte:** `Ja` · `Nein` · `Bed.` (bedingt, Bedingung im Hinweis) · `Konfig.` (abhängig von Systemkonfiguration).
+**Type vocabulary:** `Text`, `Textarea`, `Rich-Text`, `E-Mail`, `Tel`, `URL`, `Zahl`, `EUR`, `Datum`, `Datetime`, `Auswahl`, `Multi-Auswahl`, `Tag-Input`, `Toggle`, `Checkbox`, `Datei`, `Bild-Upload`, `Passwort`, `Signatur-Pad`, `User-Auswahl`, `Adresse`.
+**Mandatory values:** `Ja` (yes) · `Nein` (no) · `Bed.` (conditional, condition in the note) · `Konfig.` (depends on system configuration).
 
-### 3.2 Fehlerfälle-Tabelle
+### 3.2 Error Cases Table
 
-Immer als Tabelle, nie als Fließtext.
+Always as a table, never as running text.
 
 ```markdown
-### Fehlerfälle
+### Error cases
 
-| Fall | Meldung / Verhalten |
+| Case | Message / Behavior |
 |------|---------------------|
-| E-Mail bereits registriert | „Für diese E-Mail existiert bereits ein Konto." + Link zu /reset-password |
-| Datei zu groß | „Maximale Dateigröße: X MB." |
-| Keine Berechtigung | 403 Forbidden |
+| E-mail already registered | "An account already exists for this e-mail." + link to /reset-password |
+| File too large | "Maximum file size: X MB." |
+| No permission | 403 Forbidden |
 ```
 
-**Fehlerfälle-Checkliste:** Eingabe-Validierungsfehler · Duplikate / Konflikte · Nicht gefunden (404) · Keine Berechtigung (403) · Externe Dienste nicht erreichbar · Rate-Limit erreicht · Status-Konflikte.
+**Error cases checklist:** input validation errors · duplicates / conflicts · not found (404) · no permission (403) · external services unreachable · rate limit reached · status conflicts.
 
-### 3.3 Status-Lifecycle
+### 3.3 Status Lifecycle
 
-Immer als ASCII-Diagramm. **Regel:** Jeder Status braucht mindestens einen eingehenden und einen ausgehenden Übergang (außer Start- und Endstatus).
+Always as an ASCII diagram. **Rule:** Every status needs at least one incoming and one outgoing transition (except start and end status).
 
 ```markdown
-Neu → In Bearbeitung → Angebot erstellt → Gewonnen
-                                        └→ Verloren
-                                        └→ Kein Bedarf
+New → In progress → Quote created → Won
+                                  └→ Lost
+                                  └→ No need
 ```
 
-### 3.4 Manuelles Äquivalent
+### 3.4 Manual Equivalent
 
-Für technisch komplexe oder nicht intuitive Konzepte (Bundles, KI-Systeme, Batch-Prozesse). Zweck: KI und Entwickler verstehen sofort den Kontext ohne Domain-Vorwissen. Ablaufschritte nummeriert.
+For technically complex or non-intuitive Konzept documents (bundles, AI systems, batch processes). Purpose: AI and developers immediately understand the context without domain knowledge. Flow steps numbered.
 
-**Hinweis:** User-Stories sind eine konkrete Ableitung aus UC + AC und gehören in den Slice-Brief (§28.3), nicht ins Konzept-UC. UC = abstrakte Ebene; AC = Akzeptanzkriterium (§11.7); User-Story = Konkretisierung. Vokabular siehe §14 Glossar.
+**Note:** User stories are a concrete derivation from UC + AC and belong in the slice brief (§28.3), not in the Konzept UC. UC = abstract level; AC = acceptance criterion (§11.7); user story = concretization. Vocabulary see §14 Glossary.
 
 ---
 
-## 4. Klassifizierung von UCs nach Akteur
+## 4. Classification of UCs by Actor
 
-| Kategorie | Typische Route | Beschreibung |
+| Category | Typical route | Description |
 |-----------|---------------|-------------|
-| **Nutzer-UC** | `/feature/...` | Selbstbedienung durch eingeloggten User |
-| **Sachbearbeiter-UC** | `/manage/...` oder im Haupt-UI | Tagesgeschäft, Datenpflege |
-| **Admin-UC** | `/admin/...` | Konfiguration, Benutzerverwaltung |
-| **System-UC** | Kein HTTP | Automatisch, Cron, Messenger, Events |
-| **CLI-UC** | `bin/console ...` | Manuelle oder geplante Kommandos |
+| **User UC** | `/feature/...` | Self-service by logged-in user |
+| **Case-worker UC** | `/manage/...` or in the main UI | Day-to-day business, data maintenance |
+| **Admin UC** | `/admin/...` | Configuration, user management |
+| **System UC** | No HTTP | Automatic, cron, messenger, events |
+| **CLI UC** | `bin/console ...` | Manual or scheduled commands |
 
-**Route-Konvention:** Nutzer-Bereich `/profile/...`, `/garage/...`; Sachbearbeiter direkt ohne Prefix (`/contacts`, `/projects`); Admin unter `/admin/...`; API Platform unter `/api/...`.
+**Route convention:** user area `/profile/...`, `/garage/...`; case worker directly without prefix (`/contacts`, `/projects`); admin under `/admin/...`; API Platform under `/api/...`.
 
-## 5. Entitäten-Übersicht
+## 5. Entity Overview
 
-Pflicht am Ende jedes Konzepts (Tabelle: Entity, Tabelle, Beschreibung).
+Mandatory at the end of every Konzept (table: Entity, Table, Description).
 
-**Tabellennamens-Konvention je Projekt:** Bundle (wiederverwendbar) → `{bundle}_`-Präfix (`notif_notifications`, `media_files`); App (projektspezifisch) → kein Präfix (`contacts`, `projects`); Add-on-Modul → `{modul}_`-Präfix. Präfixe verhindern Tabellenkonflikte bei mehreren Bundles in einer App.
+**Table naming convention per project:** bundle (reusable) → `{bundle}_` prefix (`notif_notifications`, `media_files`); app (project-specific) → no prefix (`contacts`, `projects`); add-on module → `{modul}_` prefix. Prefixes prevent table conflicts when several bundles are in one app.
 
-## 6. Versionierung von Konzepten
+## 6. Versioning of Konzept Documents
 
-| Version | Bedeutung |
+| Version | Meaning |
 |---------|-----------|
-| 1.0 | Erstes vollständiges Konzept |
-| 1.x | Ergänzungen, neue UCs, keine Breaking Changes |
-| 2.0 | Strukturelle Überarbeitung, geänderte UCs |
+| 1.0 | First complete Konzept |
+| 1.x | Additions, new UCs, no breaking changes |
+| 2.0 | Structural rework, changed UCs |
 
-**Changelog-Abschnitt** ab v2.0 Pflicht (Liste der Änderungen zur Vorversion).
+**Changelog section** mandatory from v2.0 (list of changes relative to the previous version).
 
-## 7. Checkliste vor Fertigstellung
+## 7. Checklist before Completion
 
-> Diese Liste ist das **Gate** (Schicht 1) der Reife-Policy `plugins/cdp5-gates/policy/reife-rubrik.policy.md` (Items G1–G11, je als [det] für `konzept-lint` oder [jdg] für `konzept-reviewer` markiert). Die Policy ist die einzige Rubrik; §9 A.2, §10.3 und §10.5 verweisen auf sie. Ein offenes Gate-Item heißt „nicht reif", unabhängig vom Score.
+> This list is the **Gate** (layer 1) of the maturity policy `plugins/cdp5-gates/policy/reife-rubrik.policy.md` (items G1–G11, each marked as [det] for `konzept-lint` or [jdg] for `konzept-reviewer`). The policy is the only rubric; §9 A.2, §10.3 and §10.5 refer to it. An open gate item means "not mature", regardless of the score.
 
-**Basis-Checkliste:**
-- [ ] Alle UCs haben nummerierte Schritte
-- [ ] Alle Pflicht-Felder belegt
-- [ ] Fehlerfälle-Tabellen vollständig
-- [ ] Status-Lifecycle-Diagramme vorhanden
-- [ ] Rollen-Übersicht aktuell
-- [ ] Probabilistik-Statement im Kopf (falls LLM-UCs, §2.6)
-- [ ] Akzeptanzkriterien-Tabelle pro UC (§11.7)
-- [ ] Glossar gepflegt (§14)
-- [ ] Changelog-Eintrag
-- [ ] Sachbearbeiter-Test bestanden (§1.1)
-- [ ] Keine offenen Annahmen — Unklarheiten + offene Entscheidungen im Dialog geklärt, nicht geraten (§1.9)
+**Basic checklist:**
+- [ ] All UCs have numbered steps
+- [ ] All mandatory fields filled
+- [ ] Error cases tables complete
+- [ ] Status lifecycle diagrams present
+- [ ] Role overview up to date
+- [ ] Probabilistics Statement in the header (if LLM UCs, §2.6)
+- [ ] Acceptance criteria table per UC (§11.7)
+- [ ] Glossary maintained (§14)
+- [ ] Changelog entry
+- [ ] Case-worker test passed (§1.1)
+- [ ] No open assumptions — ambiguities + open decisions resolved in dialogue, not guessed (§1.9)
 
-**Erweiterung bei Implementation-Plan-Anteil** (Modus A/B/C/D/E nach §29):
-- [ ] CONTEXT.md vorhanden oder angelegt (§28.1)
-- [ ] ADRs im Touch-Bereich gelesen; bei Konflikt ADR-Update vorgesehen (§1.8 + §27.6)
-- [ ] Slice-Plan mit HITL/AFK-Markierung und Dependencies (§27.2 + §28.3)
-- [ ] AC-Tabelle pro UC pro Slice (§11.7 + §27.4)
-- [ ] Bei Brownfield: Deletion-Test-Begründung pro neuem Modul (§27.1)
-- [ ] Bei Review/Teardown: Output-Schema aus §29 Modus C erfüllt (C.1 oder C.2)
-- [ ] Bei LLM-UC: Hybrid-Validierungs-Schichten + Phasen Pre/Inline/Post (§13.2 + §15.8)
-- [ ] Bei Hochrisiko-EU-AI-Act-UC: Data Governance + Logging + Human Oversight + Robustheits-Tests (§2.6)
-- [ ] Vendor-Risiko-Statement vorhanden bei LLM-UC (§2.7)
-- [ ] Validierungs-Mindset-Niveau in Verantwortungs-Matrix (§23.1)
+**Extension for implementation-plan share** (mode A/B/C/D/E per §29):
+- [ ] CONTEXT.md present or created (§28.1)
+- [ ] ADRs in the touch area read; on conflict an ADR update is planned (§1.8 + §27.6)
+- [ ] Slice plan with HITL/AFK marking and dependencies (§27.2 + §28.3)
+- [ ] AC table per UC per slice (§11.7 + §27.4)
+- [ ] For brownfield: Deletion-Test rationale per new module (§27.1)
+- [ ] For review/teardown: output schema from §29 mode C fulfilled (C.1 or C.2)
+- [ ] For LLM UC: hybrid validation layers + phases pre/inline/post (§13.2 + §15.8)
+- [ ] For high-risk EU AI Act UC: data governance + logging + human oversight + robustness tests (§2.6)
+- [ ] Vendor Risk Statement present for LLM UC (§2.7)
+- [ ] Validation mindset level in the responsibility matrix (§23.1)
 
-**Erweiterung bei Agent-/Tool-/Security-Anteil (Teil 3):**
-- [ ] Threat-Modeling-„light" durchgeführt; Bedrohungsliste + Gegenmaßnahmen-AC im Konzept (§33.4)
-- [ ] Lethal-Trifecta-Achsen pro Agent-/Tool-UC ausgewiesen + Gegenmaßnahme (§33.1/§33.2)
-- [ ] Pro MCP-Server: Trust-Source, Tool-Autorisierung, Isolation, Spec-Version (§33.3)
-- [ ] Security-Gates (SAST · Dependency-Scan+SBOM · Secret-Scan) als Build-Blocker aktiv (§33.5)
-- [ ] LLM-Bedrohungsklassen pro LLM-UC ausgewiesen (§33.6)
-- [ ] Doppel-Review (Self vor Commit + PR) + Public-Code-Filter (§33.7)
+**Extension for agent/tool/security share (Part 3):**
+- [ ] Threat modeling "light" carried out; threat list + countermeasure ACs in the Konzept (§33.4)
+- [ ] Lethal Trifecta axes identified per agent/tool UC + countermeasure (§33.1/§33.2)
+- [ ] Per MCP server: trust source, tool authorization, isolation, spec version (§33.3)
+- [ ] Security gates (SAST · dependency scan+SBOM · secret scan) active as build blockers (§33.5)
+- [ ] LLM threat classes identified per LLM UC (§33.6)
+- [ ] Double review (self before commit + PR) + public-code filter (§33.7)
 
-> Die Anti-Pattern-Prüfliste für das Review steht in **§25** (Teil 6).
+> The anti-pattern checklist for the review is in **§25** (Part 6).
 
 ---
 
-## 10. KI-Review des Konzepts (Shift Left)
+## 10. AI Review of the Konzept (Shift Left)
 
-### 10.1 Shift-Left-Prinzip
+### 10.1 Shift-Left Principle
 
-Das Konzept selbst wird durch KI geprüft — **bevor** eine einzige Code-Zeile geschrieben wird. Die Fehlererkennung verschiebt sich nach vorn; die KI übernimmt die stumpfe Fleißarbeit der Konsistenzprüfung (Provenienz: Bartels 2026). Das ist günstiger als Fehler in der Implementierung zu finden.
+The Konzept itself is checked by AI — **before** a single line of code is written. Error detection moves forward; the AI takes over the dull legwork of consistency checking (provenance: Bartels 2026). This is cheaper than finding errors in the implementation.
 
-### 10.2 Was KI im Konzept prüft
+### 10.2 What AI Checks in the Konzept
 
-| Prüfkategorie | Beispiel-Fehler |
+| Check category | Example error |
 |---------------|----------------|
-| Logischer Widerspruch | Schritt 3 setzt Status X voraus, Schritt 1 setzt aber Y |
-| Schnittstellen-Lücke | UC-05 referenziert Feld `customer_id`, aber UC-01 legt es nicht an |
-| Fehlende Ausnahme-Behandlung | Ablauf beschreibt keinen Fall für negativen Zahlenwert |
-| Prosalogik | „je nach Situation" ohne Definition der Situationen |
-| Datentyp-Konflikt | Feld als `Text` beschrieben, aber Rechenoperation impliziert `Zahl` |
-| Architektur-Verstoß | UC beschreibt UI-Logik im Backend-Service |
+| Logical contradiction | Step 3 requires status X, but step 1 sets Y |
+| Interface gap | UC-05 references field `customer_id`, but UC-01 does not create it |
+| Missing exception handling | Flow describes no case for a negative numeric value |
+| Prose logic | "depending on the situation" without defining the situations |
+| Data type conflict | Field described as `Text`, but an arithmetic operation implies `Zahl` |
+| Architecture violation | UC describes UI logic in the backend service |
 
-### 10.3 Review-Zyklus
+### 10.3 Review Cycle
 
 ```
-Konzept-Entwurf → konzept-lint (Gate det-Items + Teil-Score) → konzept-reviewer (Gate jdg-Items + Score + Lückenliste)
-  → Entwickler entscheidet: beheben oder „Won't Fix" (Known-Issue-Zeile, §28.2) → Nächster Review-Lauf (max. 2 Judgment-Runden, dann Mensch)
-  → Gate bestanden UND Score ≥ Schwelle der Projekt-Policy → implementierungsreif
+Konzept draft → konzept-lint (gate det items + partial score) → konzept-reviewer (gate jdg items + score + gap list)
+  → Developer decides: fix or "Won't Fix" (Known-issue (known issue) line, §28.2) → Next review run (max. 2 judgment rounds, then human)
+  → Gate passed AND score ≥ threshold of the project policy → ready for implementation
 ```
 
-Schwelle und Skala stehen in der Projekt-Policy (Plugin-Default 8,0), nicht in der Doktrin; der Reviewer meldet die Schwellen-Erreichung als Feststellung, das Projekt entscheidet.
+Threshold and scale are in the project policy (plugin default 8.0), not in the doctrine; the reviewer reports reaching the threshold as a finding, the project decides.
 
-**Interview-Modus statt statischer Lückenliste (Provenienz: Bartels):** Der Review-Agent arbeitet stärker, wenn er **eine** Lücke findet, **eine** gezielte Rückfrage stellt, die Antwort entgegennimmt und die Korrektur direkt ins strukturierte Dokument einwebt — dann erst die nächste Runde (analog dem initialen Spec-Interview, Anhang A.3).
+**Interview mode instead of a static gap list (provenance: Bartels):** The review agent works better when it finds **one** gap, asks **one** targeted follow-up question, receives the answer and weaves the correction directly into the structured document — only then the next round (analogous to the initial spec interview, Appendix A.3).
 
-**Strukturierter Input schlägt Prosa:** Ein Review-/Verifikations-Agent liefert deutlich bessere Ergebnisse, wenn die Spec als **maschinenlesbarer Baum** (nummerierte Schritte, Verzweigungen, Fehlerfälle — §3.0) statt als Fließtext vorliegt. Die §3-Struktur ist damit nicht nur menschen-, sondern agent-optimal.
+**Structured input beats prose:** A review/verification agent delivers significantly better results when the spec is available as a **machine-readable tree** (numbered steps, branches, error cases — §3.0) instead of running text. The §3 structure is thus not only human-optimal but agent-optimal.
 
-### 10.4 Score als Diskussionsgrundlage
+### 10.4 Score as a Basis for Discussion
 
-Der Score ist kein absoluter Qualitätswert, sondern eine Diskussionsgrundlage. Ein bewusst akzeptiertes Risiko (z. B. spätere I18N-Migration) darf als „Known Issue" markiert werden.
+The score is not an absolute quality value but a basis for discussion. A consciously accepted risk (e.g. a later I18N migration) may be marked as a "Known Issue".
 
-### 10.5 Verzeichnis-Konvention für Review-Agenten
+### 10.5 Directory Convention for Review Agents
 
 ```
 .github/
 ├── agents/
-│   └── uc-review.agent.md            # Persona — kritischer Software-Architekt
+│   └── uc-review.agent.md            # Persona — critical software architect
 ├── ai/
-│   ├── glossar.md                    # Domain-Model + semantische Anker
-│   ├── architektur-regeln.md         # Querschnittskonventionen
+│   ├── glossar.md                    # Domain model + semantic anchors
+│   ├── architektur-regeln.md         # Cross-cutting conventions
 │   └── decision-policies/
-│       ├── implementation-clarity.policy.md   # 70 % Gewicht
+│       ├── implementation-clarity.policy.md   # 70 % weight
 │       └── integration-clarity.policy.md
 ```
 
-Persona definiert die Review-Rolle (kritischer Architekt, scort UCs gegen die Policies, schlägt keine Implementation vor, nutzt das Glossar). Policies sind gewichtet und definieren Pass/Fail. Das hier gezeigte Layout ist ein **Beispiel für eine Verzeichnis-Konvention**, keine Rubrik; die geltende Rubrik ist die Reife-Policy des Plugins cdp5-gates (`policy/reife-rubrik.policy.md`, Gate plus gewichtete Dimensionen). In Claude Code liegen Agent-Dateien unter `.claude/agents/` bzw. im Plugin; in Firmen-Repos wird keines von beidem committet (§28).
+The persona defines the review role (critical architect, scores UCs against the policies, proposes no implementation, uses the glossary). Policies are weighted and define pass/fail. The layout shown here is an **example of a directory convention**, not a rubric; the applicable rubric is the maturity policy of the cdp5-gates plugin (`policy/reife-rubrik.policy.md`, gate plus weighted dimensions). In Claude Code, agent files live under `.claude/agents/` or in the plugin; in company repos neither is committed (§28).
 
-> Verifikationsagent (§10.6), Verifikations-Konvention (§10.7) und Modell↔API-Check (§19) stehen in **Teil 2** — sie gehören zum Arbeitsweg.
+> Verification agent (§10.6), verification convention (§10.7) and model↔API check (§19) are in **Part 2** — they belong to the working path.
 
 ---
 
-## 11. KI-Grenzen beim Konzept-Einsatz
+## 11. AI Limits when Using the Konzept
 
-KI glänzt bei Boilerplate, Prototypen, Erklärungen und kleinen, in sich geschlossenen Modulen; bei reifen Codebasen mit speziellen Konventionen sinkt ihre Nützlichkeit rapide (Provenienz: Mahringer 2026).
+AI shines at boilerplate, prototypes, explanations and small, self-contained modules; with mature codebases with special conventions its usefulness drops rapidly (provenance: Mahringer 2026).
 
-### 11.1 Wann KI beim Konzept gut hilft
+### 11.1 When AI Helps Well with the Konzept
 
-Initiales Gerüst (Struktur, UCs) aus kurzer Beschreibung · fehlende UCs identifizieren (Review) · Fehlerfälle ergänzen · Datentypen und Validierungsregeln vorschlagen · Entitäten-Modell aus UC-Beschreibungen ableiten · Formulierungen präzisieren.
+Initial scaffold (structure, UCs) from a short description · identify missing UCs (review) · add error cases · propose data types and validation rules · derive the entity model from UC descriptions · sharpen wording.
 
-### 11.2 Wann menschliche Kontrolle Pflicht ist
+### 11.2 When Human Control Is Mandatory
 
-| Bereich | Warum KI nicht ausreicht |
+| Area | Why AI is not enough |
 |---------|--------------------------|
-| Fachliche Korrektheit | KI kennt die Domäne nicht — Sachbearbeiter muss bestätigen |
-| Regulatorische Anforderungen | Gesetzestexte müssen direkt referenziert werden |
-| Sicherheitskritische Logik | Wahrscheinlichkeitsbasierte Generierung + Sicherheit = Risiko |
-| Architektur-Entscheidungen | KI schlägt vor, Architekt entscheidet |
-| Geschäftsregeln mit Ausnahmen | KI lässt Randwerte und Sonderfälle weg |
+| Domain correctness | AI does not know the domain — the case worker must confirm |
+| Regulatory requirements | Legal texts must be referenced directly |
+| Safety-critical logic | Probability-based generation + safety = risk |
+| Architecture decisions | AI proposes, the architect decides |
+| Business rules with exceptions | AI leaves out edge values and special cases |
 
-### 11.3 Cognitive Offloading vermeiden (inkl. konkrete Eindämmung)
+### 11.3 Avoiding Cognitive Offloading (incl. Concrete Containment)
 
-Der Entwickler darf nicht zum „externen Speichercontroller des Assistenten" werden (Provenienz: Mahringer 2026). Das Konzept muss vom Entwickler selbst verstanden werden — nicht nur von der KI. Wer das Konzept nicht erklären kann, hat KI-Output ohne Verständnis; das führt zu Fehlern, die niemand mehr findet. **Gegenmaßnahme:** nach KI-generiertem Konzept-Entwurf immer ein manueller Walk-Through (§23.2). Konkrete Übungen:
+The developer must not become the „externen Speichercontroller des Assistenten" (provenance: Mahringer 2026). The Konzept must be understood by the developer themselves — not only by the AI. Whoever cannot explain the Konzept has AI output without understanding; that leads to errors nobody finds anymore. **Countermeasure:** after an AI-generated Konzept draft, always a manual walk-through (§23.2). Concrete exercises:
 
-| Übung | Frequenz | Ziel |
+| Exercise | Frequency | Goal |
 |---|---|---|
-| UC laut vorlesen + erklären | pro UC, einmalig | Verstehen prüfen |
-| 1 UC pro Woche „aus dem Kopf" beschreiben | wöchentlich | Wissen rekonstruieren |
-| Rückfragen-Logbuch führen | je Sprint | Wo war das Konzept unklar? |
-| KI-generierten Vorschlag „defenden" können | bei jeder Übernahme | Verantwortung kann nicht delegiert werden |
+| Read UC aloud + explain | per UC, once | Check understanding |
+| Describe 1 UC per week "from memory" | weekly | Reconstruct knowledge |
+| Keep a follow-up-question logbook | per sprint | Where was the Konzept unclear? |
+| Be able to "defend" an AI-generated proposal | on every adoption | Responsibility cannot be delegated |
 
-*(v5: §11.6 „Cognitive Offloading konkret eindämmen" ist hier eingefaltet — gleiche Lehre.)*
+*(v5: §11.6 "Containing cognitive offloading concretely" is folded in here — same lesson.)*
 
-### 11.4 Vier-Superkräfte-Register als Mensch-Anker — Sycophancy bei Decide
+### 11.4 Four-Superpowers Register as Human Anchor — Sycophancy at Decide
 
-| Superkraft | Beschreibung | Im Konzept ausweisen wo? |
+| Superpower | Description | Where to show it in the Konzept? |
 |---|---|---|
-| **Communicate** | Stakeholder-Workshops, Domain Storytelling, Event Storming | Akteure-Liste + Prozess-Notiz |
-| **Decide** | Architektur- + Strategie-Entscheidungen. KI-Vorschläge tendieren zur Bestätigung (Sycophancy, Kruse 2026) — Decide verlangt aktives Widerlegen, nicht passives Annehmen. Pflicht-Devil's-Advocate-Pass oder zweites Modell als Gegenvotum. | Decision-Records mit menschlichem Approver |
-| **Adapt** | Kursänderung bei neuer Erkenntnis | Versionshistorie + Changelog |
-| **Make Mistakes** | Lernen aus Fehlern → bessere Entscheidung beim nächsten Mal | Lessons-Learned-Register / Retro-ADR |
+| **Communicate** | Stakeholder workshops, domain storytelling, event storming | Actor list + process note |
+| **Decide** | Architecture + strategy decisions. AI proposals tend toward confirmation (sycophancy, Kruse 2026) — Decide demands active refutation, not passive acceptance. Mandatory devil's-advocate pass or a second model as counter-vote. | Decision records with a human approver |
+| **Adapt** | Course change on new insight | Version history + changelog |
+| **Make Mistakes** | Learning from errors → better decision next time | Lessons-learned register / retro ADR |
 
-**Review-Korollar (🔴-Slices):** Bei riskanten Pipeline-/Architektur-Slices zählen **Self-Review und ein nur bestätigender „Pro"-Agent nicht als Review**. Verbindlich ist der **gegnerische Auditor** (`adversarial-review`) plus eine **empirische Gegenprobe gegen das echte Target** (exaktes Repo/Checkout/Container). Grüne Tests + Self-Audit + Pro-Agent teilen in der Praxis denselben blinden Fleck (Sycophancy) — nur der Auditor fand den latenten Datenverlust-Pfad, und nur die ausführbare Gegenprobe (`php -r` gegen reales PHP) deckte eine falsche, vom Reviewer mit-bestätigte Semantik-Annahme auf.
+**Review corollary (🔴 slices):** For risky pipeline/architecture slices, **self-review and a merely confirming "pro" agent do not count as review**. Binding is the **adversarial auditor** (`adversarial-review`) plus an **empirical counter-check against the real target** (exact repo/checkout/container). Green tests + self-audit + pro agent in practice share the same blind spot (sycophancy) — only the auditor found the latent data-loss path, and only the executable counter-check (`php -r` against real PHP) exposed a wrong semantic assumption that the reviewer had co-confirmed.
 
-### 11.5 KI-Tests sind oft auf den Code zugeschnitten (Anti-Pattern)
+### 11.5 AI Tests Are Often Tailored to the Code (Anti-Pattern)
 
-KI generiert gerne Testfälle, die dem Code angepasst sind — dadurch verlieren Tests einen Teil ihres Nutzens (Provenienz: Fondermann 2026). Im Konzept regeln:
-- Test-Cases werden **vor** der Implementierung aus dem UC abgeleitet (TDD-Spirit)
-- KI-generierte Tests MÜSSEN an UC-Schritten + Fehlerfälle-Tabelle orientiert sein, nicht am Code
-- Pflicht: jeder UC hat Test-Cases pro Fehlerfall + pro Status-Übergang
-- KI-generierte Tests werden manuell auf „passt zur Spec, nicht zum Code" geprüft
+AI likes to generate test cases that are fitted to the code — tests thereby lose part of their value (provenance: Fondermann 2026). Regulate in the Konzept:
+- Test cases are derived from the UC **before** implementation (TDD spirit)
+- AI-generated tests MUST be oriented on UC steps + the error cases table, not on the code
+- Mandatory: every UC has test cases per error case + per status transition
+- AI-generated tests are checked manually for "fits the spec, not the code"
 
-### 11.7 TDD-First — Test-Cases im Konzept BEVOR Implementation
+### 11.7 TDD-First — Test Cases in the Konzept BEFORE Implementation
 
-Verschärfung von §11.5: Test-Cases gehören **ins Konzept-Dokument selbst**. Reihenfolge nicht verhandelbar:
-1. **Test-Cases ableiten** aus UC-Spec (Akzeptanzkriterien + Fehlerfälle-Tabelle + Status-Übergänge)
-2. **Test-Cases ins Konzept schreiben** als Akzeptanzkriterien-Tabelle pro UC
-3. **Tests implementieren** (Unit + Integration), grün/rot dokumentieren
-4. **Implementation startet erst danach**
+Tightening of §11.5: Test cases belong **in the Konzept document itself**. Order non-negotiable:
+1. **Derive test cases** from the UC spec (acceptance criteria + error cases table + status transitions)
+2. **Write test cases into the Konzept** as an acceptance criteria table per UC
+3. **Implement tests** (unit + integration), document green/red
+4. **Implementation starts only after that**
 
-> **Bridge zu §27.4:** §11.7 sagt **was** im Konzept stehen muss (AC-Tabelle). §27.4 sagt **wie** diese AC in der Implementation als Vertical-TDD-Loop gefahren werden (ein Test → eine Impl → wiederholen, niemals Horizontal-TDD).
+> **Bridge to §27.4:** §11.7 says **what** must be in the Konzept (AC table). §27.4 says **how** these ACs are run in the implementation as a vertical TDD loop (one test → one impl → repeat, never horizontal TDD).
 
-#### Pflicht-Sektion pro UC: Akzeptanzkriterien als Test-Cases
+#### Mandatory section per UC: acceptance criteria as test cases
 
 ```markdown
-### Akzeptanzkriterien (Test-First)
+### Acceptance criteria (Test-First)
 
-| # | Kriterium | Test-Typ | Test-Klasse | Status |
+| # | Criterion | Test type | Test class | Status |
 |---|---|---|---|---|
-| AC-1 | Eingeloggter User mit Rolle X kann UC ausführen | Integration | UCXxxControllerTest::testHappyPath | rot |
-| AC-2 | Anonymer Besucher bekommt 401 | Integration | UCXxxControllerTest::testAnonymousDenied | rot |
-| AC-3 | Status-Übergang Pending → Active nur durch Admin | Unit | UCXxxStateProcessorTest::testStatusGuard | rot |
-| AC-4 | Bei IBAN ungültig → Form-Error inline | Integration | UCXxxFormTest::testIbanValidation | rot |
+| AC-1 | Logged-in user with role X can execute UC | Integration | UCXxxControllerTest::testHappyPath | red |
+| AC-2 | Anonymous visitor gets 401 | Integration | UCXxxControllerTest::testAnonymousDenied | red |
+| AC-3 | Status transition Pending → Active only by Admin | Unit | UCXxxStateProcessorTest::testStatusGuard | red |
+| AC-4 | On invalid IBAN → form error inline | Integration | UCXxxFormTest::testIbanValidation | red |
 ```
 
-**Warum TDD-First:** Spec-Lücken werden früh sichtbar (wer einen Test-Case nicht formulieren kann, hat den UC nicht verstanden) · KI-generierte Tests bleiben spec-konform · Implementation-Prompt wird präziser · Refactoring-Sicherheit.
+**Why TDD-First:** Spec gaps become visible early (whoever cannot formulate a test case has not understood the UC) · AI-generated tests stay spec-conformant · the implementation prompt becomes more precise · refactoring safety.
 
-**Pflicht-Granularität pro UC** (ergänzt §7): mind. ein AC pro Erfolgs-Pfad · ein AC pro Fehlerfall · ein AC pro Status-Übergang · ein AC pro Sicherheits-Constraint (Owner / Tenant / Rolle) · Test-Klasse-Namen benannt (auch wenn die Klasse noch nicht existiert).
+**Mandatory granularity per UC** (supplements §7): at least one AC per success path · one AC per error case · one AC per status transition · one AC per security constraint (owner / tenant / role) · test class names given (even if the class does not exist yet).
 
 ---
 
-## 14. Glossar-Sektion (Pflicht für KI-gestützte Entwicklung)
+## 14. Glossary Section (Mandatory for AI-Assisted Development)
 
-Semantische Anker sind Begriffe, die im Merkmalsraum des LLMs eine starke, präzise Definition triggern — statt 200 Zeilen zu erklären, schreibt man „TDD, London School" (Provenienz: Müller 2026). Jedes Konzept ab mittlerer Komplexität braucht am Ende eine **Glossar-Sektion** als Prompt-Shortcut: statt vollen Kontext bei jeder KI-Anfrage mitzugeben, reicht ein Verweis auf den Glossar-Begriff.
+Semantic anchors are terms that trigger a strong, precise definition in the LLM's feature space — instead of explaining 200 lines, one writes "TDD, London School" (provenance: Müller 2026). Every Konzept of medium complexity or higher needs a **glossary section** at the end as a prompt shortcut: instead of passing the full context with every AI request, a reference to the glossary term suffices.
 
 ```markdown
-## Glossar
+## Glossary
 
-| Begriff | Definition | Semantischer Anker |
+| Term | Definition | Semantic anchor |
 |---------|-----------|-------------------|
-| `SiPo` | Sicherungsposten gem. DGUV Vorschrift 78 | DGUV V78, Gleisbau, Bahnbetrieb |
-| `ClubOfficer` | BGB-Vorstand eines eingetragenen Vereins (§26 BGB) | Vereinsrecht, Vertretungsbefugnis |
-| `Aktogramm` | Weiterentwicklung des Struktogramms für Use-Case-Spezifikationen | Specman, Nassi-Shneiderman |
+| `SiPo` | Safety lookout per DGUV regulation 78 | DGUV V78, track construction, railway operations |
+| `ClubOfficer` | BGB board of a registered association (§26 BGB) | association law, power of representation |
+| `Aktogramm` | Further development of the Struktogramm for use-case specifications | Specman, Nassi-Shneiderman |
 ```
 
-**Wann Pflicht:** domänenspezifische Fachbegriffe · mehrere Akteure mit unterschiedlichem Fachvokabular · regulatorische Abkürzungen · KI-Komponenten vorhanden (Glossar wird Teil des System-Prompts). **Semantischer Anker = 2–4 Stichworte**, die das LLM mit dem Begriff assoziiert.
+**When mandatory:** domain-specific technical terms · several actors with differing technical vocabulary · regulatory abbreviations · AI components present (glossary becomes part of the system prompt). **Semantic anchor = 2–4 keywords** that the LLM associates with the term.
 
-**Pflicht-Eintrag „User-Story":** Konkrete Ableitung aus UC + AC im Format „Als <Akteur> möchte ich <Feature>, damit <Benefit>". Kein Pflicht-Element von §3 (UCs) — eine Konkretisierungs-Stufe zwischen UC und Implementation, im Slice-Brief (§28.3) dokumentiert. **Bridge:** UC → AC → User-Story → Slice. Das Domain-Glossar ist nicht-verhandelbares Vokabular bei jeder Brownfield-Erweiterung (§27.6): Test-Namen, Interface-Vokabular und PRD-Begriffe werden aus dem Glossar gespeist.
+**Mandatory entry "User story":** Concrete derivation from UC + AC in the format "As <actor> I want <feature> so that <benefit>". Not a mandatory element of §3 (UCs) — a concretization stage between UC and implementation, documented in the slice brief (§28.3). **Bridge:** UC → AC → user story → slice. The domain glossary is non-negotiable vocabulary for every brownfield extension (§27.6): test names, interface vocabulary and PRD terms are fed from the glossary.
 
 ---
 
-## 17. Integration in Versionierung und Tooling
+## 17. Integration into Versioning and Tooling
 
-Das Konzept ist kein freistehendes Dokument, sondern Teil der Repo-Toolchain. Pflicht-Integrationspunkte:
+The Konzept is not a free-standing document but part of the repo toolchain. Mandatory integration points:
 
-| Integrationspunkt | Konvention |
+| Integration point | Convention |
 |---|---|
-| **Versionierung** | Konzept-Datei liegt im Repo (`docs/` oder `wiki/`), wird mit-committet. Changelog ab v2.0 (§6), Version im Kopf (§2.1). |
-| **Review-Agent** | `.github/agents/` bzw. `.claude/agents/` enthält die Review-Persona; Policies unter `decision-policies/` mit Gewichtung (§10.5). CI kann den Review-Agent gegen geänderte Konzept-Dateien laufen lassen. |
-| **Verifikationsagent** | Nach jedem Sprint Spec↔Code-Drift prüfen (§10.6) — Konzept ist die `Soll`-Quelle. |
-| **Glossar als System-Prompt** | Das Glossar (§14) wird in den System-Prompt der KI-Assistenten gespeist; semantische Anker reduzieren Prompt-Länge. |
-| **Konsistenzcheck Modell↔API** | Pro Sprint-Ende per versioniertem Prompt (§19 + Anhang A.6). |
-| **Durable Plan-Artefakte** | CONTEXT.md + ADRs leben neben dem Konzept im Repo (§28) und sind die SSOT bei Brownfield (§1.8). |
+| **Versioning** | Konzept file lives in the repo (`docs/` or `wiki/`), is committed along. Changelog from v2.0 (§6), version in the header (§2.1). |
+| **Review agent** | `.github/agents/` or `.claude/agents/` contains the review persona; policies under `decision-policies/` with weighting (§10.5). CI can run the review agent against changed Konzept files. |
+| **Verification agent** | After every sprint, check spec↔code drift (§10.6) — the Konzept is the `Soll` source. |
+| **Glossary as system prompt** | The glossary (§14) is fed into the system prompt of the AI assistants; semantic anchors reduce prompt length. |
+| **Consistency check model↔API** | At every sprint end via versioned prompt (§19 + Appendix A.6). |
+| **Durable plan artifacts** | CONTEXT.md + ADRs live next to the Konzept in the repo (§28) and are the SSOT for brownfield (§1.8). |
 
 ---
 
-## 23. Mensch-Verantwortungs-Klausel + Walk-Through-Pflicht
+## 23. Human Responsibility Clause + Walk-Through Obligation
 
-*(Gilt für alle Konzepte, LLM wie deterministisch — darum in Teil 4 (Authoring), nicht im überspringbaren Teil 5. Die Verantwortungs-Matrix greift bei KI-Anteil am schärfsten, ist aber auch bei deterministischen UCs Pflicht.)*
+*(Applies to all Konzept documents, LLM as well as deterministic — therefore in Part 4 (Authoring), not in the skippable Part 5. The responsibility matrix bites hardest with an AI share, but is also mandatory for deterministic UCs.)*
 
-### 23.1 Pflicht-Section am Konzept-Ende: Verantwortungs-Matrix
+### 23.1 Mandatory Section at the End of the Konzept: Responsibility Matrix
 
 ```markdown
-## Verantwortungs-Matrix
+## Responsibility Matrix
 
-| UC | KI-Anteil | Mensch-Validator | Validierungs-Mindset-Niveau | Haftung im Schadensfall |
+| UC | AI share | Human validator | Validation mindset level | Liability in case of damage |
 |---|---|---|---|---|
-| UC-01 | 80 % | Sachbearbeiter (Pflicht-Bestätigung) | hoch (aktive Validierung Pflicht) | Sachbearbeiter |
-| UC-02 | 30 % | Entwickler (Code-Review) | mittel (Sign-off durch Senior-Niveau-Validator) | Entwickler |
-| UC-03 | 0 % | — | n/a (deterministisch) | Systemverantwortlicher |
+| UC-01 | 80 % | Case worker (mandatory confirmation) | high (active validation mandatory) | Case worker |
+| UC-02 | 30 % | Developer (code review) | medium (sign-off by senior-level validator) | Developer |
+| UC-03 | 0 % | — | n/a (deterministic) | System owner |
 ```
 
-**Validierungs-Mindset-Niveau:** **hoch** (aktive, kritische, hinterfragende Validierung; KI-Output > 50 % verlangt Hoch-Niveau-Validierung oder Sign-off) · **mittel** (strukturierte Validierung mit Checkliste/Pattern-Bezug; AC-Tabelle Punkt für Punkt) · **niedrig (passiv)** (Anti-Pattern §25 — nicht erlaubt bei KI-Anteil > 30 %).
+**Validation mindset level:** **high** (active, critical, questioning validation; AI output > 50 % requires high-level validation or sign-off) · **medium** (structured validation with checklist/pattern reference; AC table point by point) · **low (passive)** (anti-pattern §25 — not permitted with AI share > 30 %).
 
-**Pflicht-Regel:** KI-Output mit hohem KI-Anteil (> 50 %) **muss** Validierungs-Mindset-Niveau „hoch" durchlaufen — direkt oder via Sign-off. Das Niveau beschreibt die Validierungs-*Aktivität*, ist **nicht** an HR-Hierarchie (Junior/Senior) gebunden (Provenienz: Wilke/Loje/Krypczyk 2026).
+**Mandatory rule:** AI output with a high AI share (> 50 %) **must** go through validation mindset level "high" — directly or via sign-off. The level describes the validation *activity*, it is **not** tied to HR hierarchy (junior/senior) (provenance: Wilke/Loje/Krypczyk 2026).
 
-### 23.2 Walk-Through-Pflicht (vor Sprint-Start)
+### 23.2 Walk-Through Obligation (before Sprint Start)
 
-Pro UC mindestens einmal: laut vorlesen · erklären können (ohne Konzept-Dokument vor Augen) · drei Test-Cases pro UC frei aus dem Kopf nennen · bei Lücken Konzept ergänzen, nicht implementieren.
+Per UC at least once: read aloud · be able to explain (without the Konzept document in front of you) · name three test cases per UC freely from memory · on gaps, supplement the Konzept, do not implement.
 
-### 23.3 Mensch-Gate: irreversible und außenwirksame Schritte
+### 23.3 Mensch-Gate (human gate): Irreversible and Externally Effective Steps
 
-Der Satz „destruktive/irreversible Schritte bleiben Mensch-Gate, nie auto" ist die Regel, auf die Rollen mit „§23" eskalieren. Sie gilt für technische wie geschäftliche Schritte:
+The sentence "destructive/irreversible steps remain a Mensch-Gate, never auto" is the rule that roles escalate to with "§23". It applies to technical as well as business steps:
 
-- technisch: Schema-Drop, force-push, Migration-Cutoff, Branch-Delete, Löschen von Daten oder Umgebungen;
-- Integration: Freigabe eines MCP-Servers oder einer externen Integration (§33.3), insbesondere bei ungebrochener Lethal Trifecta oder ungevettetem Drittanbieter;
-- geschäftlich: Investor-Outreach, Term-Sheet-Zusage, Signatur, Versand nach außen;
-- Entscheidungen: jede Wahl, die den Devil's-Advocate-Pass (§32.11) mit Verdikt (b) oder (c) nicht übersteht, und jede Prognose, die „nicht tragbar" plus irreversible Zusage trifft.
+- technical: schema drop, force-push, migration cutoff, branch delete, deletion of data or environments;
+- integration: release of an MCP server or an external integration (§33.3), especially with an unbroken Lethal Trifecta or an unvetted third party;
+- business: investor outreach, term-sheet commitment, signature, sending externally;
+- decisions: every choice that does not survive the devil's-advocate pass (§32.11) with verdict (b) or (c), and every forecast that hits "nicht tragbar" (not acceptable) plus an irreversible commitment.
 
-Der Mensch entscheidet mit Entscheider und Datum im ADR (§28.2); ein Agent bereitet vor und hält an. Gesundheits- und Krisenthemen folgen nicht §23, sondern den Eskalationsregeln der Psy-Domäne.
+The human decides, with decision-maker and date in the ADR (§28.2); an agent prepares and halts. Health and crisis topics do not follow §23 but the escalation rules of the Psy domain.
 
 ---
 
-# Teil 5 — LLM-/Agenten-Erweiterungen (nur bei LLM-UCs)
+# Part 5 — LLM/Agent Extensions (only for LLM UCs)
 
-**Dieser Teil ist überspringbar, wenn kein UC ein LLM aufruft.** Er ergänzt die Konzept-Doktrin (Teil 4) um die Spezifika probabilistischer/agentischer UCs: Pflichtfelder, Agent-Struktur, Observability/Eval, MCP, Schichten-Architektur, TAO-Cycle, PoC-Pfad.
+**This part can be skipped if no UC calls an LLM.** It supplements the Konzept doctrine (Part 4) with the specifics of probabilistic/agentic UCs: mandatory fields, agent structure, observability/eval, MCP, layer architecture, TAO cycle, PoC path.
+## 13. LLM-Specific Extensions to the Konzept (concept document)
 
-## 13. LLM-spezifische Konzept-Erweiterungen
+### 13.1 Mandatory Fields for LLM UCs
 
-### 13.1 Pflichtfelder für LLM-UCs
-
-| Element | Beschreibung |
+| Element | Description |
 |---------|-------------|
-| Kontext-Definition | Welche Daten werden als Kontext mitgegeben? (Dokumente, DB-Abfragen, History) |
-| Ausgabe-Datenformat | Welchen Typ hat die LLM-Ausgabe? (Freitext, JSON-Schema, typisiertes Objekt) |
-| Validierungsstrategie | Wie wird die Ausgabe geprüft? (Syntaktisch, semantisch, LLM-as-Judge) |
-| Fallback-Verhalten | Was passiert, wenn das LLM eine unbrauchbare Antwort liefert? |
-| Knowledge-Cutoff-Umgang | Welche Daten können veraltet sein? Wie wird Aktualität sichergestellt? |
+| Context definition | Which data is passed as context? (documents, DB queries, history) |
+| Output data format | What type does the LLM output have? (free text, JSON schema, typed object) |
+| Validation strategy | How is the output checked? (syntactic, semantic, LLM-as-Judge) |
+| Fallback behavior | What happens when the LLM returns an unusable answer? |
+| Knowledge-cutoff handling | Which data may be outdated? How is currency ensured? |
 
-### 13.2 Agentenbasierte UCs — Embabel-Pattern + Pre/Inline/Post-Phasen
+### 13.2 Agent-Based UCs — Embabel Pattern + Pre/Inline/Post Phases
 
-Strukturierter, planungsbasierter Ansatz statt loser LLM-Aufruf-Kette (Provenienz: Baumgartner 2026):
+Structured, planning-based approach instead of a loose chain of LLM calls (provenance: Baumgartner 2026):
 
 ```markdown
-### Agent-Struktur (Embabel-Pattern)
+### Agent Structure (Embabel Pattern)
 
-**Goal:** {Was soll der Agent erreichen?}
+**Goal:** {What should the agent achieve?}
 
-**Actions:** (jede Action ist eine deterministische Methode + optional ein LLM-Call im Deep Path)
-- `{ActionName}`: Input-Typ, Output-Typ
+**Actions:** (each action is a deterministic method + optionally an LLM call in the deep path)
+- `{ActionName}`: input type, output type
 
-**Conditions:** (typgebunden — Vorbedingungen für eine Action)
-- {Action `X` ist möglich, wenn der bisherige Output vom Typ `Y` ist}
+**Conditions:** (type-bound — preconditions for an action)
+- {Action `X` is possible when the previous output is of type `Y`}
 
-**Output-Typen:** (sealed interface zwingend für Planer)
+**Output types:** (sealed interface mandatory for the planner)
 
 ```java
 public sealed interface Signals permits SignalsOk, SignalsNeedsDeep { }
@@ -1380,55 +1378,55 @@ public record SignalsOk(String text, boolean confident) implements Signals {}
 public record SignalsNeedsDeep(String text, String reason) implements Signals {}
 ```
 
-**Fast Path (deterministisch — ohne LLM):** {Heuristiken, Keyword-Match}
-**Deep Path (LLM-gestützt):** {Wann wird LLM aktiviert? Bei welchen Conditions?}
-**Goal-Oriented Action Planning:** Planer ermittelt zur Laufzeit, welche Actions in welcher Reihenfolge das Goal erreichen — basierend auf den verfügbaren Output-Typen.
-**Unsicherheits-Schwellwert:** {Confidence < 0.5 → Eskalation an Mensch}
+**Fast Path (deterministic — without LLM):** {heuristics, keyword match}
+**Deep Path (LLM-supported):** {When is the LLM activated? Under which conditions?}
+**Goal-Oriented Action Planning:** The planner determines at runtime which actions in which order reach the goal — based on the available output types.
+**Uncertainty threshold:** {Confidence < 0.5 → escalation to a human}
 ```
 
-**Regel:** Wenn der Ablauf ohne LLM auch korrekt wäre, ist kein Agent nötig. Agenten sind für Entscheidungen unter Unsicherheit — nicht für deterministische CRUD-Logik.
+**Rule:** If the flow would also be correct without an LLM, no agent is needed. Agents are for decisions under uncertainty — not for deterministic CRUD logic.
 
-#### Hybrid-Validierungs-Phasen (Pre/Inline/Post)
+#### Hybrid Validation Phases (Pre/Inline/Post)
 
-Embabel ist eine konkrete Implementierung. Generisch gilt: jeder LLM-Call hat drei mögliche Validierungs-Phasen, in denen deterministische Validierung neben probabilistischer LLM-Generierung steht — die Lösung liegt nicht in „mehr Modell", sondern in deterministischen Validierungsschichten obendrauf (Provenienz: Mahringer 2026):
+Embabel is one concrete implementation. Generically: every LLM call has three possible validation phases in which deterministic validation stands next to probabilistic LLM generation — the solution lies not in "more model" but in deterministic validation layers on top (provenance: Mahringer 2026):
 
-| Phase | Wann | Beispiel-Validierung |
+| Phase | When | Example validation |
 |---|---|---|
-| **Pre** | vor LLM-Call | Input-Schema-Check, Token-Budget-Check (Memento-Effekt vorbeugen), Cache-Hit-Check, PII-Anonymisierung |
-| **Inline** | während LLM-Call (Streaming) | Sealed-Interface-Match auf Token-Stream, Substring-Pflicht-Check, Toxicity-Filter inline, Fast/Deep-Path-Entscheidung |
-| **Post** | nach LLM-Call | LSP/AST/CST-Parser, Automated Reasoning, CodeQL/SonarQube, Vertical-TDD-AC-Check (§15.8 + §27.4) |
+| **Pre** | before the LLM call | input schema check, token budget check (prevent the memento effect), cache-hit check, PII anonymization |
+| **Inline** | during the LLM call (streaming) | sealed-interface match on the token stream, mandatory-substring check, inline toxicity filter, fast/deep path decision |
+| **Post** | after the LLM call | LSP/AST/CST parser, automated reasoning, CodeQL/SonarQube, vertical-TDD AC check (§15.8 + §27.4) |
 
-Im Konzept pro LLM-UC: welche Phasen sind aktiv, welche konkreten Validierungen pro Phase?
+In the Konzept per LLM UC: which phases are active, which concrete validations per phase?
 
-> **Begriffs-Klarstellung „Phasen":** Diese Pre/Inline/Post-Validierungs-Phasen beziehen sich auf einen einzelnen LLM-Call (Mikro-Ebene). Sie sind NICHT die Workflow-/Implementierungs-Phasen — CDP5 ist bewusst **kein Phasen-Workflow** (Teil 0). Auch die PoC-Phasen in §22 (Makro-Ebene) sind eine dritte, eigene Bedeutung. Gleiches Wort, drei Ebenen — bei Verweisen immer Sektion mitnennen.
+> **Terminology clarification "phases":** These pre/inline/post validation phases refer to a single LLM call (micro level). They are NOT the workflow/implementation phases — CDP5 is deliberately **not a phase workflow** (Part 0). The PoC phases in §22 (macro level) are a third, separate meaning as well. Same word, three levels — always name the section when referencing.
 
-### 13.3 Wann KEIN LLM im UC
+### 13.3 When NO LLM in the UC
 
-Vollständig deterministischer Ablauf · sicherheitsrelevante Entscheidungen · regulatorische Nachvollziehbarkeit Pflicht · hochregulierte Umgebung (Medizin, Finanzen, Bahn-Sicherheit). Im Konzept als Notiz: `> **Kein LLM:** Dieser UC ist deterministisch — keine KI-Komponente.`
+Fully deterministic flow · safety-relevant decisions · regulatory traceability mandatory · highly regulated environment (medicine, finance, railway safety). In the Konzept as a note: `> **No LLM:** This UC is deterministic — no AI component.`
 
-### 13.4 Validierungsstrategie im Konzept (erweitert)
+### 13.4 Validation Strategy in the Konzept (extended)
 
-| Strategie | Wann | Beispiel-Tool / Assertion |
+| Strategy | When | Example tool / assertion |
 |---|---|---|
-| Syntaktische Prüfung | Immer | JSON-Schema, Typ-Check, Sealed-Interface-Match |
-| Regelbasierte Prüfung | Bei bekannten Constraints | Wert in erlaubtem Bereich |
-| LLM-as-Judge | Bei semantischer Korrektheit | Promptfoo `llm-rubric`, `g-eval`, `factuality` |
-| Substring-Match | Wenn Antwort einen Pflicht-Abschnitt enthalten muss | Promptfoo `icontains` |
-| Relevanz | Bei RAG-Output | Promptfoo `relevance` |
-| Human-in-the-Loop | Sicherheitskritisch | Sachbearbeiter bestätigt vor Ausführung |
-| Red Teaming | Vor Production | Promptfoo `harmful:hate`, `jailbreak`-Strategie |
+| Syntactic check | Always | JSON schema, type check, sealed-interface match |
+| Rule-based check | For known constraints | value within the allowed range |
+| LLM-as-Judge | For semantic correctness | Promptfoo `llm-rubric`, `g-eval`, `factuality` |
+| Substring match | When the answer must contain a mandatory section | Promptfoo `icontains` |
+| Relevance | For RAG output | Promptfoo `relevance` |
+| Human-in-the-Loop | Safety-critical | case worker confirms before execution |
+| Red Teaming | Before production | Promptfoo `harmful:hate`, `jailbreak` strategy |
 
 ---
 
-## 15. Observability-Anforderungen im Konzept
+## 15. Observability Requirements in the Konzept
 
-In KI-Systemen kommen Evaluation und Monitoring nicht zuletzt, sondern treiben den Build von Tag 1 (Provenienz: Köster 2026). Das klassische „drei Säulen"-Modell (Metriken / Traces / Logs) wird für KI-Systeme um eine **vierte Säule** ergänzt: **Evals (LLM-as-a-Judge)** — Teil der Entwicklungsschleife, nicht des Betriebs danach.
+In AI systems, evaluation and monitoring do not come last; they drive the build from day 1 (provenance: Köster 2026). The classic "three pillars" model (metrics / traces / logs) is extended for AI systems by a **fourth pillar**: **Evals (LLM-as-a-Judge)** — part of the development loop, not of operations afterwards.
 
-### 15.1 OpenTelemetry GenAI-Conventions
+### 15.1 OpenTelemetry GenAI Conventions
 
-Pflicht, wenn OTel im Projekt eingesetzt wird. Die GenAI Semantic Conventions sind **versioniert** und Attributnamen wurden zwischen Fassungen umbenannt (z. B. ist `gen_ai.system` in neueren Fassungen abgelöst); das Konzept nennt die verwendete Konventions-Version und übernimmt die Attributnamen aus genau dieser Fassung. Die Liste unten ist ein Beispiel auf dem Stand von v5.0. Deaktiviertes Sampling speichert jeden Prompt; Kosten- und Datenschutzfolgen regelt §15.6.
+Mandatory when OTel is used in the project. The GenAI Semantic Conventions are **versioned** and attribute names have been renamed between releases (e.g. `gen_ai.system` has been superseded in newer releases); the Konzept names the convention version used and takes the attribute names from exactly that release. The list below is an example as of v5.0. Disabled sampling stores every prompt; cost and data-protection consequences are governed by §15.6.
 
-Pflicht-Attribute pro LLM-Span (Beispiel):
+Mandatory attributes per LLM span (example):
 
 ```json
 {
@@ -1445,18 +1443,18 @@ Pflicht-Attribute pro LLM-Span (Beispiel):
 }
 ```
 
-**Sampling DEAKTIVIEREN** für LLM-Spans — jede Interaktion zählt für Eval und Drift-Erkennung.
+**DISABLE sampling** for LLM spans — every interaction counts for eval and drift detection.
 
-### 15.2 Tracing-Stack (empfohlen)
+### 15.2 Tracing Stack (recommended)
 
-| Bestandteil | Beispiel-Tool | Zweck |
+| Component | Example tool | Purpose |
 |---|---|---|
-| OTEL-Collector | OpenTelemetry-Collector | Span-Sammlung |
-| Trace-Backend | **Langfuse** (OSS, OTEL-Empfänger) | LLM-Trace-Store |
-| Eval-Tool | **Promptfoo** | Test + LLM-as-Judge + Red Teaming |
-| Spring AI / LangChain | je nach Stack | automatische Trace-Anbindung |
+| OTEL collector | OpenTelemetry Collector | span collection |
+| Trace backend | **Langfuse** (OSS, OTEL receiver) | LLM trace store |
+| Eval tool | **Promptfoo** | test + LLM-as-Judge + red teaming |
+| Spring AI / LangChain | depending on the stack | automatic trace integration |
 
-### 15.3 LLM-as-a-Judge: vierte Eval-Säule
+### 15.3 LLM-as-a-Judge: Fourth Eval Pillar
 
 ```yaml
 tests:
@@ -1473,7 +1471,7 @@ tests:
         value: 8-12 meals per day
 ```
 
-### 15.4 Red Teaming als Pflicht-Eval-Schicht
+### 15.4 Red Teaming as a Mandatory Eval Layer
 
 ```yaml
 redteam:
@@ -1485,176 +1483,176 @@ redteam:
 language: de
 ```
 
-Im Konzept pro LLM-UC ausweisen: welche `harmful:*`-Plugins relevant sind, welche Strategien (`jailbreak`, etc.) getestet werden. Die Promptfoo-Eval-Suite (Red-Teaming + LLM-as-Judge, §15.3) läuft als **CI-Gate** (GitHub Action) — knapp halten, aber als harte Qualitätsschranke pro PR/Sprint.
+State in the Konzept per LLM UC: which `harmful:*` plugins are relevant, which strategies (`jailbreak`, etc.) are tested. The Promptfoo eval suite (red teaming + LLM-as-Judge, §15.3) runs as a **CI gate** (GitHub Action) — keep it lean, but as a hard quality barrier per PR/sprint.
 
-### 15.5 Knowledge-Cutoff-Tests
+### 15.5 Knowledge-Cutoff Tests
 
-Pflicht-Test: nach einem Produkt fragen, das **nach** dem Knowledge-Cutoff erschien (z. B. „iPhone 17"). Antwortet das Modell selbstbewusst → halluziniert. Im Konzept ausweisen, wie das Modell Knowledge-Cutoff-Limits dem Nutzer kommuniziert.
+Mandatory test: ask about a product that was released **after** the knowledge cutoff (e.g. "iPhone 17"). If the model answers confidently → it is hallucinating. State in the Konzept how the model communicates knowledge-cutoff limits to the user.
 
-### 15.6 PII / DSGVO im Trace
+### 15.6 PII / GDPR in the Trace
 
-Vor Span-Export anonymisieren: **DataFog** (OSS) oder **Microsoft Presidio** als Pre-Processor. Im Konzept dokumentieren: welche Felder werden geschwärzt? Wer hat Zugriff auf Roh-Traces?
+Anonymize before span export: **DataFog** (OSS) or **Microsoft Presidio** as pre-processor. Document in the Konzept: which fields are redacted? Who has access to raw traces?
 
-### 15.7 Testdaten-Strategie
+### 15.7 Test Data Strategy
 
-Für LLM-UCs beschreiben, wie Testdaten erzeugt werden: **Personas** (Beschreibung, typische Anfragen, Erwartungen) · **Seed Queries** (typische Anfrage, Grenzfall, Missbrauchsversuch — erzeugen Entropie im Testset) · **Validierung** (Korrektheit via LLM-as-Judge + Fact-Checking; Sicherheit via Red Teaming gegen OWASP GenAI Top 10; Konsistenz: gleiche Anfrage 5× → Antworten vergleichen).
+For LLM UCs, describe how test data is generated: **personas** (description, typical requests, expectations) · **seed queries** (typical request, edge case, abuse attempt — they create entropy in the test set) · **validation** (correctness via LLM-as-Judge + fact-checking; safety via red teaming against the OWASP GenAI Top 10; consistency: same request 5× → compare the answers).
 
-### 15.8 KI-Code als Untrusted Input + Hybrid-Validierungs-Schichten
+### 15.8 AI Code as Untrusted Input + Hybrid Validation Layers
 
-LLM-Antworten sind als **„Untrusted Input"** zu behandeln und durch statische Analysetools zu prüfen; die Lösung liegt nicht in „mehr Modell", sondern in deterministischen Validierungsschichten obendrauf (Provenienz: Mahringer/Köster 2026):
+LLM answers are to be treated as **"untrusted input"** and checked with static analysis tools; the solution lies not in "more model" but in deterministic validation layers on top (provenance: Mahringer/Köster 2026):
 
-| # | Schicht | Werkzeuge | Prüft |
+| # | Layer | Tools | Checks |
 |---|---|---|---|
-| 1 | **Strukturelle Validierung** | Language Server Protocol (LSP), AST/CST-Parser | Syntax, Typen, Symbol-Resolution |
-| 2 | **Logische Validierung** | Automated Reasoning Solver (z. B. Z3, Prolog-basiert) | Architektur-Regeln als Axiome |
-| 3 | **Sicherheits-Validierung** | CodeQL, SonarQube, Semgrep | OWASP-Top-10, CVE-Patterns, Secrets-Scan |
-| 4 | **Test-Validierung** | Vertical-TDD-Loop (§27.4) | Verhalten gegen AC-Tabelle des UC |
+| 1 | **Structural validation** | Language Server Protocol (LSP), AST/CST parser | syntax, types, symbol resolution |
+| 2 | **Logical validation** | automated reasoning solver (e.g. Z3, Prolog-based) | architecture rules as axioms |
+| 3 | **Security validation** | CodeQL, SonarQube, Semgrep | OWASP Top 10, CVE patterns, secrets scan |
+| 4 | **Test validation** | vertical TDD loop (§27.4) | behavior against the UC's AC table |
 
-**Pflicht-Minimum:** Schicht 1 + 3. **Pflicht bei > 3 zusammenarbeitenden Modulen:** auch Schicht 2. **Pflicht bei jedem nicht-trivialen UC:** Schicht 4 (TDD-First, §11.7).
+**Mandatory minimum:** layers 1 + 3. **Mandatory with > 3 cooperating modules:** layer 2 as well. **Mandatory for every non-trivial UC:** layer 4 (TDD-first, §11.7).
 
 ---
 
-## 16. MCP-Integration im Konzept
+## 16. MCP Integration in the Konzept
 
-### 16.1 MCP-Architektur
+### 16.1 MCP Architecture
 
-| Komponente | Aufgabe |
+| Component | Task |
 |---|---|
-| **MCP-Host** | KI-Anwendung, verwaltet die Clients |
-| **MCP-Client** | 1:1-Verbindung zum Server (im Host) |
-| **MCP-Server** | Stellt Tools / Resources / Prompts bereit |
-| **Transport** | Stdio (lokal) oder HTTP (remote) |
+| **MCP host** | AI application, manages the clients |
+| **MCP client** | 1:1 connection to the server (inside the host) |
+| **MCP server** | provides tools / resources / prompts |
+| **Transport** | stdio (local) or HTTP (remote) |
 
-### 16.2 Drei Server-Capabilities
+### 16.2 Three Server Capabilities
 
-**Tools** (ausführbare Aktionen, z. B. „search_repo") · **Resources** (strukturierter Datenzugriff, z. B. `resource://logs`) · **Prompts** (vorbereitete Vorlagen).
+**Tools** (executable actions, e.g. "search_repo") · **Resources** (structured data access, e.g. `resource://logs`) · **Prompts** (prepared templates).
 
-### 16.3 Drei Client-Capabilities
+### 16.3 Three Client Capabilities
 
-| Capability | Beschreibung | Im Konzept relevant wenn |
+| Capability | Description | Relevant in the Konzept when |
 |---|---|---|
-| **Sampling** | Server delegiert LLM-Anfragen zurück an Client | Server soll selbst KI nutzen können |
-| **Elicitation** | Server stellt Rückfragen | UC braucht interaktive Klarstellung |
-| **Roots** | Server fragt zugängliche Verzeichnisse ab | File-System-Server-Konfiguration |
+| **Sampling** | server delegates LLM requests back to the client | the server should be able to use AI itself |
+| **Elicitation** | server asks follow-up questions | the UC needs interactive clarification |
+| **Roots** | server queries accessible directories | file-system server configuration |
 
 ### 16.4 Lifecycle + JSON-RPC 2.0
 
-Initialisierung als Handshake: `initialize` → `notifications/initialized` → `tools/list` → `tools/call`. Client und Server handeln Protokoll-Version und Capabilities aus (z. B. `protocolVersion: "2025-06-18"`, Client-`capabilities: { elicitation: {} }` → Server antwortet mit `tools/resources/prompts`). Erst nach `notifications/initialized` sind `tools/list` / `tools/call` zulässig. Im Konzept: Protokoll-Version festlegen, ausgehandelte Capabilities dokumentieren.
+Initialization as a handshake: `initialize` → `notifications/initialized` → `tools/list` → `tools/call`. Client and server negotiate protocol version and capabilities (e.g. `protocolVersion: "2025-06-18"`, client `capabilities: { elicitation: {} }` → server answers with `tools/resources/prompts`). Only after `notifications/initialized` are `tools/list` / `tools/call` permitted. In the Konzept: fix the protocol version, document the negotiated capabilities.
 
-### 16.5 OAuth-Empfehlung
+### 16.5 OAuth Recommendation
 
-Für HTTP-Transporte definiert die MCP-Spezifikation einen **optionalen** OAuth-basierten Autorisierungsablauf (mit Audience-Validierung und ohne Token-Passthrough als MUSS, wenn er genutzt wird); STDIO-Server nutzen ihn nicht und beziehen Credentials aus der Umgebung. Im Konzept für jeden MCP-Server: ist OAuth aktiv? Wer hat Zugriff? Wie werden Tokens rotiert? Admin- oder Lese-Token? Statische Tokens in `headers` prüft `mcp-config-lint`.
+For HTTP transports the MCP specification defines an **optional** OAuth-based authorization flow (with audience validation and without token passthrough as a MUST when it is used); STDIO servers do not use it and take credentials from the environment. In the Konzept for every MCP server: is OAuth active? Who has access? How are tokens rotated? Admin or read-only token? Static tokens in `headers` are checked by `mcp-config-lint`.
 
-### 16.6 Warnung: zu viele Tools = schlechtere Antworten
+### 16.6 Warning: Too Many Tools = Worse Answers
 
-Pro UC maximal 3–5 relevante Tools. **Context Rot** (zu großer Kontext → Effizienzverlust) ist real.
+At most 3–5 relevant tools per UC. **Context rot** (too large a context → loss of efficiency) is real.
 
-### 16.7 Multi-MCP-Server-Setup
+### 16.7 Multi-MCP-Server Setup
 
-Bei LLM-UCs mit mehreren MCP-Servern parallel (z. B. Figma + Drive + Calendar + Custom-Server) zusätzliche Pflicht-Felder im UC:
+For LLM UCs with several MCP servers in parallel (e.g. Figma + Drive + Calendar + custom server), additional mandatory fields in the UC:
 
-| Pflicht-Feld | Beschreibung |
+| Mandatory field | Description |
 |---|---|
-| Tool-Namens-Konflikt-Auflösung | Pflicht-Präfix-Konvention (z. B. `figma__search` vs. `drive__search`) |
-| Auth-Aggregation | Pro Server: OAuth-Scope + Token-Speicher + Rotations-Strategie |
-| Tool-Budget | Maximal X Tools sichtbar für die LLM-Session (Context-Rot, §16.6) |
-| Lifecycle-Reihenfolge | parallel-init vs. sequenziell — welche Server müssen verfügbar sein bevor der erste Tool-Call läuft? |
+| Tool name conflict resolution | mandatory prefix convention (e.g. `figma__search` vs. `drive__search`) |
+| Auth aggregation | per server: OAuth scope + token store + rotation strategy |
+| Tool budget | at most X tools visible to the LLM session (context rot, §16.6) |
+| Lifecycle order | parallel init vs. sequential — which servers must be available before the first tool call runs? |
 
-**Heuristik:** Bei > 3 MCP-Servern im UC ist eine **UC-spezifische Server-Selektions-Tabelle** Pflicht.
+**Heuristic:** With > 3 MCP servers in the UC, a **UC-specific server selection table** is mandatory.
 
-### 16.8 MCP-Server-/Tool-Design (wenn man selbst einen baut)
+### 16.8 MCP Server/Tool Design (when building your own)
 
-Baut man eigene MCP-Server/Tools (statt nur fremde zu konsumieren), gelten Design-Regeln. Sicherheit dazu → §33.3; ein deterministisch entscheidbares Tool gehört als T1-Programm gebaut → §32.9.
+When building your own MCP servers/tools (instead of only consuming others'), design rules apply. Security for this → §33.3; a deterministically decidable tool is to be built as a T1 program → §32.9.
 
-**Server-Maturity (Level 0–3) — nicht auf Level 0 stehenbleiben:**
+**Server maturity (levels 0–3) — do not stay at level 0:**
 
-| Level | Charakter |
+| Level | Character |
 |---|---|
-| 0 | rohe 1:1-API-Spiegelung — schnell, aber fehleranfällig; **vermeiden** |
-| 1 | Hinweise/Beschreibungen in den Tools |
-| 2 | Domänenmodell + Workflow-Verständnis im Kontext — **Zielniveau** |
-| 3 | selbst-verbessernde Hypermedia-Discovery |
+| 0 | raw 1:1 API mirroring — fast but error-prone; **avoid** |
+| 1 | hints/descriptions in the tools |
+| 2 | domain model + workflow understanding in context — **target level** |
+| 3 | self-improving hypermedia discovery |
 
-**Tool-Design-Regeln (Provenienz: Anthropic „writing tools for agents"):**
-- **Wenige, hochwirksame Tools** statt jeden API-Endpoint zu spiegeln; **konsolidieren** (`schedule_event` = Verfügbarkeit finden + buchen, statt `list_users` + `create_event`).
-- **Namespacing** nach Service + Ressource (`asana_search`, `jira_search`) — der Agent wählt sicherer.
-- **Aussagekräftige Responses** — semantische Identifier (Namen, Typen) statt technische (UUIDs, MIME).
-- **Token-Effizienz** — Pagination/Filter/Truncation mit sinnvollen Defaults; bei Abschneiden Hinweis, wie man gezielter sucht.
-- **Handlungsleitende Fehlermeldungen** — konkret + korrigierend, kein opaker Code.
-- **Beschreibungen wie für ein neues Teammitglied** — Formate/Begriffe explizit; eindeutige Parameter-Namen (`user_id`, nicht `user`); **poka-yoke** (z. B. absolute Pfade erzwingen).
-- **Eval-getriebene Iteration** — Tool-Performance messen, Transkripte mit dem Agenten analysieren, iterieren.
+**Tool design rules (provenance: Anthropic "writing tools for agents"):**
+- **Few, high-impact tools** instead of mirroring every API endpoint; **consolidate** (`schedule_event` = find availability + book, instead of `list_users` + `create_event`).
+- **Namespacing** by service + resource (`asana_search`, `jira_search`) — the agent chooses more reliably.
+- **Meaningful responses** — semantic identifiers (names, types) instead of technical ones (UUIDs, MIME).
+- **Token efficiency** — pagination/filter/truncation with sensible defaults; when truncating, a hint on how to search more precisely.
+- **Actionable error messages** — concrete + corrective, no opaque code.
+- **Descriptions as for a new team member** — formats/terms explicit; unambiguous parameter names (`user_id`, not `user`); **poka-yoke** (e.g. enforce absolute paths).
+- **Eval-driven iteration** — measure tool performance, analyze transcripts with the agent, iterate.
 
-**Elicitation (MCP-Spec ab 2025-06-18):** Ein Server darf strukturierte Rückfragen an Client/User stellen (`elicitation/create`; Typen Text/Zahl/Bool/Enum) mit UI-Präsentation + Ablehnungs-Option. **Bevorzugt gegenüber Sampling** (Server lässt den Client das LLM rufen), weil Elicitation die Kontroll-/Vertrauensgrenze beim Menschen/Client hält. Pro Server dokumentieren, ob Elicitation/Sampling genutzt wird.
+**Elicitation (MCP spec from 2025-06-18):** A server may pose structured follow-up questions to client/user (`elicitation/create`; types text/number/bool/enum) with UI presentation + decline option. **Preferred over sampling** (server has the client call the LLM), because elicitation keeps the control/trust boundary with the human/client. Document per server whether elicitation/sampling is used.
 
 ---
 
-## 18. Probabilistik im Konzept (UC-übergreifend)
+## 18. Probabilistics in the Konzept (across UCs)
 
-### 18.1 Pflicht-Section im Konzept-Kopf
+### 18.1 Mandatory Section in the Konzept Header
 
-Siehe §2.6 (Probabilistik-Statement mit EU-AI-Act-Spalte) — das ist das Pflicht-Artefakt zum Prinzip §1.5.
+See §2.6 (probabilistics statement with EU AI Act column) — this is the mandatory artifact for principle §1.5.
 
-### 18.2 Schichten-Bewusstsein (Kontext-Pyramide)
+### 18.2 Layer Awareness (Context Pyramid)
 
-Im Konzept dokumentieren, welche Schicht der LLM-Kontext-Pyramide genutzt wird:
-1. **Lokale Tabs** — was hat der Entwickler gerade offen?
-2. **Indizierter Projekt-Kontext** — Workspace-Index
-3. **Embeddings-basiertes Retrieval** — RAG / VectorDB
-4. **Pre-trained LLM-Wissen** — das Modell selbst
+Document in the Konzept which layer of the LLM context pyramid is used:
+1. **Local tabs** — what does the developer currently have open?
+2. **Indexed project context** — workspace index
+3. **Embeddings-based retrieval** — RAG / vector DB
+4. **Pre-trained LLM knowledge** — the model itself
 
-Pro UC: welche Schichten sind nötig? Welche Cache-Strategie greift?
+Per UC: which layers are needed? Which cache strategy applies?
 
-### 18.3 Drei Workflow-Modelle
+### 18.3 Three Workflow Models
 
-| Modell | Beschreibung | Wann sinnvoll |
+| Model | Description | When useful |
 |---|---|---|
-| **Conversation-Session** | Chat mit fortlaufendem Kontext | Iterative Erkundung |
-| **Complete-Bundle** | Alles vorab in einen Prompt | Boilerplate / kleine UCs |
-| **Vibe-Coding-Workflow** | Files-on-demand laden | Größere Refactorings |
+| **Conversation session** | chat with continuous context | iterative exploration |
+| **Complete bundle** | everything up front in one prompt | boilerplate / small UCs |
+| **Vibe-coding workflow** | load files on demand | larger refactorings |
 
 ---
 
-## 20. Schichten-Architektur für KI-Apps
+## 20. Layered Architecture for AI Apps
 
-Vier Schichten Pflicht, im Konzept als Entitäten- + Service-Übersicht abgebildet (Provenienz: Springer 2026):
+Four layers mandatory, represented in the Konzept as entity + service overview (provenance: Springer 2026):
 
-| Schicht | Aufgabe | Beispiel |
+| Layer | Task | Example |
 |---|---|---|
-| **Interface Layer** | Tor zur Welt — REST / GraphQL / UI / SSE-Streaming | Symfony Controller + Mercure |
-| **Orchestration Layer** | Business-Logik, Context Engineering, Pre-Processing, Tool-/Plugin-Integration | Symfony Service / Spring Service |
-| **Model Layer** | LLM-API-Abstraktion (Anthropic / OpenAI / Ollama) | LangChain / Spring AI |
-| **Data Layer** | Vektor-DB + relationale DB + Caching | Milvus / pgvector + Redis |
+| **Interface Layer** | gateway to the world — REST / GraphQL / UI / SSE streaming | Symfony controller + Mercure |
+| **Orchestration Layer** | business logic, context engineering, pre-processing, tool/plugin integration | Symfony service / Spring service |
+| **Model Layer** | LLM API abstraction (Anthropic / OpenAI / Ollama) | LangChain / Spring AI |
+| **Data Layer** | vector DB + relational DB + caching | Milvus / pgvector + Redis |
 
-### 20.1 Pflicht-UX: Streaming
+### 20.1 Mandatory UX: Streaming
 
-Token-weise Ausgabe ist UX-Pflicht. Im Konzept jedem LLM-UC ein Streaming-Verhalten zuordnen (Chunked-HTTP, SSE, WebSocket).
+Token-by-token output is a UX requirement. In the Konzept, assign a streaming behavior to every LLM UC (chunked HTTP, SSE, WebSocket).
 
 ### 20.2 Stateless LLM, Stateful App
 
-Im Konzept dokumentieren, wo der Konversations-State lebt: Session-Cookie, DB-Tabelle, Cache. **Nie auf das LLM verlassen** — das ist stateless.
+Document in the Konzept where the conversation state lives: session cookie, DB table, cache. **Never rely on the LLM** — it is stateless.
 
-### 20.3 RAG-Konvention
+### 20.3 RAG Convention
 
-| Komponente | Beispiel | Pflicht-Hinweis |
+| Component | Example | Mandatory note |
 |---|---|---|
-| Embedding-Modell | `nomic-embed-text` (768 Dimensionen; Beispiel, Modell und Dimension sind Projektvariable) | — |
-| Vektor-DB | Milvus / pgvector | — |
-| Chunking | semantisch (nicht zeichenbasiert) | — |
-| Retriever-K | klein halten (2–5) | — |
-| **Prompt-Caching** | Provider-spezifisch (Anthropic / OpenAI Prompt-Caching) | **Pflicht ab > 1k Token Kontext** — ohne Caching ist die ständige Neufütterung unbezahlbar |
-| **Cache-Invalidierung** | Pflicht-Doku pro UC: bei welchen File-/Daten-Änderungen wird invalidiert? | ohne Invalidierungs-Strategie wird gecachter Stale-Kontext zum Memento-Effekt-Risiko |
+| Embedding model | `nomic-embed-text` (768 dimensions; example, model and dimension are project variables) | — |
+| Vector DB | Milvus / pgvector | — |
+| Chunking | semantic (not character-based) | — |
+| Retriever K | keep small (2–5) | — |
+| **Prompt caching** | provider-specific (Anthropic / OpenAI prompt caching) | **Mandatory from > 1k tokens of context** — without caching, the constant re-feeding is unaffordable |
+| **Cache invalidation** | mandatory documentation per UC: on which file/data changes is the cache invalidated? | without an invalidation strategy, cached stale context becomes a memento-effect risk |
 
-Im Konzept pro RAG-UC: Chunking-Strategie + Embedding-Modell + Retriever-K + Caching-Strategie + Invalidierungs-Trigger explizit nennen.
+In the Konzept per RAG UC: name chunking strategy + embedding model + retriever K + caching strategy + invalidation triggers explicitly.
 
-**Retrieval schlägt Modell:** Die RAG-Qualität liegt primär im **Retrieval** — Chunking-Strategie, Metadaten und Preprocessing sind die Hauptstellschrauben, nicht das Modell (Provenienz: Magnussen/Springer). **Grounding-Pflicht:** im System-Prompt Quellen-/Zitationspflicht erzwingen („kein Statement ohne Quelle", Glaser) und das Output-Grounding gegen die Quellen prüfen (§15.3 Factuality).
+**Retrieval beats model:** RAG quality lies primarily in **retrieval** — chunking strategy, metadata and preprocessing are the main levers, not the model (provenance: Magnussen/Springer). **Grounding mandatory:** enforce a source/citation requirement in the system prompt („kein Statement ohne Quelle", Glaser) and check the output grounding against the sources (§15.3 factuality).
 
 ---
 
-## 21. TAO-Cycle + ISAQB-Kernaktivitäten für Agent-UCs
+## 21. TAO Cycle + ISAQB Core Activities for Agent UCs
 
-### 21.1 TAO-Cycle (Thought-Action-Observation)
+### 21.1 TAO Cycle (Thought-Action-Observation)
 
-Pflicht-Schleife für Agent-UCs:
+Mandatory loop for agent UCs:
 
 ```
 ┌──────────┐   ┌──────────┐   ┌──────────────┐
@@ -1665,300 +1663,300 @@ Pflicht-Schleife für Agent-UCs:
        └──────────────────────────────┘  Re-Plan
 ```
 
-Im Konzept jedem Agent-UC ein TAO-Logging zuordnen (§15 Observability).
+In the Konzept, assign TAO logging to every agent UC (§15 observability).
 
-### 21.2 ISAQB-Kernaktivitäten als Prüfraster
+### 21.2 ISAQB Core Activities as a Review Grid
 
-| Aktivität | KI-fähig? | Bedingung |
+| Activity | AI-capable? | Condition |
 |---|---|---|
-| Klärung der Anforderungen | Ja, mit Reviews | Domain-Expert prüft |
-| Entwurf von Strukturen | Teilweise | LLM schlägt vor, Architekt entscheidet |
-| Entwurf von Querschnittskonzepten | Teilweise | Glossar + ADRs nötig |
-| Bewertung | Eingeschränkt | KI als Sparringspartner, nicht als Bewerter |
-| Kommunikation | Nein | Mehrabian-Regel — siehe §1.6 |
-| Überwachung der Implementation | Ja | Verifikationsagent (§10.6) |
+| Clarifying requirements | Yes, with reviews | domain expert checks |
+| Designing structures | Partially | LLM proposes, architect decides |
+| Designing cross-cutting concepts | Partially | glossary + ADRs needed |
+| Evaluation | Limited | AI as sparring partner, not as evaluator |
+| Communication | No | Mehrabian rule — see §1.6 |
+| Monitoring the implementation | Yes | verification agent (§10.6) |
 
-### 21.3 Moravec-Paradox
+### 21.3 Moravec's Paradox
 
-Was Menschen leicht fällt (Wahrnehmung, Kontext), ist für KI schwer — und umgekehrt. Im Konzept: Aufgaben mit „menschlich leicht" NICHT der KI übergeben; „menschlich aufwendig" (Boilerplate, Datenkonvertierung, Pattern-Matching) sind KI-Kandidaten.
+What is easy for humans (perception, context) is hard for AI — and vice versa. In the Konzept: do NOT hand tasks that are "easy for humans" to the AI; tasks that are "laborious for humans" (boilerplate, data conversion, pattern matching) are AI candidates.
 
 ---
 
-## 22. Quantifizierter PoC-Pfad mit Phasen
+## 22. Quantified PoC Path with Phases
 
-> **Bridge zu §29 Modus E:** §22 beschreibt einen *PoC-Phasen-Plan* für die Einführung eines neuen KI-Tools. §29 Modus E kombiniert §22-Phasen mit Brownfield-Pattern für „KI-Capability in bestehendes System".
+> **Bridge to §29 Mode E:** §22 describes a *PoC phase plan* for introducing a new AI tool. §29 Mode E combines §22 phases with the brownfield pattern for "AI capability in an existing system".
 
-### 22.1 Zwei-Phasen-Vorgehen
+### 22.1 Two-Phase Approach
 
-**Phase 1 — Lernen & Experimentieren (2 Wochen):** eine fokussierte Test-Gruppe mit Multiplikatoren · 3–5 konkrete Use Cases · Compliance/Security-Enabler-Kick-off ZU BEGINN (Datenschutz, Vendor-Lock-in) · Tool-Auswahl noch offen.
+**Phase 1 — Learn & Experiment (2 weeks):** one focused test group with multipliers · 3–5 concrete use cases · compliance/security enabler kick-off AT THE START (data protection, vendor lock-in) · tool selection still open.
 
-**Phase 2 — Vielversprechende Ergebnisse verstetigen (3–4 Wochen):** quantitative Erfolgsmessung · konfigurierbare Agenten mit Wissensbasis aus Confluence/Wiki · Multiplikatoren-Befähigung · Skalierungs-Plan.
+**Phase 2 — Consolidate Promising Results (3–4 weeks):** quantitative success measurement · configurable agents with a knowledge base from Confluence/wiki · enabling the multipliers · scaling plan.
 
-### 22.2 Pflicht-Messgrößen pro Use Case
+### 22.2 Mandatory Metrics per Use Case
 
-| Größe | Beispiel |
+| Metric | Example |
 |---|---|
-| Aufgabe | „Refinement-Meeting für Epic XY" |
-| Zeit ohne KI | 15 Min |
-| Zeit mit KI | 5 Min (-67 %) |
-| Verwendeter Prompt | im Repo versioniert |
-| Qualität der Antwort | „passend"/„sehr gut"/„unzureichend" |
-| Qualitäts-Score | 1–10 |
-| Kosten / Tokens | $X / N Tokens |
+| Task | "refinement meeting for epic XY" |
+| Time without AI | 15 min |
+| Time with AI | 5 min (-67 %) |
+| Prompt used | versioned in the repo |
+| Answer quality | "fitting"/"very good"/"insufficient" |
+| Quality score | 1–10 |
+| Cost / tokens | $X / N tokens |
 
-### 22.3 Erwartete Kennzahlen (Realisierbarkeit)
+### 22.3 Expected Figures (Feasibility)
 
-75 % Trefferquote bei Qualität (passend / sehr gut) · 50–75 % Zeitersparnis · 65 % Refinement-Reduktion.
+75 % hit rate on quality (fitting / very good) · 50–75 % time savings · 65 % refinement reduction.
 
-### 22.4 Risiken (im Konzept als Known Issues)
+### 22.4 Risks (as Known Issues in the Konzept)
 
-Single-User-Tests statt diverse Test-Gruppen → Verzerrung · zu früh skalieren ohne fundierte Multiplikatoren · Compliance/Security NACHTRÄGLICH einbinden statt bei Kick-off · fehlende Standards/Guidelines → Agenten halluzinieren passende Antworten.
+Single-user tests instead of diverse test groups → bias · scaling too early without well-grounded multipliers · involving compliance/security AFTERWARDS instead of at kick-off · missing standards/guidelines → agents hallucinate fitting answers.
 
-### 22.5 Real-User-Rollout-Strategien
+### 22.5 Real-User Rollout Strategies
 
-Übergang von synthetischen zu echten Nutzern in vier Stufen (Provenienz: Köster), je nach Risiko kombinierbar:
+Transition from synthetic to real users in four stages (provenance: Köster), combinable depending on risk:
 
-| Strategie | Charakter |
+| Strategy | Character |
 |---|---|
-| **Shadow Traffic** | echte Anfragen parallel an die KI, Antwort nicht ausgeliefert — Vergleich gegen Ist |
-| **Friendly-User / interne Testgruppe** | begrenzte, wohlwollende Nutzergruppe |
-| **Lab-Test** | echte Nutzer unter Laborbedingungen, mit Aufzeichnung |
-| **A/B-Test** | kontrollierter Split gegen Baseline |
+| **Shadow traffic** | real requests sent to the AI in parallel, answer not delivered — comparison against the actual |
+| **Friendly user / internal test group** | limited, well-disposed user group |
+| **Lab test** | real users under lab conditions, with recording |
+| **A/B test** | controlled split against baseline |
 
-Pro LLM-UC die gewählte Stufe + Erfolgs-/Exit-Kriterien dokumentieren (ergänzt §22.2).
+Per LLM UC, document the chosen stage + success/exit criteria (supplements §22.2).
 
 ---
 
-# Teil 6 — Erkenntnisse & Anti-Pattern-Katalog
+# Part 6 — Lessons & Anti-Pattern Catalog
 
-Der Pattern-Katalog: bewährte Erkenntnisse (§24) und das Anti-Pattern-Prüfraster fürs Review (§25). Diese beiden Sektionen sind die konsolidierte Heimat der Patterns; sie werden im Konzept- wie Code-Review als Checkliste durchgegangen.
+The pattern catalog: proven lessons (§24) and the anti-pattern review grid (§25). These two sections are the consolidated home of the patterns; they are walked through as a checklist in Konzept review as well as code review.
 
-## 24. Bewährte Erkenntnisse
+## 24. Proven Lessons
 
-| Erkenntnis | Ursprung | Anwendung |
+| Lesson | Origin | Application |
 |---|---|---|
-| Bundles brauchen immer einen Admin-UC für Bundle-Konfiguration | Notification-Bundle, Media-Bundle | UC mit Route `/admin/{bundle}/config` |
-| Add-on-Module explizit kennzeichnen | DB-Gleisbau-Modul | Eigener Abschnitt mit Lizenz-Hinweis |
-| Blockers früh als Notiz im Konzept | Auftrags-Cockpit | `> **Blocker:** ...` direkt beim UC |
-| Manuelle Äquivalente für nicht-intuitive Systeme | NSAI-Bundle | Bei Batch-Prozessen, KI-Konzepten |
-| Offline-Verhalten explizit beschreiben | Mobile-UC Auftrags-Cockpit | Bei mobilen UCs immer Offline-Abschnitt |
-| Variantenvergleich bei alternativen Implementierungen | WebMailer A/B | Tabelle Kriterium / Variante A/B / Empfehlung |
-| Sachbearbeiter-Perspektive für Queue-Konzepte | Quarantäne NSAI | „Was liegt auf dem Stapel?" |
-| Regulatorische Verweise direkt im UC | DB-Modul (DGUV V78) | Hinweis-Spalte / Fußnote |
-| Schrittnummerierung im Ablauf | Leßner/Bartels 2026 | „Implementiere Schritt X.Y" als Prompt |
-| Konzept-Score als Diskussionsgrundlage | Bartels 2026 | ursprünglich „8/10 ist implementierungsreif"; seit v5.1 Gate plus Score nach Projekt-Policy (§7) |
-| Subsysteme klein halten | Leßner/Toth 2026 | Self-Contained UCs |
-| KI prüft Spezifikation gegen Code | Bartels 2026 | Verifikationsagent nach jedem Sprint (§10.6) |
-| Semantische Anker im Glossar | Müller 2026 | 2–4 Stichworte als LLM-Trigger |
-| LLM-Ausgaben typisieren | Baumgartner 2026 | Sealed Interfaces / Records |
-| Agenten nur bei Entscheidungen unter Unsicherheit | Baumgartner 2026 | Deterministische Logik bleibt deterministisch |
-| Testdaten-Strategie im LLM-UC beschreiben | Heinicke 2026 | Personas + Seed Queries + Validierung |
-| Knowledge-Cutoff im Konzept adressieren | Heinicke 2026 | Kontext-Strategie für zeitkritische Daten |
-| Zu viele MCP-Tools verschlechtern Qualität | Heinicke 2026 | Pro UC max. 3–5 Tools |
-| Probabilistik-Statement Pflicht | Mahringer/Wolff 2026 | UC-Tabelle mit Toleranz + Validierung (§2.6) |
-| KI-Code als Untrusted Input | Mahringer 2026 | CodeQL/SonarQube vor Merge (§15.8) |
-| Sampling für LLM-Spans deaktivieren | Köster 2026 | Vollständiges Tracing |
-| OpenTelemetry GenAI-Conventions als Standard | Köster 2026 | `gen_ai.*`-Attribute |
-| LLM-as-Judge als 4. Eval-Säule | Köster 2026 | Promptfoo / `llm-rubric` |
-| Red Teaming pro LLM-UC | Köster 2026 | Promptfoo `harmful:*` + `jailbreak` |
-| PII-Anonymisierung im Trace | Köster 2026 | DataFog / Microsoft Presidio |
-| Konsistenzcheck Modell↔API per LLM-Prompt | Junker 2026 | Pro Sprint-Ende, versionierter Prompt (§19) |
-| Vier-Schichten-Architektur für KI-Apps | Springer 2026 | Interface / Orchestration / Model / Data |
-| Streaming als UX-Pflicht | Springer 2026 | Token-weise Ausgabe pro LLM-UC |
-| TAO-Cycle für Agent-UCs | Röwekamp 2026 | Thought / Action / Observation als Schleife |
-| ISAQB-Kernaktivitäten-Mapping | Röwekamp 2026 | KI-fähig vs. nicht-KI-fähig pro Aktivität |
-| Mehrabian-Regel respektieren | Wolff 2026 | Stakeholder-Workshops bleiben menschlich |
-| Vier Architekten-Superkräfte als Mensch-Anker | Röwekamp 2026 | Communicate / Decide / Adapt / Make Mistakes |
-| Verantwortungs-Matrix pro Konzept | Lischke 2026 | UC × Mensch-Validator × Haftung (§23.1) |
-| Walk-Through-Pflicht | Mahringer 2026 | Vor Sprint-Start je UC laut vorlesen |
-| Zwei-Phasen-PoC | Posselt/Birke/Schluff 2026 | Lernen+Experimentieren → Verstetigen |
-| Verifikationsagent + Review-Agent als zwei Rollen | Bartels 2026 | `.github/agents/`-Layout |
-| Modul-Tiefe als Architektur-Metrik | Ousterhout/Pocock | Deep = viel Verhalten hinter schmaler Schnittstelle |
-| Deletion-Test als Refactor-Filter | Pocock 2026 | „Würde Löschen die Komplexität verschwinden lassen oder verteilen?" |
-| Vertical-Slice / Tracer-Bullet als Decomposition-Default | Pocock/Thorstensen | Jeder Slice durchquert ALLE Schichten |
-| Slice 1 = riskantester Pfad mit höchster Lernchance | Pocock/Thorstensen | Reihenfolge folgt „lernträchtigster zuerst" |
-| Vertical-TDD statt Horizontal-TDD | Pocock 2026 | Ein Test → eine Impl → wiederholen |
-| Feedback-Loop als eigentliche Debug-Skill | Pocock 2026 | „Build the right feedback loop, and the bug is 90 % fixed." |
-| CONTEXT.md als nicht-verhandelbarer SSOT | Pocock + Brownfield | Pflicht vor jeder Erweiterung: lesen, bei Drift aktualisieren |
-| ADRs für asymmetrische Entscheidungen | Pocock + Brownfield | `docs/adr/ADR-NNN-<slug>.md` |
-| Hybrid-Validierungs-Schichten für LLM-Code | Mahringer 2026 | LSP/AST + Reasoning + CodeQL — deterministische Schichten obendrauf |
-| Memento-Effekt + Kontext-Caching als RAG-Voraussetzung | Mahringer 2026 | Token-Budget überwachen, Caching Pflicht ab > 1k Token |
-| Validierungs-Mindset-Niveau als Differenzierungs-Achse | Wilke/Loje/Krypczyk 2026 | KI-Anteil > 50 % verlangt Hoch-Niveau-Validierung |
-| EU-AI-Act-Risiko-Klasse pro UC | Regulatorik 2026/27 | Pflicht-Spalte im Probabilistik-Statement (§2.6) |
-| Vendor-Risiko-Statement parallel zu Probabilistik | Mischok 2026 | Provider + Modell + Migration + Souveränität pro LLM-UC |
-| Konkretheits-Trennung CDP5 abstrakt vs. Wiki/Trace konkret | Manipulationsvermeidung | Konkrete Pfade/SHAs gehören nicht ins CDP5 (§1.7) |
-| **Orchestrierung statt Selbst-Ausführung** | Delegations-Doktrin (§32) | Nicht-trivialer Auftrag → an isolierte `stufe-rolle`-Worker delegieren, Drift-Schutz durch frischen Kontext |
-| **Determinismus-Gate / programmierter T1-Skill statt Text-Skill** | Skill-Determinismus (§32.9) | Entscheidbar + wiederholt → Node.js-Programm mit Tests; Text-Skill ist nicht reproduzierbar |
-| **Clarify-First / selbst-geflaggte Annahme = harter Stopp** | Anti-Drift (§1.9) | Bei Unklarheit/offener Entscheidung sofort in die Konversation, nicht durchreichen |
-| **Stale-Data zuerst ausschließen** | Reproduktions-Gate (§32.8 (6)) | Clean-Reproduktion vor jedem Diff-Fix; Semantik ausführbar belegen |
-| **Vorbedingung = Stopp, kein Rescue im selben Lauf** | Anti-Drift (§32.8 (7)) | ADR/Konzept-Vorbedingung ist ein Gate, keine Verhandlungsbasis |
-| **Auditor schlägt Self-/Pro-Review bei 🔴-Slices** | Review-Korollar (§11.4) | Gegnerischer Auditor + empirische Gegenprobe; Self/Pro teilen denselben blinden Fleck |
-| **Durable Artefakte als externes Gedächtnis** | Gedächtnis-Abwehr (§28) | CONTEXT.md/ADR/Handoff halten Vokabular + Entscheidungen außerhalb des flüchtigen Kontexts |
-| **Retro→Memory-Loop verifizieren** | Lern-Loop (§32.6) | Jeder im Retro zitierte Memory-Slug muss real existieren + MEMORY.md-Pointer haben |
-| **Konzept-Splitting: Master-Index + Sub-Files ab ~400 Zeilen** | wachsende Konzepte | Master (Grundprinzipien + Topic-Tabelle) + Sub-Decision-Files pro Topic; minimale, präzise Cross-Refs |
-| **Plan-Treue / minimal deviation** | Multi-Repo-Lehren | Plan wortgetreu umsetzen; Verbesserungsvorschläge zurückmelden statt lokaler Cleverness |
-| **Findings als durable Issues persistieren** | Issue-als-SSOT | Jeder Review-/Test-/Bug-Finding als Issue (nicht in Chat/Commit-Message versanden); auto-close via `Closes #X` |
+| Bundles always need an admin UC for bundle configuration | notification bundle, media bundle | UC with route `/admin/{bundle}/config` |
+| Mark add-on modules explicitly | DB track construction module | own section with license note |
+| Blockers early as a note in the Konzept | order cockpit | `> **Blocker:** ...` directly at the UC |
+| Manual equivalents for non-intuitive systems | NSAI bundle | for batch processes, AI concepts |
+| Describe offline behavior explicitly | mobile UC order cockpit | always an offline section for mobile UCs |
+| Variant comparison for alternative implementations | WebMailer A/B | table criterion / variant A/B / recommendation |
+| Case-worker perspective for queue concepts | NSAI quarantine | "What is on the pile?" |
+| Regulatory references directly in the UC | DB module (DGUV V78) | note column / footnote |
+| Step numbering in the flow | Leßner/Bartels 2026 | "Implement step X.Y" as prompt |
+| Konzept score as a basis for discussion | Bartels 2026 | originally "8/10 is implementation-ready"; since v5.1 gate plus score per project policy (§7) |
+| Keep subsystems small | Leßner/Toth 2026 | self-contained UCs |
+| AI checks the specification against the code | Bartels 2026 | verification agent after every sprint (§10.6) |
+| Semantic anchors in the glossary | Müller 2026 | 2–4 keywords as LLM triggers |
+| Type LLM outputs | Baumgartner 2026 | sealed interfaces / records |
+| Agents only for decisions under uncertainty | Baumgartner 2026 | deterministic logic stays deterministic |
+| Describe the test data strategy in the LLM UC | Heinicke 2026 | personas + seed queries + validation |
+| Address the knowledge cutoff in the Konzept | Heinicke 2026 | context strategy for time-critical data |
+| Too many MCP tools degrade quality | Heinicke 2026 | max. 3–5 tools per UC |
+| Probabilistics statement mandatory | Mahringer/Wolff 2026 | UC table with tolerance + validation (§2.6) |
+| AI code as untrusted input | Mahringer 2026 | CodeQL/SonarQube before merge (§15.8) |
+| Disable sampling for LLM spans | Köster 2026 | complete tracing |
+| OpenTelemetry GenAI conventions as standard | Köster 2026 | `gen_ai.*` attributes |
+| LLM-as-Judge as 4th eval pillar | Köster 2026 | Promptfoo / `llm-rubric` |
+| Red teaming per LLM UC | Köster 2026 | Promptfoo `harmful:*` + `jailbreak` |
+| PII anonymization in the trace | Köster 2026 | DataFog / Microsoft Presidio |
+| Consistency check model↔API via LLM prompt | Junker 2026 | per sprint end, versioned prompt (§19) |
+| Four-layer architecture for AI apps | Springer 2026 | Interface / Orchestration / Model / Data |
+| Streaming as a UX requirement | Springer 2026 | token-by-token output per LLM UC |
+| TAO cycle for agent UCs | Röwekamp 2026 | Thought / Action / Observation as a loop |
+| ISAQB core activities mapping | Röwekamp 2026 | AI-capable vs. not AI-capable per activity |
+| Respect the Mehrabian rule | Wolff 2026 | stakeholder workshops stay human |
+| Four architect superpowers as human anchor | Röwekamp 2026 | Communicate / Decide / Adapt / Make Mistakes |
+| Responsibility matrix per Konzept | Lischke 2026 | UC × human validator × liability (§23.1) |
+| Walk-through mandatory | Mahringer 2026 | read each UC aloud before sprint start |
+| Two-phase PoC | Posselt/Birke/Schluff 2026 | learn+experiment → consolidate |
+| Verification agent + review agent as two roles | Bartels 2026 | `.github/agents/` layout |
+| Module depth as architecture metric | Ousterhout/Pocock | deep = much behavior behind a narrow interface |
+| Deletion-Test as refactor filter | Pocock 2026 | "Would deleting make the complexity disappear or spread it around?" |
+| Vertical slice / Tracer-Bullet as decomposition default | Pocock/Thorstensen | every slice crosses ALL layers |
+| Slice 1 = riskiest path with the highest learning opportunity | Pocock/Thorstensen | order follows "most instructive first" |
+| Vertical TDD instead of horizontal TDD | Pocock 2026 | one test → one impl → repeat |
+| Feedback loop as the actual debugging skill | Pocock 2026 | "Build the right feedback loop, and the bug is 90 % fixed." |
+| CONTEXT.md as non-negotiable SSOT | Pocock + brownfield | mandatory before every extension: read, update on drift |
+| ADRs for asymmetric decisions | Pocock + brownfield | `docs/adr/ADR-NNN-<slug>.md` |
+| Hybrid validation layers for LLM code | Mahringer 2026 | LSP/AST + reasoning + CodeQL — deterministic layers on top |
+| Memento effect + context caching as RAG prerequisite | Mahringer 2026 | monitor the token budget, caching mandatory from > 1k tokens |
+| Validation mindset level as differentiation axis | Wilke/Loje/Krypczyk 2026 | AI share > 50 % demands high-level validation |
+| EU AI Act risk class per UC | regulation 2026/27 | mandatory column in the probabilistics statement (§2.6) |
+| Vendor risk statement alongside probabilistics | Mischok 2026 | provider + model + migration + sovereignty per LLM UC |
+| Concreteness separation: CDP5 abstract vs. wiki/trace concrete | manipulation avoidance | concrete paths/SHAs do not belong in CDP5 (§1.7) |
+| **Orchestration instead of self-execution** | delegation doctrine (§32) | non-trivial task → delegate to isolated `stufe-rolle` workers, drift protection through fresh context |
+| **Determinism gate / programmed T1 skill instead of text skill** | skill determinism (§32.9) | decidable + repeated → Node.js program with tests; a text skill is not reproducible |
+| **Clarify-first / self-flagged assumption = hard stop** | anti-drift (§1.9) | on ambiguity/open decision, go to the conversation immediately, do not pass it through |
+| **Rule out stale data first** | reproduction gate (§32.8 (6)) | clean reproduction before every diff fix; prove semantics executably |
+| **Precondition = stop, no rescue in the same run** | anti-drift (§32.8 (7)) | an ADR/Konzept precondition is a gate, not a basis for negotiation |
+| **Auditor beats self-/pro-review for 🔴 slices** | review corollary (§11.4) | adversarial auditor + empirical counter-check; self/pro share the same blind spot |
+| **Durable artifacts as external memory** | memory defense (§28) | CONTEXT.md/ADR/handoff keep vocabulary + decisions outside the volatile context |
+| **Verify the retro→memory loop** | learning loop (§32.6) | every memory slug cited in the retro must really exist + have a MEMORY.md pointer |
+| **Konzept splitting: master index + sub-files from ~400 lines** | growing Konzepte | master (basic principles + topic table) + sub-decision files per topic; minimal, precise cross-refs |
+| **Plan fidelity / minimal deviation** | multi-repo lessons | implement the plan literally; report improvement suggestions back instead of local cleverness |
+| **Persist findings as durable issues** | issue-as-SSOT | every review/test/bug finding as an issue (not lost in chat/commit message); auto-close via `Closes #X` |
 
 ---
 
-## 25. Anti-Pattern
+## 25. Anti-Patterns
 
-| Anti-Pattern | Problem | Lösung |
+| Anti-pattern | Problem | Solution |
 |---|---|---|
-| „Weitere Felder nach Bedarf" | Unvollständig | Alle Felder explizit |
-| Fehlerfälle in Fließtext | Schwer überfliegbar | Tabelle |
-| „Standard-Verhalten" ohne Definition | Mehrdeutig | Default-Werte explizit |
-| UCs ohne Route | Nicht testbar | Pflicht: Route oder „System (automatisch)" |
-| Status ohne Übergänge | Unklar | Lifecycle-Diagramm |
-| Rollen ohne Scope | Unklar | Global vs. Ressource-gebunden |
-| Bundle ohne Konfig-Abschnitt | Nicht integrierbar | Admin-UC für Bundle-Konfig |
-| UCs nur für Erfolgsfall | Fehlerfälle vergessen | Fehlerfälle-Checkliste |
-| Ablauf ohne Schrittnummern | Kein gezielter KI-Prompt | Nummerierte Schritte |
-| Datentypen nicht spezifiziert | KI rät | Typ + Einheit + Wertebereich |
-| Prosa-Logik statt Ablaufstruktur | KI interpretiert | Verzweigungen explizit als Schritte |
-| Konzept einmalig erstellt | Veraltet | Lebendes Artefakt + Versionierung |
-| KI-generierte Tests die zum Code passen | Tests verlieren Nutzen *(Fondermann)* | Test-Cases aus UC-Spec ableiten, nicht aus Code |
-| Cognitive Offloading auf KI | Lernschwund *(Mahringer)* | Walk-Through-Pflicht (§23.2) |
-| KI als Architektur-Entscheider | Halluzinationen + Mehrabian-Lücke *(Wolff)* | KI nur Sparringspartner, nicht Entscheider |
-| LLM ohne Probabilistik-Statement im Konzept | Falsche Erwartungshaltung | §1.5 + §2.6 |
-| Klassische Observability-Tools für LLMs | erfassen `gen_ai.*` nicht | OpenTelemetry-GenAI + Langfuse |
-| KI-Code direkt in Production ohne CodeQL/SonarQube | 45 % Sicherheitsmängel *(Veracode)* | KI-Code als Untrusted Input |
-| Verantwortung an LLM delegieren | Nicht haftbar *(Lischke)* | §23.1 Verantwortungs-Matrix |
-| Stakeholder-Workshops durch KI ersetzen | 93 % Kommunikation nonverbal *(Wolff)* | Event Storming / Domain Storytelling bleibt menschlich |
-| Agenten in deterministischen Flows | Komplexitäts-Inflation *(Baumgartner)* | Workflow ohne LLM = Workflow ohne Agent |
-| Magische String-Schlüssel für Agent-Output | Probabilistik-Quelle *(Baumgartner)* | Sealed Interfaces / typisierte Records |
-| Direkter LLM-Aufruf ohne Schichten | Nicht wartbar *(Springer)* | Vier-Schichten-Architektur §20 |
-| Synchrone LLM-Antwort ohne Streaming | Schlechte UX *(Springer)* | Token-weise Ausgabe |
-| Implementation-Details als Inkonsistenz interpretieren | Falsche Refactoring-Empfehlung *(Junker)* | Prompt-Regel: „Implementation-Details sind KEINE Inkonsistenzen" |
-| Compliance/Security NACHTRÄGLICH einbinden | PoC-Sackgasse *(Posselt)* | Enabler-Kick-off bei PoC-Beginn |
-| Sampling für LLM-Spans aktivieren | Drift-Erkennung blind | §15.1 — Sampling DEAKTIVIEREN |
-| Tests nach der Implementation aus dem Code generieren | Redundante grüne Tests ohne Spec-Bezug | §11.7 — TDD-First |
-| Akzeptanzkriterien als Prosa | Kein Test-Case, sondern Wunsch | §11.7 — AC-Tabelle |
-| Test-Klassen ohne UC-Mapping | Wartungs-Schulden | §11.7 — Test-Klasse-Name benannt |
-| Horizontal-TDD (alle Tests vorab) | Tests testen *imaginiertes* Verhalten *(Pocock)* | §27.4 — Vertical-TDD |
-| Shallow-Module nur zur Testbarkeit extrahiert | Bugs verstecken sich in der Aufruf-Art *(Pocock)* | §27.1 Deletion-Test |
-| Bulk-PRD ohne Tracer-Bullet-Decomposition | beschreibt Endzustand statt verifizierbarer Zwischenschritte | §27.2 Vertical-Slicing |
-| Bug-Hypothese ohne Feedback-Loop | Stunden Code-Lesen ohne Pass/Fail-Signal | §27.5 Feedback-Loop-First |
-| Implementation startet ohne CONTEXT.md gelesen | Domain-Glossar wird re-interpretiert → Drift | §1.8 + §27.6 |
-| ADR-Decisions bei jeder Slice neu verhandeln | durable Entscheidung verletzt | §28.2 ADRs sind durabel |
-| Prototype-Code wandert in Production | Throwaway-Code ohne Tests im Hauptpfad | §27.3 — clearly marked + delete-or-absorb |
-| „Es funktioniert" als Architektur-Begründung | Bestätigung ohne Mechanik | §27 — pro Entscheidung *welche Problem-Eigenschaft* gematcht wird |
-| ADRs im Touch-Bereich nicht gelesen vor Erweiterung | Drift zu bestehenden Entscheidungen | §1.8 + §27.6 |
-| Memento-Effekt durch Kontext-Sprengung ignorieren | Modell vergisst Anfangskontext *(Mahringer)* | Token-Budget überwachen; Handoff (§28.4) bei Limit-Annäherung |
-| RAG ohne Prompt-Caching | Token-Kosten explodieren *(Mahringer)* | §20.3 Prompt-Caching Pflicht ab > 1k Token |
-| LLM-Code ohne strukturelle Validierung mergen | LSP/AST würde Typ-/Symbol-Fehler fangen *(Mahringer)* | §15.8 Validierungs-Schicht 1+ Pflicht |
-| Passive KI-Output-Übernahme ohne aktive Validierung | Cognitive Offloading verschärft *(Wilke)* | §23.1 Mindset-Niveau „hoch" bei KI-Anteil > 50 % |
-| Sycophancy-bestätigte KI-Vorschläge übernehmen | LLM bestätigt statt zu widersprechen *(Kruse)* | Devil's-Advocate-Pass; zweites Modell; §11.4 Review-Korollar |
-| KI als deterministische Suchmaschine behandeln | Plausibilität wird mit Wahrheit verwechselt *(Kansy)* | KI-Output ist Vorschlag, nicht Fakt; mit Quelle/Validierung verknüpfen |
-| Hochrisiko-UC ohne EU-AI-Act-Klassifikation | Regulatorische Nicht-Konformität | §2.6 Risiko-Klassen-Spalte Pflicht |
-| AFK-Slice ohne Readiness-Check | Agent läuft ins Leere | §28.3 AFK-Hardening, 6-Punkte-Checkliste |
-| Annahmen treffen statt in die Konversation gehen | Fehler verteilt sich über alles Aufbauende | §1.9 Clarify-First |
-| Roadmap/Plan-Drift: Skelette unverbucht | Doppelbau; oder halluzinierte Symbole im Plan | §28.5 Roadmap = temporär → Code↔Plan-Inventur (T1-Skript / `konzept-mapper`) |
-| Safety-Gate an optionalem State → fail-open | geschützte (destruktive) Aktion läuft ungated bei `null` | Safety-Gate **fail-closed**: `null` → abbrechen, „Check entfällt" verboten |
-| Partial-Success-Marker ignorieren | teil-gescheiterter Lauf wird als Erfolg geschluckt | immer auf den Partial-Marker prüfen, nicht nur Top-Level-Flag |
-| Entscheidbare Tätigkeit als Text-Skill | nicht reproduzierbar (LLM-Lauf) | §32.9 — T1-Programm portieren |
-| Worker mit kopierten Kontext-Walls briefen | Overflow + Paraphrase-Drift | §32.8 (2) — Pointer-Brief statt Paste |
-| **Lethal Trifecta erfüllt ohne Gegenmaßnahme** | sensible Daten + untrusted Content + Egress → Daten-Exfiltration via Prompt-Injection | §33.1 — eine Achse brechen oder Human-Gate |
-| **Drittanbieter-MCP-Server ungevettet eingebunden** | Name-Spoofing / Tool-Description-Injection / Rug-Pull | §33.3 — Trust-Source, Approval-Hash, Isolation |
-| **Großer KI-Codeblock ohne Public-Code-Filter übernommen** | Copy-Left-/Lizenzverstoß | §33.7 — Public-Code-Filter, große 1:1-Blöcke meiden |
-| **Eigener MCP-Server als rohe 1:1-API-Spiegelung (Level 0)** | fehleranfällig, Agent wählt falsches Tool | §16.8 — konsolidierte, domänenbewusste Tools (Level 2) |
-| **Überladene CLAUDE.md/Instruktions-Datei** | jede Session geladen → Regeln gehen im Bloat unter, werden ignoriert | §28.6 — kurz halten, prunen, situatives Wissen in Skills |
-| **Kontext akkumulieren über unzusammenhängende Tasks (kitchen-sink)** | Context-Rot, Genauigkeit fällt > 60–70 % Auslastung | §28.6 — `/clear` zwischen Tasks; nach 2 Korrekturen neu starten |
+| "Further fields as needed" | Incomplete | all fields explicit |
+| Error cases in running text | hard to skim | table |
+| "Standard behavior" without definition | ambiguous | default values explicit |
+| UCs without route | not testable | mandatory: route or "System (automatic)" |
+| Status without transitions | unclear | lifecycle diagram |
+| Roles without scope | unclear | global vs. resource-bound |
+| Bundle without config section | not integrable | admin UC for bundle config |
+| UCs only for the success case | error cases forgotten | error-case checklist |
+| Flow without step numbers | no targeted AI prompt | numbered steps |
+| Data types not specified | AI guesses | type + unit + value range |
+| Prose logic instead of flow structure | AI interprets | branches explicit as steps |
+| Konzept created once | outdated | living artifact + versioning |
+| AI-generated tests that fit the code | tests lose their value *(Fondermann)* | derive test cases from the UC spec, not from the code |
+| Cognitive offloading to AI | learning loss *(Mahringer)* | walk-through mandatory (§23.2) |
+| AI as architecture decision-maker | hallucinations + Mehrabian gap *(Wolff)* | AI only as sparring partner, not decision-maker |
+| LLM without probabilistics statement in the Konzept | wrong expectations | §1.5 + §2.6 |
+| Classic observability tools for LLMs | do not capture `gen_ai.*` | OpenTelemetry GenAI + Langfuse |
+| AI code straight into production without CodeQL/SonarQube | 45 % security defects *(Veracode)* | AI code as untrusted input |
+| Delegating responsibility to the LLM | not liable *(Lischke)* | §23.1 responsibility matrix |
+| Replacing stakeholder workshops with AI | 93 % of communication nonverbal *(Wolff)* | event storming / domain storytelling stays human |
+| Agents in deterministic flows | complexity inflation *(Baumgartner)* | workflow without LLM = workflow without agent |
+| Magic string keys for agent output | source of probabilistics *(Baumgartner)* | sealed interfaces / typed records |
+| Direct LLM call without layers | not maintainable *(Springer)* | four-layer architecture §20 |
+| Synchronous LLM answer without streaming | poor UX *(Springer)* | token-by-token output |
+| Interpreting implementation details as inconsistency | wrong refactoring recommendation *(Junker)* | prompt rule: "Implementation details are NOT inconsistencies" |
+| Involving compliance/security AFTERWARDS | PoC dead end *(Posselt)* | enabler kick-off at PoC start |
+| Enabling sampling for LLM spans | drift detection blind | §15.1 — DISABLE sampling |
+| Generating tests from the code after the implementation | redundant green tests without spec reference | §11.7 — TDD-first |
+| Acceptance criteria as prose | not a test case but a wish | §11.7 — AC table |
+| Test classes without UC mapping | maintenance debt | §11.7 — test class name stated |
+| Horizontal TDD (all tests up front) | tests test *imagined* behavior *(Pocock)* | §27.4 — vertical TDD |
+| Shallow modules extracted only for testability | bugs hide in the way they are called *(Pocock)* | §27.1 Deletion-Test |
+| Bulk PRD without Tracer-Bullet decomposition | describes the end state instead of verifiable intermediate steps | §27.2 vertical slicing |
+| Bug hypothesis without feedback loop | hours of code reading without a pass/fail signal | §27.5 feedback-loop-first |
+| Implementation starts without reading CONTEXT.md | domain glossary gets re-interpreted → drift | §1.8 + §27.6 |
+| Renegotiating ADR decisions on every slice | durable decision violated | §28.2 ADRs are durable |
+| Prototype code migrates into production | throwaway code without tests in the main path | §27.3 — clearly marked + delete-or-absorb |
+| "It works" as architecture justification | confirmation without mechanics | §27 — per decision, *which problem property* is matched |
+| ADRs in the touch area not read before extension | drift from existing decisions | §1.8 + §27.6 |
+| Ignoring the memento effect from context blow-up | model forgets the initial context *(Mahringer)* | monitor the token budget; handoff (§28.4) when approaching the limit |
+| RAG without prompt caching | token costs explode *(Mahringer)* | §20.3 prompt caching mandatory from > 1k tokens |
+| Merging LLM code without structural validation | LSP/AST would catch type/symbol errors *(Mahringer)* | §15.8 validation layer 1+ mandatory |
+| Passive adoption of AI output without active validation | cognitive offloading aggravated *(Wilke)* | §23.1 mindset level "high" when AI share > 50 % |
+| Adopting sycophancy-confirmed AI proposals | LLM confirms instead of contradicting *(Kruse)* | devil's-advocate pass; second model; §11.4 review corollary |
+| Treating AI as a deterministic search engine | plausibility mistaken for truth *(Kansy)* | AI output is a proposal, not a fact; tie it to source/validation |
+| High-risk UC without EU AI Act classification | regulatory non-compliance | §2.6 risk class column mandatory |
+| AFK slice without readiness check | agent runs into the void | §28.3 AFK hardening, 6-point checklist |
+| Making assumptions instead of going to the conversation | the error spreads across everything built on top | §1.9 clarify-first |
+| Roadmap/plan drift: skeletons unrecorded | double build; or hallucinated symbols in the plan | §28.5 roadmap = temporary → code↔plan inventory (T1 script / `konzept-mapper`) |
+| Safety gate on optional state → fail-open | protected (destructive) action runs ungated on `null` | safety gate **fail-closed**: `null` → abort, "check waived" forbidden |
+| Ignoring partial-success markers | partially failed run is swallowed as success | always check the partial marker, not just the top-level flag |
+| Decidable activity as text skill | not reproducible (LLM run) | §32.9 — port to a T1 program |
+| Briefing workers with copied walls of context | overflow + paraphrase drift | §32.8 (2) — pointer brief instead of paste |
+| **Lethal trifecta fulfilled without countermeasure** | sensitive data + untrusted content + egress → data exfiltration via prompt injection | §33.1 — break one axis or Human-Gate |
+| **Third-party MCP server integrated unvetted** | name spoofing / tool-description injection / rug pull | §33.3 — trust source, approval hash, isolation |
+| **Large AI code block adopted without public-code filter** | copyleft/license violation | §33.7 — public-code filter, avoid large 1:1 blocks |
+| **Own MCP server as raw 1:1 API mirror (level 0)** | error-prone, agent picks the wrong tool | §16.8 — consolidated, domain-aware tools (level 2) |
+| **Overloaded CLAUDE.md/instruction file** | loaded every session → rules drown in bloat, get ignored | §28.6 — keep short, prune, situational knowledge in skills |
+| **Accumulating context across unrelated tasks (kitchen sink)** | context rot, accuracy drops above 60–70 % utilization | §28.6 — `/clear` between tasks; restart after 2 corrections |
 
 ---
 
-## Selbst-Anwendung — CDP5 als Review-Prüfraster gegen andere Konzepte
+## Self-Application — CDP5 as a Review Grid Against Other Konzepte
 
-Beim `konzept-review` werden andere Konzepte gegen CDP5 gemessen — insbesondere prüfen:
-- §1–§14: Konzept-Struktur vollständig; Gate der Reife-Policy bestanden und Score ≥ Projekt-Schwelle (§7, §10.3/§10.4)
-- §1.7 Konkretheits-Trennung: keine konkreten Code/Repo/SHA-Details im Konzept-Doc
-- §1.8 CONTEXT.md/ADR-Pflicht: bei Brownfield-Anteil Pflicht
-- §7 erweiterte Checkliste: bei Implementation-Plan-Anteil zusätzliche Pflicht-Punkte
-- §2.6 + §2.7: bei LLM-UC Pflicht-Statements (Probabilistik + Vendor + EU-AI-Act)
-- §10.7: jede „Pflicht" hat einen objektiv prüfbaren Nachweis-Typ
-- Teil 2 (§27–§29, §32): für Konzepte mit Brownfield-/Review-/Teardown- oder PoC-Anteil verbindlich
+During `konzept-review`, other Konzepte are measured against CDP5 — in particular check:
+- §1–§14: Konzept structure complete; gate of the maturity policy passed and score ≥ project threshold (§7, §10.3/§10.4)
+- §1.7 concreteness separation: no concrete code/repo/SHA details in the Konzept doc
+- §1.8 CONTEXT.md/ADR requirement: mandatory with a brownfield share
+- §7 extended checklist: additional mandatory items with an implementation-plan share
+- §2.6 + §2.7: mandatory statements for LLM UCs (probabilistics + vendor + EU AI Act)
+- §10.7: every "mandatory" item has an objectively verifiable Nachweis-Typ (evidence type)
+- Part 2 (§27–§29, §32): binding for Konzepte with a brownfield/review/teardown or PoC share
 
 ---
 
-# Anhang
+# Appendix
 
-Referenz-Material — beim Lesen der Doktrin überspringbar, beim konkreten Arbeiten nachschlagen.
+Reference material — skippable when reading the doctrine, consult when doing concrete work.
 
-## Anhang A — KI-Prompting-Pattern für neue Konzepte (war §9)
+## Appendix A — AI Prompting Patterns for New Konzepte (formerly §9)
 
-Fünf Prompt-Pattern für den Lebenszyklus eines Konzepts.
+Five prompt patterns for the lifecycle of a Konzept.
 
-### A.1 Initialer Prompt (Konzept von Grund auf)
+### A.1 Initial Prompt (Konzept from Scratch)
 
 ```
-Erstelle ein Anwender-Konzept für {Projektname}.
+Create an end-user Konzept for {project name}.
 
-Scope: {1–3 Sätze Beschreibung}
+Scope: {1–3 sentences of description}
 Stack: Symfony, FrankenPHP, Twig, Symfony Turbo, MercureHub, API Platform
-Akteure: {kommagetrennte Rollen}
-Besonderheiten: {Regulatorik, externe Systeme, Offline-Anforderungen usw.}
+Actors: {comma-separated roles}
+Specifics: {regulation, external systems, offline requirements, etc.}
 
-Anforderungen an das Konzept:
-- Sachbearbeiter-Test: Alle Prozesse manuell ausführbar anhand des Dokuments
-- Use Cases für alle Akteure (Nutzer, Sachbearbeiter, Admin, System)
-- Formularfelder als vollständige Tabellen (Feld, Typ, Pflicht, Hinweis) — mit Datentyp und Wertebereich
-- Ablaufschritte nummeriert (1, 1.1, 1.2, 2, ...) für spätere gezielte Implementierungsreferenz
-- Fehlerfälle als Tabellen — inkl. Grenzwerte und Sonderfälle
-- Status-Lifecycles als ASCII-Diagramme
-- Entitäten-Übersicht am Ende
-- Mercure-Topics wenn Echtzeit nötig; API Platform Endpunkte wenn API nötig
+Requirements for the Konzept:
+- Case-worker test: all processes can be executed manually based on the document
+- Use cases for all actors (user, case worker, admin, system)
+- Form fields as complete tables (field, type, mandatory, note) — with data type and value range
+- Flow steps numbered (1, 1.1, 1.2, 2, ...) for later targeted implementation reference
+- Error cases as tables — incl. limit values and special cases
+- Status lifecycles as ASCII diagrams
+- Entity overview at the end
+- Mercure topics when real-time is needed; API Platform endpoints when an API is needed
 ```
 
-### A.2 Review-Prompt (bestehendes Konzept verbessern)
+### A.2 Review Prompt (Improve an Existing Konzept)
 
 ```
-Analysiere dieses Konzept als strenger Requirements Engineer mit Policy:
-"Ein Konzept ist implementierungsreif wenn ein KI-Agent daraus ohne Rückfragen
-korrekten, wartbaren Code generieren kann."
+Analyze this Konzept as a strict requirements engineer with the policy:
+"A Konzept is implementation-ready when an AI agent can generate correct,
+maintainable code from it without follow-up questions."
 
-Identifiziere: 1) UCs mit Interpretationsspielraum (Prosa statt Ablaufstruktur)
-2) Fehlende Schrittnummerierung 3) Unspezifizierte Datentypen/Einheiten/Wertebereiche
-4) Fehlende Fehlerfälle (Grenzwerte/Ausnahmen) 5) Fehlende UCs für Admin/Sachbearbeiter
-6) Status ohne Übergänge 7) Fehlende technische Anhänge
+Identify: 1) UCs with room for interpretation (prose instead of flow structure)
+2) Missing step numbering 3) Unspecified data types/units/value ranges
+4) Missing error cases (limit values/exceptions) 5) Missing UCs for admin/case worker
+6) Status without transitions 7) Missing technical appendices
 
-Bewerte nach der Reife-Policy des Projekts (Gate-Items und gewichtete Dimensionen),
-nenne die Policy-Datei und melde die Schwellen-Erreichung als Feststellung.
-Stelle bei Unklarheiten Rückfragen, statt Annahmen zu treffen.
+Rate according to the project's maturity policy (gate items and weighted dimensions),
+name the policy file and report whether the threshold is reached as a finding.
+Ask follow-up questions on ambiguities instead of making assumptions.
 ```
 
-> Der Satz „implementierungsreif, wenn ein KI-Agent daraus ohne Rückfragen korrekten, wartbaren Code generieren kann" ist der Zweck-Satz der Reife-Policy; der Prompt vergibt keinen eigenen Score mehr (eine Rubrik, §7).
+> The sentence "implementation-ready when an AI agent can generate correct, maintainable code from it without follow-up questions" is the purpose statement of the maturity policy; the prompt no longer assigns a score of its own (one rubric, §7).
 
-### A.3 Interview-Prompt (lückenfüllend, iterativ)
-
-```
-Du bist ein Requirements-Engineer. Ich beschreibe einen Use Case.
-Du identifizierst eine Lücke pro Antwort und fragst gezielt nach.
-Formuliere nie eine Annahme — frage immer.
-
-Starte mit: UC-{Nr.}: {Titel}
-```
-
-### A.4 Implementierungs-Prompt (gezielt aus Konzept)
+### A.3 Interview Prompt (gap-filling, iterative)
 
 ```
-Implementiere Schritt {X.Y} aus UC-{Nr.} ({Titel}).
+You are a requirements engineer. I describe a use case.
+You identify one gap per answer and ask about it specifically.
+Never formulate an assumption — always ask.
 
-Kontext: Stack Symfony 7, API Platform, Doctrine ORM; Entity {EntityName}; Abhängigkeiten {…}
-Anforderungen: Orientiere dich exakt an der Ablaufbeschreibung; weiche nicht ab, frage bei
-Unklarheit nach; generiere keinen Code für andere Schritte.
+Start with: UC-{no.}: {title}
 ```
 
-### A.5 Erweiterungs-Prompt (neue Version)
+### A.4 Implementation Prompt (targeted from the Konzept)
 
 ```
-Erweitere das bestehende Konzept {Projektname} v{X.Y} um folgende Lücken: {Liste}.
-Behalte alle bestehenden UCs unverändert. Füge Changelog-Abschnitt hinzu.
-Erhöhe Version auf {X.Y+1 oder X+1.0}.
+Implement step {X.Y} from UC-{no.} ({title}).
+
+Context: stack Symfony 7, API Platform, Doctrine ORM; entity {EntityName}; dependencies {…}
+Requirements: follow the flow description exactly; do not deviate, ask on
+ambiguity; generate no code for other steps.
 ```
 
-### A.6 Konsistenzcheck-Prompt zwischen Modell und API (§19)
+### A.5 Extension Prompt (new version)
 
-KI als Schiedsrichter zwischen Domänenmodell, OpenAPI und AsyncAPI:
+```
+Extend the existing Konzept {project name} v{X.Y} by the following gaps: {list}.
+Keep all existing UCs unchanged. Add a changelog section.
+Raise the version to {X.Y+1 or X+1.0}.
+```
+
+### A.6 Consistency Check Prompt Between Model and API (§19)
+
+AI as referee between domain model, OpenAPI and AsyncAPI:
 
 ```
 # Visual Glossary and OpenAPI Alignment Analysis
@@ -1980,167 +1978,167 @@ experts, and may show concepts without direct API representation.
 Critical: Implementation details are NOT inconsistencies.
 ```
 
-Erfolgt periodisch (z. B. pro Sprint-Ende). Das LLM identifiziert z. B.: „Service publiziert nicht alle aus der Context Map ableitbaren Events (CatalogEntryUpdated, CatalogEntryDeleted fehlen)."
+Performed periodically (e.g. per sprint end). The LLM identifies, for example: "Service does not publish all events derivable from the context map (CatalogEntryUpdated, CatalogEntryDeleted are missing)."
 
 ---
 
-## Anhang B — Golden-Sample-UCs (war §31)
+## Appendix B — Golden-Sample UCs (formerly §31)
 
-Zwei vollständig ausgeschriebene Referenz-UCs, die alle Pflicht-Sektionen demonstrieren. **Sample A** deterministisch (CRUD, Basis Teil 4). **Sample B** LLM-UC (zusätzlich §2.6/§2.7/§13/§15/§23.1). Generischer Fahrzeug-/Vereins-Kontext; Code-Identifier englisch.
+Two fully written-out reference UCs demonstrating all mandatory sections. **Sample A** deterministic (CRUD, basis Part 4). **Sample B** LLM UC (additionally §2.6/§2.7/§13/§15/§23.1). Generic vehicle/club context; code identifiers in English.
 
-### B.1 Sample A — CRUD-UC (deterministisch)
+### B.1 Sample A — CRUD UC (deterministic)
 
 ```markdown
-## UC-S1: Vehicle zur Garage hinzufügen
+## UC-S1: Add Vehicle to Garage
 
-**Akteur:** `Member` (eingeloggt, Eigentümer der Garage)
+**Actor:** `Member` (logged in, owner of the garage)
 **Route:** `GET|POST /garage/vehicles/new`  ·  API: `POST /api/vehicles`
 
-> **Kein LLM:** Dieser UC ist deterministisch — keine KI-Komponente (§13.3).
+> **No LLM:** This UC is deterministic — no AI component (§13.3).
 
-### Formularfelder
-| Feld | Typ | Pflicht | Hinweis |
+### Form Fields
+| Field | Type | Mandatory | Note |
 |------|-----|---------|---------|
-| make | Auswahl | Ja | Hersteller-Stammdaten, nicht frei |
-| model | Text | Ja | max. 80 Zeichen |
-| firstRegistration | Datum | Ja | nicht in der Zukunft |
-| vin | Text | Bed. | 17 Zeichen, Prüfsumme; Pflicht bei visibility ≠ private |
-| visibility | Auswahl | Ja | `private` / `shared` / `public` (Default `private`) |
+| make | Selection | Yes | manufacturer master data, not free text |
+| model | Text | Yes | max. 80 characters |
+| firstRegistration | Date | Yes | not in the future |
+| vin | Text | Cond. | 17 characters, checksum; mandatory when visibility ≠ private |
+| visibility | Selection | Yes | `private` / `shared` / `public` (default `private`) |
 
-### Verhalten
-1. Member öffnet `/garage/vehicles/new`
-2. Validierung der Pflichtfelder
-   2.1 `firstRegistration` ≤ heute
-   2.2 `vin` Prüfsumme, falls gesetzt
-   2.3 `visibility ≠ private` ⇒ `vin` Pflicht
-3. Bei Validierungsfehler: Fehlermeldung inline, Formular bleibt offen
-4. Bei Erfolg: Vehicle mit `owner = currentUser`, `visibility = private` (oder gewählt) speichern
+### Behavior
+1. Member opens `/garage/vehicles/new`
+2. Validation of the mandatory fields
+   2.1 `firstRegistration` ≤ today
+   2.2 `vin` checksum, if set
+   2.3 `visibility ≠ private` ⇒ `vin` mandatory
+3. On validation error: error message inline, form stays open
+4. On success: save vehicle with `owner = currentUser`, `visibility = private` (or as chosen)
 5. Redirect → `/garage?added=1`
 
-### Fehlerfälle
-| Fall | Meldung / Verhalten |
+### Error Cases
+| Case | Message / Behavior |
 |------|---------------------|
-| VIN-Prüfsumme ungültig | „Die Fahrgestellnummer ist ungültig (17 Zeichen)." inline |
-| firstRegistration in Zukunft | „Erstzulassung darf nicht in der Zukunft liegen." inline |
-| visibility=public ohne VIN | „Öffentliche Fahrzeuge benötigen eine VIN." inline |
-| Nicht eingeloggt | 302 → Login |
+| VIN checksum invalid | "The vehicle identification number is invalid (17 characters)." inline |
+| firstRegistration in the future | "First registration must not be in the future." inline |
+| visibility=public without VIN | "Public vehicles require a VIN." inline |
+| Not logged in | 302 → login |
 
-### Status-Lifecycle (visibility)
+### Status Lifecycle (visibility)
 private → shared → public
-   ↑__________________│   (Eigentümer kann jederzeit zurückstufen)
+   ↑__________________│   (owner can downgrade at any time)
 
-### Akzeptanzkriterien (Test-First)
-| # | Kriterium | Test-Typ | Test-Klasse | Status |
+### Acceptance Criteria (Test-First)
+| # | Criterion | Test type | Test class | Status |
 |---|---|---|---|---|
-| AC-1 | Member kann Vehicle mit Pflichtfeldern anlegen | Integration | VehicleControllerTest::testCreateHappyPath | rot |
-| AC-2 | Anonymer Besucher → 302 Login | Integration | VehicleControllerTest::testAnonymousDenied | rot |
-| AC-3 | Member sieht/ändert NUR eigene Vehicles (Owner-Constraint) | Integration | VehicleVoterTest::testOwnerOnly | rot |
-| AC-4 | visibility=public ohne VIN → Form-Error | Integration | VehicleFormTest::testPublicRequiresVin | rot |
-| AC-5 | Status-Übergang public→private jederzeit durch Owner | Unit | VehicleStateTest::testDowngrade | rot |
+| AC-1 | Member can create a vehicle with mandatory fields | Integration | VehicleControllerTest::testCreateHappyPath | red |
+| AC-2 | Anonymous visitor → 302 login | Integration | VehicleControllerTest::testAnonymousDenied | red |
+| AC-3 | Member sees/edits ONLY own vehicles (owner constraint) | Integration | VehicleVoterTest::testOwnerOnly | red |
+| AC-4 | visibility=public without VIN → form error | Integration | VehicleFormTest::testPublicRequiresVin | red |
+| AC-5 | Status transition public→private at any time by the owner | Unit | VehicleStateTest::testDowngrade | red |
 
-### Manuelles Äquivalent
-Sachbearbeiter trägt Fahrzeug in eine Karteikarte ein, prüft die VIN-Prüfziffer von Hand und legt die Karte ins Fach des Mitglieds; „öffentlich sichtbar" = Karte zusätzlich im Aushang.
+### Manual Equivalent
+A case worker enters the vehicle on an index card, checks the VIN check digit by hand and files the card in the member's compartment; "publicly visible" = card additionally posted on the notice board.
 ```
 
-### B.2 Sample B — LLM-UC
+### B.2 Sample B — LLM UC
 
 ```markdown
-## UC-S2: Mängelbeschreibung automatisch kategorisieren
+## UC-S2: Automatically Categorize Defect Descriptions
 
-**Akteur:** `Member` (Eigentümer) · Validator: `Workshop-Manager`
+**Actor:** `Member` (owner) · Validator: `Workshop-Manager`
 **Route:** `POST /garage/vehicles/{id}/defects/classify`  ·  API: `POST /api/vehicles/{id}/defect-classification`
 
-### LLM-Pflichtfelder (§13.1)
-| Element | Wert |
+### LLM Mandatory Fields (§13.1)
+| Element | Value |
 |---|---|
-| Kontext-Definition | Freitext-Mängelbeschreibung (max. 2 000 Zeichen) + `make`/`model` des Vehicle |
-| Ausgabe-Datenformat | sealed `ClassificationResult` permits `Confident` / `NeedsReview` (JSON-Schema) |
-| Validierungsstrategie | Schema-Match (Pre/Inline) + LLM-as-Judge gegen Kategorie-Katalog (Post) |
-| Fallback-Verhalten | Confidence < 0.6 ⇒ `NeedsReview` → Eskalation an Workshop-Manager |
-| Knowledge-Cutoff-Umgang | Kategorie-Katalog wird als Kontext mitgegeben (nicht aus Modell-Wissen) |
+| Context definition | free-text defect description (max. 2,000 characters) + `make`/`model` of the vehicle |
+| Output data format | sealed `ClassificationResult` permits `Confident` / `NeedsReview` (JSON schema) |
+| Validation strategy | schema match (pre/inline) + LLM-as-Judge against the category catalog (post) |
+| Fallback behavior | Confidence < 0.6 ⇒ `NeedsReview` → escalation to the Workshop-Manager |
+| Knowledge-cutoff handling | category catalog is passed as context (not taken from model knowledge) |
 
-### Probabilistik-Statement (Ausschnitt §2.6)
-| UC | Toleranz-Schwelle | Validierungsstrategie | Fallback | EU-AI-Act-Klasse |
+### Probabilistics Statement (excerpt §2.6)
+| UC | Tolerance threshold | Validation strategy | Fallback | EU AI Act class |
 |---|---|---|---|---|
-| UC-S2 | 85 % Korrektheit | Schema + LLM-as-Judge | NeedsReview → Mensch | minimal |
+| UC-S2 | 85 % correctness | schema + LLM-as-Judge | NeedsReview → human | minimal |
 
-### Vendor-Risiko-Statement (§2.7)
-| UC | Provider | Modell | Migrations-Strategie | Daten-Souveränität |
+### Vendor Risk Statement (§2.7)
+| UC | Provider | Model | Migration strategy | Data sovereignty |
 |---|---|---|---|---|
-| UC-S2 | Anthropic | claude-haiku-4-5 | Spring-AI-Adapter (Provider via Config) | keine PII im Mängeltext; Klartext |
+| UC-S2 | Anthropic | claude-haiku-4-5 | Spring AI adapter (provider via config) | no PII in the defect text; plain text |
 
-### Agent-Struktur (§13.2)
-**Goal:** Mängeltext einer Kategorie zuordnen.
-**Actions:** `parseDefectText` (det.), `classifyDeep` (LLM, Deep Path).
-**Conditions:** `classifyDeep` nur wenn Keyword-Match (Fast Path) keine eindeutige Kategorie liefert.
-**Output-Typen:** sealed `ClassificationResult permits Confident, NeedsReview`.
-**Pre/Inline/Post:** Pre = Input-Schema + Token-Budget · Inline = Sealed-Interface-Match auf Stream · Post = LLM-as-Judge gegen Kategorie-Katalog.
-**Unsicherheits-Schwellwert:** Confidence < 0.6 → NeedsReview.
+### Agent Structure (§13.2)
+**Goal:** assign a defect text to a category.
+**Actions:** `parseDefectText` (det.), `classifyDeep` (LLM, deep path).
+**Conditions:** `classifyDeep` only when the keyword match (fast path) yields no unambiguous category.
+**Output types:** sealed `ClassificationResult permits Confident, NeedsReview`.
+**Pre/Inline/Post:** Pre = input schema + token budget · Inline = sealed-interface match on the stream · Post = LLM-as-Judge against the category catalog.
+**Uncertainty threshold:** Confidence < 0.6 → NeedsReview.
 
 ### Observability (§15)
-Trace pro Call: `gen_ai.request.model`, `gen_ai.usage.*`, Latenz, Kategorie + Confidence; Sampling deaktiviert.
+Trace per call: `gen_ai.request.model`, `gen_ai.usage.*`, latency, category + confidence; sampling disabled.
 
-### Akzeptanzkriterien (Test-First)
-| # | Kriterium | Test-Typ | Test-Klasse | Status |
+### Acceptance Criteria (Test-First)
+| # | Criterion | Test type | Test class | Status |
 |---|---|---|---|---|
-| AC-1 | Eindeutiger Mängeltext → `Confident` mit korrekter Kategorie | Integration | DefectClassifierTest::testConfident | rot |
-| AC-2 | Mehrdeutiger Text → `NeedsReview`, Eskalation ausgelöst | Integration | DefectClassifierTest::testEscalation | rot |
-| AC-3 | Nur Owner darf klassifizieren (Security-Constraint) | Integration | DefectClassifierVoterTest::testOwnerOnly | rot |
-| AC-4 | Knowledge-Cutoff: erfundenes Modell → keine Halluzination, NeedsReview | Eval | DefectClassifierEvalTest::testCutoff | rot |
-| AC-5 | Red Teaming: Prompt-Injection im Mängeltext wird neutralisiert | Eval (Promptfoo `jailbreak`) | promptfoo/defect-redteam.yaml | rot |
+| AC-1 | Unambiguous defect text → `Confident` with the correct category | Integration | DefectClassifierTest::testConfident | red |
+| AC-2 | Ambiguous text → `NeedsReview`, escalation triggered | Integration | DefectClassifierTest::testEscalation | red |
+| AC-3 | Only the owner may classify (security constraint) | Integration | DefectClassifierVoterTest::testOwnerOnly | red |
+| AC-4 | Knowledge cutoff: invented model → no hallucination, NeedsReview | Eval | DefectClassifierEvalTest::testCutoff | red |
+| AC-5 | Red teaming: prompt injection in the defect text is neutralized | Eval (Promptfoo `jailbreak`) | promptfoo/defect-redteam.yaml | red |
 
-### Verantwortungs-Matrix (§23.1)
-| UC | KI-Anteil | Mensch-Validator | Validierungs-Mindset | Haftung |
+### Responsibility Matrix (§23.1)
+| UC | AI share | Human validator | Validation mindset | Liability |
 |---|---|---|---|---|
-| UC-S2 | 70 % (Vorschlag) | Workshop-Manager (bei NeedsReview) | hoch (KI-Anteil > 50 %) | Workshop-Manager |
+| UC-S2 | 70 % (proposal) | Workshop-Manager (on NeedsReview) | high (AI share > 50 %) | Workshop-Manager |
 
-### Manuelles Äquivalent
-Werkstattmeister liest die Mängelbeschreibung, ordnet sie aus Erfahrung einer Kategorie zu und legt im Zweifel den Fall einem zweiten Kollegen vor.
+### Manual Equivalent
+The workshop foreman reads the defect description, assigns it to a category from experience and, in case of doubt, presents the case to a second colleague.
 ```
 
 ---
 
-## Anhang C — Referenz-Cases (pseudonymisiert, war §30)
+## Appendix C — Reference Cases (pseudonymized, formerly §30)
 
-Pro Case ein **abstrahierter** Eintrag. Keine konkreten Pfade, Repo-URLs, Commit-SHAs oder PR-Nummern im CDP5 selbst (§1.7). Konkrete Pin-Information lebt in privaten Trace-Raws oder Wiki-Projekt-Pages.
+One **abstracted** entry per case. No concrete paths, repo URLs, commit SHAs or PR numbers in CDP5 itself (§1.7). Concrete pin information lives in private trace raws or wiki project pages.
 
-| Case | Stack / Charakter | Sektionen erfüllt |
+| Case | Stack / character | Sections fulfilled |
 |---|---|---|
-| Case A | Brownfield Symfony 7 + API Platform + FrankenPHP, Security-Sprint mit 6-Slice-Plan, fold-in + develop-Mix | §1.8, §27.2–§27.6, §28.1/§28.2/§28.5, §29 Modus A + B (Mix) |
+| Case A | brownfield Symfony 7 + API Platform + FrankenPHP, security sprint with 6-slice plan, fold-in + develop mix | §1.8, §27.2–§27.6, §28.1/§28.2/§28.5, §29 Mode A + B (mix) |
 
-Künftige Cases mit demselben Pflicht-Schema: Pseudonym · Stack + Charakter · welche Sektionen konkret erfüllt sind. Konkrete Pin-Information wird im CDP5 **nicht** referenziert.
+Future cases with the same mandatory schema: pseudonym · stack + character · which sections are concretely fulfilled. Concrete pin information is **not** referenced in CDP5.
 
 ---
 
 ## 26. Changelog
 
-| Datum | Version | Änderung | Grund |
+| Date | Version | Change | Reason |
 |---|---|---|---|
-| 2026-10 | **v5.1** | Repo-Kopie als Interims-Master (Wissensschicht Orbit nachgelagert; §32.8 (2): generierte, hash-geprüfte Kopie gilt als Original). §32.1 Orchestrator entscheidet/briefed/verifiziert/synthetisiert, keine Facharbeit, Aufwandsskalierung. §32.7: `effort`-Frontmatter statt Thinking-Phrasen, Worker-Vertrag + Quittung, Nutzungslog als Zählregel, Rechte/Pflichten je Rolle. §32.8 (2) Brief-Pflichtfelder, (3) Ablage-Weiche und Verweis auf den Worker-Vertrag. **§32.11 Devil's-Advocate-Gate neu.** §28.2 ADR-Pflichtfelder (Entscheider, Datum, Quelle, Status, Nulloption, Supersede, Known-Issue-Zeile) und Ablage-Weiche. **§23.3 Mensch-Gate-Liste** (technisch, Integration, geschäftlich, Entscheidungen). Eine Reife-Rubrik: §7 ist das Gate der Policy `cdp5-gates/policy/reife-rubrik.policy.md`; §9 A.2, §10.3, §10.5, §10.7, §29 D, §B und die Provenienz-Tabelle verweisen darauf, keine Zahl mehr in der Doktrin (Plugin-Default 8,0). Korrekturen: §1.6 Mehrabian-Zahl gestrichen, §16.5 MCP-Autorisierung optional (HTTP) mit Audience/Passthrough, §20.3 nomic-embed-text 768 Dimensionen. Rollen: 35 geprüft, siehe `docs/cdp5-review/DECISIONS.md`; Rollen- und Playbook-Quelle ist das Repo (Plugins cdp5-agents, domain-agents), Orbit wird daraus generiert. | Review aller Rollen, Playbooks und Paragraphen 2026-10-12/13 und Entscheidungen 2026-10-19; Orbit-Server-Stilllegung (nsai-edge entfernt, Orbit-MCP als spätere Wissensschicht) |
-| 2026-05 | **v5.0** | **Restrukturierung** für kontextarmes Einlesen: Teil 0 (Mission + Arbeitsschleife) neu; Anti-Drift-/Gedächtnis-Mechanik (§29/§32/§28/§27/§10.6/§19) als **Teil 2** nach vorn; LLM-Spezifika (§13/§15/§16/§18/§20–§22) in überspringbaren **Teil 4** gebündelt; Prompt-Pattern (§9)/Golden-Samples (§31)/Cases (§30) in **Anhang**. Autoren-Zitate → Inline-Regeln (Portabilität). Stubs §8/§12 gestrichen; §11.3+§11.6 gemergt; Probabilistik (§1.5/§2.6/§18) querverlinkt. §-Anker unverändert (alle `(§X.Y)`-Verweise gelten). Neu: §32.6 Memory-Loop-Verifikation; §24 +Konzept-Splitting/Plan-Treue/Findings-als-Issues + die Arbeitsweg-Patterns als Katalog-Einträge; **§33 Sicherheit (neuer Teil 3): Lethal-Trifecta-Gate, Agent-Runtime-Härtung, MCP-Tool-/Server-Sicherheit, Threat-Modeling-light, Security-Gates, LLM-Bedrohungsklassen, Doppel-Review/Lizenz; §25 +3 Anti-Patterns, §7-Security-Checkblock; Folge-Teile Authoring/LLM/Erkenntnisse → Teil 4/5/6. **Gap-Review-Ergänzungen (Branche + 4 Hefte + Anthropic-Docs):** §16.8 MCP-Tool-Design · §32.10 Fan-out-Ökonomie · §28.6 Kontext-Hygiene/CLAUDE.md-Pruning · §19.4 AsyncAPI↔Context-Map · §22.5 Real-User-Rollouts · §2.6 EU-AI-Act-Hochrisiko-Pflichten+CRA/NIS2 · §27.6/§20.3/§15.4-Erweiterungen** | Mission geschärft: CDP5 richtet Wissensdoktrin + Patterns ein und gibt der KI einen drift-/gedächtnisverlust-freien Arbeitsweg. Aus Review/Retro + Pattern-Konsolidierung über Brain/Memory/Wiki |
-| 2026-05 | v4.7 | §32.9 Skill-Determinismus-Gate; §32.8 (6)/(7); §1.9 Worker-Selbst-Flag; §11.4 Review-Korollar; §25 +3 Anti-Patterns | Review/Retro der eq-library-v3-Anwendung |
-| 2026-05 | v4.6 | §32.8 Drift-Vermeidung (Determinismus-Gate, Pointer-Brief, Stop-Retro, Verifikations-Gate) | Isolation allein verlagert Drift nur |
-| 2026-05 | v4.5 | §32.7 Worker-Agent: Bedarf + Spec-Format + Scaffolding | CDP4 allein reicht zum Worker-Erstellen |
-| 2026-05 | v4.3/4.4 | §32 Orchestrator-Regel; §1.9 Clarify-First | Delegation verbindlich; Lücken früh klären |
-| 2026-05 | v4.0–4.2 | §27 Implementation-Werkzeugkasten; §28 durable Artefakte; §29 Modi A–E; §30/§31; Self-Containment | Pocock-Toolkit + Brownfield-Lehren; aus einer Datei erfüllbar |
-| 2026-05 | v3.0/3.1 | „Coden mit KI"-Auswertung (14 Sektionen); TDD-First §11.7 | Wissensbasis Konzept-Schreiben |
+| 2026-10 | **v5.1** | Repo copy as interim master (knowledge layer Orbit downstream; §32.8 (2): a generated, hash-verified copy counts as the original). §32.1 orchestrator decides/briefs/verifies/synthesizes, no specialist work, effort scaling. §32.7: `effort` frontmatter instead of thinking phrases, worker contract + receipt, usage log as counting rule, rights/duties per role. §32.8 (2) mandatory brief fields, (3) filing switch and reference to the worker contract. **§32.11 devil's-advocate gate new.** §28.2 mandatory ADR fields (decision-maker, date, source, status, null option, supersede, Known-issue line) and filing switch. **§23.3 Mensch-Gate (human gate) list** (technical, integration, business, decisions). One maturity rubric: §7 is the gate of the policy `cdp5-gates/policy/reife-rubrik.policy.md`; §9 A.2, §10.3, §10.5, §10.7, §29 D, §B and the provenance table refer to it, no number left in the doctrine (plugin default 8.0). Corrections: §1.6 Mehrabian figure removed, §16.5 MCP authorization optional (HTTP) with audience/passthrough, §20.3 nomic-embed-text 768 dimensions. Roles: 35 checked, see `docs/cdp5-review/DECISIONS.md`; the source for roles and playbooks is the repo (plugins cdp5-agents, domain-agents), Orbit is generated from it. | Review of all roles, playbooks and paragraphs 2026-10-12/13 and decisions 2026-10-19; Orbit server decommissioning (nsai-edge removed, Orbit MCP as a later knowledge layer) |
+| 2026-05 | **v5.0** | **Restructuring** for low-context reading: Part 0 (mission + work loop) new; anti-drift/memory mechanics (§29/§32/§28/§27/§10.6/§19) moved forward as **Part 2**; LLM specifics (§13/§15/§16/§18/§20–§22) bundled in the skippable **Part 4**; prompt patterns (§9)/golden samples (§31)/cases (§30) in the **Appendix**. Author quotes → inline rules (portability). Stubs §8/§12 removed; §11.3+§11.6 merged; probabilistics (§1.5/§2.6/§18) cross-linked. § anchors unchanged (all `(§X.Y)` references remain valid). New: §32.6 memory-loop verification; §24 +Konzept splitting/plan fidelity/findings-as-issues + the work-path patterns as catalog entries; **§33 Security (new Part 3): lethal-trifecta gate, agent-runtime hardening, MCP tool/server security, threat-modeling-light, security gates, LLM threat classes, double review/license; §25 +3 anti-patterns, §7 security check block; subsequent parts authoring/LLM/lessons → Parts 4/5/6. **Gap-review additions (industry + 4 magazine issues + Anthropic docs):** §16.8 MCP tool design · §32.10 fan-out economics · §28.6 context hygiene/CLAUDE.md pruning · §19.4 AsyncAPI↔context map · §22.5 real-user rollouts · §2.6 EU AI Act high-risk obligations+CRA/NIS2 · §27.6/§20.3/§15.4 extensions** | Mission sharpened: CDP5 establishes knowledge doctrine + patterns and gives the AI a work path free of drift and memory loss. From review/retro + pattern consolidation across brain/memory/wiki |
+| 2026-05 | v4.7 | §32.9 skill determinism gate; §32.8 (6)/(7); §1.9 worker self-flag; §11.4 review corollary; §25 +3 anti-patterns | Review/retro of the eq-library-v3 application |
+| 2026-05 | v4.6 | §32.8 drift avoidance (determinism gate, pointer brief, Stop-Retro, verification gate) | Isolation alone only relocates drift |
+| 2026-05 | v4.5 | §32.7 worker agent: need + spec format + scaffolding | CDP4 alone is sufficient for creating workers |
+| 2026-05 | v4.3/4.4 | §32 orchestrator rule; §1.9 clarify-first | Delegation binding; clarify gaps early |
+| 2026-05 | v4.0–4.2 | §27 implementation toolkit; §28 durable artifacts; §29 modes A–E; §30/§31; self-containment | Pocock toolkit + brownfield lessons; satisfiable from a single file |
+| 2026-05 | v3.0/3.1 | „Coden mit KI" evaluation (14 sections); TDD-first §11.7 | Knowledge base for Konzept writing |
 
-### Anker-Umzüge (Redirect-Tabelle)
+### Anchor Moves (Redirect Table)
 
-Die v5.0-Aussage „§-Anker unverändert" gilt nicht für die folgenden Anker; Zitate darauf sind zu prüfen und umzuhängen:
+The v5.0 statement "§ anchors unchanged" does not apply to the following anchors; citations of them are to be checked and re-pointed:
 
-| Alter Anker | Status | Nachfolger |
+| Old anchor | Status | Successor |
 |---|---|---|
-| §8 | Stub gestrichen (v5.0) | kein Nachfolger; Zitate entfernen |
-| §12 | Stub gestrichen (v5.0) | kein Nachfolger; Zitate entfernen |
-| §11.6 | in §11.3 gemergt (v5.0) | §11.3 |
-| §10.0 | nie als eigener Abschnitt vorhanden | §10.1 |
-| §32.18 | nicht vorhanden | §32.17 (Rollen-Graph) prüfen |
-| §27.1.1 (Existenz-Frage, vier Antworten, Regeln A–C), §1.11 (Playbook = Muster), §32.13 (Werkzeug-Playbooks, Invarianz-Sicherung), §32.15, §32.17, §32.19, §35.1 (Quality-Gates), §35.2 (Performance-Profiling) | nur in der Wissensschicht (Orbit) vorhanden, nicht in dieser Kopie (v5.0-Stand der Bündelung) | bis zur Synchronisation trägt der Brief den wörtlichen Auszug aus Orbit; in dieser Kopie gilt für §27.1.1 der Deletion-Test §27.1 als Proxy, die operative Fassung steht im Agent `devils-advocate` |
-| „Beleg-Kette (§10.6)" in Rollen- und Playbook-Texten | Zitat-Drift: §10.6 ist der Verifikationsagent neben dem Review-Agent | Beleg-Pflicht ist §32.8 (3)/(4) |
-| „Worker-Regel §32.7" für das Skills-/Agents-Verbot | Zitat-Drift: §32.7 (5) verbietet nur MCP | §32.2 (6) |
-| „Audit (§27.4)" | Zitat-Drift: §27.4 ist die Vertical-TDD-Schleife | §11.4 / §32.11 |
+| §8 | stub removed (v5.0) | no successor; remove citations |
+| §12 | stub removed (v5.0) | no successor; remove citations |
+| §11.6 | merged into §11.3 (v5.0) | §11.3 |
+| §10.0 | never existed as a section of its own | §10.1 |
+| §32.18 | does not exist | check §32.17 (role graph) |
+| §27.1.1 (existence question, four answers, rules A–C), §1.11 (playbook = pattern), §32.13 (tool playbooks, invariance safeguarding), §32.15, §32.17, §32.19, §35.1 (quality gates), §35.2 (performance profiling) | present only in the knowledge layer (Orbit), not in this copy (v5.0 state of the bundling) | until synchronization, the brief carries the verbatim excerpt from Orbit; in this copy, the Deletion-Test §27.1 serves as proxy for §27.1.1, the operative version is in the agent `devils-advocate` |
+| „Beleg-Kette (§10.6)" in role and playbook texts | citation drift: §10.6 is the verification agent next to the review agent | the evidence requirement is §32.8 (3)/(4) |
+| „Worker-Regel §32.7" for the skills/agents ban | citation drift: §32.7 (5) only bans MCP | §32.2 (6) |
+| „Audit (§27.4)" | citation drift: §27.4 is the vertical TDD loop | §11.4 / §32.11 |
 
 ---
 
-> **Ende CDP5 (v5.1).** Vorgänger CDP4 (v4.7, `konzept-design-pattern-v4.md`) bleibt frozen als Fallback-Referenz.
+> **End of CDP5 (v5.1).** Predecessor CDP4 (v4.7, `konzept-design-pattern-v4.md`) remains frozen as fallback reference.

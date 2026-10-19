@@ -199,6 +199,8 @@ test('check-ack: contract unverifiable → block asks for CONTRACT-MISSING, neve
 
 test('hooks.json wires both events to the plugin-scoped matcher', () => {
   const hooks = JSON.parse(readFileSync(join(PLUGIN, 'hooks', 'hooks.json'), 'utf8')).hooks;
+  assert.equal(hooks.SessionStart[0].matcher, 'startup|resume|clear|compact');
+  assert.match(hooks.SessionStart[0].hooks[0].command, /bootstrap\.mjs/);
   assert.equal(hooks.SubagentStart[0].matcher, '^(cdp5-agents|domain-agents):');
   assert.match(hooks.SubagentStart[0].hooks[0].command, /inject-contract\.mjs/);
   assert.equal(hooks.SubagentStop[0].matcher, '^(cdp5-agents|domain-agents):');

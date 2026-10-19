@@ -1,26 +1,26 @@
-# Retro-ADR 0007 — Deterministisches Hybrid-Retrieval (NSAI-Edge Slice #3)
+# Retro-ADR 0007 — Deterministic hybrid retrieval (NSAI-Edge Slice #3)
 
-**Status:** abgeschlossen (Adversarial safe JA) · Branch `nsai-edge-retrieval-slice3`, PR offen
-**Datum:** 2026-05-27
-**Zweck:** Retrospektive der dritten §H-Roadmap-Verfeinerung: query-first-Retrieval via lexikalische Seeds + belief/trust-gewichtete Personalized PageRank — **rein deterministisch** (Nutzer-Entscheidung).
+**Status:** completed (adversarial safe YES) · branch `nsai-edge-retrieval-slice3`, PR open
+**Date:** 2026-05-27
+**Purpose:** Retrospective of the third §H roadmap refinement: query-first retrieval via lexical seeds + belief/trust-weighted Personalized PageRank — **purely deterministic** (user decision).
 
-## Kontext
-Weiter im CDP5-Loop. Nutzer-Vorgaben dieser Phase: (a) **rein deterministisch** (keine Vektor-Embeddings), (b) **Web-Recherche in der Konzeptphase, kritisch validiert**, (c) Suchanfragen mit dem **laufenden Jahr (2026)**. Ziel: „die richtige Antwort ODER den Weg dahin" auch ohne exakten Knotennamen.
+## Context
+Continuing in the CDP5 loop. User requirements for this phase: (a) **purely deterministic** (no vector embeddings), (b) **web research in the Konzept phase (Konzept = concept document), critically validated**, (c) search queries with the **current year (2026)**. Goal: "the right answer OR the way to it" even without an exact node name.
 
-## Entscheidungschronik
-- **E1 — Web-validierte Designgabel:** lexikalisch + Personalized PageRank (Vorbild HippoRAG) statt Vektor-Embeddings (extern/LLM → bricht Determinismus). **Gefahr erkannt (Meta-Analyse 2025/26):** GraphRAG-Gewinne werden überschätzt → exakter Lookup bleibt primär, PPR ist Anreicherung. **2026-Befund:** Hub-Dilution (hochgradige Knoten verwässern PPR) → via k-Hop-Schranke + Konfidenz gedämpft.
-- **E2 — Konzept-first UC-HR:** lint 10/10; konzept-reviewer **7,35/10** → 🔴/🟡 eingearbeitet: Determinismus-Härtung (feste Kanten-Summationsordnung nach triple_hash + stabiler Tie-Break — IEEE-754-Nicht-Assoziativität!), eindeutiger Tripel-Score `(r_subj+r_obj)×weight`, k-Hop-Subgraph (Perf/Hub), Parameter-Tabelle, `converged`-Flag, Konvergenz-Mathematik (d=0.85 → tol=1e-6/max_iter=100).
-- **E3 — Umsetzung TDD:** `search()` (Seed→k-Hop→PPR→Ranking→Hybrid mit Episoden), MCP-Tool. Lokale read-only Lese-Linse (nicht föderiert, kein Wire).
-- **E4 — Adversarial-Review: safe JA.** Determinismus über 200+ Permutationen + Massenerhaltung (Σr=1, err≤4e-16) + Read-only + Injection empirisch bestätigt. 3 🟡 gefixt: Param-Klemmung (max_hops/max_iter/tol — CPU-DoS), und v.a. **🟡-3 Trust-Diskont**: Ranking nutzte rohe `confidence` → ein limited/niedrig-vertrauter Peer hätte über Föderation fälschlich oben ranken können. Fix: Kantengewicht = `confidence × trustFactor(originTrust)`. 116/116 grün.
+## Decision chronicle
+- **E1 — Web-validated design fork:** lexical + Personalized PageRank (model: HippoRAG) instead of vector embeddings (external/LLM → breaks determinism). **Danger recognized (meta-analysis 2025/26):** GraphRAG gains are overestimated → exact lookup stays primary, PPR is enrichment. **2026 finding:** hub dilution (high-degree nodes dilute PPR) → dampened via k-hop bound + confidence.
+- **E2 — Konzept-first UC-HR:** lint 10/10; konzept-reviewer **7.35/10** → 🔴/🟡 incorporated: determinism hardening (fixed edge summation order by triple_hash + stable tie-break — IEEE-754 non-associativity!), unambiguous triple score `(r_subj+r_obj)×weight`, k-hop subgraph (perf/hub), parameter table, `converged` flag, convergence math (d=0.85 → tol=1e-6/max_iter=100).
+- **E3 — Implementation TDD:** `search()` (seed→k-hop→PPR→ranking→hybrid with episodes), MCP tool. Local read-only read lens (not federated, no wire).
+- **E4 — Adversarial review: safe YES.** Determinism over 200+ permutations + mass conservation (Σr=1, err≤4e-16) + read-only + injection empirically confirmed. 3 🟡 fixed: parameter clamping (max_hops/max_iter/tol — CPU DoS), and above all **🟡-3 trust discount**: the ranking used raw `confidence` → a limited/low-trusted peer could have wrongly ranked at the top via federation. Fix: edge weight = `confidence × trustFactor(originTrust)`. 116/116 green.
 
-## Prozess-Lehre (Kern)
-**Determinismus-Anspruch ≠ feste Knotenordnung allein.** Der Reviewer fand, dass IEEE-754-Addition nicht assoziativ ist → unsortierte `_activeEdges` machten die PPR-Summation insert-abhängig. Erst die feste **Kanten**-Summationsordnung (triple_hash) + stabiler Tie-Break machen das Ranking reproduzierbar. Float-Determinismus ist subtiler als „sortiere die Knoten".
-**Relevanz ≠ Glaubwürdigkeit.** Der Adversarial-Review deckte auf, dass Retrieval-Relevanz und Belief-Auflösung auseinanderfallen können (rohe confidence vs. trust-primäre Belief-Linse). Lösung: trust-diskontierte Relevanz + klare Konzept-Trennung (`search` = was ist relevant, `resolveBelief` = was gilt). [[feedback-green-tests-bypass-security]] erneut bestätigt: die Tests prüften nur den Single-Peer-Fall, der Föderations-Fall war der blinde Fleck.
+## Process lesson (core)
+**A determinism claim ≠ a fixed node order alone.** The reviewer found that IEEE-754 addition is not associative → unsorted `_activeEdges` made the PPR summation insert-dependent. Only the fixed **edge** summation order (triple_hash) + stable tie-break make the ranking reproducible. Float determinism is subtler than "sort the nodes".
+**Relevance ≠ credibility.** The adversarial review revealed that retrieval relevance and belief resolution can diverge (raw confidence vs. trust-primary belief lens). Solution: trust-discounted relevance + clear Konzept separation (`search` = what is relevant, `resolveBelief` = what holds). [[feedback-green-tests-bypass-security]] confirmed again: the tests only checked the single-peer case, the federation case was the blind spot.
 
-## Inhaltliche Lehre
-PPR als lokale Float-Lese-Linse ist legitim (wie resolveBelief) — Determinismus ist hier „reproduzierbar innerhalb einer Engine", nicht Cross-Language-Bit-Identität (das gilt nur für den föderierten Wire). k-Hop-Begrenzung löst Perf UND Hub-Dilution in einem. Web-Forschung lieferte sowohl die Methode (HippoRAG/PPR) als auch die nötige Skepsis (Meta-Analyse: nicht überverkaufen).
+## Substantive lesson
+PPR as a local float read lens is legitimate (like resolveBelief) — determinism here is "reproducible within one engine", not cross-language bit identity (that applies only to the federated wire). The k-hop bound solves perf AND hub dilution in one. Web research delivered both the method (HippoRAG/PPR) and the necessary skepticism (meta-analysis: do not oversell).
 
-## Offen
-- Slice #3b: echte semantische Ähnlichkeit (Vektor-Embeddings, extern/LLM — Agentenseite); Hub-Cap/Grad-Normalisierung.
-- §H-Roadmap: Slice #4 (gelernte Gewichtung) bleibt letzter Punkt — Determinismus-Gate beachten.
-- Slice #1b (OUT→IN), Slice #2b (LLM-Extraktion). PR-Merge (Mensch).
+## Open
+- Slice #3b: real semantic similarity (vector embeddings, external/LLM — agent side); hub cap/degree normalization.
+- §H roadmap: Slice #4 (learned weighting) remains the last item — observe the determinism gate.
+- Slice #1b (OUT→IN), Slice #2b (LLM extraction). PR merge (human).

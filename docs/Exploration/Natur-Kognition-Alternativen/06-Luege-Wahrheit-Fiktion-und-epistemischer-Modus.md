@@ -1,164 +1,164 @@
-# Lüge / Wahrheit / Fiktion & der epistemische Modus (inkl. „These" + kategorisches Denken)
+# Lie / Truth / Fiction & the Epistemic Mode (incl. "These" + categorical thinking)
 
-> **Explorations-Rohmaterial** (Batch 2026-05-29), web-quellengestützt. **Keine CDP5-Bindung.** Dieses Dokument beantwortet drei zusammenhängende Stefan-Fragen aus der Exploration: (1) „Das System kann nicht zwischen Lüge / Wahrheit / Fiktion unterscheiden — findest du einen Ansatz?" (2) „Sollten wir das TrustLevel durch ein vermeintlich besseres System ersetzen, um Lüge von Wahrheit zu unterscheiden?" (3) „Analysiere das kategorische Denken des Menschen und sieh dir https://de.wikipedia.org/wiki/These an."
+> **Exploration raw material** (batch 2026-05-29), web-sourced. **No CDP5 binding.** This document answers three related questions from Stefan raised during the exploration: (1) "The system cannot distinguish between lie / truth / fiction — can you find an approach?" (2) "Should we replace the TrustLevel with a supposedly better system in order to distinguish lie from truth?" (3) "Analyze the categorical thinking of humans and look at https://de.wikipedia.org/wiki/These."
 >
-> **Kern-Antwort vorweg:** Nein — **TrustLevel nicht ersetzen, sondern ergänzen.** TrustLevel misst *Provenienz-Autorität* korrekt; es vermengt diese aber mit zwei fehlenden, orthogonalen Achsen: *Wahrheitswert* (nach Tarski nie intern entscheidbar, nur approximierbar) und *Assertions-Modus* (behauptet/vermutet/notwendig/fiktiv). Ein „besseres System, das Lüge von Wahrheit unterscheidet" ist im starken Sinn **unmöglich** — und genau die Art Überanspruch, gegen die das Projekt designt ist. Was geht: die Achsen trennen.
+> **Core answer up front:** No — **do not replace TrustLevel, complement it.** TrustLevel measures *provenance authority* correctly; but it conflates it with two missing, orthogonal axes: *truth value* (per Tarski never internally decidable, only approximable) and *assertion mode* (asserted/assumed/necessary/fictional). A "better system that distinguishes lie from truth" is **impossible** in the strong sense — and exactly the kind of overreach the project is designed against. What is possible: separate the axes.
 
 ---
 
-## ANKER: Wikipedia-Artikel „These" (de) — treue Wiedergabe
-**Quelle:** https://de.wikipedia.org/wiki/These — Abschnitte: 1. Definition · 2. Geschichte des Begriffs · 3. These als Begriff in anderen Sprachen · 4. Siehe auch · 5. Weblinks · 6. Einzelnachweise.
+## ANCHOR: Wikipedia article "These" (de) — faithful rendering
+**Source:** https://de.wikipedia.org/wiki/These — sections: 1. Definition · 2. Geschichte des Begriffs · 3. These als Begriff in anderen Sprachen · 4. Siehe auch · 5. Weblinks · 6. Einzelnachweise.
 
-Zentrale Definitionssätze (wörtlich):
+Central defining sentences (verbatim):
 - *„Die These (von altgriechisch θέσις thésis, deutsch ‚aufgestellter Satz, Behauptung') bezeichnet eine zu beweisende Behauptung oder einen Leitsatz."*
 - *„Eine These ist ein Gedanke oder Satz, dessen Wahrheitsinhalt eines Beweises bedarf."*
 - *„Ist die These nicht haltbar, muss sie verworfen werden. Andernfalls kann an der These festgehalten werden."*
 - *„Eine Arbeitsthese ist eine vorläufig aufgestellte These."*
-- Dialektischer Gebrauch (Antike): die These ist die vom Befragten gehaltene Position, die der Fragende zu erschüttern sucht. Beispiel: Luthers **95 Thesen** als *Disputationsthesen*.
+- Dialectical usage (antiquity): the These is the position held by the respondent, which the questioner seeks to shake. Example: Luther's **95 Theses** as *disputation theses*.
 
-**Take für NSAI-Edge:** Eine These ist definitorisch (a) *aufgestellt*, (b) *begründungspflichtig*, (c) *anfechtbar/verwerfbar*, (d) im Diskurs *gehalten, aber revidierbar*. Genau diesen Status repräsentiert der heutige Faktengraph **nicht** — Tripel sind flache Fakten mit Konfidenz, keine „behaupteten, begründungspflichtigen, anfechtbaren Sätze".
-
----
-
-## STRANG 1 — Die „These" als epistemische Kategorie (anfechtbare Behauptung, nicht Faktum)
-
-**These vs. Hypothese vs. Axiom vs. Faktum.** Skala abnehmender Strittigkeit / zunehmend erfüllter Begründungslast: *Axiom* (gesetzt, nicht begründungspflichtig) → *These* (zu beweisen) → *Hypothese* (zu testen, Popper) → *Faktum* (bewiesen/etabliert). Diskriminierender Marker ist NICHT der Wahrheitswert, sondern der *Begründungs-/Anfechtungs-Status*.
-- **NSAI-Edge-Übertragung (ERGÄNZUNG):** Neues signiertes Enum `epistemic_status ∈ {axiom, these, hypothese, faktum}`, orthogonal zu `confidence`/`source_type`. Plus zwei Kanten-Typen `supports`/`rebuts` (Toulmin warrant/rebuttal) auf andere Tripel. Ein Tripel mit offenen `rebuts`-Kanten kann nicht auf `faktum` aufsteigen. Macht den Graphen *argumentativ* statt nur *deklarativ*.
-- **Determinismus/Zero-Dep:** Voll (Enum + Kantenzählung; Auf-/Abstufung über deterministische Schwellen).
-
-**These-Antithese-Synthese (Fichte/Hegel).** Im Wikipedia-Artikel **Fichte** (*Grundlage der gesamten Wissenschaftslehre*) zugeschrieben, popularisiert durch Hegel (der die Formel selbst kaum nutzte); Kant nutzt These/Antithese in den *Antinomien*. Zwei widersprechende Behauptungen erzeugen idealerweise eine dritte, qualifizierte (Synthese: „P gilt unter Bedingung C").
-- **NSAI-Edge-Übertragung (ERGÄNZUNG der Belief-Resolution):** Statt autoritativem Überschreiben bei P/¬P-Konflikt ein *Synthese-Modus*: erzeuge eine *bedingte* These (`P unless C`, hypothetisches Tripel, siehe Strang 2) und bewahre die Antithese als `rebuts`-Kante (auditierbar). Deterministisch, sofern „Synthese" regelbasierte Kontextualisierung ist, keine generative Aussage.
-
-**Toulmin-Schema & defeasible Logik (ASPIC⁺/Dung).** Toulmin (1958) zerlegt Argumente in claim / data / warrant / backing / qualifier / rebuttal. Ein *defeasible warrant* erlaubt Ausnahmen → Basis für Dung'sche abstrakte Argumentation. „Wahrheit" wird durch *Verteidigbarkeit im Argument-Graphen* approximiert (Tarski-konform, weil rein relational).
-- **NSAI-Edge-Übertragung (ERGÄNZUNG):** `verify(claim)` wird vom Lookup zum Mini-Argument-Evaluator — ein Tripel ist „verteidigt", wenn seine `supports`-Kanten nicht durch unwidersprochene `rebuts`-Kanten höherer Autorität geschlagen werden (Dung „grounded extension", deterministisch in Polynomialzeit, Fixpunkt-Iteration, kein Solver). **Hinweis:** Das ist exakt der bereits im Konzept evaluierte Kandidat **I.3-A1 (Defeasible-Argumentation)** — die „These"-Linse liefert ihm den fehlenden UC-Bedarf.
-- **Quellen.** [Wikipedia: These](https://de.wikipedia.org/wiki/These) · [Toulmin Argument Model](https://pressbooks.calstate.edu/writingargumentsinstem/chapter/toulmin-argument-model/)
+**Take for NSAI-Edge:** A These is by definition (a) *put forward*, (b) *in need of justification*, (c) *contestable/discardable*, (d) *held but revisable* in discourse. Precisely this status is **not** represented by today's fact graph — triples are flat facts with confidence, not "asserted, justification-requiring, contestable sentences".
 
 ---
 
-## STRANG 2 — Kant'sche Urteilstafel: Modalität + Relation als fertige Modus-Achsen
+## STRAND 1 — The "These" as an epistemic category (contestable assertion, not fact)
 
-**Modalität: problematisch / assertorisch / apodiktisch.** Kant (*KrV*, Urteilstafel): die Modalität *„bestimmt den Wert der Kopula in Beziehung auf das Denken überhaupt"* — sie sagt nichts über den Inhalt, nur über den *Behauptungs-Status*: **problematisch** = als bloß möglich angenommen; **assertorisch** = als wirklich/wahr behauptet; **apodiktisch** = als notwendig. Eine reine *Modus*-Achse, getrennt von Wahrheitswert und Quelle. Fiktion/Hypothese = problematisch; Sensor-Messung = assertorisch; mathematisches/definitorisches Gesetz = apodiktisch.
-- **NSAI-Edge-Übertragung (NEUES signiertes Feld — das Kernfeature):** `assertion_mode ∈ {problematic, assertoric, apodictic}` als signiertes Integer-Enum pro Tripel, gesetzt am Ingest, Default `assertoric`. Die direkteste, am wenigsten kontroverse Antwort auf das Modus-Problem. `verify()` und Decay reagieren modusabhängig: problematische Tripel reifen nicht zu Fakten; apodiktische unterliegen keinem Decay.
-- **Determinismus/Zero-Dep:** Triviale Enum, signierbar, ordinal vergleichbar.
+**These vs. hypothesis vs. axiom vs. fact.** Scale of decreasing contestedness / increasingly discharged burden of justification: *axiom* (posited, not in need of justification) → *These* (to be proven) → *hypothesis* (to be tested, Popper) → *fact* (proven/established). The discriminating marker is NOT the truth value but the *justification/contestation status*.
+- **NSAI-Edge transfer (COMPLEMENT):** New signed enum `epistemic_status ∈ {axiom, these, hypothese, faktum}`, orthogonal to `confidence`/`source_type`. Plus two edge types `supports`/`rebuts` (Toulmin warrant/rebuttal) to other triples. A triple with open `rebuts` edges cannot ascend to `faktum`. Makes the graph *argumentative* instead of merely *declarative*.
+- **Determinism/zero-dep:** Full (enum + edge counting; promotion/demotion via deterministic thresholds).
 
-**Relation: kategorisch / hypothetisch / disjunktiv.** Kant: **kategorisch** = unbedingt (S ist P); **hypothetisch** = bedingt (wenn A dann B); **disjunktiv** = exklusive Alternativen (entweder A oder B oder C). Das aktuelle S–P–O-Tripel ist strukturell *nur kategorisch* — „wenn A dann B" und „entweder/oder" kann NSAI-Edge nativ gar nicht ausdrücken.
-- **NSAI-Edge-Übertragung (ERGÄNZUNG):** `relation_type ∈ {categorical, hypothetical, disjunctive}`. Für `hypothetical` ein optionaler `condition`-Verweis (anderes Tripel/Welt aus Strang 7) → deckt die Synthese aus Strang 1 ab. Für `disjunctive` eine Gruppe-ID exklusiver Alternativen (genau eine wahr — nützlich für unaufgelöste Belief-Konflikte).
-- **Quellen.** [Kant — Modalität der Urteile (textlog)](https://www.textlog.de/kant-logik-modalitaet-urteil.html) · [Kant — Relation der Urteile (textlog)](https://www.textlog.de/kant-logik-relation-urteile.html)
+**Thesis-antithesis-synthesis (Fichte/Hegel).** Attributed in the Wikipedia article to **Fichte** (*Grundlage der gesamten Wissenschaftslehre*), popularized through Hegel (who hardly used the formula himself); Kant uses thesis/antithesis in the *Antinomies*. Two contradicting assertions ideally produce a third, qualified one (synthesis: "P holds under condition C").
+- **NSAI-Edge transfer (COMPLEMENT to belief resolution):** Instead of authoritative overwriting on a P/¬P conflict, a *synthesis mode*: create a *conditional* These (`P unless C`, hypothetical triple, see strand 2) and preserve the antithesis as a `rebuts` edge (auditable). Deterministic, provided "synthesis" is rule-based contextualization, not a generative statement.
 
----
-
-## STRANG 3 — Aristotelische kategorische Aussagen + kategoriales Denken (Rosch)
-
-**Aristotelische A/E/I/O-Aussagen.** Vier kategorische Formen: **A** „All S are P", **E** „No S are P", **I** „Some S are P", **O** „Some S are not P". „Kategorisch" = unbedingte, definitive Behauptung über Klassen-Zugehörigkeit. Zwei Binärachsen: Quantität (universell/partikulär) + Qualität (affirmativ/negativ). Ein Tripel ist implizit A oder I — aber NSAI-Edge unterscheidet „alle X sind Y" (durch ein Gegenbeispiel falsifizierbar) nicht von „dieses X ist Y" (singulär).
-- **NSAI-Edge-Übertragung (ERGÄNZUNG):** Felder `quantity ∈ {universal, particular, singular}` + `polarity ∈ {affirmative, negative}`. Nutzen: Falsifizierbarkeit von `verify()` — ein universell-affirmatives Tripel ist durch EIN Gegenbeispiel höherer Autorität widerlegbar; ein singuläres nicht. Negative Tripel erlauben explizite *closed-world-Inseln* in der ansonsten open-world-Architektur.
-
-**Rosch: Prototypentheorie, Basic-Level, graduelle Mitgliedschaft, kategoriale Wahrnehmung.** Menschliche Kategorien funktionieren NICHT klassisch (notwendige+hinreichende Merkmale), sondern über **Prototypen** + **Familienähnlichkeit** (Rosch & Mervis 1975): Mitgliedschaft ist *graduell* (Rotkehlchen „typischerer" Vogel als Pinguin). **Basic-Level-Kategorien** („Hund") sind kognitiv privilegiert. **Kategoriale Wahrnehmung:** kontinuierliche Reize (Farb-/Phonem-Kontinua) werden diskret wahrgenommen — der Mensch zieht harte Grenzen in weiche Kontinua.
-- **NSAI-Edge-Übertragung (ERGÄNZUNG, UX/Retrieval-Layer):** Eine deterministische *Diskretisierungs-Funktion* über `confidence` (0–1000) zu benannten **Belief-Kategorien** (`verbürgt` ≥900, `wahrscheinlich` 600–899, `umstritten` 300–599, `zweifelhaft` <300) — spiegelt kategoriale Wahrnehmung, macht den Graphen für den LLM-Agenten kognitiv lesbar. **Wichtig: Belief-Kategorie ist eine *Projektion* der Konfidenz, kein neues Speicherfeld** (Single Source of Truth bleibt der Integer). Deckt sich mit B5 (Dok 05).
-- **Take zum „kategorischen Denken":** Der Mensch denkt zugleich *graduell* (Prototyp-Typikalität) UND *diskret* (kategoriale Wahrnehmung, A/E/I/O). NSAI-Edge hat die graduelle Achse (Integer-Konfidenz), aber keine *diskrete kategoriale Projektion* und keine *Quantität/Polarität* — beides billig nachrüstbar und stark erklärbarkeits-steigernd.
-- **Quellen.** [Syllogism (Wikipedia)](https://en.wikipedia.org/wiki/Syllogism) · [Prototype theory (Wikipedia)](https://en.wikipedia.org/wiki/Prototype_theory) · [Rosch & Mervis, Cognition and Categorization (PDF)](https://www.cs.rice.edu/~vo9/recognition/2016/slides/lecture07/CognitionAndCategorization.pdf)
+**Toulmin schema & defeasible logic (ASPIC⁺/Dung).** Toulmin (1958) decomposes arguments into claim / data / warrant / backing / qualifier / rebuttal. A *defeasible warrant* allows exceptions → basis for Dung's abstract argumentation. "Truth" is approximated by *defensibility in the argument graph* (Tarski-conformant, because purely relational).
+- **NSAI-Edge transfer (COMPLEMENT):** `verify(claim)` turns from lookup into a mini argument evaluator — a triple is "defended" if its `supports` edges are not beaten by uncontradicted `rebuts` edges of higher authority (Dung "grounded extension", deterministic in polynomial time, fixpoint iteration, no solver). **Note:** This is exactly the candidate **I.3-A1 (defeasible argumentation)** already evaluated in the Konzept (concept document) — the "These" lens supplies its missing UC need.
+- **Sources.** [Wikipedia: These](https://de.wikipedia.org/wiki/These) · [Toulmin Argument Model](https://pressbooks.calstate.edu/writingargumentsinstem/chapter/toulmin-argument-model/)
 
 ---
 
-## STRANG 4 — Sprechakttheorie & Fiktion: Fiktion ist nicht „falsch", sondern Modus-verschoben
+## STRAND 2 — Kant's table of judgments: modality + relation as ready-made mode axes
 
-**Austin: Lokution/Illokution/Perlokution.** Jede Äußerung hat drei Ebenen: lokutionär (Wörter+Bedeutung), illokutionär (die *Kraft*: Behaupten/Fragen/Befehlen), perlokutionär (Wirkung beim Hörer). → Das gesuchte „Assertions-Modus"-Feld erfasst die *illokutionäre Kraft*. NSAI-Edge speichert heute nur die Lokution (S–P–O), verwirft die Kraft.
+**Modality: problematic / assertoric / apodictic.** Kant (*KrV*, table of judgments): modality *„bestimmt den Wert der Kopula in Beziehung auf das Denken überhaupt"* — it says nothing about the content, only about the *assertion status*: **problematic** = assumed as merely possible; **assertoric** = asserted as actual/true; **apodictic** = as necessary. A pure *mode* axis, separate from truth value and source. Fiction/hypothesis = problematic; sensor measurement = assertoric; mathematical/definitional law = apodictic.
+- **NSAI-Edge transfer (NEW signed field — the core feature):** `assertion_mode ∈ {problematic, assertoric, apodictic}` as a signed integer enum per triple, set at ingest, default `assertoric`. The most direct, least controversial answer to the mode problem. `verify()` and decay react mode-dependently: problematic triples do not mature into facts; apodictic ones are not subject to decay.
+- **Determinism/zero-dep:** Trivial enum, signable, ordinally comparable.
 
-**Searle: Assertion = Aufrichtigkeits- + Wahrheits-Commitment.** Eine ernsthafte Assertion hat als *sincerity condition* den ausgedrückten Glauben, dass p wahr ist, und als *essential condition* ein *Commitment auf die Wahrheit von p*. Frege markierte denselben Schritt mit dem **Urteilsstrich** (⊢): vom bloß *gedachten* Inhalt zur *Anerkennung seiner Wahrheit*. → saubere Begründung, „assertiert" von „nicht-assertiert" zu trennen.
-
-**Searle „The Logical Status of Fictional Discourse" (1975) + Frege „Scheingedanken".** Der Fiktions-Autor *gibt vor* (pretends), Standard-Illokutionen zu vollziehen, *ohne Täuschungsabsicht*; durch Konventionen werden die Wahrheits-Commitments *suspendiert*. **KERN: Fiktion ist NICHT falsch — sie ist modus-verschoben (commitment-suspendiert), orthogonal zum Wahrheitswert.** Lüge = *volles, aber invertiertes* Commitment + Täuschungsabsicht; Fiktion = *kein* Commitment + *keine* Täuschung.
-
-**David Lewis „Truth in Fiction" (1978): Fiktions-Operator.** *„In der Fiktion f gilt A"* ist wahr, wenn A in jenen Welten gilt, in denen f als Tatsache erzählt wird und die unserer Welt am wenigsten unähnlich sind. Fiktion = Menge von Welten.
-- **NSAI-Edge-Übertragung (Feature + Verknüpfung zu Strang 2 & 7):** (i) `assertion_mode` (Strang 2) um Flag `suspended/fictional` ergänzen (= „problematisch + commitment=none"). (ii) Fiktive/Beispiel-/Hypothese-Tripel NICHT in den Faktengraphen, sondern in eine *benannte Welt* (Lewis-Operator als Welt-ID, Strang 7). (iii) **Ingest-Heuristik (deterministisch, regelbasiert):** Quelltyp `llm`/`web` + sprachliche Trigger („angenommen", „stell dir vor", „in der Geschichte", „z. B.", Konjunktiv, Zitat-Anführung) → `mode=suspended`, Ziel = Sandbox-Welt. Approximation, nicht Wahrheit (Tarski), aber konservativ: im Zweifel Sandbox.
-- **Determinismus/Zero-Dep:** Operator = Welt-ID-Präfix; Ingest-Marker = deterministische Schlüsselwort-/Strukturregeln (kein NLP-Modell), bewusst grob, signierbar, auditierbar.
-- **Quellen.** [SEP: Assertion](https://plato.stanford.edu/entries/assertion/) · [Searle, Logical Status of Fictional Discourse (Cambridge)](https://www.cambridge.org/core/books/abs/expression-and-meaning/logical-status-of-fictional-discourse/AA057D7B205A6DA2EE8586023B09F316) · [Lewis, Truth in Fiction (1978)](https://www.scribd.com/document/983663887/Lewis-TruthFiction-1978)
+**Relation: categorical / hypothetical / disjunctive.** Kant: **categorical** = unconditional (S is P); **hypothetical** = conditional (if A then B); **disjunctive** = exclusive alternatives (either A or B or C). The current S–P–O triple is structurally *categorical only* — NSAI-Edge cannot natively express "if A then B" and "either/or" at all.
+- **NSAI-Edge transfer (COMPLEMENT):** `relation_type ∈ {categorical, hypothetical, disjunctive}`. For `hypothetical` an optional `condition` reference (another triple/world from strand 7) → covers the synthesis from strand 1. For `disjunctive` a group ID of exclusive alternatives (exactly one true — useful for unresolved belief conflicts).
+- **Sources.** [Kant — Modalität der Urteile (textlog)](https://www.textlog.de/kant-logik-modalitaet-urteil.html) · [Kant — Relation der Urteile (textlog)](https://www.textlog.de/kant-logik-relation-urteile.html)
 
 ---
 
-## STRANG 5 — Lüge, Irrtum, Bullshit, Fiktion: Taxonomie und strukturelle (Un-)Erkennbarkeit
+## STRAND 3 — Aristotelian categorical propositions + categorical thinking (Rosch)
 
-**Definition der Lüge (Mahon, SEP).** *„To make a believed-false statement to another person with the intention that the other person believe that statement to be true."* Vier Bedingungen: statement / **untruthfulness** (entscheidend ist der *Glaube des Sprechers an die Falschheit*, NICHT die faktische Falschheit) / addressee / **intention-to-deceive**. Abgrenzung: ehrlicher Irrtum = der Irrende glaubt die falsche Aussage selbst; Täuschung = Erfolgsverb; Lügen = kein Erfolgsverb. → Lüge ist intern definiert über den *mentalen Zustand* (Glaube + Absicht) — für einen Wissensgraph-Knoten *prinzipiell unbeobachtbar*.
+**Aristotelian A/E/I/O propositions.** Four categorical forms: **A** "All S are P", **E** "No S are P", **I** "Some S are P", **O** "Some S are not P". "Categorical" = unconditional, definitive assertion about class membership. Two binary axes: quantity (universal/particular) + quality (affirmative/negative). A triple is implicitly A or I — but NSAI-Edge does not distinguish "all X are Y" (falsifiable by one counterexample) from "this X is Y" (singular).
+- **NSAI-Edge transfer (COMPLEMENT):** Fields `quantity ∈ {universal, particular, singular}` + `polarity ∈ {affirmative, negative}`. Benefit: falsifiability for `verify()` — a universal-affirmative triple is refutable by ONE counterexample of higher authority; a singular one is not. Negative triples allow explicit *closed-world islands* in the otherwise open-world architecture.
 
-**Frankfurt „On Bullshit" (1986/2005): Bullshit als wahrheits-indifferent.** *„Bullshit is a greater enemy of the truth than lies are."* Der **Lügner kennt die Wahrheit und invertiert sie gezielt** (respektiert das Wahr/Falsch-Spiel); der **Bullshitter ist indifferent** gegenüber dem Wahrheitswert (optimiert nur Zweck-Eignung). → **HOCHRELEVANT für den `llm`-Tier:** ein LLM ist der paradigmatische Bullshit-Generator — es invertiert die Wahrheit nicht (das wäre eine Lüge, die Wahrheitskenntnis voraussetzt), sondern ist ihr gegenüber *strukturell indifferent* (optimiert Plausibilität/Nächstes-Token). „Halluzination" = Bullshit, nicht Lüge.
-- **NSAI-Edge-Übertragung (ERGÄNZUNG — ein Flag, KEIN neuer Tier):** `truth_orientation`-Flag pro Quelle/Tripel: `truth-tracking` (gesetz/behoerde/sensor/fachquelle) vs. `truth-indifferent` (`llm`/`inference`). Konsequenz: `truth-indifferent`-Tripel können NIE allein auf `faktum`/`verbürgt` aufsteigen, egal wie hoch die Konfidenz — sie brauchen Korroboration durch eine `truth-tracking`-Quelle. Direkte Operationalisierung von Frankfurt für den llm-Tier.
+**Rosch: prototype theory, basic level, graded membership, categorical perception.** Human categories do NOT work classically (necessary+sufficient features) but via **prototypes** + **family resemblance** (Rosch & Mervis 1975): membership is *graded* (a robin is a "more typical" bird than a penguin). **Basic-level categories** ("dog") are cognitively privileged. **Categorical perception:** continuous stimuli (color/phoneme continua) are perceived discretely — humans draw hard boundaries into soft continua.
+- **NSAI-Edge transfer (COMPLEMENT, UX/retrieval layer):** A deterministic *discretization function* over `confidence` (0–1000) to named **belief categories** (`verbürgt` ≥900, `wahrscheinlich` 600–899, `umstritten` 300–599, `zweifelhaft` <300) — mirrors categorical perception, makes the graph cognitively readable for the LLM agent. **Important: the belief category is a *projection* of confidence, not a new storage field** (the single source of truth remains the integer). Coincides with B5 (doc 05).
+- **Take on "categorical thinking":** Humans think *graded* (prototype typicality) AND *discrete* (categorical perception, A/E/I/O) at the same time. NSAI-Edge has the graded axis (integer confidence) but no *discrete categorical projection* and no *quantity/polarity* — both cheaply retrofittable and strongly explainability-enhancing.
+- **Sources.** [Syllogism (Wikipedia)](https://en.wikipedia.org/wiki/Syllogism) · [Prototype theory (Wikipedia)](https://en.wikipedia.org/wiki/Prototype_theory) · [Rosch & Mervis, Cognition and Categorization (PDF)](https://www.cs.rice.edu/~vo9/recognition/2016/slides/lecture07/CognitionAndCategorization.pdf)
 
-**Taxonomie der Modi — die diskriminierende Matrix** (trennt entlang *Wahrheits-Commitment × Täuschungsabsicht*, NICHT entlang der Wahrheit):
+---
 
-| Modus | Glaubt Sprecher p? | Wahrheits-Commitment | Täuschungsabsicht | Wahrheitswert |
+## STRAND 4 — Speech act theory & fiction: fiction is not "false" but mode-shifted
+
+**Austin: locution/illocution/perlocution.** Every utterance has three levels: locutionary (words+meaning), illocutionary (the *force*: asserting/asking/commanding), perlocutionary (effect on the hearer). → The sought "assertion mode" field captures the *illocutionary force*. NSAI-Edge today stores only the locution (S–P–O), discards the force.
+
+**Searle: assertion = sincerity + truth commitment.** A serious assertion has as its *sincerity condition* the expressed belief that p is true, and as its *essential condition* a *commitment to the truth of p*. Frege marked the same step with the **judgment stroke** (⊢): from the merely *thought* content to the *acknowledgment of its truth*. → clean justification for separating "asserted" from "non-asserted".
+
+**Searle "The Logical Status of Fictional Discourse" (1975) + Frege "Scheingedanken".** The author of fiction *pretends* to perform standard illocutions, *without intent to deceive*; by convention the truth commitments are *suspended*. **CORE: Fiction is NOT false — it is mode-shifted (commitment-suspended), orthogonal to truth value.** Lie = *full but inverted* commitment + intent to deceive; fiction = *no* commitment + *no* deception.
+
+**David Lewis "Truth in Fiction" (1978): fiction operator.** *"In fiction f, A holds"* is true if A holds in those worlds in which f is told as fact and which are least dissimilar to our world. Fiction = set of worlds.
+- **NSAI-Edge transfer (feature + link to strands 2 & 7):** (i) Extend `assertion_mode` (strand 2) with flag `suspended/fictional` (= "problematic + commitment=none"). (ii) Fictional/example/hypothesis triples NOT into the fact graph but into a *named world* (Lewis operator as world ID, strand 7). (iii) **Ingest heuristic (deterministic, rule-based):** source type `llm`/`web` + linguistic triggers ("suppose", "imagine", "in the story", "e.g.", subjunctive, quotation marks) → `mode=suspended`, target = sandbox world. Approximation, not truth (Tarski), but conservative: when in doubt, sandbox.
+- **Determinism/zero-dep:** Operator = world-ID prefix; ingest markers = deterministic keyword/structure rules (no NLP model), deliberately coarse, signable, auditable.
+- **Sources.** [SEP: Assertion](https://plato.stanford.edu/entries/assertion/) · [Searle, Logical Status of Fictional Discourse (Cambridge)](https://www.cambridge.org/core/books/abs/expression-and-meaning/logical-status-of-fictional-discourse/AA057D7B205A6DA2EE8586023B09F316) · [Lewis, Truth in Fiction (1978)](https://www.scribd.com/document/983663887/Lewis-TruthFiction-1978)
+
+---
+
+## STRAND 5 — Lie, error, bullshit, fiction: taxonomy and structural (un)detectability
+
+**Definition of lying (Mahon, SEP).** *"To make a believed-false statement to another person with the intention that the other person believe that statement to be true."* Four conditions: statement / **untruthfulness** (what matters is the *speaker's belief in the falsity*, NOT the factual falsity) / addressee / **intention-to-deceive**. Delimitation: honest error = the erring person believes the false statement themselves; deception = success verb; lying = not a success verb. → Lying is defined internally via the *mental state* (belief + intention) — *in principle unobservable* for a knowledge-graph node.
+
+**Frankfurt "On Bullshit" (1986/2005): bullshit as truth-indifferent.** *"Bullshit is a greater enemy of the truth than lies are."* The **liar knows the truth and inverts it deliberately** (respects the true/false game); the **bullshitter is indifferent** to the truth value (optimizes only fitness for purpose). → **HIGHLY RELEVANT for the `llm` tier:** an LLM is the paradigmatic bullshit generator — it does not invert the truth (that would be a lie, which presupposes knowledge of the truth) but is *structurally indifferent* to it (optimizes plausibility/next token). "Hallucination" = bullshit, not lie.
+- **NSAI-Edge transfer (COMPLEMENT — a flag, NOT a new tier):** `truth_orientation` flag per source/triple: `truth-tracking` (gesetz/behoerde/sensor/fachquelle) vs. `truth-indifferent` (`llm`/`inference`). Consequence: `truth-indifferent` triples can NEVER ascend to `faktum`/`verbürgt` on their own, no matter how high the confidence — they need corroboration by a `truth-tracking` source. Direct operationalization of Frankfurt for the llm tier.
+
+**Taxonomy of modes — the discriminating matrix** (separates along *truth commitment × intent to deceive*, NOT along truth):
+
+| Mode | Does speaker believe p? | Truth commitment | Intent to deceive | Truth value |
 |---|---|---|---|---|
-| **Wahrheit/Wissen** | ja | ja (erfüllt) | nein | p wahr |
-| **Ehrlicher Irrtum** | ja | ja (verfehlt) | nein | p falsch |
-| **Lüge** | nein (glaubt ¬p) | ja, aber *invertiert* | **ja** | meist falsch |
-| **Bullshit** | egal | **keines (indifferent)** | (Täuschung über Indifferenz) | unbestimmt |
-| **Fiktion** | egal | **suspendiert** (vorgetäuscht) | **nein** | n/a (modus-verschoben) |
+| **Truth/knowledge** | yes | yes (fulfilled) | no | p true |
+| **Honest error** | yes | yes (missed) | no | p false |
+| **Lie** | no (believes ¬p) | yes, but *inverted* | **yes** | mostly false |
+| **Bullshit** | irrelevant | **none (indifferent)** | (deception about indifference) | undetermined |
+| **Fiction** | irrelevant | **suspended** (pretended) | **no** | n/a (mode-shifted) |
 
-- **Strukturelle (Un-)Erkennbarkeit (Kern für die Stefan-Frage):** Glaube und Absicht sind unbeobachtbar — eine **Lüge ist für einen Einzelbeobachter prinzipiell unsichtbar.** Detektierbar NUR über drei externe Hebel: (a) **Kohärenz-Inkonsistenz** (Widerspruch zu anderen Tripeln derselben Quelle/des Graphen → Kohärenztheorie); (b) **Korrespondenz-Widerspruch** (Konflikt mit authoritative/Sensor-Ground-Truth → Korrespondenztheorie); (c) **Anreiz/Spieltheorie** (Quelle profitiert systematisch von Verzerrung → Trust-Signal). NSAI-Edge kann (a) und (b) deterministisch prüfen, (c) heuristisch über TrustLevel.
-- **NSAI-Edge-Übertragung (der „Lügen-Detektor", den es realistisch geben kann):** `verify()` bekommt einen **Inkonsistenz-Score** = Anzahl/Autorität widersprechender Tripel. Eine Quelle, deren Tripel wiederholt zu authoritative-Ground-Truth in Korrespondenz-Widerspruch stehen, verliert Vertrauen (Lügen-*Indikation über Verhalten*, nicht über inneren Zustand — das einzig Mögliche). Quarantäne bei hartem Korrespondenz-Widerspruch. Innerer Zustand (Glaube/Absicht) wird explizit NICHT geschätzt (kein ML-Lügendetektor).
-- **Quellen.** [SEP: The Definition of Lying and Deception (Mahon)](https://plato.stanford.edu/entries/lying-definition/) · [On Bullshit (Wikipedia)](https://en.wikipedia.org/wiki/On_Bullshit) · [Carson: Bullshitting, Lying, and Indifference toward Truth (Ergo)](https://quod.lib.umich.edu/e/ergo/12405314.0004.010/--bullshitting-lying-and-indifference-toward-truth)
-
----
-
-## STRANG 6 — Wahrheitstheorien & Tarski: Was ein Knoten approximieren — und nie entscheiden — kann
-
-**Die Wahrheitstheorien als verfügbare Mechanismen.** **Korrespondenz** (stimmt mit der Realität — operationalisierbar nur via privilegierte Ground-Truth: Sensor/Gesetz/Behörde); **Kohärenz** (widerspruchsfrei im akzeptierten System — graph-intern prüfbar); **Konsens** (von der Gemeinschaft akzeptiert — über mehrere unabhängige Peers); **pragmatisch** (bewährt sich — über erfolgreiche verify()-Vorhersagen); **deflationär** (Tarski-T-Schema, „wahr" fügt nichts hinzu).
-- **NSAI-Edge-Übertragung (teilimplizit vorhanden, jetzt explizit):** NSAI-Edge hat *drei* approximative Wahrheits-Operationalisierungen und sollte sie als getrennte, kombinierbare Signale ausweisen: **Korrespondenz** = Abgleich gegen authoritative/Sensor; **Kohärenz** = Inkonsistenz-Score (Strang 5); **Konsens** = unabhängige Korroboration durch ≥N Peers verschiedener Tiers. Empfehlung: `verify()` gibt `{korrespondenz, kohaerenz, konsens}` zurück statt eines einzelnen Wahr/Falsch.
-
-**Tarskis Undefinierbarkeit der Wahrheit (1933).** Eine hinreichend ausdrucksstarke, konsistente Sprache kann ihr eigenes Wahrheitsprädikat NICHT definieren; Wahrheit ist nur in einer ausdrucksstärkeren *Metasprache* definierbar (sonst Lügner-Paradoxon). **Es gibt kein sprachinternes Wahrheits-Orakel.**
-- **Konsequenz (HARTE GRENZE):** Ein Wissensgraph ist eine Objektsprache über seine Tripel. Er kann kein internes, vollständiges, konsistentes `ist_wahr(tripel)` definieren. Jede „Wahrheits-Entscheidung" muss aus einer *Metaebene* kommen: privilegierte externe Quelle (Korrespondenz) oder Konsistenz-Check *über* den Tripeln (Kohärenz) — nie aus einem selbstbehaupteten Wahrheits-Flag.
-- **NSAI-Edge-Übertragung (Architektur-Leitplanke, kein Feature):** (i) Verbiete ein selbstbehauptetes `is_true`-Feld — Wahrheit ist immer *abgeleitet/relational*, nie *deklariert*. (ii) authoritative-Tier + Sensoren spielen formal die *Metasprache* (externe Korrespondenz-Verankerung). (iii) `verify()` ist eine *Falsifikations-/Konsistenz-Maschine* (findet Widersprüche, quarantänisiert), kein Wahrheits-Beweiser.
-
-**Truth-Discovery / Fact-Checking als praktische Approximation.** KG-Forschung (Yin „TruthFinder" KDD'07; Dong et al. VLDB'09): Quell-Verlässlichkeit und Aussage-Glaubwürdigkeit verstärken sich gegenseitig + Korroboration unabhängiger Quellen.
-- **NSAI-Edge-Übertragung (ERGÄNZUNG der Belief-Resolution):** Ein *deterministischer* Truth-Discovery-Schritt: Tripel-Glaubwürdigkeit = gewichtete Summe stützender Quellen (Gewicht = Tier × TrustLevel), Quell-Verlässlichkeit = laufende Korrespondenz-Trefferquote gegen authoritative. Deterministische Ein-Pass-/Fixpunkt-Variante (statt probabilistischem Sampling) bleibt zero-dep.
-- **Quellen.** [Tarski's undefinability theorem (Wikipedia)](https://en.wikipedia.org/wiki/Tarski%27s_undefinability_theorem) · [SEP: Axiomatic Theories of Truth](https://plato.stanford.edu/entries/truth-axiomatic/) · [Yin et al., TruthFinder (KDD'07)](http://web.cs.ucla.edu/~yzsun/classes/2014Spring_CS7280/Papers/Trust/kdd07_xyin.pdf)
+- **Structural (un)detectability (core for Stefan's question):** Belief and intention are unobservable — a **lie is in principle invisible to a single observer.** Detectable ONLY via three external levers: (a) **coherence inconsistency** (contradiction with other triples of the same source/the graph → coherence theory); (b) **correspondence contradiction** (conflict with authoritative/sensor ground truth → correspondence theory); (c) **incentive/game theory** (the source systematically profits from distortion → trust signal). NSAI-Edge can check (a) and (b) deterministically, (c) heuristically via TrustLevel.
+- **NSAI-Edge transfer (the "lie detector" that can realistically exist):** `verify()` gets an **inconsistency score** = number/authority of contradicting triples. A source whose triples repeatedly stand in correspondence contradiction to authoritative ground truth loses trust (lie *indication via behavior*, not via inner state — the only thing possible). Quarantine on hard correspondence contradiction. The inner state (belief/intention) is explicitly NOT estimated (no ML lie detector).
+- **Sources.** [SEP: The Definition of Lying and Deception (Mahon)](https://plato.stanford.edu/entries/lying-definition/) · [On Bullshit (Wikipedia)](https://en.wikipedia.org/wiki/On_Bullshit) · [Carson: Bullshitting, Lying, and Indifference toward Truth (Ergo)](https://quod.lib.umich.edu/e/ergo/12405314.0004.010/--bullshitting-lying-and-indifference-toward-truth)
 
 ---
 
-## STRANG 7 — Annahme-/Hypothesen-Reasoning: getrennte Welten ohne Faktengraph-Verschmutzung
+## STRAND 6 — Theories of truth & Tarski: what a node can approximate — and never decide
 
-**de Kleer ATMS (1986).** Verwaltet gleichzeitig *mehrere, möglicherweise widersprüchliche* Kontexte: **assumptions**, **environments** (Annahmemengen), **labels** (jede abgeleitete Aussage trägt die minimalen Environments, unter denen sie gilt), **nogoods** (als widersprüchlich erkannte Environments). Konflikte werden lokal isoliert, statt das Gesamtsystem zu invalidieren.
-- **NSAI-Edge-Übertragung (NEUES Feature — „Welten/Kontexte", der zweite Kern-Hebel):** `world`/`context`-Scopes. Faktengraph = Welt `actual`. Hypothetische/fiktive/zitierte Tripel in benannte Welten (`hypothesis:X`, `fiction:f` (Lewis-Operator, Strang 4), `quote:src`). `verify(claim, world=actual)` ignoriert per Default alle Nicht-`actual`-Tripel → **kein Faktengraph-Verschmutzen.** Belief-Konflikte erzeugen *nogood*-Welten (sich ausschließende Annahmemengen, Strang 2 disjunktiv). Decay/Quarantäne pro Welt.
-- **Determinismus/Zero-Dep:** Ein `world`-String/ID pro Tripel + Scope-Filter; Label-Propagation deterministisch (Horn-Klauseln, polynomiell, kein Solver).
+**The theories of truth as available mechanisms.** **Correspondence** (agrees with reality — operationalizable only via privileged ground truth: sensor/law/authority); **coherence** (contradiction-free within the accepted system — checkable graph-internally); **consensus** (accepted by the community — via several independent peers); **pragmatic** (proves itself — via successful verify() predictions); **deflationary** (Tarski T-schema, "true" adds nothing).
+- **NSAI-Edge transfer (partly implicitly present, now explicit):** NSAI-Edge has *three* approximate operationalizations of truth and should expose them as separate, combinable signals: **correspondence** = check against authoritative/sensor; **coherence** = inconsistency score (strand 5); **consensus** = independent corroboration by ≥N peers of different tiers. Recommendation: `verify()` returns `{korrespondenz, kohaerenz, konsens}` instead of a single true/false.
 
-**Possible-Worlds-/Modallogik (Kripke, Lewis).** □ („notwendig" = in allen zugänglichen Welten) / ◇ („möglich" = in mindestens einer) über eine Zugänglichkeitsrelation. □/◇ entsprechen exakt Kants apodiktisch/problematisch (Strang 2): Modus = *wie stark* committed, Welt = *worin* committed. Kontrafaktische Tripel leben in eigener Welt mit Zugänglichkeit zu `actual`.
-- **Quellen.** [de Kleer, An Assumption-Based TMS (AIJ 1986)](https://www.sciencedirect.com/science/article/abs/pii/0004370286900809) · [Reason maintenance (Wikipedia)](https://en.wikipedia.org/wiki/Reason_maintenance)
+**Tarski's undefinability of truth (1933).** A sufficiently expressive, consistent language can NOT define its own truth predicate; truth is definable only in a more expressive *metalanguage* (otherwise liar paradox). **There is no language-internal truth oracle.**
+- **Consequence (HARD LIMIT):** A knowledge graph is an object language over its triples. It cannot define an internal, complete, consistent `ist_wahr(tripel)`. Every "truth decision" must come from a *meta level*: privileged external source (correspondence) or consistency check *over* the triples (coherence) — never from a self-asserted truth flag.
+- **NSAI-Edge transfer (architecture guardrail, not a feature):** (i) Forbid a self-asserted `is_true` field — truth is always *derived/relational*, never *declared*. (ii) authoritative tier + sensors formally play the *metalanguage* (external correspondence anchoring). (iii) `verify()` is a *falsification/consistency machine* (finds contradictions, quarantines), not a truth prover.
 
----
-
-## SCHLUSS A — Die drei orthogonalen Achsen (die eigentliche Antwort)
-
-Der Kern des Problems ist eine **Achsen-Verwechslung**: NSAI-Edge presst in `TrustLevel`/`source_type`/`confidence` drei *kategorial verschiedene* Dimensionen, die jede Erkenntnistheorie strikt trennt:
-
-1. **Provenienz-Autorität** (WER sagt es) — `source_type`-Tiers + Peer-`TrustLevel` messen das *korrekt*. Soziales/institutionelles Maß. „Wie ernst nehme ich die Quelle?"
-2. **Wahrheitswert** (IST es der Fall) — Korrespondenz/Kohärenz/Konsens. Semantisches Maß — nach Tarski intern nur *approximierbar*, nie *definierbar*.
-3. **Assertions-Modus** (WIE wird es vorgebracht — behauptet/vermutet/notwendig/fiktiv/zitiert) — Kants Modalität + Searle/Austin illokutionäre Kraft. Pragmatisch-illokutionäres Maß. „Mit welcher Verpflichtung steht der Satz da?"
-
-**Diese drei sind orthogonal.** Eine **autoritative Quelle** kann eine **fiktive** Aussage machen (ein Gesetzestext zitiert ein hypothetisches Beispiel) — hohe Provenienz, suspendierter Modus, kein Wahrheits-Commitment. Ein **llm-Tier** (niedrig) kann eine **wahre** Aussage **assertorisch** vorbringen. Eine **Lüge** hat *volles* assertorisches Commitment (Modus hoch), *falschen* Wahrheitswert und *beliebige* Provenienz. Genau diese Kombinationen kann NSAI-Edge heute nicht ausdrücken, weil alles in *einer* Skala kollabiert.
-
-**Begründete Position: ERGÄNZEN, nicht ersetzen.** `TrustLevel`/`source_type` misst Achse 1 *richtig* und sollte unangetastet bleiben — es ist als Provenienz-Maß valide, deterministisch und signierbar. Der Fehler ist nicht, dass TrustLevel *falsch* misst, sondern dass die Achsen 2 und 3 *fehlen* und ihre Last fälschlich auf Achse 1 abgeladen wird. Konkret zwei neue signierte, orthogonale Felder:
-- `assertion_mode` (Achse 3): Kant-Enum `{problematic, assertoric, apodictic}` + Flag `suspended/fictional`. Deterministisch am Ingest setzbar.
-- Wahrheitswert (Achse 2) bleibt bewusst **abgeleitet, nie gespeichert** — `verify()` liefert ein `{korrespondenz, kohaerenz, konsens}`-Signal on demand (Tarski-Leitplanke).
-
-`TrustLevel` zu *ersetzen*, um „Lüge von Wahrheit zu unterscheiden", wäre ein **Kategorienfehler:** Provenienz *ist nicht* Wahrheit, und kein Provenienz-Maß kann den Wahrheitswert eines Einzeltripels bestimmen. Man würde eine valide Achse durch eine prinzipiell unentscheidbare ersetzen.
+**Truth discovery / fact checking as practical approximation.** KG research (Yin "TruthFinder" KDD'07; Dong et al. VLDB'09): source reliability and claim credibility reinforce each other + corroboration by independent sources.
+- **NSAI-Edge transfer (COMPLEMENT to belief resolution):** A *deterministic* truth-discovery step: triple credibility = weighted sum of supporting sources (weight = tier × TrustLevel), source reliability = running correspondence hit rate against authoritative. A deterministic single-pass/fixpoint variant (instead of probabilistic sampling) stays zero-dep.
+- **Sources.** [Tarski's undefinability theorem (Wikipedia)](https://en.wikipedia.org/wiki/Tarski%27s_undefinability_theorem) · [SEP: Axiomatic Theories of Truth](https://plato.stanford.edu/entries/truth-axiomatic/) · [Yin et al., TruthFinder (KDD'07)](http://web.cs.ucla.edu/~yzsun/classes/2014Spring_CS7280/Papers/Trust/kdd07_xyin.pdf)
 
 ---
 
-## SCHLUSS B — Was ein Knoten prinzipiell NIE entscheiden kann
-1. **Den absoluten Wahrheitswert eines Einzeltripels (Tarski).** Kein vollständiges, konsistentes internes Wahrheitsprädikat. Ein selbstbehauptetes `is_true`-Flag ist semantisch leer.
-2. **Den inneren Zustand einer Quelle — *Lüge* im strikten Sinn (Mahon).** Glaube an ¬p + Täuschungsabsicht sind unbeobachtbar. Der Knoten misst nur *Verhalten* (Inkonsistenz, Widerspruch, Anreiz-Muster) → *Unzuverlässigkeit*, nie „Lüge" beweisen.
-3. **Bullshit vs. ehrlichen Irrtum bei einer Einzelaussage (Frankfurt).** Trennt sich nur über die *Haltung zur Wahrheit* der Quelle — nur über *aggregiertes Verhalten* erschließbar (llm-Tier = strukturell `truth-indifferent`), nicht pro Aussage.
-4. **Open-World-Konsequenz:** Abwesenheit eines Tripels ist kein Beweis seiner Falschheit. „Nicht im Graphen" ≠ „falsch". Der Knoten kann *falsifizieren* und *korroborieren*, aber keine Vollständigkeits-/Wahrheitsurteile über die Welt fällen.
+## STRAND 7 — Assumption/hypothesis reasoning: separate worlds without fact-graph pollution
 
-**Konsequenz fürs Design:** NSAI-Edge sollte sich als **Falsifikations- und Konsistenz-Maschine** verstehen, nicht als Wahrheits-Orakel. Es kann Widersprüche und Unzuverlässigkeit deterministisch aufdecken — das ist das erkenntnistheoretisch Maximale.
+**de Kleer ATMS (1986).** Manages *several, possibly contradictory* contexts simultaneously: **assumptions**, **environments** (assumption sets), **labels** (every derived statement carries the minimal environments under which it holds), **nogoods** (environments recognized as contradictory). Conflicts are isolated locally instead of invalidating the whole system.
+- **NSAI-Edge transfer (NEW feature — "worlds/contexts", the second core lever):** `world`/`context` scopes. Fact graph = world `actual`. Hypothetical/fictional/quoted triples in named worlds (`hypothesis:X`, `fiction:f` (Lewis operator, strand 4), `quote:src`). `verify(claim, world=actual)` by default ignores all non-`actual` triples → **no fact-graph pollution.** Belief conflicts create *nogood* worlds (mutually exclusive assumption sets, strand 2 disjunctive). Decay/quarantine per world.
+- **Determinism/zero-dep:** One `world` string/ID per triple + scope filter; label propagation deterministic (Horn clauses, polynomial, no solver).
+
+**Possible-worlds/modal logic (Kripke, Lewis).** □ ("necessary" = in all accessible worlds) / ◇ ("possible" = in at least one) over an accessibility relation. □/◇ correspond exactly to Kant's apodictic/problematic (strand 2): mode = *how strongly* committed, world = *in what* committed. Counterfactual triples live in their own world with accessibility to `actual`.
+- **Sources.** [de Kleer, An Assumption-Based TMS (AIJ 1986)](https://www.sciencedirect.com/science/article/abs/pii/0004370286900809) · [Reason maintenance (Wikipedia)](https://en.wikipedia.org/wiki/Reason_maintenance)
 
 ---
 
-## SCHLUSS C — Top 3 konkrete Feature-Hebel für Lüge / Wahrheit / Fiktion
+## CONCLUSION A — The three orthogonal axes (the actual answer)
 
-**Hebel 1 — `assertion_mode`: signiertes Kant-Modalitäts-Feld (löst „Fiktion ≠ falsch").** Orthogonales Enum `{problematic, assertoric, apodictic}` + Suspended/Fictional-Flag (Kant + Searle + Lewis). Default `assertoric`, deterministisch am Ingest (Quelltyp + Marker). Wirkung: Fiktion/Hypothese/Zitat sind *modus-verschoben* statt „falsch"; problematische Tripel reifen nie eigenständig zu Fakten; apodiktische unterliegen keinem Decay. Größter Nutzen/Aufwand — ein Feld, vollständig zero-dep.
+The core of the problem is an **axis confusion**: NSAI-Edge squeezes into `TrustLevel`/`source_type`/`confidence` three *categorially different* dimensions that every epistemology strictly separates:
 
-**Hebel 2 — Welten/Kontexte (ATMS + Lewis): Fiktion/Hypothese aus dem Faktengraphen isolieren.** `world`-Scope pro Tripel; Faktengraph = `actual`; fiktive/hypothetische/zitierte Tripel in Sandbox-Welten. `verify(claim, world=actual)` ignoriert Sandbox-Welten per Default. Belief-Konflikte erzeugen nogood-Welten statt destruktivem Überschreiben (auditierbar). Deterministische Label-Propagation.
+1. **Provenance authority** (WHO says it) — `source_type` tiers + peer `TrustLevel` measure this *correctly*. Social/institutional measure. "How seriously do I take the source?"
+2. **Truth value** (IS it the case) — correspondence/coherence/consensus. Semantic measure — per Tarski internally only *approximable*, never *definable*.
+3. **Assertion mode** (HOW it is put forward — asserted/assumed/necessary/fictional/quoted) — Kant's modality + Searle/Austin illocutionary force. Pragmatic-illocutionary measure. "With what commitment does the sentence stand there?"
 
-**Hebel 3 — Mehrsignal-`verify()` + `truth_orientation`-Flag: das erkenntnistheoretisch ehrliche Wahrheits-Surrogat.** `verify()` liefert `{korrespondenz, kohaerenz, konsens}` statt Wahr/Falsch (die drei operationalisierbaren Wahrheitstheorien, Tarski-konform als *Approximation*). Plus `truth_orientation`-Flag (`truth-tracking` vs. `truth-indifferent`), das den `llm`/`inference`-Tier als Frankfurt'sche Bullshit-Quelle markiert: solche Tripel steigen nie allein auf `verbürgt`/`faktum`, nur via Korroboration. Der praktikable „Lügen-/Bullshit-Schutz": nicht über inneren Zustand (unmöglich), sondern über Verhalten (Inkonsistenz) und Quell-Orientierung.
+**These three are orthogonal.** An **authoritative source** can make a **fictional** statement (a legal text quotes a hypothetical example) — high provenance, suspended mode, no truth commitment. An **llm tier** (low) can put forward a **true** statement **assertorically**. A **lie** has *full* assertoric commitment (mode high), *false* truth value and *arbitrary* provenance. Precisely these combinations NSAI-Edge cannot express today, because everything collapses into *one* scale.
 
-**Verhältnis:** Hebel 1 trennt Achse 3 (Modus) ab, Hebel 3 trennt Achse 2 (Wahrheit-Approximation) ab — beide *entlasten* das bestehende `TrustLevel` (Achse 1), das unverändert korrekt Provenienz misst. Hebel 2 ist die Infrastruktur, die Modus operationalisiert. Alle drei deterministisch, signierbar, zero-dep.
+**Reasoned position: COMPLEMENT, do not replace.** `TrustLevel`/`source_type` measures axis 1 *correctly* and should remain untouched — it is valid as a provenance measure, deterministic and signable. The error is not that TrustLevel measures *wrongly*, but that axes 2 and 3 are *missing* and their load is wrongly dumped onto axis 1. Concretely two new signed, orthogonal fields:
+- `assertion_mode` (axis 3): Kant enum `{problematic, assertoric, apodictic}` + flag `suspended/fictional`. Deterministically settable at ingest.
+- Truth value (axis 2) deliberately remains **derived, never stored** — `verify()` delivers a `{korrespondenz, kohaerenz, konsens}` signal on demand (Tarski guardrail).
 
-> *Quellen-Hinweis des Agenten:* „On Bullshit" Essay 1986 / Buch Princeton UP 2005; Searles Assertions-Bedingungen aus SEP *Assertion* (en-Wiki-Pfad `Assertion_(speech_act)` ist 404). Übrige Befunde durch ≥1 Primär-/SEP-/Wikipedia-Quelle gestützt.
+*Replacing* `TrustLevel` in order to "distinguish lie from truth" would be a **category error:** provenance *is not* truth, and no provenance measure can determine the truth value of a single triple. One would replace a valid axis with one that is undecidable in principle.
+
+---
+
+## CONCLUSION B — What a node can NEVER decide in principle
+1. **The absolute truth value of a single triple (Tarski).** No complete, consistent internal truth predicate. A self-asserted `is_true` flag is semantically empty.
+2. **The inner state of a source — *lie* in the strict sense (Mahon).** Belief in ¬p + intent to deceive are unobservable. The node measures only *behavior* (inconsistency, contradiction, incentive patterns) → can prove *unreliability*, never "lie".
+3. **Bullshit vs. honest error for a single statement (Frankfurt).** Separable only via the source's *attitude toward truth* — inferable only via *aggregated behavior* (llm tier = structurally `truth-indifferent`), not per statement.
+4. **Open-world consequence:** The absence of a triple is no proof of its falsity. "Not in the graph" ≠ "false". The node can *falsify* and *corroborate*, but cannot pass completeness/truth judgments about the world.
+
+**Consequence for the design:** NSAI-Edge should understand itself as a **falsification and consistency machine**, not as a truth oracle. It can deterministically uncover contradictions and unreliability — that is the epistemological maximum.
+
+---
+
+## CONCLUSION C — Top 3 concrete feature levers for lie / truth / fiction
+
+**Lever 1 — `assertion_mode`: signed Kant modality field (solves "fiction ≠ false").** Orthogonal enum `{problematic, assertoric, apodictic}` + suspended/fictional flag (Kant + Searle + Lewis). Default `assertoric`, deterministic at ingest (source type + markers). Effect: fiction/hypothesis/quotation are *mode-shifted* instead of "false"; problematic triples never mature into facts on their own; apodictic ones are not subject to decay. Greatest benefit/effort ratio — one field, fully zero-dep.
+
+**Lever 2 — Worlds/contexts (ATMS + Lewis): isolate fiction/hypothesis from the fact graph.** `world` scope per triple; fact graph = `actual`; fictional/hypothetical/quoted triples in sandbox worlds. `verify(claim, world=actual)` ignores sandbox worlds by default. Belief conflicts create nogood worlds instead of destructive overwriting (auditable). Deterministic label propagation.
+
+**Lever 3 — Multi-signal `verify()` + `truth_orientation` flag: the epistemologically honest truth surrogate.** `verify()` delivers `{korrespondenz, kohaerenz, konsens}` instead of true/false (the three operationalizable theories of truth, Tarski-conformant as *approximation*). Plus `truth_orientation` flag (`truth-tracking` vs. `truth-indifferent`) that marks the `llm`/`inference` tier as a Frankfurtian bullshit source: such triples never ascend to `verbürgt`/`faktum` on their own, only via corroboration. The practicable "lie/bullshit protection": not via inner state (impossible), but via behavior (inconsistency) and source orientation.
+
+**Relationship:** Lever 1 separates off axis 3 (mode), lever 3 separates off axis 2 (truth approximation) — both *relieve* the existing `TrustLevel` (axis 1), which unchanged measures provenance correctly. Lever 2 is the infrastructure that operationalizes mode. All three deterministic, signable, zero-dep.
+
+> *Agent's note on sources:* "On Bullshit" essay 1986 / book Princeton UP 2005; Searle's assertion conditions from SEP *Assertion* (en-Wiki path `Assertion_(speech_act)` is 404). Remaining findings supported by ≥1 primary/SEP/Wikipedia source.

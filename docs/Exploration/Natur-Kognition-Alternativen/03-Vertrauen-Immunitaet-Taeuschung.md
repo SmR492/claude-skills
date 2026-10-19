@@ -1,128 +1,128 @@
-# Biologische Vertrauens-, Abwehr- & Täuschungs-Systeme
+# Biological Trust, Defense & Deception Systems
 
-> **Explorations-Rohmaterial** (Batch 2026-05-29), web-quellengestützt. **Keine CDP5-Bindung.** Invarianten-Brüche geflaggt. Angle: self/non-self-Diskriminierung, Reputation, Betrugserkennung, adversariale Täuschung → Provenienz/Peer-Trust/Quarantäne/Sybil-Abwehr.
+> **Exploration raw material** (batch 2026-05-29), web-sourced. **No CDP5 binding.** Invariant violations flagged. Angle: self/non-self discrimination, reputation, cheater detection, adversarial deception → provenance/peer trust/quarantine/Sybil defense.
 >
-> **Invarianten-Legende:** (1) Zero-Dep · (2) Offline · (3) Determinismus · (4) CRDT · (5) lokale Lese-Linsen · (6) „Anzahl zählt nie" · (7) Open-World · (8) „Nie raten".
+> **Invariant legend:** (1) zero-dep · (2) offline · (3) determinism · (4) CRDT · (5) local read lenses · (6) "count never counts" · (7) open-world · (8) "never guess".
 
 ---
 
-### [1] Danger-Theory-Quarantäne — quarantäniere bei SCHADEN, nicht bei Fremdheit
-**Prinzip.** Matzingers Danger-Theory (1994) bricht mit dem self/non-self-Dogma: das Immunsystem reagiert nicht auf „fremd", sondern auf GEFAHR — auf Alarmsignale (DAMPs) aus geschädigtem/gestresstem Gewebe. Harmloses Fremdes (Nahrung, Fötus, Kommensalen) wird toleriert; gefährliches Eigenes (Tumor) angegriffen. Auslöser ist Schaden, nicht Herkunft.
-**Mechanismus.** Dendritic-Cell-Algorithm (Greensmith/Aickelin): drei Signal-Klassen — **PAMP** (sicher anomal), **Danger** (Wahrscheinlichkeit steigt mit Wert), **Safe** (sicher normal) — gewichtet integriert; erst Korrelation mit einem Antigen löst Alarm aus. Niedrige False-Positive-Raten.
-**NSAI-Edge-Übertragung (ergänzt Quarantäne).** Heute landet *Fremd-/unsicheres* Wissen pauschal in Quarantäne (reine self/non-self-Logik, hohe Über-Quarantäne-Gefahr). Ergänze einen **Danger-Score** statt binär „fremd→quarantäne": quarantänisiere/werte ab nur bei deterministischem *Schaden-Signal* — (a) Widerspruch zu authoritative-Bestand, (b) Constraint-Verletzung (Typ-/Kardinalitäts-Bruch), (c) Signatur-/Provenienz-Defekt, (d) Tier-Floor-Verletzung. Fremd-aber-harmlos (neuer Origin, konsistent) → leichtere Quarantäne / limited-Eingang. Drei Signal-Klassen analog DCA: PAMP=Signaturbruch, Danger=Graph-Inkonsistenz, Safe=Constraint-Konsistenz + bekannter Origin.
-**Invarianten-Check.** ✅ Determinismus (Graph-Constraints, Signaturen, kein LLM); ⚠️ „Nie raten": Danger-Score darf nur *zusätzlich quarantänisieren*, nie auto-promoten; ✅ Open-World („kein Danger-Signal" ≠ „wahr", nur „kein Ablehnungsgrund").
-**Quellen.** [The danger theory: 20 years later (Front Immunol)](https://www.frontiersin.org/journals/immunology/articles/10.3389/fimmu.2012.00287/full) · [The danger theory revisited (Nat Rev Immunol 2024)](https://www.nature.com/articles/s41577-024-01102-9) · [Dendritic Cell Algorithm](https://arxiv.org/pdf/1006.5008)
+### [1] Danger-theory quarantine — quarantine on DAMAGE, not on foreignness
+**Principle.** Matzinger's danger theory (1994) breaks with the self/non-self dogma: the immune system does not react to "foreign" but to DANGER — to alarm signals (DAMPs) from damaged/stressed tissue. Harmless foreign matter (food, fetus, commensals) is tolerated; dangerous self (tumor) is attacked. The trigger is damage, not origin.
+**Mechanism.** Dendritic cell algorithm (Greensmith/Aickelin): three signal classes — **PAMP** (certainly anomalous), **danger** (probability rises with value), **safe** (certainly normal) — integrated with weights; only correlation with an antigen triggers the alarm. Low false-positive rates.
+**NSAI-Edge transfer (complements quarantine).** Today *foreign/uncertain* knowledge lands wholesale in quarantine (pure self/non-self logic, high over-quarantine risk). Add a **danger score** instead of binary "foreign→quarantine": quarantine/downgrade only on a deterministic *damage signal* — (a) contradiction with authoritative stock, (b) constraint violation (type/cardinality breach), (c) signature/provenance defect, (d) tier-floor violation. Foreign-but-harmless (new origin, consistent) → lighter quarantine / limited entry. Three signal classes analogous to DCA: PAMP=signature breach, danger=graph inconsistency, safe=constraint consistency + known origin.
+**Invariant check.** ✅ determinism (graph constraints, signatures, no LLM); ⚠️ "never guess": the danger score may only *additionally quarantine*, never auto-promote; ✅ open-world ("no danger signal" ≠ "true", only "no reason to reject").
+**Sources.** [The danger theory: 20 years later (Front Immunol)](https://www.frontiersin.org/journals/immunology/articles/10.3389/fimmu.2012.00287/full) · [The danger theory revisited (Nat Rev Immunol 2024)](https://www.nature.com/articles/s41577-024-01102-9) · [Dendritic Cell Algorithm](https://arxiv.org/pdf/1006.5008)
 
 ---
 
-### [2] Negative-Selektion-Detektoren — lerne „Selbst", alarmiere bei allem anderen
-**Prinzip.** Im Thymus werden T-Zellen, die Selbst binden, eliminiert (negative Selektion). Übrig bleiben Detektoren, die *per Definition* nur Nicht-Selbst erkennen. Das System lernt nicht „alle Feinde", sondern „alles Eigene".
-**Mechanismus.** Negative-Selection-Algorithm (Forrest): (1) Self-Set aus Normalmustern; (2) Zufalls-Detektoren generieren; (3) jeden verwerfen, der Self matcht; (4) übrige überwachen — Match = Anomalie.
-**NSAI-Edge-Übertragung (neu: Self-Profil + Anomalie-Detektor).** Der Knoten konstruiert deterministisch ein **„Self-Profil"** aus seinem authoritative/full-Bestand: typische Prädikat-Vokabulare, Origin-Verteilung, Tier-Muster, Schemata. Eingehende Fremd-Fakten werden dagegen gematcht: passt strukturell → niedrige Anomalie; weicht stark ab (unbekanntes Prädikat, untypische Tier/Origin-Kombination) → hohe Anomalie → strengere Quarantäne. Die *deterministische* Antwort auf „eigenes verlässliches vs. fremdes riskantes Wissen" ohne externe Trainingsdaten. (Statt zufälligem Detektor-Sampling: direkter Abstands-Score gegen ein kompaktes Self-Profil.)
-**Invarianten-Check.** ✅ Zero-dep/Offline/Determinismus (lokale Aggregation); ⚠️ Self-Profil ist explizit *lokal* — Anomalie-Bewertung nie in den replizierten Wert zurückschreiben.
-**Quellen.** [AIS for Self-Nonself Discrimination (Springer)](https://link.springer.com/chapter/10.1007/978-3-540-78297-1_11) · [Negative selection in anomaly detection — survey](https://www.sciencedirect.com/science/article/abs/pii/S1574013723000242)
+### [2] Negative-selection detectors — learn "self", alarm on everything else
+**Principle.** In the thymus, T cells that bind self are eliminated (negative selection). What remains are detectors that *by definition* only recognize non-self. The system does not learn "all enemies" but "everything that is own".
+**Mechanism.** Negative selection algorithm (Forrest): (1) self set from normal patterns; (2) generate random detectors; (3) discard every one that matches self; (4) the rest monitor — match = anomaly.
+**NSAI-Edge transfer (new: self profile + anomaly detector).** The node deterministically constructs a **"self profile"** from its authoritative/full stock: typical predicate vocabularies, origin distribution, tier patterns, schemata. Incoming foreign facts are matched against it: fits structurally → low anomaly; deviates strongly (unknown predicate, atypical tier/origin combination) → high anomaly → stricter quarantine. The *deterministic* answer to "own reliable vs. foreign risky knowledge" without external training data. (Instead of random detector sampling: direct distance score against a compact self profile.)
+**Invariant check.** ✅ zero-dep/offline/determinism (local aggregation); ⚠️ the self profile is explicitly *local* — never write the anomaly assessment back into the replicated value.
+**Sources.** [AIS for Self-Nonself Discrimination (Springer)](https://link.springer.com/chapter/10.1007/978-3-540-78297-1_11) · [Negative selection in anomaly detection — survey](https://www.sciencedirect.com/science/article/abs/pii/S1574013723000242)
 
 ---
 
-### [3] CRISPR-Spacer-Blocklist — signaturbasiertes Gedächtnis erkannt-bösartiger Origins/Muster
-**Prinzip.** Bakterien speichern bei Phagen-Angriff einen „Spacer" (DNA-Schnipsel) im CRISPR-Array — durchsuchbares, heritables Gedächtnis; bei Wiederkontakt führt es Cas-Nukleasen zum Match.
-**NSAI-Edge-Übertragung (neu: Spacer-Array / Defektor-Signaturen).** Wird ein Fakt aus *legitimer* Quarantäne als bösartig **reject**-et, extrahiere eine deterministische **Signatur** — nicht den Fakt, sondern einen „Spacer": Hash über (Origin-Pubkey + Prädikat-Schema + Verletzungsklasse). Eingehende Fakten zuerst gegen das Array → exakter Match = sofortiger Block (schnelle Sekundärantwort, #4) ohne erneute Vollprüfung. Heritabilität = Spacer-Arrays sind selbst signierte, p2p-propagierende Fakten.
-**Trade-offs / scharfe Kante.** Geteilte Blocklists sind ein Vergiftungs-Vektor (böswilliger Peer pusht Spacer gegen legitime Origins → Zensur). Gegenmaßnahme analog Modell B: ein *fremder* Spacer blockt nie hart, er erhöht nur den Danger-Score (#1); nur *lokal selbst-erzeugte* Spacer blocken autoritativ. Alternative: nur *Muster*-Spacer (Schema-Verletzungs-Fingerprints), herkunftsneutral.
-**Invarianten-Check.** ✅ Determinismus/Zero-dep (Hash-Match); ⚠️ Trust-Laundering: geteilte Spacer dürfen „Trust am Origin" nicht aushebeln; ❌ potenziell gegen „Anzahl zählt nie", falls „viele Peers haben geblockt" als Grund zählt — explizit verbieten.
-**Quellen.** [Generation of memory by CRISPR-Cas (PMC)](https://pmc.ncbi.nlm.nih.gov/articles/PMC4104294/)
+### [3] CRISPR spacer blocklist — signature-based memory of recognized malicious origins/patterns
+**Principle.** On phage attack, bacteria store a "spacer" (DNA snippet) in the CRISPR array — searchable, heritable memory; on re-contact it guides Cas nucleases to the match.
+**NSAI-Edge transfer (new: spacer array / defector signatures).** When a fact from *legitimate* quarantine is **reject**ed as malicious, extract a deterministic **signature** — not the fact, but a "spacer": hash over (origin pubkey + predicate schema + violation class). Incoming facts first against the array → exact match = immediate block (fast secondary response, #4) without renewed full check. Heritability = spacer arrays are themselves signed, p2p-propagating facts.
+**Trade-offs / sharp edge.** Shared blocklists are a poisoning vector (malicious peer pushes spacers against legitimate origins → censorship). Countermeasure analogous to model B: a *foreign* spacer never blocks hard, it only raises the danger score (#1); only *locally self-generated* spacers block authoritatively. Alternative: only *pattern* spacers (schema-violation fingerprints), origin-neutral.
+**Invariant check.** ✅ determinism/zero-dep (hash match); ⚠️ trust laundering: shared spacers must not undermine "trust at the origin"; ❌ potentially against "count never counts" if "many peers have blocked" counts as a reason — forbid explicitly.
+**Sources.** [Generation of memory by CRISPR-Cas (PMC)](https://pmc.ncbi.nlm.nih.gov/articles/PMC4104294/)
 
 ---
 
-### [4] Immunologisches Gedächtnis — schnelle Sekundärantwort auf wiederkehrende Fremd-Fakten
-**Prinzip.** Erstkontakt → langsame Primärantwort; danach langlebige Gedächtniszellen; Zweitkontakt → schnelle, starke Sekundärantwort. Latenz-Asymmetrie ist der Kern.
-**NSAI-Edge-Übertragung (ergänzt Quarantäne-Pipeline).** Die teure Erstprüfung eines Fremd-Fakts (web-of-trust-verify, Constraint-Check, Danger-Scoring) wird als **Gedächtnis-Eintrag** gecacht: (Origin, Prädikat-Schema) → Entscheidung + Begründung. Wiederkehrende strukturgleiche Fakten desselben Origins → **Fast-Path** ohne Vollprüfung. Positiv-Cache (vertrauter Origin → schneller full-Eingang) + Negativ-Cache (#3 Spacer).
-**Trade-offs.** Risiko: gecachter Positiv-Eintrag wird zur Schwachstelle, wenn ein Origin nach erworbenem Vertrauen „umkippt" (Sleeper). Gegenmaßnahme: Cache-TTL + Re-Validierung bei Tier-Eskalation; jede *neue* Tier-Stufe erzwingt frische Primärantwort. **Siehe #11 (original antigenic sin)** als Failure-Mode.
-**Invarianten-Check.** ✅ Determinismus (Memoisierung der deterministischen Prüfung); ⚠️ CRDT (Cache ist lokal, nie Wire-Wert ändern); ⚠️ „Nie raten": Fast-Path nur bei *identischem* (Origin, Schema)-Treffer, keine Ähnlichkeits-Heuristik.
-**Quellen.** [Immunological memory (NCBI Bookshelf)](https://www.ncbi.nlm.nih.gov/books/NBK27158/)
+### [4] Immunological memory — fast secondary response to recurring foreign facts
+**Principle.** First contact → slow primary response; then long-lived memory cells; second contact → fast, strong secondary response. The latency asymmetry is the core.
+**NSAI-Edge transfer (complements quarantine pipeline).** The expensive first check of a foreign fact (web-of-trust verify, constraint check, danger scoring) is cached as a **memory entry**: (origin, predicate schema) → decision + justification. Recurring structurally identical facts from the same origin → **fast path** without full check. Positive cache (familiar origin → faster full entry) + negative cache (#3 spacers).
+**Trade-offs.** Risk: a cached positive entry becomes a weak spot if an origin "flips" after earning trust (sleeper). Countermeasure: cache TTL + re-validation on tier escalation; every *new* tier level forces a fresh primary response. **See #11 (original antigenic sin)** as a failure mode.
+**Invariant check.** ✅ determinism (memoization of the deterministic check); ⚠️ CRDT (cache is local, never change the wire value); ⚠️ "never guess": fast path only on *identical* (origin, schema) hit, no similarity heuristic.
+**Sources.** [Immunological memory (NCBI Bookshelf)](https://www.ncbi.nlm.nih.gov/books/NBK27158/)
 
 ---
 
-### [5] Klonale Selektion & Affinitätsreifung — Hypothesen-Kandidaten generieren, Treffsichere verstärken
-**Prinzip.** B-Zellen, die gut binden, werden zur Proliferation selektiert + somatisch hypermutiert; höher-affine Mutanten bevorzugt selektiert (Affinitätsreifung). Darwinsche Selektion im Kleinen.
-**Mechanismus (CLONALG).** Kandidaten-Population; Fitness = Affinität; beste klonen (∝ Fitness); Hypermutation invers zur Fitness; Reselektion; Diversität durch neue Zufalls-Kandidaten.
-**NSAI-Edge-Übertragung (ergänzt Self-Critique / Hypothesengenerierung — STARK FLAGGEN).** Aus einem widersprüchlichen/lückenhaften Graph-Bereich generiert der Knoten **Reconciliation-Hypothesen** („welcher von zwei konfligierenden Fakten ist konsistenter mit dem authoritative-Kern?"). Affinität = deterministischer Konsistenz-Score gegen den Graphen. Hoch-affine → als *Kandidaten* markiert (nicht Fakt!), niedrig-affine verworfen. Der einzige Vorschlag, der NSAI-Edge *Kreativität* gäbe.
-**Invarianten-Check.** ❌/⚠️ „Determinismus & nie raten": echte stochastische Hypermutation bricht beide → zwingend zu *deterministischer, erschöpfender Kandidaten-Enumeration* erlaubter Reconciliation-Operationen entschärfen; Kandidaten in *separatem, nie repliziertem, nie zählendem* Layer (Vorschlags-Modus); ⚠️ „Anzahl zählt nie": Affinitäts-Verstärkung darf nicht zu „häufigster Kandidat gewinnt" degenerieren. ✅ Zero-dep machbar. **Rohmaterial, kein Implementierungsmandat.**
-**Quellen.** [Learning and Optimization Using the Clonal Selection Principle (de Castro & Von Zuben)](https://www.cs.unm.edu/~forrest/classes/immuno-class/readings/DeCastro.pdf)
+### [5] Clonal selection & affinity maturation — generate hypothesis candidates, amplify accurate ones
+**Principle.** B cells that bind well are selected for proliferation + somatically hypermutated; higher-affinity mutants are preferentially selected (affinity maturation). Darwinian selection in miniature.
+**Mechanism (CLONALG).** Candidate population; fitness = affinity; clone the best (∝ fitness); hypermutation inverse to fitness; reselection; diversity through new random candidates.
+**NSAI-Edge transfer (complements self-critique / hypothesis generation — FLAG STRONGLY).** From a contradictory/gappy graph region the node generates **reconciliation hypotheses** ("which of two conflicting facts is more consistent with the authoritative core?"). Affinity = deterministic consistency score against the graph. High-affinity → marked as *candidates* (not fact!), low-affinity discarded. The only proposal that would give NSAI-Edge *creativity*.
+**Invariant check.** ❌/⚠️ "determinism & never guess": genuine stochastic hypermutation breaks both → must be defused into *deterministic, exhaustive candidate enumeration* of permitted reconciliation operations; candidates in a *separate, never replicated, never counting* layer (proposal mode); ⚠️ "count never counts": affinity amplification must not degenerate into "most frequent candidate wins". ✅ zero-dep feasible. **Raw material, no implementation mandate.**
+**Sources.** [Learning and Optimization Using the Clonal Selection Principle (de Castro & Von Zuben)](https://www.cs.unm.edu/~forrest/classes/immuno-class/readings/DeCastro.pdf)
 
 ---
 
-### [6] Regulatorische T-Zellen — Anti-Autoimmunitäts-Bremse gegen Über-Quarantäne
-**Prinzip.** Tregs (FoxP3⁺) verhindern Autoimmunität, indem sie selbst-reaktive Zellen unterdrücken. Sie sind die *Bremse*: ohne sie greift das Immunsystem Eigenes an. Gesundheit = Balance Angriff/Toleranz.
-**NSAI-Edge-Übertragung (neu: Quarantäne-Governor / Autoimmunitäts-Wächter).** Direkte Antwort auf die Über-Quarantäne-Sorge. Ein deterministischer **Treg-Governor** überwacht die Reject-/Quarantäne-Rate: steigt der Anteil quarantänisierter Fakten eines *bekannten, zuvor verlässlichen* Origins über eine Schwelle, ist das ein Autoimmunitäts-Signal (der Knoten greift „Eigenes" an — z. B. nach fehlerhaftem eigenen Constraint-Update). Reaktion: Dämpfung (konservativere Quarantäne) + Operator-Alert „mögliche Selbstvergiftung des Filters". Verhindert die Spirale, in der ein zu scharfes Self-Profil (#2) legitime Peers ausschließt.
-**Trade-offs.** Ein Angreifer könnte die Bremse *absichtlich auslösen*, um die Abwehr zu lähmen (DoS auf den Filter). Gegenmaßnahme: Dämpfung nur auf *etablierte* Origins, nie auf neue/unbekannte; authoritative-Tier nie durch den Governor abgesenkt.
-**Invarianten-Check.** ✅ Determinismus (Raten-Schwellwert + Schaltlogik); ⚠️ Governor verändert nur lokale Filterhärte, nie Wire-Wert/Origin-Trust; ✅ Open-World (Bremse = mehr Toleranz).
-**Quellen.** [Regulatory T cells in homeostasis and disease (Nature STTT 2025)](https://www.nature.com/articles/s41392-025-02326-4)
+### [6] Regulatory T cells — anti-autoimmunity brake against over-quarantine
+**Principle.** Tregs (FoxP3⁺) prevent autoimmunity by suppressing self-reactive cells. They are the *brake*: without them the immune system attacks self. Health = balance of attack/tolerance.
+**NSAI-Edge transfer (new: quarantine governor / autoimmunity guard).** Direct answer to the over-quarantine concern. A deterministic **Treg governor** monitors the reject/quarantine rate: if the share of quarantined facts from a *known, previously reliable* origin rises above a threshold, that is an autoimmunity signal (the node attacks "self" — e.g. after a faulty own constraint update). Reaction: damping (more conservative quarantine) + operator alert "possible self-poisoning of the filter". Prevents the spiral in which an overly sharp self profile (#2) excludes legitimate peers.
+**Trade-offs.** An attacker could *deliberately trigger* the brake to paralyze the defense (DoS on the filter). Countermeasure: damping only for *established* origins, never for new/unknown ones; the authoritative tier is never lowered by the governor.
+**Invariant check.** ✅ determinism (rate threshold + switching logic); ⚠️ the governor only changes local filter hardness, never wire value/origin trust; ✅ open-world (brake = more tolerance).
+**Sources.** [Regulatory T cells in homeostasis and disease (Nature STTT 2025)](https://www.nature.com/articles/s41392-025-02326-4)
 
 ---
 
-### [7] Kutikuläre-Kohlenwasserstoff-Fingerprints — TOFU-Verankerung mit Template-Habituation
-**Prinzip.** Ameisen/Bienen erkennen Nestgenossen an einem kolonie-spezifischen Profil kutikulärer Kohlenwasserstoffe (CHCs) = chemischer „Fingerprint". Sie lernen das Template und *aktualisieren es per Habituation*; neuartige Kombinationen lösen Aggression aus. Template ist verteilt, homogenisiert durch Mund-zu-Mund-Fütterung.
-**NSAI-Edge-Übertragung (ergänzt TOFU).** TOFU ist da (erste Identität verankert), aber statisch. CHC ergänzt: (a) **Multi-Faktor-Fingerprint statt nur Pubkey** — Origin-Profil aus (Pubkey + typisches Prädikat-Vokabular + Tier-Verteilung + Signatur-Algorithmus); plötzliche Diskontinuität im *Verhaltens*-Profil bei gleichem Pubkey = Alarm (kompromittierter Schlüssel). (b) **Habituations-Drift** — das verankerte Profil darf sich langsam, deterministisch anpassen (gleitendes Fenster), sodass ein Peer, der legitim sein Thema erweitert, nicht jedes Mal Reverify auslöst — ein *Sprung* schon.
-**Trade-offs.** Drift-Rate gedeckelt, Drift nie über Tier-Grenzen (limited→full per Drift verboten) — sonst „gradual drift attack" (langsame Template-Vergiftung wie bei adaptiven Spam-Filtern).
-**Invarianten-Check.** ✅ Determinismus; ⚠️ Verhaltens-Profil als lokale Lese-Linse über dem Pubkey-verankerten Origin (Signatur unangetastet); ✅ Zero-dep.
-**Quellen.** [Learning Distinct Chemical Labels of Nestmates (PMC)](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC6123487/)
+### [7] Cuticular hydrocarbon fingerprints — TOFU anchoring with template habituation
+**Principle.** Ants/bees recognize nestmates by a colony-specific profile of cuticular hydrocarbons (CHCs) = chemical "fingerprint". They learn the template and *update it via habituation*; novel combinations trigger aggression. The template is distributed, homogenized through mouth-to-mouth feeding.
+**NSAI-Edge transfer (complements TOFU).** TOFU is there (first identity anchored), but static. CHC adds: (a) **multi-factor fingerprint instead of pubkey only** — origin profile from (pubkey + typical predicate vocabulary + tier distribution + signature algorithm); sudden discontinuity in the *behavioral* profile with the same pubkey = alarm (compromised key). (b) **Habituation drift** — the anchored profile may adapt slowly, deterministically (sliding window), so that a peer legitimately extending its topic does not trigger reverify every time — a *jump* does.
+**Trade-offs.** Drift rate capped, drift never across tier boundaries (limited→full via drift forbidden) — otherwise "gradual drift attack" (slow template poisoning as with adaptive spam filters).
+**Invariant check.** ✅ determinism; ⚠️ behavioral profile as a local read lens over the pubkey-anchored origin (signature untouched); ✅ zero-dep.
+**Sources.** [Learning Distinct Chemical Labels of Nestmates (PMC)](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC6123487/)
 
 ---
 
-### [8] Vampirfledermaus-Reziprozität — Defektor-Tracking für Peer-Trust-Adjustment
-**Prinzip.** Vampirfledermäuse teilen Blut und tracken, wer zurückgibt — „empfangene Hilfe" sagt künftige Spenden 8,5× besser voraus als Verwandtschaft. Cheater werden über Zeit ausgeschlossen. Vertrauen wird über billige Akte (Allogrooming) graduell aufgebaut, bevor teure (Blutspende) folgen.
-**NSAI-Edge-Übertragung (ergänzt Peer-Trust-Adjustment).** Schärft den evaluierten Adjustment-Vorschlags-Modus: pro Peer eine deterministische **Reziprozitäts-Bilanz** — wie oft lieferte er Fakten, die später (durch authoritative-Bestätigung/Constraint-Konsistenz) als *verlässlich* bestätigt wurden, vs. reject-würdiges. Bilanz unter Schwelle → Adjustment-Vorschlag „abwerten". Graduelle Eskalation = neuer Peer startet limited (erst „leichte" Fakten), Hochstufung erst nach Historie.
-**Trade-offs.** Dyadische Bilanz ist NICHT Sybil-resistent (viele Identitäten umgehen Einzelbilanzen) → Ergänzung *unter* MeritRank, nicht Ersatz.
-**Invarianten-Check.** ✅ Determinismus + Offline (genau „Offline-Lernen von Peer-Verlässlichkeit"); ⚠️ „Anzahl zählt nie": gewichte nach *unabhängiger* Bestätigung, nicht Menge; ✅ Vorschlags-Modus wahrt „nie raten".
-**Quellen.** [Reciprocal help predicts donations more than relatedness (Proc R Soc B)](https://royalsocietypublishing.org/doi/abs/10.1098/rspb.2012.2573)
+### [8] Vampire-bat reciprocity — defector tracking for peer-trust adjustment
+**Principle.** Vampire bats share blood and track who gives back — "help received" predicts future donations 8.5× better than kinship. Cheaters are excluded over time. Trust is built gradually via cheap acts (allogrooming) before expensive ones (blood donation) follow.
+**NSAI-Edge transfer (complements peer-trust adjustment).** Sharpens the evaluated adjustment-proposal mode: per peer a deterministic **reciprocity balance** — how often did it deliver facts later confirmed as *reliable* (via authoritative confirmation/constraint consistency) vs. reject-worthy ones. Balance below threshold → adjustment proposal "downgrade". Gradual escalation = a new peer starts limited (only "light" facts first), upgrade only after history.
+**Trade-offs.** A dyadic balance is NOT Sybil-resistant (many identities bypass individual balances) → complement *under* MeritRank, not a replacement.
+**Invariant check.** ✅ determinism + offline (exactly "offline learning of peer reliability"); ⚠️ "count never counts": weight by *independent* confirmation, not quantity; ✅ proposal mode preserves "never guess".
+**Sources.** [Reciprocal help predicts donations more than relatedness (Proc R Soc B)](https://royalsocietypublishing.org/doi/abs/10.1098/rspb.2012.2573)
 
 ---
 
-### [9] Indirekte Reziprozität / Image-Scoring — propagierte Origin-Reputation ohne Trust-Laundering
-**Prinzip.** Nowak & Sigmund (1998): Kooperation auch ohne wiederholte Direktbegegnung — über *Reputation* (Image Score steigt bei Hilfe, fällt bei Verweigerung). Skaliert ohne paarweise Historie — aber „moral hazard": wer bloß auf Image-Scoring vertraut, ist manipulierbar.
-**NSAI-Edge-Übertragung (ergänzt Provenienz-Modell B).** Ein **Origin-Reputations-Fakt** („Origin X hat sich in N unabhängigen authoritative-Korroborationen bestätigt") wird selbst zu einem signierten, p2p-propagierbaren Fakt. Ein neuer Knoten kann die *Reputation* von X aus dem Netz lesen statt bei Null zu starten (Kaltstart-Hilfe). Kompatibel mit Modell B nur, wenn die Reputation am *Origin* hängt, nie am Relay.
-**Invarianten-Check.** ⚠️/❌ „Anzahl zählt nie": Image-Scoring ist im Kern Zählen — Rettung: Score basiert auf Anzahl *unabhängiger* (verschiedener authoritative) Origins, nicht auf Selbst-Wiederholung; Reputation ist nur *Vorschlag/Bias*, nie Trust-Override (durchbricht den Tier-Deckel nie). **Flaggen.**
-**Quellen.** [Evolution of indirect reciprocity by image scoring (Nature)](https://www.nature.com/articles/31225)
+### [9] Indirect reciprocity / image scoring — propagated origin reputation without trust laundering
+**Principle.** Nowak & Sigmund (1998): cooperation even without repeated direct encounters — via *reputation* (image score rises on helping, falls on refusing). Scales without pairwise history — but "moral hazard": whoever relies on image scoring alone is manipulable.
+**NSAI-Edge transfer (complements provenance model B).** An **origin reputation fact** ("origin X has been confirmed in N independent authoritative corroborations") itself becomes a signed, p2p-propagable fact. A new node can read the *reputation* of X from the network instead of starting at zero (cold-start help). Compatible with model B only if the reputation attaches to the *origin*, never to the relay.
+**Invariant check.** ⚠️/❌ "count never counts": image scoring is counting at its core — rescue: the score is based on the number of *independent* (different authoritative) origins, not on self-repetition; reputation is only *proposal/bias*, never a trust override (never breaks the tier cap). **Flag.**
+**Sources.** [Evolution of indirect reciprocity by image scoring (Nature)](https://www.nature.com/articles/31225)
 
 ---
 
-### [10] Brutparasitismus & Ei-Erkennung — diskriminanz-basierte Sybil-/Spoofing-Abwehr
-**Prinzip.** Kuckuck legt sein Ei ins fremde Nest (Provenienz-Spoofing). Wirte kontern mit Ei-Erkennung & Ei-Farb-Polymorphismus (hohe Varianz zwischen Gelegen, niedrige innerhalb — erschwert Mimikry). Koevolutionäres Wettrüsten.
-**Mechanismus.** Vergleich jedes Eis gegen internes Template + **Diskriminations-Schwellwert** (selbst evolvierbar: zu scharf → Auswurf eigener Eier = Autoimmunität; zu lax → Parasit kommt durch).
-**NSAI-Edge-Übertragung (ergänzt Sybil-Abwehr).** Ein Fakt, der behauptet von einem *vertrauten* Origin zu stammen, wird gegen dessen Verhaltens-/Schema-Template (#7) geprüft — „Kuckucksei" (gefälschte Provenienz / kompromittierter Schlüssel mit untypischem Inhalt) per Schwellwert ausgeworfen. **Ei-Farb-Polymorphismus → Origin-Diversitäts-Bonus**: Fakten aus einem *engen, monomorphen* Origin-Cluster (Sybil-Signatur: künstlich uniform) misstrauischer behandeln als aus diversen, unabhängigen Origins. Komplementär zu MeritRank.
-**Invarianten-Check.** ✅ Determinismus (Template-Distanz + Schwellwert, an Danger-Score #1 koppeln); ✅ „Trust am Origin"; ⚠️ Open-World: Auswurf bei Spoofing-Verdacht = „unsicher/quarantäne", nicht „ist falsch".
-**Quellen.** [Coevolution underpins speciation in brood-parasitic cuckoos (Science)](https://www.science.org/doi/10.1126/science.adj3210)
+### [10] Brood parasitism & egg recognition — discrimination-based Sybil/spoofing defense
+**Principle.** The cuckoo lays its egg in a foreign nest (provenance spoofing). Hosts counter with egg recognition & egg-color polymorphism (high variance between clutches, low within — makes mimicry harder). Coevolutionary arms race.
+**Mechanism.** Compare every egg against an internal template + **discrimination threshold** (itself evolvable: too sharp → ejection of own eggs = autoimmunity; too lax → the parasite gets through).
+**NSAI-Edge transfer (complements Sybil defense).** A fact that claims to come from a *trusted* origin is checked against that origin's behavioral/schema template (#7) — "cuckoo egg" (forged provenance / compromised key with atypical content) ejected by threshold. **Egg-color polymorphism → origin diversity bonus**: treat facts from a *narrow, monomorphic* origin cluster (Sybil signature: artificially uniform) more suspiciously than those from diverse, independent origins. Complementary to MeritRank.
+**Invariant check.** ✅ determinism (template distance + threshold, couple to danger score #1); ✅ "trust at the origin"; ⚠️ open-world: ejection on spoofing suspicion = "uncertain/quarantine", not "is false".
+**Sources.** [Coevolution underpins speciation in brood-parasitic cuckoos (Science)](https://www.science.org/doi/10.1126/science.adj3210)
 
 ---
 
-### [11] Original Antigenic Sin — Failure-Mode-Warnung für Caching/Gedächtnis (Anti-Pattern)
-**Prinzip.** Kehrseite des Immungedächtnisses (#4): bei einer *ähnlichen, aber nicht identischen* Variante reagiert das System reflexhaft mit dem *alten* Gedächtnis und unterdrückt die bessere naive Antwort — vom Erstkontakt „gefangen".
-**NSAI-Edge-Übertragung (Anti-Pattern für #3/#4/#7).** Kein Feature — eine **Failure-Mode-Spezifikation**: wenn ein gecachter Negativ-Eintrag (#3) oder ein Habituations-Template (#7) zu starr ist, behandelt der Knoten einen *legitim weiterentwickelten* Origin reflexhaft nach altem Urteil und unterdrückt die korrekte Neubewertung. Schutz: (a) Cache-/Spacer-TTL + Re-Validierung; (b) bei *Ähnlichkeit-aber-nicht-Identität* immer frische Primärprüfung statt Fast-Path; (c) Governor (#6) überwacht „altes Urteil unterdrückt neue Evidenz".
-**Invarianten-Check.** ✅ Stärkt „nie raten" (verbietet reflexhafte Extrapolation alten Wissens). ✅ Determinismus. Reines Negativ-Constraint auf andere Features.
-**Quellen.** [Original Antigenic Sin: the Downside of Immunological Memory (PMC)](https://pmc.ncbi.nlm.nih.gov/articles/PMC8546681/)
+### [11] Original antigenic sin — failure-mode warning for caching/memory (anti-pattern)
+**Principle.** Flip side of immune memory (#4): with a *similar but not identical* variant the system reflexively reacts with the *old* memory and suppresses the better naive response — "trapped" by first contact.
+**NSAI-Edge transfer (anti-pattern for #3/#4/#7).** Not a feature — a **failure-mode specification**: if a cached negative entry (#3) or a habituation template (#7) is too rigid, the node reflexively treats a *legitimately evolved* origin by the old verdict and suppresses the correct re-evaluation. Protection: (a) cache/spacer TTL + re-validation; (b) on *similarity-but-not-identity* always a fresh primary check instead of fast path; (c) governor (#6) monitors "old verdict suppresses new evidence".
+**Invariant check.** ✅ strengthens "never guess" (forbids reflexive extrapolation of old knowledge). ✅ determinism. Purely a negative constraint on other features.
+**Sources.** [Original Antigenic Sin: the Downside of Immunological Memory (PMC)](https://pmc.ncbi.nlm.nih.gov/articles/PMC8546681/)
 
 ---
 
-### [12] Quorum-Quenching & aggressive Mimikry — adversariale Signal-Jamming-Bedrohungsmodelle
-**Prinzip.** (a) **Quorum-Quenching**: Bakterien stören Konkurrenten-Kommunikation (Signal-Abbau/-Blockade = Jamming). (b) **Aggressive Mimikry** (Photuris-„Femme-Fatale"-Glühwürmchen): imitiert das Paarungssignal fremder Arten, lockt Männchen an — und frisst sie. Vertrauenssignal als Köder-Falle.
-**NSAI-Edge-Übertragung (neu: Bedrohungsmodelle für Self-Critique/Quorum).** Ein **Quorum-Quenching-Angreifer** flutet das Netz mit Widersprüchen, gezielt um Korroboration *zu verhindern* (kein Konsens → kein promote) — ein Verfügbarkeits-Angriff auf den Trust-Mechanismus. Gegenmaßnahme: Quorum zählt *unabhängige authoritative* Bestätigungen (nicht Abwesenheit von Widerspruch); ein Origin, der nur Widersprüche ohne eigene Korroboration liefert, wird per Reziprozitäts-Bilanz (#8) abgewertet. **Aggressive Mimikry** = ein Sybil, der exakt Schema/Vokabular eines vertrauten Origins nachahmt — Gegenmaßnahme #7/#10 (Verhaltens-Diskontinuität); die *Origin-Signatur (Ed25519) kann nicht gefälscht werden* — **Modell B ist hier die fundamentale Verteidigung.**
-**Invarianten-Check.** ✅ Stärkt „Anzahl zählt nie" + „Trust am Origin" (Mimikry scheitert an der Signatur); ✅ Determinismus; ⚠️ Quorum darf nicht in „schweigen→ablehnen" kippen (Open-World).
-**Quellen.** [Interference in Bacterial Quorum Sensing (Front Pharmacol)](https://www.frontiersin.org/journals/pharmacology/articles/10.3389/fphar.2018.00203/full) · [Aggressive Mimicry in Photuris Fireflies (Science)](https://www.science.org/doi/10.1126/science.187.4175.452)
+### [12] Quorum quenching & aggressive mimicry — adversarial signal-jamming threat models
+**Principle.** (a) **Quorum quenching**: bacteria disrupt competitors' communication (signal degradation/blockade = jamming). (b) **Aggressive mimicry** (Photuris "femme fatale" fireflies): imitates the mating signal of foreign species, lures males — and eats them. Trust signal as a bait trap.
+**NSAI-Edge transfer (new: threat models for self-critique/quorum).** A **quorum-quenching attacker** floods the network with contradictions, specifically to *prevent* corroboration (no consensus → no promote) — an availability attack on the trust mechanism. Countermeasure: quorum counts *independent authoritative* confirmations (not absence of contradiction); an origin that delivers only contradictions without own corroboration is downgraded via the reciprocity balance (#8). **Aggressive mimicry** = a Sybil that exactly imitates the schema/vocabulary of a trusted origin — countermeasure #7/#10 (behavioral discontinuity); the *origin signature (Ed25519) cannot be forged* — **model B is the fundamental defense here.**
+**Invariant check.** ✅ strengthens "count never counts" + "trust at the origin" (mimicry fails at the signature); ✅ determinism; ⚠️ quorum must not tip into "silence→reject" (open-world).
+**Sources.** [Interference in Bacterial Quorum Sensing (Front Pharmacol)](https://www.frontiersin.org/journals/pharmacology/articles/10.3389/fphar.2018.00203/full) · [Aggressive Mimicry in Photuris Fireflies (Science)](https://www.science.org/doi/10.1126/science.187.4175.452)
 
 ---
 
-### [Bonus] Apoptose vs. Nekrose — sauberes Verwerfen korrupter Daten ohne Kollateralschaden
-**Prinzip.** Apoptose = programmierter, entzündungsfreier Zelltod (saubere Verpackung, Phagozyten räumen ab). Nekrose = unkontrolliert (Membran platzt, Inhalt tritt aus, Entzündung/Kollateral).
-**NSAI-Edge-Übertragung (ergänzt reject/Quarantäne-Beseitigung).** **Apoptotisches Reject**: ein bösartiger Fakt wird *sauber* entfernt — CRDT-Tombstone + CRISPR-Spacer (#3) geordnet erzeugt, keine „Entzündung" (keine Kaskade von Folge-Rejects benachbarter legitimer Fakten). **Nekrotisches Reject** (Anti-Pattern): hartes Löschen, das CRDT-Konvergenz bricht oder pauschal alles vom Origin mit-tötet. Spezifikation: jedes Verwerfen über geordnete Tombstones, nie destruktiv.
-**Invarianten-Check.** ✅ CRDT (Tombstone konvergenz-erhaltend; hartes Löschen = Bruch); ✅ Determinismus. Im Kern eine *CRDT-Invarianten-Schutz*-Spezifikation für alle reject-Pfade.
-**Quellen.** [Programmed cell death and inflammation (PMC)](https://pmc.ncbi.nlm.nih.gov/articles/PMC4455968/)
+### [Bonus] Apoptosis vs. necrosis — clean discarding of corrupt data without collateral damage
+**Principle.** Apoptosis = programmed, inflammation-free cell death (clean packaging, phagocytes clear up). Necrosis = uncontrolled (membrane bursts, contents leak, inflammation/collateral).
+**NSAI-Edge transfer (complements reject/quarantine disposal).** **Apoptotic reject**: a malicious fact is removed *cleanly* — CRDT tombstone + CRISPR spacer (#3) generated in an orderly way, no "inflammation" (no cascade of follow-on rejects of neighboring legitimate facts). **Necrotic reject** (anti-pattern): hard deletion that breaks CRDT convergence or kills everything from the origin wholesale. Specification: every discard via ordered tombstones, never destructive.
+**Invariant check.** ✅ CRDT (tombstone convergence-preserving; hard deletion = breach); ✅ determinism. At its core a *CRDT invariant protection* specification for all reject paths.
+**Sources.** [Programmed cell death and inflammation (PMC)](https://pmc.ncbi.nlm.nih.gov/articles/PMC4455968/)
 
 ---
 
-## Top 3 wildeste Ideen
-1. **Klonale Selektion / Affinitätsreifung als generativer Self-Critique-Motor (#5).** Der einzige Vorschlag, der NSAI-Edge echte *Hypothesen-Generierung* gäbe — frontal gegen „Determinismus" + „nie raten" + „kein LLM". Nur im strikt separierten Vorschlags-Layer mit deterministischer Operator-Enumeration denkbar. Maximal flaggen.
-2. **CRISPR-Spacer-Array als p2p-vererbbares Defektor-Immungedächtnis (#3).** Geteiltes, signiertes Blocklisting, das sich über das Netz *vererbt*. Mächtig, aber scharfer Zensur-/Vergiftungs-Vektor, der „Trust am Origin" zerreißen kann.
-3. **Treg-Governor als Autoimmunitäts-Wächter über der eigenen Abwehr (#6).** Ein Meta-Regelkreis, der das *eigene Filtersystem* überwacht und bremst. Der Knoten misstraut nicht nur Peers, sondern auch der eigenen Paranoia. Passt zur Meta-Kognitions-Linie.
+## Top 3 wildest ideas
+1. **Clonal selection / affinity maturation as a generative self-critique engine (#5).** The only proposal that would give NSAI-Edge genuine *hypothesis generation* — head-on against "determinism" + "never guess" + "no LLM". Conceivable only in the strictly separated proposal layer with deterministic operator enumeration. Flag maximally.
+2. **CRISPR spacer array as a p2p-heritable defector immune memory (#3).** Shared, signed blocklisting that *inherits* across the network. Powerful, but a sharp censorship/poisoning vector that can tear apart "trust at the origin".
+3. **Treg governor as an autoimmunity guard over one's own defense (#6).** A meta control loop that monitors and brakes the *own filter system*. The node distrusts not only peers but also its own paranoia. Fits the meta-cognition line.
 
-## Welcher biologische Abwehr-Mechanismus fehlt NSAI-Edge komplett?
-**Die GEFAHR-/Schaden-Achse (Matzinger, #1) — und der negative Feedback-Regelkreis (#6).** NSAI-Edge denkt heute binär entlang der *self/non-self*-Achse: fremd → Quarantäne, unbekannter Origin → reject (das immunologische Dogma der 1950er). Es fehlt die zweite, orthogonale Achse: *gefährlich vs. harmlos*. Keine Notion von „Schaden-Signal" → es kann „fremd und harmlos" (legitimer neuer Peer) nicht von „fremd und gefährlich" (Constraint-brechender Spoof) unterscheiden → strukturell zur **Über-Quarantäne / Autoimmunität** prädisponiert, ohne Bremse. Es fehlen zusammen: (a) ein **deterministisches Danger-Signal**, das Quarantäne *auslöst* (statt bloßer Fremdheit), und (b) ein **regulatorischer Gegenspieler** (Treg-Governor), der die Über-Reaktion *dämpft*. Biologisch: NSAI-Edge hat T-Killerzellen (reject) und einen TOFU-Thymus (#7), aber **weder Danger-Sensorik noch regulatorische T-Zellen** — das Rezept für Autoimmunität. Der fruchtbarste Erweiterungs-Korridor (#1 + #6 als Paar).
+## Which biological defense mechanism does NSAI-Edge lack completely?
+**The DANGER/damage axis (Matzinger, #1) — and the negative feedback control loop (#6).** NSAI-Edge today thinks binarily along the *self/non-self* axis: foreign → quarantine, unknown origin → reject (the immunological dogma of the 1950s). The second, orthogonal axis is missing: *dangerous vs. harmless*. No notion of a "damage signal" → it cannot distinguish "foreign and harmless" (legitimate new peer) from "foreign and dangerous" (constraint-breaking spoof) → structurally predisposed to **over-quarantine / autoimmunity**, without a brake. Missing together: (a) a **deterministic danger signal** that *triggers* quarantine (instead of mere foreignness), and (b) a **regulatory antagonist** (Treg governor) that *dampens* the overreaction. Biologically: NSAI-Edge has killer T cells (reject) and a TOFU thymus (#7), but **neither danger sensing nor regulatory T cells** — the recipe for autoimmunity. The most fruitful extension corridor (#1 + #6 as a pair).

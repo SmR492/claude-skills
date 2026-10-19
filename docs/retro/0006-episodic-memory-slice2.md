@@ -1,26 +1,26 @@
-# Retro-ADR 0006 — Episodisches Gedächtnis (NSAI-Edge Slice #2)
+# Retro-ADR 0006 — Episodic memory (NSAI-Edge Slice #2)
 
-**Status:** abgeschlossen (Adversarial safe JA) · Branch `nsai-edge-episodic-slice2`, PR offen
-**Datum:** 2026-05-27
-**Zweck:** Retrospektive der zweiten §H-Roadmap-Verfeinerung: die episodische Schicht (NS-Mem) — Roh-Erlebnisse + Konsolidierung — und die erstmalige Integration von Web-Recherche in die Konzeptphase.
+**Status:** completed (adversarial safe YES) · branch `nsai-edge-episodic-slice2`, PR open
+**Date:** 2026-05-27
+**Purpose:** Retrospective of the second §H roadmap refinement: the episodic layer (NS-Mem) — raw experiences + consolidation — and the first integration of web research into the Konzept phase (Konzept = concept document).
 
-## Kontext
-Nutzer: weiter im selben CDP5-Loop nach Slice #1 (TMS). Zusätzliche Vorgabe während der Phase: **Web-Recherche in die Konzeptphase einbeziehen, mehrere Lösungen evaluieren, aber immer validieren** (Web-Lösungen können Gefahren bergen). Ziel-Anker unverändert: NSAI-Edge als „Gehirn" (Roh-Erlebnis → verdichtetes Wissen mit Provenienz).
+## Context
+User: continue in the same CDP5 loop after Slice #1 (TMS). Additional requirement during the phase: **include web research in the Konzept phase, evaluate several solutions, but always validate** (web solutions can carry dangers). Goal anchor unchanged: NSAI-Edge as "brain" (raw experience → condensed knowledge with provenance).
 
-## Entscheidungschronik
-- **E1 — Konzept-first UC-EP:** lokale/peer-private episodische Schicht (`episodes` + `episode_triples`), Konsolidierung = Provenienz-Link + Recency-Refresh, **kein** Count-Boost (Leitplanke/A4). lint 10/10; konzept-reviewer **7,8/10** → 🔴/🟡 eingearbeitet (Status-Unabhängigkeit der Links, verwaiste-Link-Behandlung, Atomarität, Recency-AC, Glossar).
-- **E2 — Web-Validierung (neue Vorgabe):** Quellenvergleich (NS-Mem, FadeMem, ACT-R-Memory, SSGM, Memory-Poisoning-Literatur). Bestätigt: episodisch/semantisch + Provenienz/Audit + Recency + Föderations-Isolation. **Bewusst nicht übernommen:** Zugriffs-Frequenz in den Belief (kollidiert mit Leitplanke → nur belief-neutrale GC-Option, deferred). **Risiko verankert:** recall-`content` = untrusted Data (Memory-Poisoning-Injection-Vektor).
-- **E3 — Umsetzung TDD:** additives Schema (IF NOT EXISTS, keine Rebuild-Migration), `recordEpisode`/`storeTriple+episode_id`/`recallEpisodes`/`episodesForTriple`/`episodicGc`, MCP-Tools. 102/102.
-- **E4 — Adversarial-Review: safe JA + 1 🟡.** Alle Sicherheits-/Föderations-/Datenverlust-Achsen robust (inkl. Beweis: der Episode-Existenz-Guard ist load-bearing — ohne ihn würde eine FK-Verletzung den Tripel-Write zurückrollen). Korrektheitsbug: `recallEpisodes` escapte `%`/`_`, aber die `LIKE` hatte keine `ESCAPE`-Klausel → Sonderzeichen-Terme still leer. Gefixt + Regressionstest. 103/103.
+## Decision chronicle
+- **E1 — Konzept-first UC-EP:** local/peer-private episodic layer (`episodes` + `episode_triples`), consolidation = provenance link + recency refresh, **no** count boost (guardrail/A4). lint 10/10; konzept-reviewer **7.8/10** → 🔴/🟡 incorporated (status independence of the links, orphaned-link handling, atomicity, recency AC, glossary).
+- **E2 — Web validation (new requirement):** source comparison (NS-Mem, FadeMem, ACT-R memory, SSGM, memory-poisoning literature). Confirmed: episodic/semantic + provenance/audit + recency + federation isolation. **Deliberately not adopted:** access frequency into the belief (collides with the guardrail → only a belief-neutral GC option, deferred). **Risk anchored:** recall `content` = untrusted data (memory-poisoning injection vector).
+- **E3 — Implementation TDD:** additive schema (IF NOT EXISTS, no rebuild migration), `recordEpisode`/`storeTriple+episode_id`/`recallEpisodes`/`episodesForTriple`/`episodicGc`, MCP tools. 102/102.
+- **E4 — Adversarial review: safe YES + 1 🟡.** All security/federation/data-loss axes robust (incl. proof: the episode-existence guard is load-bearing — without it an FK violation would roll back the triple write). Correctness bug: `recallEpisodes` escaped `%`/`_`, but the `LIKE` had no `ESCAPE` clause → special-character terms silently empty. Fixed + regression test. 103/103.
 
-## Prozess-Lehre (Kern)
-**Web in der Konzeptphase = Stand der Technik + Risiko-Katalog, aber Validierung gegen die Projekt-Leitplanken ist Pflicht.** Die Forschung (FadeMem) hätte uns zu frequenz-gewichtetem Belief verleitet — direkt gegen Stefans „Aktualität statt Anzahl". Die kritische Trennung (Frequenz darf Retention/GC modulieren, NIE den Belief) hat den Konflikt aufgelöst statt ihn zu importieren. Und die Poisoning-Literatur lieferte einen konkreten Threat-Model-Vermerk (recall = untrusted Data). → [[feedback-websearch-in-concept-phase]].
-Zweite Lehre (Wiederholung, bestätigt): der **ASCII-only-Testfall** verbarg den LIKE-Escape-Bug — der Adversarial-Review fand ihn über Sonderzeichen-Eingaben. [[feedback-green-tests-bypass-security]].
+## Process lesson (core)
+**Web in the Konzept phase = state of the art + risk catalog, but validation against the project guardrails is mandatory.** The research (FadeMem) would have tempted us toward frequency-weighted belief — directly against Stefan's „Aktualität statt Anzahl". The critical separation (frequency may modulate retention/GC, NEVER the belief) resolved the conflict instead of importing it. And the poisoning literature delivered a concrete threat-model note (recall = untrusted data). → [[feedback-websearch-in-concept-phase]].
+Second lesson (repetition, confirmed): the **ASCII-only test case** hid the LIKE-escape bug — the adversarial review found it via special-character inputs. [[feedback-green-tests-bypass-security]].
 
-## Inhaltliche Lehre
-Saubere Schicht-Trennung zahlt sich aus: weil Episoden **lokal/peer-privat** (nicht im Wire) sind, ist die ganze Föderations-/CRDT-/Signatur-Achse per Konstruktion unberührt (bit-identischer Wire mit/ohne Episode-Link bewiesen) — und Peer-Poisoning der episodischen Schicht ausgeschlossen. Ein FK auf `episodes` (CASCADE), aber bewusst **keiner** auf `edges` (GC-Freiheit) + definierte Orphan-Behandlung.
+## Substantive lesson
+Clean layer separation pays off: because episodes are **local/peer-private** (not in the wire), the whole federation/CRDT/signature axis is untouched by construction (bit-identical wire with/without episode link proven) — and peer poisoning of the episodic layer is ruled out. An FK on `episodes` (CASCADE), but deliberately **none** on `edges` (GC freedom) + defined orphan handling.
 
-## Offen
-- Slice #2b: LLM-Extraktion aus `content` (Agenten-Aufgabe); zugriffs-frequenz-bewusste GC-Retention (belief-neutral).
-- §H-Roadmap: Slice #3 Hybrid-Retrieval (GraphRAG) — hier kommt die unscharfe/ähnlichkeitsbasierte Episoden- und Tripel-Suche.
-- PR-Merge (Mensch).
+## Open
+- Slice #2b: LLM extraction from `content` (agent task); access-frequency-aware GC retention (belief-neutral).
+- §H roadmap: Slice #3 hybrid retrieval (GraphRAG) — this is where fuzzy/similarity-based episode and triple search comes in.
+- PR merge (human).

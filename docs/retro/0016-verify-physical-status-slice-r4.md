@@ -1,43 +1,43 @@
 # Retro-ADR 0016 — Verify-Physical-Status (NSAI-Edge Slice #R4)
 
-**Status:** abgeschlossen · autonom + self-merged (PR #16) · 1 Adversarial-Audit-Runde + 3 🟡 nachgezogen
-**Datum:** 2026-05-28
-**Zweck:** Retrospektive eines reinen Erklärbarkeits-Slice, der eine in der KI-VO-Demo entdeckte Subtilität schließt — ohne Verdikt-Drift, ohne neue Konfabulations-Klasse.
+**Status:** completed · autonomous + self-merged (PR #16) · 1 adversarial audit round + 3 🟡 followed up
+**Date:** 2026-05-28
+**Purpose:** Retrospective of a pure explainability slice that closes a subtlety discovered in the AI Act demo — without verdict drift, without a new confabulation class.
 
-## Kontext
-KI-VO-Live-Demo zeigte: nach `reject(hash)` zeigt `verify` das Gerücht weiter als `contradicted`. Konsistent zur single-value-Dominanz-Logik (KI-Kompetenz dominiert, „nichts" wird widerlegt), aber für den Konsumenten erklärbarkeitsfeindlich — er sieht nicht, dass er das Tripel selbst abgelehnt hat. Stefan markierte das als Backlog-Subtilität. Slice #R4 schließt diese Lücke durch ein **additives** `physical_status`-Feld.
+## Context
+The AI Act live demo showed: after `reject(hash)`, `verify` keeps showing the rumor as `contradicted`. Consistent with the single-value dominance logic (AI competence dominates, "nothing" is refuted), but hostile to explainability for the consumer — he does not see that he rejected the triple himself. Stefan marked this as a backlog subtlety. Slice #R4 closes this gap via an **additive** `physical_status` field.
 
-## CDP5-geprüfte Architektur-Entscheidungen
-- **Additives Feld, kein Verdikt-Drift**: `verify` bleibt bei den drei Verdikt-Kategorien. `physical_status` ist eine reine Lese-Linse auf `knowledge_edges.local_status`, hängt nur additiv an.
-- **Open-World absolut**: Wenn das Tripel nicht physisch existiert, FEHLT das Feld — nicht `'none'`. Abwesenheit wird durch Feld-Fehlen signalisiert, konsistent zu unserer Open-World-Pflicht.
-- **Wrapper-Pattern**: bestehende `verify`-Logik wurde zu `_verifyCore()` umbenannt, `verify` ist Public-Wrapper. Garantiert: bestehende Verdikt-Pfade unverändert.
-- **Kategorischer String aus Schema-CHECK-Constraint**: 4 mögliche Werte (`active`/`superseded`/`retracted`/`quarantined`), strukturell durch SQLite-CHECK garantiert. Kein Probabilistik-Leak möglich.
-- **Strip-Allowlist erweitert**: `assertClaims`-Strip lässt `physical_status` durch (kategorischer String), bleibt aber für numerische Provenienz strikt.
+## CDP5-checked architecture decisions
+- **Additive field, no verdict drift**: `verify` stays with the three verdict categories. `physical_status` is a pure read lens on `knowledge_edges.local_status`, attached only additively.
+- **Open world absolute**: if the triple does not physically exist, the field is ABSENT — not `'none'`. Absence is signaled by the field being missing, consistent with our open-world obligation.
+- **Wrapper pattern**: the existing `verify` logic was renamed to `_verifyCore()`, `verify` is the public wrapper. Guarantees: existing verdict paths unchanged.
+- **Categorical string from schema CHECK constraint**: 4 possible values (`active`/`superseded`/`retracted`/`quarantined`), structurally guaranteed by SQLite CHECK. No probabilistics leak possible.
+- **Strip allowlist extended**: the `assertClaims` strip lets `physical_status` through (categorical string), but stays strict for numeric provenance.
 
-## Entscheidungschronik
-- **E1** — KI-VO-Demo-Subtilität aus Backlog priorisiert (Stefans Option 3).
-- **E2** — Konzept-First UC-VPS mit AC-19.1-19.10. Lint 10/10.
-- **E3** — Implementation: Wrapper-Pattern (`verify` → `_verifyCore`), additives Feld, Strip-Allowlist erweitert. 10 AC-Tests grün.
-- **E4** — Adversarial-Audit: **safe JA-mit-Einschränkung.** Drei 🟡 (alle Doku-/Test-Schliffe, kein Code-Defekt):
-  - 🟡-1 MCP-Tool-Descriptions erwähnten `physical_status` nicht → Konsumenten-Sycophancy-Risiko (LLM könnte das Feld als „belief-Wert" missinterpretieren). **Fix**: Tool-Descriptions ergänzt mit klarem Hinweis „reine Erklärbarkeit, kein Verdikt-Drift".
-  - 🟡-2 `present` und `physical_status` können beide gleichzeitig erscheinen → scheinbar widersprüchlich. **Fix**: KONZEPT-Klarstellung — beide beschreiben unterschiedliche Lese-Linsen (rb-Linse vs. Edge-Linse).
-  - 🟡-3 AC-19.5 testete `retracted` über Direkt-DB-Mutation, nicht über echte TMS-Propagation. **Fix**: AC-19.5b ergänzt — derived_from-Kette + Premise reject → propagateRetraction setzt abgeleiteten Fakt auf retracted.
-- **E5** — Self-Merge PR #16.
+## Decision chronicle
+- **E1** — AI Act demo subtlety prioritized from the backlog (Stefan's option 3).
+- **E2** — Konzept-first UC-VPS (Konzept = concept document) with AC-19.1-19.10. Lint 10/10.
+- **E3** — Implementation: wrapper pattern (`verify` → `_verifyCore`), additive field, strip allowlist extended. 10 AC tests green.
+- **E4** — Adversarial audit: **safe YES-with-reservation.** Three 🟡 (all doc/test polish, no code defect):
+  - 🟡-1 MCP tool descriptions did not mention `physical_status` → consumer sycophancy risk (an LLM could misinterpret the field as a "belief value"). **Fix**: tool descriptions extended with a clear note "pure explainability, no verdict drift".
+  - 🟡-2 `present` and `physical_status` can both appear at the same time → seemingly contradictory. **Fix**: KONZEPT clarification — both describe different read lenses (rb lens vs. edge lens).
+  - 🟡-3 AC-19.5 tested `retracted` via direct DB mutation, not via real TMS propagation. **Fix**: AC-19.5b added — derived_from chain + premise reject → propagateRetraction sets the derived fact to retracted.
+- **E5** — Self-merge PR #16.
 
-## Prozess-Lehre (Kern)
-**Erklärbarkeits-Schliffe sind keine kosmetischen Issues.** Die KI-VO-Demo-Subtilität war kein Bug — die Logik war korrekt. Aber der Konsument bekam eine Antwort, die er nicht ohne weiteres als „das hast du selbst abgelehnt" interpretieren konnte. Genau hier ist die Halluzinations-Falle für den Konsumenten: ohne Erklärbarkeits-Hinweis konstruiert er sich selbst eine Geschichte (warum sagt das System nicht einfach „unknown"?). Slice #R4 schließt das durch ein präzises additives Feld — keine Halluzinations-Quelle, keine probabilistische Aussage, einfach mehr Kontext.
+## Process lesson (core)
+**Explainability polish is not a cosmetic issue.** The AI Act demo subtlety was not a bug — the logic was correct. But the consumer got an answer he could not readily interpret as "you rejected that yourself". This is exactly where the hallucination trap for the consumer lies: without an explainability hint he constructs his own story (why doesn't the system just say "unknown"?). Slice #R4 closes this via a precise additive field — no hallucination source, no probabilistic statement, simply more context.
 
-**Wrapper-Pattern für additive Felder ist sicherer als verschachtelte Returns.** Hätte ich versucht, das Feld in jedem der 7+ Return-Statements von `verify` einzubauen, wäre eines mit Sicherheit vergessen worden. Der Public-Wrapper sieht das Endergebnis und ergänzt zentral — Wartungs-Defensive eingebaut.
+**The wrapper pattern for additive fields is safer than nested returns.** Had I tried to build the field into each of the 7+ return statements of `verify`, one would certainly have been forgotten. The public wrapper sees the final result and adds centrally — maintenance defense built in.
 
-**MCP-Tool-Descriptions sind Konsumenten-Sycophancy-Schutz.** Der Auditor fand: das Feld existiert im Output, aber die Tool-Description erwähnt es nicht. Ein LLM-Konsument liest die Description, sieht das Feld im Output, baut eine eigene Erklärung. Drift-Risiko strukturell. Tool-Descriptions müssen **alles** dokumentieren, was im Output erscheinen kann — sonst entsteht stille Konsumenten-Konfabulation. [[feedback-green-tests-bypass-security]]
+**MCP tool descriptions are consumer sycophancy protection.** The auditor found: the field exists in the output, but the tool description does not mention it. An LLM consumer reads the description, sees the field in the output, builds its own explanation. Structural drift risk. Tool descriptions must document **everything** that can appear in the output — otherwise silent consumer confabulation arises. [[feedback-green-tests-bypass-security]]
 
-**Tests müssen den ECHTEN Pfad testen.** AC-19.5 setzte `retracted` per Direkt-UPDATE — das prüfte das Durchreichen, aber nicht die TMS-Propagation, die im Produktiv-Fall der Pfad zu `retracted` ist. Hätte `_propagateRetraction` einen Bug bekommen, der das Feld vergisst, wäre der Test grün geblieben. AC-19.5b ergänzt jetzt den echten Pfad mit derived_from-Kette.
+**Tests must test the REAL path.** AC-19.5 set `retracted` via direct UPDATE — that checked the pass-through, but not the TMS propagation, which in the production case is the path to `retracted`. Had `_propagateRetraction` acquired a bug that forgets the field, the test would have stayed green. AC-19.5b now adds the real path with a derived_from chain.
 
-## Inhaltliche Lehre
-**Status ist nicht bi-temporal.** Stefan hatte das in #R2 schon als bewusste Entscheidung dokumentiert. `physical_status` reflektiert den **aktuellen** local_status — auch bei `as_of`-Anfragen in der Vergangenheit. Eine bi-temporale Status-Achse wäre eine komplette zusätzliche Spalte und ein eigenes Slice (#Future); für die Erklärbarkeits-Anwendung von #R4 reicht der aktuelle Status.
+## Substantive lesson
+**Status is not bi-temporal.** Stefan had already documented this in #R2 as a deliberate decision. `physical_status` reflects the **current** local_status — even for `as_of` queries in the past. A bi-temporal status axis would be a complete additional column and its own slice (#Future); for the explainability use of #R4 the current status suffices.
 
-**Schema-CHECK-Constraints sind Defensive-Defaults für kategorische Felder.** `local_status` ist via CHECK-Constraint auf 4 Werte beschränkt. Damit ist die Allowlist im JS-Code redundant — aber die Sicherheit kommt aus dem Schema, nicht aus dem Code. Das ist die richtige Schichtung.
+**Schema CHECK constraints are defensive defaults for categorical fields.** `local_status` is restricted to 4 values via CHECK constraint. That makes the allowlist in the JS code redundant — but the safety comes from the schema, not from the code. That is the right layering.
 
-## Offen
-- **MCP-Tool-Descriptions als CDP5-AC** — Idee aus dem Audit: jede Slice-Erweiterung, die ein neues Output-Feld bringt, sollte explizit prüfen, dass die Tool-Description aktualisiert wurde. Könnte ein deterministischer `mcp-doc-drift`-Gate-Skill werden (Backlog).
-- **bi-temporale Status-Achse** (Slice #Future) — falls historische Status-Anfragen je gewünscht werden, eine eigene Spalte `status_history(triple_hash, status, valid_from, valid_to)`. Aktuell nicht gefordert.
+## Open
+- **MCP tool descriptions as a CDP5 AC** — idea from the audit: every slice extension that brings a new output field should explicitly check that the tool description was updated. Could become a deterministic `mcp-doc-drift` gate skill (backlog).
+- **Bi-temporal status axis** (Slice #Future) — if historical status queries are ever wanted, an own column `status_history(triple_hash, status, valid_from, valid_to)`. Not currently required.

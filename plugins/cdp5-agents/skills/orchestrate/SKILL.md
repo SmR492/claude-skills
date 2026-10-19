@@ -15,8 +15,15 @@ Take the role when a task touches at least two stages (concept, design, implemen
 
 1. Determinism gate: a decidable task goes to a script or a cdp5-gates skill, not to a model.
 2. Effort scaling: one agent with a few tool calls for a fact, two to four workers for a comparison, more only for complex research. Counter-roles and reviewers run at `effort: high`, implementation workers at `medium`; the agent files set this.
-3. The brief carries, in this order: the objective verbatim (the user's words, not your paraphrase), the output format the worker must return, the exact target state (repository and commit, container, document id and version, URL and date), scope and out-of-scope, the tools and sources it may use, the disposable environment for runs or "none", the doctrine sections it needs as excerpts or the path of the doctrine copy, the stop rule, and the worker-contract reference. Pointers to single-source files, not pasted walls of context.
+3. The brief carries, in this order: the objective verbatim (the user's words, not your paraphrase), the output format the worker must return, the exact target state (repository and commit, container, document id and version, URL and date), scope and out-of-scope, the tools and sources it may use, the disposable environment for runs or "none", the doctrine sections it needs as excerpts or the path of the doctrine copy, the stop rule, and the worker-contract reference. Pointers to single-source files, not pasted walls of context. For a plan with several tasks, write each task's brief to its own file and hand the worker that path plus the interfaces earlier tasks produced; a worker never reads the whole plan, and its full report goes to a file next to the brief while the conversation receives only status, evidence summary and concerns.
 4. Parallel writers only with their own worktree on the right base commit; otherwise sequential. Independent read-only workers run in parallel.
+5. Disposable environments and run grants. Judgment agents are read-only by default; the plugin's shell guard denies test runs, interpreter probes and writes. Every writer and every counter-role that must run gets a worktree on the exact base commit with a proven green baseline; one command creates it, runs the project's gate commands and registers the grant:
+
+   ```
+   node "${CLAUDE_PLUGIN_ROOT}/scripts/worktree-setup.mjs" --repo=. --base=<commit> --path=../wt-audit --baseline="vendor/bin/phpunit" --baseline="vendor/bin/phpstan analyse" --grant=adversarial-auditor
+   ```
+
+   Its output lines (disposable environment, base commit, baseline results, run grant) go verbatim into the brief. A red baseline issues no grant: fix the baseline first or brief without runs. Grants can also be managed alone with `scripts/grant-run.mjs grant|list|revoke`. A grant is per agent type, single use (consumed when the agent stops) and expires after its TTL. With a grant the agent may run and write inside the environment; commit, push, fetch and history rewrites stay denied. No grant means the brief says `disposable environment: none` and the agent reports "counter-test not executable" where a run would be needed. Never grant a root that holds the only copy of uncommitted work.
 
 ## Counter-roles by object type
 
@@ -37,7 +44,9 @@ Workers never verify their own or co-authored claims. The devils-advocate pass d
 
 - No acceptance, no commit and no synthesis while a worker of the same wave runs or while its claim is unverified.
 - Every worker claim is a claim; review-verify checks it before it triggers a change. Spot-check one piece of evidence per batch yourself.
-- A refuted result gets a sharpened re-brief, at most twice; then a Stop-Retro to the user.
+- A delivered diff passes two reviews in this order, each in a fresh context: first conformance to the brief (review-verify with the brief as the source: every acceptance criterion covered, nothing outside scope, the gate commands really run), then quality (review-code). A finding the reviewer cannot decide from the diff is yours to resolve; it is not closed by the worker's word.
+- A refuted result gets a sharpened re-brief, at most twice; the second re-brief goes to a fresh worker instance with the refuted attempt recorded as a known-issue line. Then a Stop-Retro to the user. You never fix a worker's finding yourself; that skips the review and fills your context.
+- Progress lives in a ledger file, not in conversation memory: one line per task (task, state, commit range or diff path, review result, open findings) in the durable location of the repository class (§28 paths for own repositories, the memory directory outside the repository for company repositories). After a compaction you resume from the ledger, not from what you remember.
 - Questions and Stop-Retros from workers go into the conversation at once.
 - Track tokens per wave; when the budget the user set is reached, stop the wave and ask.
 - Destructive or irreversible steps (schema drop, force push, migration cutoff, branch delete, integration approval, investor outreach, term-sheet commitment, signature) go to the human, every time.

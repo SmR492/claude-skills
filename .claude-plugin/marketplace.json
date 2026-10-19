@@ -5,21 +5,21 @@
     "url": "https://github.com/SmR492"
   },
   "metadata": {
-    "description": "Deterministische CDP5-T1-Skills (read-only Detektoren/Reports) als Claude-Code-Marketplace.",
-    "version": "0.9.0"
+    "description": "The CDP5 way of working as a Claude Code marketplace: deterministic T1 skills, judgment agents under a shared worker contract, domain knowledge packs, Orbit session hook.",
+    "version": "0.10.0"
   },
   "plugins": [
     {
       "name": "cdp5-gates",
       "source": "./plugins/cdp5-gates",
-      "description": "Read-only deterministic T1 skills per CDP5 §32.9: konzept-mapper, konzept-lint (gate plus score against the shipped maturity policy), ac-to-test-scaffold, konzept-model-api, test-gap, roadmap-drift, retro-memory-loop-check, wiki-lint, mcp-config-lint, secrets-scan, pii-scan, profile-check, cdp5-init, cdp5-reference. Reproducible (program, no LLM); the output is the evidence.",
-      "version": "0.6.0"
+      "description": "Read-only deterministic T1 skills per CDP5 §32.9: konzept-mapper, konzept-lint (gate plus score against the shipped maturity policy), ac-to-test-scaffold, konzept-model-api, test-gap, roadmap-drift, retro-memory-loop-check, wiki-lint, mcp-config-lint, mcp-doc-drift-gate, secrets-scan, pii-scan, profile-check, cdp5-init, cdp5-reference, skill-lint (spec, conventions and supply-chain check of skills and plugins). Reproducible (program, no LLM); the output is the evidence.",
+      "version": "0.7.0"
     },
     {
       "name": "cdp5-agents",
       "source": "./plugins/cdp5-agents",
-      "description": "CDP5 agents and the orchestrate skill: judgment and counter-roles (konzept-reviewer, review-verify, adversarial-auditor, threat-modeler, mcp-security-reviewer, devils-advocate, pessimistic-realist, review-code, pm-retro) and implementation workers (impl-debug, impl-uc, impl-refactor); shared worker contract via SubagentStart/SubagentStop hooks, read-only Bash guard, usage log.",
-      "version": "0.3.0"
+      "description": "CDP5 agents and the orchestrate skill: judgment and counter-roles (konzept-reviewer, review-verify, adversarial-auditor, threat-modeler, mcp-security-reviewer, devils-advocate, pessimistic-realist, review-code, pm-retro) and implementation workers (impl-debug, impl-uc, impl-refactor); shared worker contract via SubagentStart/SubagentStop hooks (acknowledgement, hedged-claim check, usage log), allowlist shell guard with run grants for disposable environments, SessionStart bootstrap, worktree-setup and grant-run scripts.",
+      "version": "0.4.0"
     },
     {
       "name": "domain-agents",

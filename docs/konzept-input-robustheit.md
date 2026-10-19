@@ -1,129 +1,129 @@
-# Konzept — Input-Robustheits-Vertrag für T1-Skills
+# Konzept — Input robustness contract for T1 skills
 
 **Version:** 1.1
-**Stand:** 2026-05-26
-**Scope:** Ein einheitlicher Vertrag, nach dem **jeder** `cdp5-gates`-T1-Skill fehlerhafte Eingaben (fehlendes/falsches Argument, Pfad-Typ-Fehler, malformed strukturierter Inhalt) **deterministisch mit Exit-Code 2 + lesbarer Meldung** quittiert — statt mit einer uncaught Exception und Stacktrace abzubrechen. **Nicht enthalten:** Änderung der fachlichen Skill-Logik, neue Detektoren, Behandlung *valider* Eingaben (bleibt unverändert), Schreib-/Mutations-Operationen (Skills bleiben read-only), Rückgabe-Form-Vereinheitlichung von `scanRepo` (eigener Folge-Punkt).
+**As of:** 2026-05-26
+**Scope:** A uniform contract under which **every** `cdp5-gates` T1 skill acknowledges faulty input (missing/wrong argument, path type error, malformed structured content) **deterministically with exit code 2 + a readable message** — instead of aborting with an uncaught exception and a stack trace. **Not included:** changes to the skills' domain logic, new detectors, handling of *valid* input (stays unchanged), write/mutation operations (skills stay read-only), unification of the return form of `scanRepo` (separate follow-up item).
 
-## Determinismus
+## Determinism
 
-Alle UCs sind rein deterministisch (Node-Programm, kein Modell-Aufruf) → Toleranz-Schwelle / Validierungsstrategie / Fallback **n/a**. Gleicher (fehlerhafter) Input → gleicher Exit-Code + gleiche Meldung. **Vendor-Risiko n/a:** reines Node.js (nur `node:`-Builtins), kein externer Dienst, kein Modell. Nachweis je UC: `node:test`-Test auf Exit-Code/Rückgabe.
+All UCs are purely deterministic (Node program, no model call) → tolerance threshold / validation strategy / fallback **n/a**. Same (faulty) input → same exit code + same message. **Vendor risk n/a:** pure Node.js (only `node:` builtins), no external service, no model. Evidence per UC: `node:test` test on exit code/return value.
 
-## 1. Rollen
+## 1. Roles
 
-| Rolle | Beschreibung |
+| Role | Description |
 |---|---|
-| `Orchestrator` | ruft Skills mit Argumenten auf; verlässt sich auf die Exit-Codes (0/1/2) als CI-Gate-Signal |
-| `T1-Skill` | deterministisches read-only Node-Programm; **muss** den Input-Vertrag erfüllen |
-| `Operator` | Mensch; liest die Fehlermeldung und korrigiert den Aufruf |
+| `Orchestrator` | calls skills with arguments; relies on the exit codes (0/1/2) as the CI gate signal |
+| `T1-Skill` | deterministic read-only Node program; **must** fulfil the input contract |
+| `Operator` | Human; reads the error message and corrects the call |
 
-## 2. Use-Case-Übersicht (§2.2)
+## 2. Use case overview (§2.2)
 
-UC-01 Fehlendes/leeres Pflicht-Argument · UC-02 Pfad-Argument falschen Typs (Datei ↔ Verzeichnis) · UC-03 Malformed strukturierter Input · UC-04 Geteilter Guard + Vertrags-Abdeckung.
+UC-01 missing/empty mandatory argument · UC-02 path argument of the wrong type (file ↔ directory) · UC-03 malformed structured input · UC-04 shared guard + contract coverage.
 
 ## 3. Use Cases
 
-### UC-01: Fehlendes oder leeres Pflicht-Argument
-**Akteur:** `Operator`/`Orchestrator` · **Schritt-Typ:** Deterministisch
+### UC-01: Missing or empty mandatory argument
+**Actor:** `Operator`/`Orchestrator` · **Step type:** Deterministic
 
-**Verhalten**
-1. Skill wird ohne ein Pflicht-Argument aufgerufen (z. B. `secrets-scan` ohne `--repo`).
-2. Der Skill prüft die Pflicht-Argumente **vor** jeder Datei-/Verarbeitungs-Operation.
-3. Bei Fehlen: eine `Usage:`-Zeile nach **stderr**, danach `process.exit(2)`.
+**Behaviour**
+1. The skill is called without a mandatory argument (e.g. `secrets-scan` without `--repo`).
+2. The skill checks the mandatory arguments **before** any file/processing operation.
+3. If missing: one `Usage:` line to **stderr**, then `process.exit(2)`.
 
-**Fehlerfälle**
-| Fall | Verhalten |
+**Error cases**
+| Case | Behaviour |
 |---|---|
-| Mehrere Pflicht-Args fehlen | eine `Usage:`-Zeile (alle Args genannt), Exit 2 |
-| Pflicht-Arg ohne Wert (`--repo=`) | wie fehlend behandelt → Exit 2 |
+| Several mandatory args missing | one `Usage:` line (all args named), Exit 2 |
+| Mandatory arg without a value (`--repo=`) | treated as missing → Exit 2 |
 
-**Akzeptanzkriterien**
-| # | Kriterium | Test-Typ | Status |
+**Acceptance criteria**
+| # | Criterion | Test type | Status |
 |---|---|---|---|
-| AC-1 | Fehlt ein Pflicht-Arg → Exit-Code genau `2` + `Usage:`-Zeile auf stderr | Integration | grün |
-| AC-2 | Kein Stacktrace / kein uncaught Throw auf stdout/stderr | Integration | grün |
+| AC-1 | A mandatory arg is missing → exit code exactly `2` + `Usage:` line on stderr | Integration | green |
+| AC-2 | No stack trace / no uncaught throw on stdout/stderr | Integration | green |
 
-### UC-02: Pfad-Argument falschen Typs (Datei ↔ Verzeichnis)
-**Akteur:** `Operator`/`Orchestrator` · **Schritt-Typ:** Deterministisch
+### UC-02: Path argument of the wrong type (file ↔ directory)
+**Actor:** `Operator`/`Orchestrator` · **Step type:** Deterministic
 
-**Verhalten**
-1. Ein Pfad-Argument wird übergeben (z. B. `retro-memory-loop-check --retro=datei.md`, erwartet ein **Verzeichnis**).
-2. Der Skill prüft **vor** der Verarbeitung Existenz **und** Typ des Pfades (über `lstatSync`/`statSync`, nicht erst implizit beim `readdir`/`read`).
-3. Bei Typ-Mismatch: Meldung „erwartet \<Verzeichnis|Datei\>, ist \<Datei|Verzeichnis\>: \<pfad\>", Exit 2.
+**Behaviour**
+1. A path argument is passed (e.g. `retro-memory-loop-check --retro=datei.md`, expects a **directory**).
+2. The skill checks existence **and** type of the path **before** processing (via `lstatSync`/`statSync`, not only implicitly on `readdir`/`read`).
+3. On a type mismatch: message "erwartet \<Verzeichnis|Datei\>, ist \<Datei|Verzeichnis\>: \<pfad\>" (expected directory|file, is file|directory: path), Exit 2.
 
-**Fehlerfälle**
-| Fall | Verhalten |
+**Error cases**
+| Case | Behaviour |
 |---|---|
-| Pfad existiert nicht | Exit 2, Meldung „nicht gefunden: \<pfad\>" |
-| Datei statt Verzeichnis (ENOTDIR-Klasse) | Exit 2, **kein** `scandir`-Crash |
-| Verzeichnis statt Datei (EISDIR-Klasse) | Exit 2, **kein** `read`-Crash |
+| Path does not exist | Exit 2, message "nicht gefunden: \<pfad\>" (not found: path) |
+| File instead of directory (ENOTDIR class) | Exit 2, **no** `scandir` crash |
+| Directory instead of file (EISDIR class) | Exit 2, **no** `read` crash |
 
-**Akzeptanzkriterien**
-| # | Kriterium | Test-Typ | Status |
+**Acceptance criteria**
+| # | Criterion | Test type | Status |
 |---|---|---|---|
-| AC-1 | Datei, wo Verzeichnis erwartet → Exit `2` + Typ-Hinweis, **kein** ENOTDIR-Crash | Integration | grün |
-| AC-2 | Nicht-existenter Pfad → Exit `2` mit „nicht gefunden" | Integration | grün |
+| AC-1 | File where a directory is expected → Exit `2` + type hint, **no** ENOTDIR crash | Integration | green |
+| AC-2 | Non-existent path → Exit `2` with "nicht gefunden" (not found) | Integration | green |
 
-### UC-03: Malformed strukturierter Input (JSON / YAML-Frontmatter)
-**Akteur:** `Operator`/`Orchestrator` · **Schritt-Typ:** Deterministisch
+### UC-03: Malformed structured input (JSON / YAML frontmatter)
+**Actor:** `Operator`/`Orchestrator` · **Step type:** Deterministic
 
-**Verhalten**
-1. Ein Skill liest eine strukturierte Eingabe (z. B. `konzept-lint --rubric=…json`, `mcp-config-lint --config=…json`, `profile-check`-Frontmatter).
-2. Das Parsen liegt in `try/catch`.
-3. Bei Parse-Fehler: Meldung mit Datei + Ursache (`e.message`), Exit 2. Bei fehlendem optionalem Feld: definierter Default (kein Crash).
+**Behaviour**
+1. A skill reads a structured input (e.g. `konzept-lint --rubric=…json`, `mcp-config-lint --config=…json`, `profile-check` frontmatter).
+2. Parsing is inside `try/catch`.
+3. On a parse error: message with file + cause (`e.message`), Exit 2. On a missing optional field: defined default (no crash).
 
-**Fehlerfälle**
-| Fall | Verhalten |
+**Error cases**
+| Case | Behaviour |
 |---|---|
-| Leere / teil-geschriebene JSON-Datei | Exit 2 + Parse-Meldung |
-| Gültiges JSON, aber Pflicht-Schlüssel fehlt | dokumentierter Default **oder** Exit 2 (je Skill definiert), kein Crash |
+| Empty / partially written JSON file | Exit 2 + parse message |
+| Valid JSON, but mandatory key missing | documented default **or** Exit 2 (defined per skill), no crash |
 
-**Akzeptanzkriterien**
-| # | Kriterium | Test-Typ | Status |
+**Acceptance criteria**
+| # | Criterion | Test type | Status |
 |---|---|---|---|
-| AC-1 | Malformed JSON → Exit `2` + Parse-Meldung, **kein** `SyntaxError`-Stacktrace | Integration | grün |
-| AC-2 | Gültige Datei → unverändertes Verhalten (Regression, kein Score-/Report-Drift) | Integration | grün |
+| AC-1 | Malformed JSON → Exit `2` + parse message, **no** `SyntaxError` stack trace | Integration | green |
+| AC-2 | Valid file → unchanged behaviour (regression, no score/report drift) | Integration | green |
 
-### UC-04: Geteilter Guard + Vertrags-Abdeckung
-**Akteur:** `T1-Skill` (Implementierer) · **Schritt-Typ:** Deterministisch
+### UC-04: Shared guard + contract coverage
+**Actor:** `T1-Skill` (implementer) · **Step type:** Deterministic
 
-**Verhalten**
-1. `lib/args.mjs` (neu) stellt **pure** Validatoren bereit: `pathTypeError(pfad, 'file'|'dir')` → `null | Meldung`; `usage(msg)` (schreibt stderr, exit 2).
-2. Jeder `main()` ruft die Validatoren und mappt einen Fehler auf `console.error(msg); process.exit(2)`.
-3. Jeder Skill mit Pfad-Argument bekommt einen Vertrags-Test (Bad-Input → Exit 2 bzw. `pathTypeError` ≠ null).
+**Behaviour**
+1. `lib/args.mjs` (new) provides **pure** validators: `pathTypeError(pfad, 'file'|'dir')` → `null | Meldung`; `usage(msg)` (writes stderr, exit 2).
+2. Every `main()` calls the validators and maps an error to `console.error(msg); process.exit(2)`.
+3. Every skill with a path argument gets a contract test (bad input → Exit 2 or `pathTypeError` ≠ null).
 
-**Fehlerfälle**
-| Fall | Verhalten |
+**Error cases**
+| Case | Behaviour |
 |---|---|
-| Guard-Helfer wirft selbst eine Exception | Bug → Unit-Test fängt es; `pathTypeError` darf nie werfen |
-| Skill umgeht den Guard (Alt-Code) | Vertrags-Test des Skills schlägt rot an |
+| Guard helper itself throws an exception | Bug → unit test catches it; `pathTypeError` must never throw |
+| Skill bypasses the guard (legacy code) | The skill's contract test turns red |
 
-**Akzeptanzkriterien**
-| # | Kriterium | Test-Typ | Status |
+**Acceptance criteria**
+| # | Criterion | Test type | Status |
 |---|---|---|---|
-| AC-1 | `pathTypeError` ist pure (gibt `Meldung\|null`, ruft **nie** `process.exit`, wirft nie) | Unit | grün |
-| AC-2 | Jeder Skill mit Pfad-Argument hat einen „Bad-Input → Exit 2"-Test | CI | grün |
+| AC-1 | `pathTypeError` is pure (returns `Meldung\|null`, **never** calls `process.exit`, never throws) | Unit | green |
+| AC-2 | Every skill with a path argument has a "bad input → Exit 2" test | CI | green |
 
-## 4. Entitäten / Artefakte
+## 4. Entities / artefacts
 
-| Artefakt | Typ | Ort |
+| Artefact | Type | Location |
 |---|---|---|
-| `lib/args.mjs` | **neu** — pure Input-Guards (`pathTypeError`, `usage`) | `plugins/cdp5-gates/lib/` |
-| `lib/args.test.mjs` | **neu** — Unit-Tests der Guards | `plugins/cdp5-gates/lib/` |
-| retro-memory-loop-check | anzupassen (UC-02, ENOTDIR) | `…/skills/retro-memory-loop-check/` |
-| konzept-lint | bereits teil-gehärtet (UC-03 try/catch); UC-02 für `--konzept` ergänzen | `…/skills/konzept-lint/` |
-| profile-check, mcp-config-lint, konzept-mapper, roadmap-drift, test-gap, wiki-lint, secrets-scan, pii-scan, ac-to-test-scaffold, konzept-model-api, cdp5-reference | Pfad-Arg-Guards via `lib/args` (UC-01/02/03) | `…/skills/*/` |
+| `lib/args.mjs` | **new** — pure input guards (`pathTypeError`, `usage`) | `plugins/cdp5-gates/lib/` |
+| `lib/args.test.mjs` | **new** — unit tests of the guards | `plugins/cdp5-gates/lib/` |
+| retro-memory-loop-check | to be adapted (UC-02, ENOTDIR) | `…/skills/retro-memory-loop-check/` |
+| konzept-lint | already partly hardened (UC-03 try/catch); add UC-02 for `--konzept` | `…/skills/konzept-lint/` |
+| profile-check, mcp-config-lint, konzept-mapper, roadmap-drift, test-gap, wiki-lint, secrets-scan, pii-scan, ac-to-test-scaffold, konzept-model-api, cdp5-reference | path arg guards via `lib/args` (UC-01/02/03) | `…/skills/*/` |
 
-## 5. Glossar
+## 5. Glossary
 
-| Begriff | Definition |
+| Term | Definition |
 |---|---|
-| Exit-Code-Vertrag | `0` = Pass/sauber · `1` = Befund/Drift · `2` = Nutzungs-/Input-Fehler |
-| Input-Vertrag | Garantie eines T1-Skills, jede fehlerhafte Eingabe als Exit 2 + Meldung zu quittieren, nie als uncaught Exception |
-| Pfad-Typ-Fehler | Pfad existiert, hat aber den falschen Typ (Datei statt Verzeichnis = ENOTDIR-Klasse; umgekehrt = EISDIR) |
-| pure Validator | Funktion ohne Seiteneffekt: gibt Meldung/`null` zurück, ruft kein `process.exit`, wirft nicht |
+| Exit code contract | `0` = pass/clean · `1` = finding/drift · `2` = usage/input error |
+| Input contract | Guarantee of a T1 skill to acknowledge every faulty input as Exit 2 + message, never as an uncaught exception |
+| Path type error | Path exists but has the wrong type (file instead of directory = ENOTDIR class; the reverse = EISDIR) |
+| pure validator | Function without side effects: returns message/`null`, calls no `process.exit`, does not throw |
 
 ## 6. Changelog
 
-**v1.0 (2026-05-26):** Erstkonzept. Auslöser: zwei uncaught-Exception-Befunde derselben Klasse in einer Session — `konzept-lint --rubric`-`SyntaxError` (gefixt) und `retro-memory-loop-check`-ENOTDIR bei Datei-statt-Verzeichnis. Vereinheitlicht zum Input-Robustheits-Vertrag (Exit 2 statt Crash) über alle 13 T1-Skills, mit geteiltem `lib/args.mjs` + Vertrags-Tests. Bezug: CDP5 §32.9 (T1-Determinismus inkl. Fehlerpfad), §10.7 (Nachweis je AC). `konzept-reviewer`-Score = **9,7/10** (konzept-lint-Teil 10/10).
+**v1.0 (2026-05-26):** Initial Konzept (concept document). Trigger: two uncaught-exception findings of the same class in one session — `konzept-lint --rubric` `SyntaxError` (fixed) and `retro-memory-loop-check` ENOTDIR on file-instead-of-directory. Unified into the input robustness contract (Exit 2 instead of crash) across all 13 T1 skills, with shared `lib/args.mjs` + contract tests. Reference: CDP5 §32.9 (T1 determinism incl. error path), §10.7 (evidence per AC). `konzept-reviewer` score = **9.7/10** (konzept-lint part 10/10).
 
-**v1.1 (2026-05-26, umgesetzt):** Implementiert nach Score-Freigabe. Neu: `lib/args.mjs` (`pathTypeError` pure + `usage`/`guardPaths`) + `lib/args.test.mjs` (7 Unit-Tests). `guardPaths` in alle 13 Pfad-nehmenden Skills eingezogen (Datei↔Verzeichnis-Typ-Check vor Verarbeitung). UC-03-Fixierung: `mcp-config-lint` malformed Config → Exit 2 (statt 1). Symlink-Schutz in `retro-memory-loop-check`-Walk nachgezogen. AC-Status rot→grün. **59/59 Tests grün**; ursprünglicher ENOTDIR-Fall liefert jetzt „erwartet Verzeichnis, ist keine" + Exit 2.
+**v1.1 (2026-05-26, implemented):** Implemented after score approval. New: `lib/args.mjs` (`pathTypeError` pure + `usage`/`guardPaths`) + `lib/args.test.mjs` (7 unit tests). `guardPaths` pulled into all 13 path-taking skills (file↔directory type check before processing). UC-03 fix: `mcp-config-lint` malformed config → Exit 2 (instead of 1). Symlink protection added to the `retro-memory-loop-check` walk. AC status red→green. **59/59 tests green**; the original ENOTDIR case now returns "erwartet Verzeichnis, ist keine" (expected directory, is none) + Exit 2.

@@ -5,8 +5,10 @@ import { join } from 'node:path';
 import { decide, verdict, agentName } from './guard-bash.mjs';
 
 const SCRIPT = join(new URL('.', import.meta.url).pathname, 'guard-bash.mjs');
-const J = (command, tool = 'Bash') => decide({ agent_type: 'cdp5-agents:review-verify', tool_name: tool, tool_input: { command } });
-const W = (command, tool = 'Bash') => decide({ agent_type: 'cdp5-agents:impl-uc', tool_name: tool, tool_input: { command } });
+// An empty data directory: no run grants exist, so judgment agents are strictly read-only here (grants are tested in grants.test.mjs).
+const ENV = { CLAUDE_PLUGIN_DATA: join(new URL('.', import.meta.url).pathname, 'no-such-data-dir') };
+const J = (command, tool = 'Bash') => decide({ agent_type: 'cdp5-agents:review-verify', tool_name: tool, tool_input: { command } }, ENV);
+const W = (command, tool = 'Bash') => decide({ agent_type: 'cdp5-agents:impl-uc', tool_name: tool, tool_input: { command } }, ENV);
 const denied = (d) => d?.hookSpecificOutput.permissionDecision === 'deny';
 
 const JUDGMENT_ALLOWED = [
@@ -93,13 +95,13 @@ test('PowerShell tool: same rules; cmdlets that write are denied for judgment ag
 });
 
 test('other agent types and other tools are untouched', () => {
-  assert.equal(decide({ agent_type: 'Explore', tool_name: 'Bash', tool_input: { command: 'rm -rf /' } }), null);
-  assert.equal(decide({ agent_type: '', tool_name: 'Bash', tool_input: { command: 'rm -rf /' } }), null);
-  assert.equal(decide({ agent_type: 'cdp5-agents:review-verify', tool_name: 'Read', tool_input: { file_path: 'x' } }), null);
+  assert.equal(decide({ agent_type: 'Explore', tool_name: 'Bash', tool_input: { command: 'rm -rf /' } }, ENV), null);
+  assert.equal(decide({ agent_type: '', tool_name: 'Bash', tool_input: { command: 'rm -rf /' } }, ENV), null);
+  assert.equal(decide({ agent_type: 'cdp5-agents:review-verify', tool_name: 'Read', tool_input: { file_path: 'x' } }, ENV), null);
 });
 
 test('CLI: deny JSON on stdout for a write, nothing for a read, exit 2 (fail closed) on unreadable input', () => {
-  const run = (input) => spawnSync('node', [SCRIPT], { input, encoding: 'utf8' });
+  const run = (input) => spawnSync('node', [SCRIPT], { input, encoding: 'utf8', env: { ...process.env, ...ENV } });
   const w = run(JSON.stringify({ agent_type: 'cdp5-agents:adversarial-auditor', tool_name: 'Bash', tool_input: { command: 'rm -rf /tmp/x' } }));
   assert.equal(w.status, 0);
   assert.equal(JSON.parse(w.stdout).hookSpecificOutput.permissionDecision, 'deny');

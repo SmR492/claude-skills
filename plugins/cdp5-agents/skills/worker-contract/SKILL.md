@@ -1,6 +1,6 @@
 ---
 name: worker-contract
-description: Shared contract for every cdp5-agents worker and counter-role. Evidence duty, severity scale, verdict mapping, Stop-Retro, provenance rule, privacy and git boundaries, acknowledgement line. The normative core is injected at agent start by the plugin's SubagentStart hook; read this file when the application of a rule is unclear.
+description: Shared contract for every cdp5-agents worker and counter-role. Evidence duty, severity scale, verdict mapping, Stop-Retro, provenance rule, privacy and git boundaries, acknowledgement line. The normative core is injected at agent start by the plugin's SubagentStart hook; read it when the application of a rule is unclear.
 user-invocable: false
 ---
 

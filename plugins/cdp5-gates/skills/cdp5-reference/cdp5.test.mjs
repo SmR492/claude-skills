@@ -9,13 +9,14 @@ const MD = readFileSync(join(dirname(fileURLToPath(import.meta.url)), 'konzept-d
 
 test('bySection returns the section including its subsections', () => {
   const s = bySection(MD, '33');
-  assert.ok(s && /Sicherheit/.test(s));
+  assert.ok(s && /^## 33\. Security/m.test(s));
   assert.ok(/33\.1/.test(s) && /Lethal-Trifecta/.test(s)); // contains the subsection
 });
 
 test('bySection for a subsection (33.1) returns exactly that one', () => {
   const s = bySection(MD, '33.1');
-  assert.ok(s && /Lethal-Trifecta-Gate/.test(s));
+  assert.ok(s && /^### 33\.1 Lethal-Trifecta gate/mi.test(s));
+  assert.ok(!/^### 33\.2/m.test(s), 'the next subsection is not included');
 });
 
 test('byKeyword finds blocks by keyword', () => {

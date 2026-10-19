@@ -1,302 +1,302 @@
-# claude-skills — Anwender-Konzept
+# claude-skills — User Konzept
 
 **Version:** 1.5
-**Stand:** Mai 2026
-**Scope:** Ein projektunabhängiger Claude-Code-Marketplace, der **CDP5-basierte Skills und Agents** bereitstellt, mit denen ein KI-Orchestrator Konzept→Code-Arbeit **effektiv** (geringer Tokenverbrauch), **schnell** (< 5 min je interaktivem Schritt) und **genau** (Konzept-Reife ≥ 9,0/10, ≤ 3 Drifts je Konzeptumsetzung) leistet. **Nicht enthalten:** projekt-/framework-spezifische Implementierungs-Agents (bleiben lokal beim jeweiligen Projekt), Code-mutierende Automatik ohne Mensch-Gate, eigene LLM-Inferenz (nutzt Claude Code).
+**As of:** May 2026
+**Scope:** A project-independent Claude Code marketplace that provides **CDP5-based skills and agents** with which an AI orchestrator performs Konzept (concept document)→code work **effectively** (low token consumption), **fast** (< 5 min per interactive step) and **accurately** (Konzept maturity ≥ 9.0/10, ≤ 3 drifts per Konzept implementation). **Not included:** project-/framework-specific implementation agents (stay local with the respective project), code-mutating automation without a Mensch-Gate (human gate), own LLM inference (uses Claude Code).
 
-## Probabilistik-Statement (§2.6)
+## Probabilistic statement (§2.6)
 
-Das System mischt **deterministische Skills** (T1, kein LLM — reproduzierbar, keine Toleranz-Schwelle, Ausgabe = Beleg) und **Judgment-Agents** (T2, LLM — probabilistisch).
+The system mixes **deterministic skills** (T1, no LLM — reproducible, no tolerance threshold, output = evidence) and **judgment agents** (T2, LLM — probabilistic).
 
-| UC | Toleranz-Schwelle | Validierungsstrategie | Fallback | EU-AI-Act-Klasse |
+| UC | Tolerance threshold | Validation strategy | Fallback | EU AI Act class |
 |---|---|---|---|---|
-| UC-01 Konzept-Review | ~90 % (Score-Vorschlag) | `review-verify` (§10.6) + Architekt-Sign-off | Architekt entscheidet, iteriert | minimal |
-| UC-02/03/04 (T1) | n/a (deterministisch) | Output = Beleg (Exit-Code) | — | minimal |
-| UC-05 Threat/MCP-Review | ~85 % | deterministische Vor-Checks (secrets-scan/mcp-config-lint) + Security-Sign-off | Senior-Review | minimal |
-| UC-06 Adversarial-Audit | n/a (gegnerisch, kein Auto-Merge) | empirische Gegenprobe + Operator-Entscheid | Eskalation an Operator | minimal |
+| UC-01 Konzept review | ~90 % (score proposal) | `review-verify` (§10.6) + architect sign-off | Architect decides, iterates | minimal |
+| UC-02/03/04 (T1) | n/a (deterministic) | Output = evidence (exit code) | — | minimal |
+| UC-05 Threat/MCP review | ~85 % | deterministic pre-checks (secrets-scan/mcp-config-lint) + security sign-off | Senior review | minimal |
+| UC-06 Adversarial audit | n/a (adversarial, no auto-merge) | empirical counter-check + operator decision | Escalation to the operator | minimal |
 
-**EU-AI-Act-Klasse = minimal** (Architekt-Festlegung 2026-05-26, §23): alle UCs sind read-only Code-/Doku-Analyse + Judgment-Vorschläge ohne automatisierte Entscheidung über Personen/Kredit/Biometrie/kritische Infrastruktur → *minimal risk*. Pro Konsument deklarier- und via `profile-check` gegen `project-profile.md` (`eu_ai_act_class`) verifizierbar.
+**EU AI Act class = minimal** (architect ruling 2026-05-26, §23): all UCs are read-only code/documentation analysis + judgment proposals without automated decisions about persons/credit/biometrics/critical infrastructure → *minimal risk*. Declarable per consumer and verifiable via `profile-check` against `project-profile.md` (`eu_ai_act_class`).
 
-## Vendor-Risiko-Statement (§2.7)
+## Vendor risk statement (§2.7)
 
-| UC | Provider | Modell | Migrations-Strategie | Daten-Souveränität |
+| UC | Provider | Model | Migration strategy | Data sovereignty |
 |---|---|---|---|---|
-| UC-01/05/06 (Judgment) | Anthropic / Claude Code | opus | CDP5-Methode portabel; Agent-Mechanik Claude-Code-gebunden; Methode auf anderen Agent-Runner übertragbar | read-only Code/Doku, keine PII gesendet |
-| UC-02/03/04 (T1) | — (kein LLM) | — | reines Node.js, **vendor-/LLM-unabhängig**, überlebt Provider-Wechsel | rein lokal, kein Send |
+| UC-01/05/06 (judgment) | Anthropic / Claude Code | opus | CDP5 method portable; agent mechanics bound to Claude Code; method transferable to another agent runner | read-only code/docs, no PII sent |
+| UC-02/03/04 (T1) | — (no LLM) | — | pure Node.js, **vendor-/LLM-independent**, survives a provider switch | purely local, nothing sent |
 
 ---
 
-## 1. Ziele & Erfolgs-Kennzahlen (§22 quantifiziert)
+## 1. Goals & success metrics (§22 quantified)
 
-Drei gleichberechtigte Qualitätsziele, je mit Messgröße, Mechanik und Schwelle:
+Three equal quality goals, each with a metric, a mechanism and a threshold:
 
-| Ziel | Messgröße | Schwelle | Mechanik (wie erreicht) |
+| Goal | Metric | Threshold | Mechanism (how achieved) |
 |---|---|---|---|
-| **Effektiv** (Token) | Modell-Token je Schritt (`gen_ai.usage.*`, OTEL §15.1) vs. Budget pro UC-Typ | T1-Schritt ≈ 0 Modell-Token; Judgment-Schritt ≤ Budget (s. u.) | T1-Determinismus · `cdp5-reference` JIT statt Voll-Doktrin · Pointer-Briefs · Modell-Tier · Kontext-Hygiene §28.6 |
-| **Schnell** (Latenz) | Wall-clock je **interaktivem** Dev-Schritt | **< 5 min** je interaktivem Schritt; T1 < 30 s. Voller Eval-/Test-Suite-Lauf = **CI-Batch**, kein „Schritt" | T1 läuft lokal (kein LLM-Roundtrip) · scoped Briefs · günstigstes ausreichendes Modell · unabhängige Worker parallel |
-| **Genau** (Qualität) | (a) Konzept-Reife-Score · (b) Drifts je Umsetzung | (a) **≥ 9,0/10** (nach ≤ 2 Iterationen) · (b) **≤ 3 Drifts** | konzept-reviewer-Rubrik (a) · Drift-Detektoren konzept-mapper/konzept-model-api/roadmap-drift (b) · Doppel-Review + §10.6-Verifikation |
-| **Sicher** (eigener Gate) | offene 🔴-Security-Findings | **0** — separat, **nicht** in der Drift-Zahl | Threat-Modeling §33.4 · `secrets-scan`/`pii-scan`/`mcp-config-lint` · `adversarial-auditor`/`mcp-security-reviewer` |
+| **Effective** (tokens) | Model tokens per step (`gen_ai.usage.*`, OTEL §15.1) vs. budget per UC type | T1 step ≈ 0 model tokens; judgment step ≤ budget (see below) | T1 determinism · `cdp5-reference` JIT instead of the full doctrine · pointer briefs · model tier · context hygiene §28.6 |
+| **Fast** (latency) | Wall-clock per **interactive** dev step | **< 5 min** per interactive step; T1 < 30 s. Full eval/test-suite run = **CI batch**, not a "step" | T1 runs locally (no LLM round trip) · scoped briefs · cheapest sufficient model · independent workers in parallel |
+| **Accurate** (quality) | (a) Konzept Reife-Score (maturity score) · (b) drifts per implementation | (a) **≥ 9.0/10** (after ≤ 2 iterations) · (b) **≤ 3 drifts** | konzept-reviewer rubric (a) · drift detectors konzept-mapper/konzept-model-api/roadmap-drift (b) · double review + §10.6 verification |
+| **Secure** (own gate) | open 🔴 security findings | **0** — separate, **not** part of the drift count | Threat modeling §33.4 · `secrets-scan`/`pii-scan`/`mcp-config-lint` · `adversarial-auditor`/`mcp-security-reviewer` |
 
-**Token-Budget pro UC-Typ (Richtwert, Baseline für „effektiv"):** deterministischer Check (T1) = 0 Modell-Token; Wissens-Abruf (cdp5-reference) ≤ 1k; Verifikation/Review (Agent, scoped) ≤ 40k; Konzept-Review (opus) ≤ 80k. Überschreitung = Finding.
+**Token budget per UC type (guideline, baseline for "effective"):** deterministic check (T1) = 0 model tokens; knowledge retrieval (cdp5-reference) ≤ 1k; verification/review (agent, scoped) ≤ 40k; Konzept review (opus) ≤ 80k. Exceeding it = finding.
 
-**Drift-Definition (messbar):** ein Konzept-Artefakt, das im Code abweicht — ein UC ohne Code-Pendant (konzept-mapper „fehlt"), ein Enum-/Property-Mismatch Modell↔OpenAPI (konzept-model-api), eine als FERTIG markierte, aber fehlende Roadmap-Position (roadmap-drift). Gezählt **nach** einer Konzeptumsetzung; jeder Drift wird als Issue dokumentiert.
+**Drift definition (measurable):** a Konzept artefact that deviates in the code — a UC without a code counterpart (konzept-mapper "missing"), an enum/property mismatch model↔OpenAPI (konzept-model-api), a roadmap position marked as FERTIG (done) but missing (roadmap-drift). Counted **after** a Konzept implementation; every drift is documented as an issue.
 
 ---
 
-## 2. Rollen-Übersicht
+## 2. Role overview
 
-| Rolle | Scope | Beschreibung |
+| Role | Scope | Description |
 |---|---|---|
-| `Orchestrator` | Global | Main-Session: wählt Modus, delegiert, fährt Skills, verifiziert, hält Mensch-Gates (CDP5 §32) |
-| `T1-Skill` | Werkzeug | Deterministisches Node-Programm (read-only Detektor/Report); Ausgabe = Beleg |
-| `Judgment-Agent` | Werkzeug | Isolierter Subagent (Findings + Vorschläge, keine destruktiven Aktionen) |
-| `Operator` | Global | Mensch: Merge-/Push-Verantwortung, Freigabe destruktiver Schritte, Final-Sign-off |
+| `Orchestrator` | Global | Main session: chooses the mode, delegates, runs skills, verifies, holds the Mensch-Gates (CDP5 §32) |
+| `T1-Skill` | Tool | Deterministic Node program (read-only detector/report); output = evidence |
+| `Judgment-Agent` | Tool | Isolated subagent (findings + proposals, no destructive actions) |
+| `Operator` | Global | Human: merge/push responsibility, approval of destructive steps, final sign-off |
 
 ---
 
 ## 3. Use Cases
 
-**UC-Übersicht (§2.2):** UC-01 Konzept-Review · UC-02 Drift-Gate · UC-03 T1-Check fahren · UC-04 CDP5-Retrieval · UC-05 Security-/Threat-Review · UC-06 Adversarial-Audit (🔴-Slice).
+**UC overview (§2.2):** UC-01 Konzept review · UC-02 drift gate · UC-03 run a T1 check · UC-04 CDP5 retrieval · UC-05 security/threat review · UC-06 adversarial audit (🔴 slice).
 
-### UC-01: Konzept auf Implementierungsreife prüfen
-**Akteur:** `Orchestrator` (delegiert an `konzept-reviewer`, opus) · **Schritt-Typ:** Judgment
+### UC-01: Check a Konzept for implementation readiness
+**Actor:** `Orchestrator` (delegates to `konzept-reviewer`, opus) · **Step type:** Judgment
 
-**Verhalten**
-1. Orchestrator brieft `konzept-reviewer` mit Pointer auf das Konzept-Dokument (kein Paste — §32.8(2)).
-2. Agent konsultiert per `cdp5-reference` die einschlägigen §§ (§2/§7/§10/§10.7) — JIT, nicht die Volldoktrin.
-3. Agent prüft gegen die Reife-Rubrik (s. §4), vergibt Score 0–10 je UC + Gesamt, priorisiert Lücken.
-4. Bei Gesamt < 9,0: Lückenliste + Schließungs-Vorschläge zurück; Orchestrator klärt offene Punkte mit dem Nutzer (§1.9), iteriert.
+**Behaviour**
+1. Orchestrator briefs `konzept-reviewer` with a pointer to the Konzept document (no paste — §32.8(2)).
+2. Agent consults the relevant §§ (§2/§7/§10/§10.7) via `cdp5-reference` — JIT, not the full doctrine.
+3. Agent checks against the maturity rubric (see §4), assigns a score 0–10 per UC + overall, prioritises gaps.
+4. If overall < 9.0: gap list + closing proposals are returned; Orchestrator clarifies open points with the user (§1.9), iterates.
 
-**Fehlerfälle**
+**Error cases**
 
-| Fall | Verhalten |
+| Case | Behaviour |
 |---|---|
-| Konzept-Datei fehlt/leer | Abbruch mit Hinweis, kein Score |
-| Score-Behauptung unbelegt | `review-verify` gegenprüfen (§10.6) |
-| Zeit-/Token-Budget (AC-3) überschritten | Abbruch mit Teil-Score + bisheriger Lückenliste; Orchestrator entscheidet Re-Run/Eskalation |
+| Konzept file missing/empty | Abort with hint, no score |
+| Score claim unsubstantiated | Counter-check with `review-verify` (§10.6) |
+| Time/token budget (AC-3) exceeded | Abort with partial score + gap list so far; Orchestrator decides re-run/escalation |
 
-**Akzeptanzkriterien (Test-First)**
+**Acceptance criteria (test-first)**
 
-| # | Kriterium | Test-Typ | Status |
+| # | Criterion | Test type | Status |
 |---|---|---|---|
-| AC-1 | Score-Ausgabe ist eine Zahl 0–10 je UC + Gesamt | Integration | rot |
-| AC-2 | Score je Iteration in Mess-Harness §6 protokolliert, bis Gesamt ≥ 9,0 | Eval | rot |
-| AC-3 | Schritt-Token ≤ 80k, Laufzeit < 5 min | Trace/Metrik | rot |
+| AC-1 | Score output is a number 0–10 per UC + overall | Integration | red |
+| AC-2 | Score per iteration logged in measurement harness §6 until overall ≥ 9.0 | Eval | red |
+| AC-3 | Step tokens ≤ 80k, runtime < 5 min | Trace/metric | red |
 
-### UC-02: Drift-Gate nach Konzeptumsetzung
-**Akteur:** `Orchestrator` (fährt T1-Skills) · **Schritt-Typ:** Deterministisch
+### UC-02: Drift gate after a Konzept implementation
+**Actor:** `Orchestrator` (runs T1 skills) · **Step type:** Deterministic
 
-**Verhalten**
-1. Nach der Implementierung: `konzept-mapper --konzept=… --repo=…` (UC↔Code), `konzept-model-api --repo=… --openapi=…` (Enum/Property-Drift), `roadmap-drift --roadmap=… --repo=…`.
-2. Befunde aggregieren = Drift-Zahl.
-3. Bei > 3 Drifts: Gate rot — pro Drift ein Issue, Umsetzung nachziehen oder Konzept aktualisieren (lebendes Artefakt §1.4).
-4. Bei ≤ 3: Gate grün, dokumentiert.
+**Behaviour**
+1. After the implementation: `konzept-mapper --konzept=… --repo=…` (UC↔code), `konzept-model-api --repo=… --openapi=…` (enum/property drift), `roadmap-drift --roadmap=… --repo=…`.
+2. Aggregate the findings = drift count.
+3. If > 3 drifts: gate red — one issue per drift, catch up the implementation or update the Konzept (living artefact §1.4).
+4. If ≤ 3: gate green, documented.
 
-**Fehlerfälle**
+**Error cases**
 
-| Fall | Verhalten |
+| Case | Behaviour |
 |---|---|
-| Konzept nicht §3-konform (keine `## UC-…`, keine Backtick-Artefakte) | Mapper meldet n/a → Konzept-Bug, zurück an UC-01 |
+| Konzept not §3-conformant (no `## UC-…`, no backtick artefacts) | Mapper reports n/a → Konzept bug, back to UC-01 |
 
-**Akzeptanzkriterien (Test-First)**
+**Acceptance criteria (test-first)**
 
-| # | Kriterium | Test-Typ | Status |
+| # | Criterion | Test type | Status |
 |---|---|---|---|
-| AC-1 | Drift-Zahl = Summe der drei Detektor-Reports | Integration | rot |
-| AC-2 | Exit 1 wenn > 3 Drifts (CI-Gate-fähig) | Integration | rot |
-| AC-3 | Gesamt-Laufzeit < 5 min, 0 Modell-Token | Metrik | rot |
+| AC-1 | Drift count = sum of the three detector reports | Integration | red |
+| AC-2 | Exit 1 if > 3 drifts (CI-gate capable) | Integration | red |
+| AC-3 | Total runtime < 5 min, 0 model tokens | Metric | red |
 
-### UC-03: Deterministischen Check fahren (jeder T1-Skill)
-**Akteur:** `Orchestrator` · **Schritt-Typ:** Deterministisch
+### UC-03: Run a deterministic check (every T1 skill)
+**Actor:** `Orchestrator` · **Step type:** Deterministic
 
-**Verhalten**
-1. Determinismus-Gate (§32.9): ist die Aufgabe entscheidbar? → T1-Skill statt Agent.
-2. Skill mit strukturiertem Input (Pfade/Args) aufrufen; Output = Report (Exit-Code = Pass/Fail).
-3. Orchestrator interpretiert den Report (LLM-Schale um den deterministischen Kern).
+**Behaviour**
+1. Determinism gate (§32.9): is the task decidable? → T1 skill instead of agent.
+2. Call the skill with structured input (paths/args); output = report (exit code = pass/fail).
+3. Orchestrator interprets the report (LLM shell around the deterministic core).
 
-**T1-Skill-Vertrag (generisch, für alle T1-Skills aus §7):** Input = Args `--<name>=<wert>`; Output = Report (stdout) + Exit-Code (`0` Pass · `1` Befund/Drift · `2` Nutzungsfehler); reproduzierbar; eigene `node:test`-Suite.
+**T1 skill contract (generic, for all T1 skills from §7):** input = args `--<name>=<wert>`; output = report (stdout) + exit code (`0` pass · `1` finding/drift · `2` usage error); reproducible; own `node:test` suite.
 
-**Fehlerfälle**
+**Error cases**
 
-| Fall | Verhalten |
+| Case | Behaviour |
 |---|---|
-| Pflicht-Arg fehlt | Exit 2 + Usage-Hinweis |
-| Ziel-Pfad/Datei nicht lesbar | Exit 2, kein Teil-Report |
-| Skill nicht-deterministisch (Fund) | Bug-Issue gegen den Skill; bis Fix nicht als Gate nutzen |
+| Mandatory arg missing | Exit 2 + usage hint |
+| Target path/file not readable | Exit 2, no partial report |
+| Skill non-deterministic (finding) | Bug issue against the skill; not used as a gate until fixed |
 
-**Akzeptanzkriterien**
+**Acceptance criteria**
 
-| # | Kriterium | Test-Typ | Status |
+| # | Criterion | Test type | Status |
 |---|---|---|---|
-| AC-1 | Gleicher Input → gleicher Output (reproduzierbar) | Unit | rot |
-| AC-2 | 0 Modell-Token im Kern, Laufzeit < 30 s typisch | Metrik | rot |
-| AC-3 | Eigene Testsuite vorhanden (node:test) | CI | grün |
+| AC-1 | Same input → same output (reproducible) | Unit | red |
+| AC-2 | 0 model tokens in the core, runtime < 30 s typically | Metric | red |
+| AC-3 | Own test suite present (node:test) | CI | green |
 
-### UC-04: CDP5-Wissen abrufen (Token-Economy)
-**Akteur:** `Judgment-Agent` / `Orchestrator` · **Schritt-Typ:** Deterministisch (Retrieval)
+### UC-04: Retrieve CDP5 knowledge (token economy)
+**Actor:** `Judgment-Agent` / `Orchestrator` · **Step type:** Deterministic (retrieval)
 
-**Verhalten**
-1. Statt die 2000-Zeilen-Doktrin zu laden: `cdp5-reference --section=<§>` oder `--keyword=<term>`.
-2. Nur der relevante Ausschnitt fließt in den Kontext (§28.6 just-in-time).
+**Behaviour**
+1. Instead of loading the 2000-line doctrine: `cdp5-reference --section=<§>` or `--keyword=<term>`.
+2. Only the relevant excerpt flows into the context (§28.6 just-in-time).
 
-**Fehlerfälle**
+**Error cases**
 
-| Fall | Verhalten |
+| Case | Behaviour |
 |---|---|
-| Unbekannte §-Nummer | Exit 1 + Hinweis „`--list` zeigt alle Sektionen" |
-| Mehrdeutiges Keyword (viele Treffer) | alle Treffer-Blöcke mit Snippet; Orchestrator verengt die Abfrage |
-| Doktrin-Versions-Mismatch (Anker nicht vorhanden) | Befund; gegen die ausgelieferte Version prüfen (§7) |
+| Unknown § number | Exit 1 + hint "`--list` shows all sections" |
+| Ambiguous keyword (many hits) | all hit blocks with snippet; Orchestrator narrows the query |
+| Doctrine version mismatch (anchor not present) | Finding; check against the shipped version (§7) |
 
-**Akzeptanzkriterien**
+**Acceptance criteria**
 
-| # | Kriterium | Test-Typ | Status |
+| # | Criterion | Test type | Status |
 |---|---|---|---|
-| AC-1 | `--section=33.1` liefert genau die Sektion inkl. Untersektionen | Unit | grün |
-| AC-2 | Abruf ≤ 1k Token statt ~30k (Volldoktrin) | Metrik | rot |
+| AC-1 | `--section=33.1` returns exactly the section incl. subsections | Unit | green |
+| AC-2 | Retrieval ≤ 1k tokens instead of ~30k (full doctrine) | Metric | red |
 
-### UC-05: Sicherheits-/Threat-Review (bei Agent-/Tool-/Security-Anteil)
-**Akteur:** `Orchestrator` (delegiert `threat-modeler` / `mcp-security-reviewer`; fährt `secrets-scan`/`mcp-config-lint`) · **Schritt-Typ:** Hybrid
+### UC-05: Security/threat review (when there is an agent/tool/security share)
+**Actor:** `Orchestrator` (delegates `threat-modeler` / `mcp-security-reviewer`; runs `secrets-scan`/`mcp-config-lint`) · **Step type:** Hybrid
 
-**Verhalten**
-1. **Deterministische Vor-Checks zuerst**, in dieser Reihenfolge (jeder Exit `1` = Finding → speist den Sicher-Gate §1, alle read-only/0 Modell-Token): (a) `secrets-scan --repo=<root>` · (b) `pii-scan --repo=<root>` · (c) `mcp-config-lint --config=<mcp.json>` (nur bei MCP-Anteil). Saubere Vor-Checks (Exit `0`) verengen die Judgment-Fläche für Schritt 2.
-2. Judgment danach: `threat-modeler` (STRIDE-light) bzw. `mcp-security-reviewer` (Lethal Trifecta, Tool-Härtung).
-3. Findings → Gegenmaßnahmen als AC (§33).
+**Behaviour**
+1. **Deterministic pre-checks first**, in this order (every exit `1` = finding → feeds the secure gate §1, all read-only/0 model tokens): (a) `secrets-scan --repo=<root>` · (b) `pii-scan --repo=<root>` · (c) `mcp-config-lint --config=<mcp.json>` (only with an MCP share). Clean pre-checks (exit `0`) narrow the judgment surface for step 2.
+2. Judgment afterwards: `threat-modeler` (STRIDE-light) or `mcp-security-reviewer` (lethal trifecta, tool hardening).
+3. Findings → countermeasures as AC (§33).
 
-> **Lethal-Trifecta-Achsen (§33.1):** Die `cdp5-agents` sind **read-only** (Read/Grep/Glob, Bash nur lesend) → Achse (c) Egress + Schreib-/Mutations-Pfade entfallen; das Trifecta-Risiko ist strukturell entschärft.
+> **Lethal trifecta axes (§33.1):** The `cdp5-agents` are **read-only** (Read/Grep/Glob, Bash read-only) → axis (c) egress + write/mutation paths drop out; the trifecta risk is structurally defused.
 
-**Fehlerfälle**
+**Error cases**
 
-| Fall | Verhalten |
+| Case | Behaviour |
 |---|---|
-| Heuristik-Parser-False-Positive (mcp-config-lint/model-api) | als Hinweis kennzeichnen, `review-verify` gegenprüfen (§10.6) |
-| Externes Scan-Tool (semgrep/syft) nicht installiert | dependency-freie Skills (secrets-scan) als Minimal-Gate; Lücke dokumentieren |
+| Heuristic parser false positive (mcp-config-lint/model-api) | mark as hint, counter-check with `review-verify` (§10.6) |
+| External scan tool (semgrep/syft) not installed | dependency-free skills (secrets-scan) as minimal gate; document the gap |
 
-**Akzeptanzkriterien**
+**Acceptance criteria**
 
-| # | Kriterium | Test-Typ | Status |
+| # | Criterion | Test type | Status |
 |---|---|---|---|
-| AC-1 | Secret-/Config-Funde mit Exit 1, redacted Output | Integration | grün |
-| AC-2 | Lethal-Trifecta-Verdikt + Härtungs-Empfehlungen | Eval | rot |
+| AC-1 | Secret/config findings with exit 1, redacted output | Integration | green |
+| AC-2 | Lethal-trifecta verdict + hardening recommendations | Eval | red |
 
-### UC-06: Riskanten Diff gegnerisch reviewen (🔴-Slice)
-**Akteur:** `Orchestrator` (delegiert `adversarial-auditor`, opus) · **Schritt-Typ:** Judgment
+### UC-06: Adversarially review a risky diff (🔴 slice)
+**Actor:** `Orchestrator` (delegates `adversarial-auditor`, opus) · **Step type:** Judgment
 
-**Verhalten**
-1. Bei 🔴-Slice: `adversarial-auditor` mit exaktem Target.
-2. Auditor sucht den latenten Fehler-/Verlust-Pfad, macht eine empirische Gegenprobe, fällt Verdikt (JA/JA-m.-Einschr./NEIN).
-3. Self-Review + grüne Tests zählen **nicht** als Ersatz (§11.4).
+**Behaviour**
+1. For a 🔴 slice: `adversarial-auditor` with an exact target.
+2. Auditor searches for the latent error/loss path, performs an empirical counter-check, gives a verdict (JA/JA-m.-Einschr./NEIN, i.e. yes / yes with reservations / no).
+3. Self-review + green tests do **not** count as a substitute (§11.4).
 
-**Fehlerfälle**
+**Error cases**
 
-| Fall | Verhalten |
+| Case | Behaviour |
 |---|---|
-| Keine empirische Gegenprobe konstruierbar | Auditor stoppt, listet Versuchtes, eskaliert an Operator (kein Verdikt aus Bauchgefühl) |
-| Verdikt NEIN, aber Operator will mergen | Folge-Issue + Risiko-Vermerk; Merge-Verantwortung explizit beim Operator (§1.6) |
-| Zeit-Budget (AC-2, < 5 min) überschritten | Auditor liefert Zwischenstand + offene Achsen; Operator entscheidet Fortsetzung/Eskalation |
+| No empirical counter-check can be constructed | Auditor stops, lists what was tried, escalates to the operator (no verdict from gut feeling) |
+| Verdict NEIN, but the operator wants to merge | Follow-up issue + risk note; merge responsibility explicitly with the operator (§1.6) |
+| Time budget (AC-2, < 5 min) exceeded | Auditor delivers an interim state + open axes; operator decides continuation/escalation |
 
-**Akzeptanzkriterien**
+**Acceptance criteria**
 
-| # | Kriterium | Test-Typ | Status |
+| # | Criterion | Test type | Status |
 |---|---|---|---|
-| AC-1 | Verdikt + ≥1 empirische Gegenprobe (Befehl+Ausgabe) | Eval | rot |
-| AC-2 | Schritt-Laufzeit < 5 min | Metrik | rot |
+| AC-1 | Verdict + ≥1 empirical counter-check (command+output) | Eval | red |
+| AC-2 | Step runtime < 5 min | Metric | red |
 
 ---
 
-## 4. Reife-Rubrik (für das „≥ 9,0/10"-Ziel)
+## 4. Maturity rubric (for the "≥ 9.0/10" goal)
 
-Score = gewichteter Mittelwert (0–10) über: **Sachbearbeiter-Test** (0,2) · **Pflicht-Struktur vollständig** (0,2) · **UC-Schritte nummeriert + verzweigt** (0,15) · **AC-Tabelle je UC** (0,15) · **Fehlerfälle vollständig** (0,1) · **Nachweis-Konvention** §10.7 (0,1) · **Glossar/Vokabular** (0,1). Jede „Pflicht" ohne Nachweis-Typ = automatischer Abzug. ≥ 9,0 = implementierungsreif. Als Policy verankert (Gewichte reproduzierbar, nicht nur Prosa): [`plugins/cdp5-gates/policy/reife-rubrik.policy.md`](../plugins/cdp5-gates/policy/reife-rubrik.policy.md) — Gate (§7-Items) plus Score; Plugin-Default-Schwelle 8,0, Projekt-Schwelle dieses Repos 9,0.
-
----
-
-## 5. Mechanik — wie die drei Ziele systematisch erreicht werden
-
-- **Effektiv:** (1) Determinismus-Gate (§32.9): entscheidbare Arbeit → T1 = 0 Modell-Token. (2) `cdp5-reference` JIT statt Voll-Doktrin. (3) Pointer-Briefs statt Paste (§32.8(2)). (4) Modell-Tier pro Worker (§32.3) — haiku für mechanisch. (5) Kontext-Hygiene + `/clear` (§28.6).
-- **Schnell:** T1-Skills lokal in Sekunden; LLM-Schritte eng geschnitten; unabhängige Worker parallel (§32.10 nur wenn lohnend); kein Voll-Doktrin-Laden.
-- **Genau:** konzept-reviewer (Rubrik §4) treibt 9,0/10; die drei Drift-Detektoren messen ≤3 Drifts; Doppel-Review (Self vor Commit + PR) + `review-verify` (§10.6) + `adversarial-auditor` bei 🔴.
+Score = weighted mean (0–10) over: **Clerk test** (0.2) · **Mandatory structure complete** (0.2) · **UC steps numbered + branched** (0.15) · **AC table per UC** (0.15) · **Error cases complete** (0.1) · **Evidence convention** §10.7 (0.1) · **Glossary/vocabulary** (0.1). Every "mandatory" without a Nachweis-Typ (evidence type) = automatic deduction. ≥ 9.0 = ready for implementation. Anchored as a policy (weights reproducible, not just prose): [`plugins/cdp5-gates/policy/reife-rubrik.policy.md`](../plugins/cdp5-gates/policy/reife-rubrik.policy.md) — gate (§7 items) plus score; plugin default threshold 8.0, project threshold of this repo 9.0.
 
 ---
 
-## 6. Mess-Harness (§22.2)
+## 5. Mechanics — how the three goals are achieved systematically
 
-Pro UC-Schritt erfasst: **Token** (`gen_ai.usage.total_tokens`, Sampling aus §15.1), **Latenz** (Wall-clock), **Score** (konzept-reviewer-Ausgabe), **Drifts** (Summe der Detektor-Exit-Reports). Aggregation als Tabelle (UC | Token | Zeit | Score | Drifts | Schwelle erfüllt?). T1-Schritte: Token = 0, Zeit = Skript-Laufzeit. Erwartete Kennzahlen: ≥ 90 % der Schritte unter Budget + < 5 min; Konzept-Score ≥ 9,0 nach ≤ 2 Iterationen.
+- **Effective:** (1) Determinism gate (§32.9): decidable work → T1 = 0 model tokens. (2) `cdp5-reference` JIT instead of the full doctrine. (3) Pointer briefs instead of paste (§32.8(2)). (4) Model tier per worker (§32.3) — haiku for mechanical work. (5) Context hygiene + `/clear` (§28.6).
+- **Fast:** T1 skills locally in seconds; LLM steps cut narrowly; independent workers in parallel (§32.10 only when worthwhile); no loading of the full doctrine.
+- **Accurate:** konzept-reviewer (rubric §4) drives 9.0/10; the three drift detectors measure ≤3 drifts; double review (self before commit + PR) + `review-verify` (§10.6) + `adversarial-auditor` for 🔴.
 
 ---
 
-## 7. Entitäten / Artefakte-Übersicht
+## 6. Measurement harness (§22.2)
 
-| Artefakt | Typ | Tabelle/Ort |
+Captured per UC step: **tokens** (`gen_ai.usage.total_tokens`, sampling from §15.1), **latency** (wall-clock), **score** (konzept-reviewer output), **drifts** (sum of the detector exit reports). Aggregation as a table (UC | tokens | time | score | drifts | threshold met?). T1 steps: tokens = 0, time = script runtime. Expected figures: ≥ 90 % of steps under budget + < 5 min; Konzept score ≥ 9.0 after ≤ 2 iterations.
+
+---
+
+## 7. Entities / artefact overview
+
+| Artefact | Type | Table/location |
 |---|---|---|
-| `cdp5-gates` | Plugin (14 T1-Skills) | `plugins/cdp5-gates/` |
-| `cdp5-agents` | Plugin (5 Judgment-Agents) | `plugins/cdp5-agents/` |
-| `cdp5-reference` | T1-Skill (Doktrin + Query) | `…/skills/cdp5-reference/` |
-| Marketplace-Manifest | Config | `.claude-plugin/marketplace.json` (+ je Plugin `.claude-plugin/plugin.json`) |
-| Skill-Struktur | Konvention | `plugins/<plugin>/skills/<name>/{SKILL.md, *.mjs, *.test.mjs}` |
-| **Reife-Rubrik (Policy)** | Policy-Artefakt | `plugins/cdp5-gates/policy/reife-rubrik.policy.md` (+ generierte `.json`) — Gate plus 7 gewichtete Dimensionen, reproduzierbar |
-| **CDP5-Doktrin (ausgeliefert)** | Wissensbasis | `…/cdp5-reference/konzept-design-pattern-v5.md` — **v5 (aktiv)**; v4.7 FROZEN, **nicht** gebündelt |
+| `cdp5-gates` | Plugin (14 T1 skills) | `plugins/cdp5-gates/` |
+| `cdp5-agents` | Plugin (5 judgment agents) | `plugins/cdp5-agents/` |
+| `cdp5-reference` | T1 skill (doctrine + query) | `…/skills/cdp5-reference/` |
+| Marketplace manifest | Config | `.claude-plugin/marketplace.json` (+ per plugin `.claude-plugin/plugin.json`) |
+| Skill structure | Convention | `plugins/<plugin>/skills/<name>/{SKILL.md, *.mjs, *.test.mjs}` |
+| **Maturity rubric (policy)** | Policy artefact | `plugins/cdp5-gates/policy/reife-rubrik.policy.md` (+ generated `.json`) — gate plus 7 weighted dimensions, reproducible |
+| **CDP5 doctrine (shipped)** | Knowledge base | `…/cdp5-reference/konzept-design-pattern-v5.md` — **v5 (active)**; v4.7 FROZEN, **not** bundled |
 
 ---
 
-## 8. Verantwortungs-Matrix (§23.1)
+## 8. Responsibility matrix (§23.1)
 
-| UC | KI-Anteil | Mensch-Validator | Validierungs-Mindset | Haftung |
+| UC | AI share | Human validator | Validation mindset | Liability |
 |---|---|---|---|---|
-| UC-01 Konzept-Review | 70 % (Vorschlag) | Architekt (Score-Sign-off) | hoch | Architekt |
-| UC-02 Drift-Gate | 0 % (deterministisch) | Operator (entscheidet bei > 3) | mittel | Operator |
-| UC-03/04 T1-Checks | 0 % | — | n/a | Systemverantwortlicher |
-| UC-05/06 Security/Audit | 60 % | Security/Senior (Sign-off) | hoch | Security-Verantwortlicher |
+| UC-01 Konzept review | 70 % (proposal) | Architect (score sign-off) | high | Architect |
+| UC-02 Drift gate | 0 % (deterministic) | Operator (decides at > 3) | medium | Operator |
+| UC-03/04 T1 checks | 0 % | — | n/a | System owner |
+| UC-05/06 Security/audit | 60 % | Security/senior (sign-off) | high | Security owner |
 
-Destruktive Aktionen (Push/Merge/Schema-Drop) nie auto — Operator (§1.6/§23).
+Destructive actions (push/merge/schema drop) never automatic — operator (§1.6/§23).
 
 ---
 
-## 9. Glossar (§14)
+## 9. Glossary (§14)
 
-| Begriff | Definition | Anker |
+| Term | Definition | Anchor |
 |---|---|---|
-| `T1-Skill` | Deterministisches Node-Programm, Output = Beleg, 0 Modell-Token | CDP5 §32.9 |
-| `Judgment-Agent` | LLM-Subagent für Urteils-Arbeit, Findings + Vorschläge | CDP5 §32 |
-| `Drift` | Konzept-Artefakt, das im Code abweicht/fehlt | konzept-mapper/-model-api |
-| `Reife-Score` | gewichteter 0–10-Wert der Implementierungsreife (7-Dim-Rubrik) | §4 (Rubrik) · `reife-rubrik.policy.md` · CDP5 §10.5 |
-| `Orchestrator` | Main-Session: wählt Modus, delegiert, fährt Skills, verifiziert, hält Mensch-Gates | CDP5 §32 |
-| `Operator` | Mensch mit Merge-/Push-Verantwortung + Final-Sign-off | CDP5 §1.6 / §23 |
-| `JIT-Retrieval` | nur den nötigen Doktrin-Ausschnitt laden | CDP5 §28.6 |
-| `Lethal Trifecta` | sensible Daten + untrusted Content + Egress | CDP5 §33.1 |
-| Drift-Detektoren | `konzept-mapper` · `konzept-model-api` · `roadmap-drift` (T1) | messen die Drift-Zahl (UC-02) |
-| Audit-/Security-Agents | `adversarial-auditor` · `threat-modeler` · `mcp-security-reviewer` (T2) | Judgment in UC-05/06 |
+| `T1-Skill` | Deterministic Node program, output = evidence, 0 model tokens | CDP5 §32.9 |
+| `Judgment-Agent` | LLM subagent for judgment work, findings + proposals | CDP5 §32 |
+| `Drift` | Konzept artefact that deviates or is missing in the code | konzept-mapper/-model-api |
+| `Reife-Score` | weighted 0–10 value of implementation readiness (7-dimension rubric) | §4 (rubric) · `reife-rubrik.policy.md` · CDP5 §10.5 |
+| `Orchestrator` | Main session: chooses the mode, delegates, runs skills, verifies, holds the Mensch-Gates | CDP5 §32 |
+| `Operator` | Human with merge/push responsibility + final sign-off | CDP5 §1.6 / §23 |
+| `JIT-Retrieval` | load only the needed doctrine excerpt | CDP5 §28.6 |
+| `Lethal Trifecta` | sensitive data + untrusted content + egress | CDP5 §33.1 |
+| Drift detectors | `konzept-mapper` · `konzept-model-api` · `roadmap-drift` (T1) | measure the drift count (UC-02) |
+| Audit/security agents | `adversarial-auditor` · `threat-modeler` · `mcp-security-reviewer` (T2) | judgment in UC-05/06 |
 
 ---
 
-## 10. Anti-Patterns (was vermieden wird)
+## 10. Anti-patterns (what is avoided)
 
-- Entscheidbare Aufgabe als Agent statt T1-Skill fahren (Token + Latenz verbrannt, §32.9).
-- Volldoktrin in jeden Prompt laden statt `cdp5-reference` JIT (§28.6).
-- Score/Findings ungeprüft übernehmen (§10.6 verletzt).
-- > 3 Drifts „durchwinken" ohne Issue/Konzept-Update.
-- Projekt-/framework-spezifischen Code in den Marketplace bringen (Negativ-Anforderung → grep-Gate).
+- Running a decidable task as an agent instead of a T1 skill (tokens + latency burned, §32.9).
+- Loading the full doctrine into every prompt instead of `cdp5-reference` JIT (§28.6).
+- Adopting score/findings unchecked (§10.6 violated).
+- "Waving through" > 3 drifts without issue/Konzept update.
+- Bringing project-/framework-specific code into the marketplace (negative requirement → grep gate).
 
 ---
 
-## 11. Risiken / Known Issues (§22.4)
+## 11. Risks / Known issues (§22.4)
 
-- Heuristische Parser (mcp-config-lint, konzept-model-api YAML-Scanner) → Befunde sind Hinweise, vom Orchestrator zu verifizieren (§10.6).
-- **`pii-scan` ist Hybrid:** der Regex-Detektor ist deterministisch, die *semantische* PII-Einstufung (Name vs. Zufallsstring) braucht ein `review-verify`-Overlay — kein finaler Wahrheits-Gate allein.
-- Score-/Drift-Messung gegen ein **CDP5-konformes** Konzept (nummerierte UCs, Backtick-Artefakte) — nicht-konforme Konzepte liefern n/a (Konzept-Bug, zurück an UC-01).
-- Token-/Latenz-Budgets sind Richtwerte; pro Repo-Größe kalibrieren.
-- **Scope-Ehrlichkeit:** das eigentliche **Coding** deckt der Marketplace **nicht** ab (projektgebundene lokale impl-Agents). Die „< 5 min/Schritt" beim Coden hängen am **Vertical-Slicing** (§27.2), nicht an diesen Tools — der Marketplace sichert die Stufen *um* das Coding (Konzept · Test-Scaffold · Drift · Review · Security).
+- Heuristic parsers (mcp-config-lint, konzept-model-api YAML scanner) → findings are hints, to be verified by the Orchestrator (§10.6).
+- **`pii-scan` is hybrid:** the regex detector is deterministic, the *semantic* PII classification (name vs. random string) needs a `review-verify` overlay — not a final truth gate on its own.
+- Score/drift measurement against a **CDP5-conformant** Konzept (numbered UCs, backtick artefacts) — non-conformant Konzepte return n/a (Konzept bug, back to UC-01).
+- Token/latency budgets are guidelines; calibrate per repo size.
+- **Scope honesty:** the actual **coding** is **not** covered by the marketplace (project-bound local impl agents). The "< 5 min/step" when coding depends on **vertical slicing** (§27.2), not on these tools — the marketplace secures the stages *around* the coding (Konzept · test scaffold · drift · review · security).
 
 ---
 
 ## 12. Changelog
 
-**v1.0 (Mai 2026):** Erstkonzept. Ziele effektiv/schnell/genau quantifiziert (§1), 6 UCs mit AC, Reife-Rubrik (§4), Mechanik (§5) + Mess-Harness (§6). Bezug: CDP5 v5 (§32.9 Determinismus, §28.6 Kontext-Economy, §33 Sicherheit, §10/§22 Score/PoC).
+**v1.0 (May 2026):** Initial Konzept. Goals effective/fast/accurate quantified (§1), 6 UCs with AC, maturity rubric (§4), mechanics (§5) + measurement harness (§6). Reference: CDP5 v5 (§32.9 determinism, §28.6 context economy, §33 security, §10/§22 score/PoC).
 
-**v1.1 (Mai 2026, Dogfood-Review-Patch):** Konzept vom `konzept-reviewer` gescored (8,4 → Ziel ≥9,0). Geschlossen: §2.6 Probabilistik- + §2.7 Vendor-Risiko-Statement als Pflicht-Tabellen (je UC); Fehlerfälle-Tabellen für UC-03/04/05/06; T1-Skill-Vertrag (UC-03); Lethal-Trifecta-Achsen-Ausweis (UC-05/06, read-only → entschärft); Glossar +Drift-Detektoren/Audit-Agents; §7 Anhang +Skill-Struktur +ausgelieferte CDP5-Version (v5). Offen (Architekt, §1.9): finale EU-AI-Act-Klassen-Bestätigung.
+**v1.1 (May 2026, dogfood review patch):** Konzept scored by the `konzept-reviewer` (8.4 → target ≥9.0). Closed: §2.6 probabilistic + §2.7 vendor risk statement as mandatory tables (per UC); error-case tables for UC-03/04/05/06; T1 skill contract (UC-03); lethal-trifecta axes statement (UC-05/06, read-only → defused); glossary +drift detectors/audit agents; §7 appendix +skill structure +shipped CDP5 version (v5). Open (architect, §1.9): final confirmation of the EU AI Act class.
 
-**v1.2 (Mai 2026, Simulations-Patch):** Aus 5 fiktiven Durchläufen präzisiert: §1 „Schnell" = **< 5 min je interaktivem Schritt** (voller Eval = CI-Batch, kein „Schritt"); §1 „Genau" = ≥ 9,0 **nach ≤ 2 Iterationen**; neue **4. Zeile „Sicher"** (0 offene 🔴-Security-Findings, separat von der Drift-Zahl). UC-05 + §11 `pii-scan` als Hybrid (deterministischer Regex + `review-verify`-Overlay, kein finaler Wahrheits-Gate). +Scope-Ehrlichkeit (Coding-Qualität hängt am Vertical-Slicing, nicht am Skill allein).
+**v1.2 (May 2026, simulation patch):** Sharpened from 5 fictitious runs: §1 "Fast" = **< 5 min per interactive step** (full eval = CI batch, not a "step"); §1 "Accurate" = ≥ 9.0 **after ≤ 2 iterations**; new **4th row "Secure"** (0 open 🔴 security findings, separate from the drift count). UC-05 + §11 `pii-scan` as hybrid (deterministic regex + `review-verify` overlay, not a final truth gate). +Scope honesty (coding quality depends on vertical slicing, not on the skill alone).
 
-**v1.3 (2026-05-26, Re-Score-Patch):** `konzept-reviewer`-Re-Score = 9,0/10 (Goal erreicht, exakt auf Schwelle). Für Puffer geschlossen: Kopf-Versions-Drift (1.0 → 1.3, Self-Dogfood des eigenen Drift-Gates UC-02); §7 Skill-Count 9 → **12** (stale); §2.2 UC-Übersicht; Glossar +`Orchestrator`/`Operator` + `Reife-Score`-Anker auf §4/§10.5 geschärft; Timeout-/Budget-Fehlerfälle für UC-01/UC-06; AC-2 (UC-01) an Mess-Harness §6 gebunden (testbar); **Reife-Rubrik als §10.5-Policy** `reife-rubrik.policy.md` verankert (reproduzierbar, nicht nur Prosa). Offen (Architekt, §1.9): EU-AI-Act-Klassen-Bestätigung.
+**v1.3 (2026-05-26, re-score patch):** `konzept-reviewer` re-score = 9.0/10 (goal reached, exactly on the threshold). Closed for buffer: header version drift (1.0 → 1.3, self-dogfood of the own drift gate UC-02); §7 skill count 9 → **12** (stale); §2.2 UC overview; glossary +`Orchestrator`/`Operator` + `Reife-Score` anchor sharpened to §4/§10.5; timeout/budget error cases for UC-01/UC-06; AC-2 (UC-01) bound to measurement harness §6 (testable); **maturity rubric anchored as §10.5 policy** `reife-rubrik.policy.md` (reproducible, not just prose). Open (architect, §1.9): confirmation of the EU AI Act class.
 
-**v1.4 (2026-05-26, profile-check):** Neuer T1-Skill `profile-check` (§7 Count 12 → 13) — setzt „Default einmal setzen, danach nur Konformitäts-Checks" um: ein Projekt deklariert Vorgaben einmal in `project-profile.md` (YAML-Frontmatter: EU-AI-Act-Klasse, security_level, Runtime, Test-Framework, Pflicht-Tokens), der Skill verifiziert Konzept + Repo deterministisch dagegen statt neu zu fragen. Löst den offenen EU-AI-Act-Punkt strukturell (Architekt setzt die Klasse einmal im Profil). Fällt unter UC-03 (kein neuer UC). 7 Tests, Dogfood gegen claude-skills selbst grün. Re-Score v1.4 = **9,7/10**.
+**v1.4 (2026-05-26, profile-check):** New T1 skill `profile-check` (§7 count 12 → 13) — implements "set the default once, afterwards only conformance checks": a project declares its requirements once in `project-profile.md` (YAML frontmatter: EU AI Act class, security_level, runtime, test framework, mandatory tokens), the skill verifies Konzept + repo deterministically against it instead of asking again. Resolves the open EU AI Act point structurally (architect sets the class once in the profile). Falls under UC-03 (no new UC). 7 tests, dogfood against claude-skills itself green. Re-score v1.4 = **9.7/10**.
 
-**v1.5 (2026-05-26, Reife-Politur):** Die zwei nicht-blockierenden Polish-Punkte aus dem v1.4-Review geschlossen: (1) **EU-AI-Act-Klasse final = minimal** (Architekt-Festlegung §23) — §2.6-Fußnote von „offen, zu bestätigen" auf verbindliche Festlegung, pro Konsument via `profile-check`/`project-profile.md` verifizierbar (Dim 6 Nachweis-Konvention → 10). (2) **UC-05 Vor-Check-Sequenz** explizit geordnet (a `secrets-scan` · b `pii-scan` · c `mcp-config-lint`, je mit Exit-Semantik → Sicher-Gate; Dim 1 Sachbearbeiter-Test → 10). Außerdem §7-Skill-Referenz in UC-03 count-agnostisch („alle T1-Skills" statt „9", kein Skill-Count-Drift mehr). **Re-Score v1.5 = 10,0/10** (alle 7 Dimensionen 10; konzept-lint-„§13.1-LLM-Felder"-Flag als Heuristik-False-Positive per §10.6 widerlegt).
+**v1.5 (2026-05-26, maturity polish):** The two non-blocking polish points from the v1.4 review closed: (1) **EU AI Act class final = minimal** (architect ruling §23) — §2.6 footnote from "open, to be confirmed" to a binding ruling, verifiable per consumer via `profile-check`/`project-profile.md` (dim 6 evidence convention → 10). (2) **UC-05 pre-check sequence** explicitly ordered (a `secrets-scan` · b `pii-scan` · c `mcp-config-lint`, each with exit semantics → secure gate; dim 1 clerk test → 10). Also the §7 skill reference in UC-03 made count-agnostic ("all T1 skills" instead of "9", no more skill-count drift). **Re-score v1.5 = 10.0/10** (all 7 dimensions 10; konzept-lint "§13.1 LLM fields" flag refuted as a heuristic false positive per §10.6).

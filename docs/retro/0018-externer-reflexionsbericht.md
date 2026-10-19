@@ -1,93 +1,93 @@
-# Retro-ADR 0018 — Externer Reflexionsbericht über CDP5 + NSAI-Edge
+# Retro-ADR 0018 — External reflection report on CDP5 + NSAI-Edge
 
-**Status:** angenommen (Stefan-Auftrag „Halte das als Retro-Feedback fest")
-**Datum:** 2026-05-29
-**Zweck:** Externe Auswertung der Arbeitsweise (CDP5-Framework + NSAI-Edge-Implementierung) durch einen unabhängigen Reviewer. Nicht slice-spezifisch, sondern eine **Querschnitts-Reflexion** über Methodik, Architektur und Reifegrad nach 17 vorigen Retro-ADRs. Bewusst 1:1 als Sicht von außen festgehalten, damit der Blick eines anderen Reviewers im Retro-Pool erhalten bleibt.
-
----
-
-## Teil 1 — Methodik-Reflexion: warum CDP5 + NSAI-Edge auf dem richtigen Weg sind
-
-### Größte Stärken
-
-- **Der Adversarial-Audit als eigentlicher Wertschöpfer.** Wichtigste Erkenntnis aus den Retros: „grüne Tests" (100 % Testabdeckung) geben eine **falsche Sicherheit**, weil sie oft nur die Happy Paths oder idealisierte Bedingungen (z. B. nur ASCII-Zeichen) prüfen. Der konsequente Einsatz des `adversarial-auditor` hat kritische Fehlerklassen aufgedeckt — Datenverlust bei Migrationen, Origin-Impersonation, Halluzinationen durch Substring-Matches —, die TDD allein nie gefunden hätte.
-
-- **Strikte Trennung von Determinismus (T1) und Judgment (T2).** Die Entscheidung, klare regide Skripte (T1, 0 Modell-Token) für entscheidbare Aufgaben (`secrets-scan`, `konzept-lint`) als Gatekeeper *vor* die probabilistischen LLM-Agents (T2) zu setzen, macht das System extrem schnell, effektiv und sicher.
-
-- **Klare Leitplanken durch „Stefan's Constraints".** Die strikten Vorgaben (kategorische Verdikte statt Wahrscheinlichkeiten, keine plumpen Halluzinationen, Evidenz-Gewichtung nach Aktualität/Autorität statt nach reiner Anzahl) haben sich als perfekter Filter erwiesen. Sie verhinderten das blinde Übernehmen von fehlerhaftem LLM-fremd-generiertem Code (z. B. Geminis Recursive CTE, das den Determinismus gebrochen hätte).
-
-- **Dogfooding.** Eigene Detektoren (`profile-check`, `konzept-lint`) werden auf die eigenen Repositories angewendet — die billigste und verlässlichste QA, um Dokumentations-Drifts zu finden.
-
-- **Differenzierter Umgang mit Audit-Findings.** Findings werden nicht blind abgearbeitet, sondern klassifiziert: was muss sofort in den Code, was erfordert eine Konzept-Klarstellung, was wird bewusst in einen neuen Slice (#5d, #5b) verschoben.
-
-### Offene Lernfelder
-
-1. **„Concept-First"-Disziplin strikt einhalten.** Retro 0003: tiefe Extraktionen und Multi-Wert-Prädikate wurden programmiert, *bevor* das Konzept angepasst wurde. Auch wenn Änderungen offensichtlich erscheinen — immer zuerst das Konzept (und sei es nur ein Einzeiler) aktualisieren, sonst verliert der CDP5-Loop seinen Beleg-Charakter und Spezifikationen driften.
-
-2. **Prinzipien fixen, nicht Symptome (Whack-a-Mole vermeiden).** In der NSAI-Edge-Qualitäts-Schleife wurden vier Runden lang Punkt-Patches geschrieben, bis erkannt wurde, dass das *generelle Prinzip* (Trust-primäre Präzedenz auf Lese- und Schreibpfaden) fehlte. Wenn ein Bug über mehrere Achsen hinweg auftaucht → sofort nach der invarianten Wurzel suchen.
-
-3. **Test-Design gegen Sycophancy (Zustimmungstendenz) härten.** Tests waren oft blind für komplexe Überschneidungen (Föderations-Fall mit genau einem gewichtslosen Kandidaten; Single-Value- statt Multi-Value-Konstellationen). Zukünftige Tests müssen zwingend End-to-End-Sicherheitsinvarianten und **AC-negative** Fälle abbilden (z. B. gegnerische Substring-Matches), nicht nur Tautologien.
-
-4. **MCP-Tool-Descriptions als Schutz vor Konsumenten-Halluzinationen.** Retro 0016: unzureichend dokumentierte MCP-Tools bergen ein „Consumer-Sycophancy-Risiko" — wenn ein LLM-Konsument ein Output-Feld sieht, das nicht in der Description erklärt ist, erfindet er sich selbst eine (oft falsche) Bedeutung. **Empfehlung:** Backlog-Idee `mcp-doc-drift-gate`-Skill priorisieren — deterministisch prüfen, ob neue Output-Felder zwingend in der Tool-Beschreibung dokumentiert sind.
-
-5. **„Re-Audit" nach Fixes als Pflicht-Standard.** Findings wurden gefixt, dabei wurden aber subtile neue Asymmetrien eingeführt (UTC-Z-Migration: `valid_from/to` asymmetrisch behandelt). Ein bestätigender Reviewer (Sycophancy) winkt das als „gefixt" durch — ein **zweiter** Durchlauf des Adversarial-Audits nach einem Fix sollte standardisierter Prozessschritt sein.
-
-6. **Eigene Security-Tools als Angriffsvektor erkennen.** Retro 0002: ein gieriger Regex im eigenen `secrets-scan` führte bei großen Dateien zu einem ReDoS (~100 s). Sicherheitswerkzeuge, die ungetesteten Code scannen, müssen immer mit Ressourcen-Deckeln (Zeilen-Caps) und streng gebundenen Quantoren ausgestattet sein.
-
-7. **Phase 2: Föderation der PHP-Gegenseite.** Die Node.js-Seite ist extrem reif und funktional, jedoch wartet die Föderations-Sicherheit (P2P / Cross-Language-Bit-Identität) noch auf die Fertigstellung der PHP/Symfony-Gegenseite (`neuro-symbolic-ai-bundle`). Bis HTTP-Transport und PHP-Commands gemerged sind, ist die dezentrale Vertrauenskette nicht vollständig produktionsreif.
-
-### Methodik-Zusammenfassung
-
-Architektur entscheidet sich bewusst für **Determinismus, Nachvollziehbarkeit und harte Leitplanken** — schützt effektiv vor der „Brüchigkeit" klassischer ReAct-Agents. Wenn Concept-First-Disziplin gehalten und Test-Design auf Basis der Adversarial-Erkenntnisse robuster gestaltet wird → exzellenter Weg in Richtung ausgereiftes, neurosymbolisches System.
+**Status:** accepted (Stefan assignment „Halte das als Retro-Feedback fest")
+**Date:** 2026-05-29
+**Purpose:** External evaluation of the way of working (CDP5 framework + NSAI-Edge implementation) by an independent reviewer. Not slice-specific, but a **cross-cutting reflection** on methodology, architecture and maturity level after 17 previous Retro-ADRs. Deliberately recorded 1:1 as the view from outside, so that another reviewer's perspective is preserved in the retro pool.
 
 ---
 
-## Teil 2 — Code-Reflexion: GitHub-Repository `SmR492/claude-skills`
+## Part 1 — Methodology reflection: why CDP5 + NSAI-Edge are on the right track
 
-Der Code übersetzt die anspruchsvollen Konzepte (Determinismus, harte Security-Gates) pragmatisch und schlank in die Praxis.
+### Greatest strengths
 
-### Markante Aspekte
+- **The adversarial audit as the real value creator.** Most important insight from the retros: "green tests" (100 % test coverage) give a **false security**, because they often only check the happy paths or idealized conditions (e.g. only ASCII characters). The consistent use of the `adversarial-auditor` uncovered critical error classes — data loss in migrations, origin impersonation, hallucinations via substring matches — that TDD alone would never have found.
 
-1. **Beeindruckender „Zero-Dependency"-Ansatz.** Der JavaScript-Code (100 % der Codebasis auf der Node-Seite) kommt komplett ohne externe Abhängigkeiten (NPM-Pakete) aus. Alles via Node.js-Builtins — `node:sqlite` für die DB, native Ed25519-Kryptografie. Aus Security-Sicht (Vermeidung Supply-Chain-Attacken) ein massiver Gewinn; extrem wartbar und schnell.
+- **Strict separation of determinism (T1) and judgment (T2).** The decision to put clear rigid scripts (T1, 0 model tokens) for decidable tasks (`secrets-scan`, `konzept-lint`) as gatekeepers *before* the probabilistic LLM agents (T2) makes the system extremely fast, effective and secure.
 
-2. **Architektur spiegelt die Methodik perfekt wider.** Strikte Plugin-Trennung:
-   - **`cdp5-gates`:** deterministische T1-Skills (`konzept-lint`, `secrets-scan`, `pii-scan`). Rein lesend, parametrisiert, harte Leitplanken.
-   - **`cdp5-agents`:** LLM-basierte Methodik-Agenten (`konzept-reviewer`, `adversarial-auditor`). Probabilistisches Judgment auf Basis der deterministischen Vorarbeit.
+- **Clear guardrails through "Stefan's Constraints".** The strict requirements (categorical verdicts instead of probabilities, no crude hallucinations, evidence weighting by recency/authority instead of by mere count) have proven to be a perfect filter. They prevented the blind adoption of faulty code generated by other LLMs (e.g. Gemini's recursive CTE, which would have broken determinism).
 
-3. **Radikale Projektunabhängigkeit.** Code im Marketplace konsequent generisch. Eigenes deterministisches Constraint-Gate (per grep) stellt beim Bau sicher, dass keine projektspezifischen Pfade, Namen oder Fixtures leaken. Macht das Repository zum echten, universell teilbaren Werkzeugkasten.
+- **Dogfooding.** Own detectors (`profile-check`, `konzept-lint`) are applied to the own repositories — the cheapest and most reliable QA for finding documentation drifts.
 
-4. **Native Testing-Kultur mit reifem Risikobewusstsein.** Hohe Testdisziplin via nativem `node --test` Runner, TDD-Vorgaben (`ac-to-test-scaffold` Skill). Beeindruckend: die eigene Reflexion, dass **grüne Tests allein oft eine falsche Sicherheit geben** — Verlass auf den `adversarial-auditor` anstatt Unit-Tests blind zu vertrauen.
+- **Differentiated handling of audit findings.** Findings are not worked off blindly but classified: what must go into the code immediately, what requires a Konzept clarification (Konzept = concept document), what is deliberately moved to a new slice (#5d, #5b).
 
-5. **Eingebaute „Dogfooding"-Robustheit.** Skills wenden ihre eigenen Regeln auf sich selbst an. Strikter Input-Robustheits-Vertrag: bei fehlerhaften Eingaben kein unkontrollierter Stacktrace, sondern saubere Beendigung mit Exit-Code 2 + klare Fehlermeldung. Schützt den Orchestrator vor Fehlerschleifen (Halluzinationen).
+### Open learning fields
 
-### Code-Zusammenfassung
+1. **Strictly keep the "concept-first" discipline.** Retro 0003: deep extractions and multi-value predicates were programmed *before* the Konzept was adjusted. Even if changes seem obvious — always update the Konzept first (even if only a one-liner), otherwise the CDP5 loop loses its evidentiary character and specifications drift.
 
-Hervorragendes Beispiel für **Defense in Depth**. Anstatt komplexe Logik in wackelige LLM-Prompts zu pressen, sind die entscheidbaren Probleme in purem, extern-abhängigkeitsfreiem Node.js-Code hart ausprogrammiert. Fundament extrem solide. Wenn in „Phase 2" die PHP/Symfony-Gegenseite auf diesem Qualitätsniveau nachgezogen wird → föderiertes System, das in der Industrie seinesgleichen sucht.
+2. **Fix principles, not symptoms (avoid whack-a-mole).** In the NSAI-Edge quality loop, point patches were written for four rounds until it was recognized that the *general principle* (trust-primary precedence on read and write paths) was missing. If a bug shows up across several axes → immediately look for the invariant root.
+
+3. **Harden test design against sycophancy (tendency to agree).** Tests were often blind to complex overlaps (federation case with exactly one weightless candidate; single-value instead of multi-value constellations). Future tests must mandatorily cover end-to-end security invariants and **AC-negative** cases (e.g. adversarial substring matches), not just tautologies.
+
+4. **MCP tool descriptions as protection against consumer hallucinations.** Retro 0016: insufficiently documented MCP tools carry a "consumer sycophancy risk" — if an LLM consumer sees an output field that is not explained in the description, it invents its own (often wrong) meaning. **Recommendation:** prioritize the backlog idea of an `mcp-doc-drift-gate` skill — deterministically check that new output fields are mandatorily documented in the tool description.
+
+5. **"Re-audit" after fixes as a mandatory standard.** Findings were fixed, but subtle new asymmetries were introduced in the process (UTC-Z migration: `valid_from/to` treated asymmetrically). A confirming reviewer (sycophancy) waves that through as "fixed" — a **second** pass of the adversarial audit after a fix should be a standardized process step.
+
+6. **Recognize own security tools as an attack vector.** Retro 0002: a greedy regex in the own `secrets-scan` led to a ReDoS (~100 s) on large files. Security tools that scan untested code must always be equipped with resource caps (line caps) and strictly bounded quantifiers.
+
+7. **Phase 2: federation of the PHP counterpart.** The Node.js side is extremely mature and functional, but federation security (P2P / cross-language bit identity) still waits for the completion of the PHP/Symfony counterpart (`neuro-symbolic-ai-bundle`). Until HTTP transport and PHP commands are merged, the decentralized trust chain is not fully production-ready.
+
+### Methodology summary
+
+The architecture deliberately opts for **determinism, traceability and hard guardrails** — effectively protects against the "brittleness" of classic ReAct agents. If concept-first discipline is kept and test design is made more robust based on the adversarial insights → excellent path toward a mature, neuro-symbolic system.
 
 ---
 
-## Action-Items, die aus diesem Bericht in die Roadmap einfließen
+## Part 2 — Code reflection: GitHub repository `SmR492/claude-skills`
 
-Diese ADR ist nicht nur Lob/Kritik, sondern **konkreter Auftrag**. Die folgenden Punkte gehen explizit in den Backlog bzw. die laufende Roadmap (R1–R8b nach Tages-Audit):
+The code translates the demanding concepts (determinism, hard security gates) pragmatically and leanly into practice.
 
-| Punkt aus Bericht | Roadmap-Item |
+### Notable aspects
+
+1. **Impressive "zero-dependency" approach.** The JavaScript code (100 % of the codebase on the Node side) manages entirely without external dependencies (NPM packages). Everything via Node.js builtins — `node:sqlite` for the DB, native Ed25519 cryptography. From a security perspective (avoidance of supply-chain attacks) a massive gain; extremely maintainable and fast.
+
+2. **The architecture mirrors the methodology perfectly.** Strict plugin separation:
+   - **`cdp5-gates`:** deterministic T1 skills (`konzept-lint`, `secrets-scan`, `pii-scan`). Purely reading, parameterized, hard guardrails.
+   - **`cdp5-agents`:** LLM-based methodology agents (`konzept-reviewer`, `adversarial-auditor`). Probabilistic judgment based on the deterministic groundwork.
+
+3. **Radical project independence.** Code in the marketplace consistently generic. An own deterministic constraint gate (via grep) ensures during the build that no project-specific paths, names or fixtures leak. Makes the repository a real, universally shareable toolbox.
+
+4. **Native testing culture with mature risk awareness.** High test discipline via the native `node --test` runner, TDD requirements (`ac-to-test-scaffold` skill). Impressive: the own reflection that **green tests alone often give a false security** — reliance on the `adversarial-auditor` instead of blindly trusting unit tests.
+
+5. **Built-in "dogfooding" robustness.** Skills apply their own rules to themselves. Strict input-robustness contract: on faulty inputs no uncontrolled stack trace, but a clean termination with exit code 2 + a clear error message. Protects the orchestrator from error loops (hallucinations).
+
+### Code summary
+
+Outstanding example of **defense in depth**. Instead of squeezing complex logic into shaky LLM prompts, the decidable problems are hard-coded in pure, externally dependency-free Node.js code. The foundation is extremely solid. If in "phase 2" the PHP/Symfony counterpart is brought up to this quality level → a federated system that is second to none in the industry.
+
+---
+
+## Action items from this report that flow into the roadmap
+
+This ADR is not just praise/criticism, but a **concrete assignment**. The following points go explicitly into the backlog or the running roadmap (R1–R8b after the daily audit):
+
+| Point from the report | Roadmap item |
 |---|---|
-| Lernfeld 1 (Concept-First-Disziplin) | als CDP5-Doktrin-Aussage stärken — wird in nächstem Slice explizit angewandt |
-| Lernfeld 2 (Prinzipien statt Symptome) | als Meta-Lehre in zukünftige Adversarial-Audits aufnehmen (Suche-Prompt) |
-| Lernfeld 3 (Tests gegen Sycophancy) | Test-Schreibhilfe: AC-negative Fälle als CDP5-Pflicht aufnehmen — Backlog |
-| Lernfeld 4 (MCP-Tool-Description-Drift) | **explizit als Backlog-Item `mcp-doc-drift-gate`-Skill** — passt zu R4 |
-| Lernfeld 5 (Re-Audit nach Fix) | bereits gelebte Praxis (3 Slices hatten 2–3 Audit-Runden); Doktrin schärfen |
-| Lernfeld 6 (eigene Security-Tools härten) | Backlog-Item: `secrets-scan` + `pii-scan` mit Zeilen-Caps + bounded Quantoren prüfen |
-| Lernfeld 7 (PHP-Phase-2) | **R7 in der aktuellen Roadmap** — Conformance-Vektoren + §G PHP-Parität-Schuld |
+| Learning field 1 (concept-first discipline) | strengthen as a CDP5 doctrine statement — will be explicitly applied in the next slice |
+| Learning field 2 (principles instead of symptoms) | adopt as a meta-lesson in future adversarial audits (search prompt) |
+| Learning field 3 (tests against sycophancy) | test-writing aid: adopt AC-negative cases as a CDP5 obligation — backlog |
+| Learning field 4 (MCP tool description drift) | **explicitly as backlog item `mcp-doc-drift-gate` skill** — fits R4 |
+| Learning field 5 (re-audit after fix) | already lived practice (3 slices had 2–3 audit rounds); sharpen the doctrine |
+| Learning field 6 (harden own security tools) | backlog item: check `secrets-scan` + `pii-scan` for line caps + bounded quantifiers |
+| Learning field 7 (PHP phase 2) | **R7 in the current roadmap** — conformance vectors + §G PHP parity debt |
 
-## Verlinkung zu existierenden ADRs/Memory
+## Links to existing ADRs/memory
 
-- ADRs 0010–0017 (Slice-Reihe heute): konkrete Belege für jeden Punkt im Bericht.
-- ADRs 0001–0009 (Bootstrap + frühe Slices): Quelle der „NSAI-Edge-Qualitäts-Schleife"-Lehre.
-- Memory `feedback-green-tests-bypass-security`: deckt sich direkt mit Lernfeld 3.
-- Memory `feedback-pushback-welcome`: Begründung für den differenzierten Umgang mit externem Input (auch dieser Bericht selbst).
-- Memory `feedback-websearch-in-concept-phase`: passt zu Lernfeld 2 (Recursive CTE verworfen).
+- ADRs 0010–0017 (today's slice series): concrete evidence for every point in the report.
+- ADRs 0001–0009 (bootstrap + early slices): source of the "NSAI-Edge quality loop" lesson.
+- Memory `feedback-green-tests-bypass-security`: coincides directly with learning field 3.
+- Memory `feedback-pushback-welcome`: rationale for the differentiated handling of external input (including this report itself).
+- Memory `feedback-websearch-in-concept-phase`: fits learning field 2 (recursive CTE discarded).
 
-## Status der Aufnahme
+## Status of adoption
 
-Bericht wird als externes Reflexionsmaterial im Retro-Pool erhalten. Die Action-Items fließen in die laufende Roadmap (R1–R8b) oder den Backlog ein. Keine direkten Code-Änderungen aus dieser ADR — sie ist Methodik-Spiegel, nicht Slice-Auftrag.
+The report is preserved as external reflection material in the retro pool. The action items flow into the running roadmap (R1–R8b) or the backlog. No direct code changes from this ADR — it is a methodology mirror, not a slice assignment.

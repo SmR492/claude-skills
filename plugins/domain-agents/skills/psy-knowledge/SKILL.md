@@ -1,6 +1,6 @@
 ---
 name: psy-knowledge
-description: The PSY doctrine entries (crisis escalation, couple mode, mode separation, suspicion versus diagnosis, no treatment only preparation, guideline primacy, care pathway) as supporting files for the psy skills and agents. Not a conversational skill; load an entry when a psy skill names it.
+description: The PSY doctrine entries (crisis escalation, couple mode, mode separation, suspicion versus diagnosis, no treatment only preparation, guideline primacy, care pathway) as supporting files for the psy skills and agents. Not a conversational skill; loaded when a psy skill or agent names an entry.
 user-invocable: false
 ---
 

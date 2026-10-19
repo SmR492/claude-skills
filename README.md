@@ -36,7 +36,7 @@ The concept maturity policy lives in `plugins/cdp5-gates/policy/reife-rubrik.pol
 | pm-retro | blameless retro with carry-over and Kaizen | sonnet | high |
 | impl-debug | reproduce, red before fix, root cause, green after | sonnet | medium |
 | impl-uc | one vertical slice, test-first, diff only | sonnet | medium |
-| impl-refactor | behaviour-preserving merge, split, cleanup with evidence | sonnet | medium |
+| impl-refactor | behaviour-preserving merge or split of classes with evidence; no standalone renaming or dead-code tasks | sonnet | medium |
 
 Model tiers follow doctrine §32.3: judgment, counter-roles and security on `opus`; implementation workers, retro moderation and marketing on `sonnet`; purely mechanical work is a T1 skill, not an agent. `hooks/agents.test.mjs` pins the mapping.
 
@@ -46,6 +46,7 @@ Shared mechanics:
 
 - `skills/worker-contract/SKILL.md` is the one contract for every agent; its core is generated into `core.md` (`node plugins/cdp5-agents/scripts/generate-contract.mjs`) and injected by a `SubagentStart` hook. The agent's first output line acknowledges the contract hash; a `SubagentStop` hook asks once if it is missing and appends one line per completed run to the usage log (`${CLAUDE_PLUGIN_DATA}/usage-log.jsonl`).
 - A `PreToolUse` hook on the Bash and PowerShell tools is a tripwire, not a sandbox: judgment agents get an allowlist of read-only programs and git read subcommands (global options such as `-C`/`-c` are parsed, aliases, command substitution, inline interpreter code and redirections are denied); implementation workers get git limited to worktree-local subcommands (no commit, push, fetch, stash or history rewrite, also behind `wsl`, `bash -c` or `docker exec`). The hook fails closed (exit 2) on unreadable input. The boundary that holds is the disposable environment the brief names.
+- Run grants: when a counter-role must execute something (adversarial-auditor counter-test, review-verify probe), the orchestrator registers the disposable environment first with `node plugins/cdp5-agents/scripts/grant-run.mjs grant --agent <name> --root <path> [--ttl 2h]`. While the grant is active the guard applies the worker tier to that agent; the `SubagentStop` hook consumes the grant. Grants live in `${CLAUDE_PLUGIN_DATA}/grants.json`, are per agent type, single use and expire (max 24h).
 - Agents set `effort` in their frontmatter; no thinking phrases, no doctrine lookup by script. The brief carries the doctrine excerpt or the path of the bundled copy.
 - `roles-dormant/` holds role texts without an agent file; they are built at the third logged run.
 

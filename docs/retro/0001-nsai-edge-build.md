@@ -1,38 +1,38 @@
-# Retro-ADR 0001 — NSAI-Edge: Konzept → Engine → MCP → Pre-Merge-Review
+# Retro-ADR 0001 — NSAI-Edge: Konzept (concept document) → Engine → MCP → pre-merge review
 
-**Status:** abgeschlossen (Pre-Merge, PR #1 NICHT gemergt)
-**Datum:** 2026-05-26
-**Zweck:** Retrospektive über den Bau von `nsai-edge` und die Frage, ob das Ziel „datenbankbasierte Wissensbasis für Claude Code" erreicht wurde.
+**Status:** completed (pre-merge, PR #1 NOT merged)
+**Date:** 2026-05-26
+**Purpose:** Retrospective on building `nsai-edge` and the question of whether the goal "database-based knowledge base for Claude Code" was reached.
 
-## Kontext
+## Context
 
-Ziel (Stefan): Claude Code effizient + strukturiert mit Wissen versorgen, ohne lange Dateien zu lesen — persistent, dezentral (git-artig P2P), als Peer des PHP-`NeuroSymbolicAiBundle`. Bewusste Entscheidungen: Voll-Parität lokal, zwei gespiegelte Engines, P2P/föderiert, MCP-Server.
+Goal (Stefan): supply Claude Code with knowledge efficiently + in a structured way without reading long files — persistent, decentralized (git-like P2P), as a peer of the PHP `NeuroSymbolicAiBundle`. Deliberate decisions: full parity locally, two mirrored engines, P2P/federated, MCP server.
 
-## Entscheidungschronik
+## Decision chronicle
 
-- **E1 — Gemini-Konzepte verworfen.** Zwei Fremd-Entwürfe (v1.0/v1.2) hatten Skill-vs-MCP-Mismatch, Einbahn-Sync, erfundene Bundle-Schnittstelle. Verifikation gegen echten Bundle-Code deckte die Erfindungen auf (`ai:graph:ingest-json`, `fp_app_container` existierten nie).
-- **E2 — Eigenes Konzept iterativ auf Reife.** v2.0 (8,05) → v2.1 (8,55) → v2.2 (9,30/10) über deterministischen Lint + Judgment-Reviewer. Kern-Fixes: Fixed-Point statt Float (Drift), Clone-UC, Hash-Kanonisierung, CRDT-Merge trust-unabhängig.
-- **E3 — NSAI-Bundle-Konzept nachgezogen** (3,5 → 9,2/10), gemeinsamer Wire-Vertrag v1 byte-identisch gespiegelt.
-- **E4 — Engine TDD-First implementiert.** 41 Tests grün, keine externen Deps (node:sqlite + Ed25519). CLI + MCP-stdio-Transport. Live in Claude Code eingebunden, mit verifiziertem PDF-Wissen befüllt und abgefragt (KI-Kompetenz/Art. 4 KI-VO: Miss → Ingest → Hit, kein Halluzinieren).
-- **E5 — Marketplace-Plugin** (manifest + `.mcp.json` mit `${CLAUDE_PLUGIN_ROOT}` + marketplace.json-Eintrag).
-- **E6 — Gegnerischer Pre-Merge-Review → NEIN.** Drei 🔴 (Origin-Impersonation, Trust-Laundering via Relay, Re-Sign zerstört Herkunft) + 🟡 (Clock-Reset, fehlende Transaktionen/busy_timeout, fehlende Input-Validierung in mergeIncoming). Merge blockiert.
+- **E1 — Gemini Konzept drafts discarded.** Two external drafts (v1.0/v1.2) had a skill-vs-MCP mismatch, one-way sync, an invented bundle interface. Verification against the real bundle code exposed the inventions (`ai:graph:ingest-json`, `fp_app_container` never existed).
+- **E2 — Own Konzept iterated to maturity.** v2.0 (8.05) → v2.1 (8.55) → v2.2 (9.30/10) via deterministic lint + judgment reviewer. Core fixes: fixed-point instead of float (drift), clone UC, hash canonicalization, CRDT merge trust-independent.
+- **E3 — NSAI bundle Konzept brought up to date** (3.5 → 9.2/10), shared wire contract v1 mirrored byte-identically.
+- **E4 — Engine implemented TDD-first.** 41 tests green, no external deps (node:sqlite + Ed25519). CLI + MCP stdio transport. Integrated live in Claude Code, filled with verified PDF knowledge and queried (AI competence/Art. 4 AI Act: miss → ingest → hit, no hallucinating).
+- **E5 — Marketplace plugin** (manifest + `.mcp.json` with `${CLAUDE_PLUGIN_ROOT}` + marketplace.json entry).
+- **E6 — Adversarial pre-merge review → NO.** Three 🔴 (origin impersonation, trust laundering via relay, re-sign destroys provenance) + 🟡 (clock reset, missing transactions/busy_timeout, missing input validation in mergeIncoming). Merge blocked.
 
-## Ziel-Verdikt
+## Goal verdict
 
-- **Datenbankbasierte Wissensbasis (Single-Node, lokal): ERREICHT + live bewiesen.** Persistent (SQLite, `~/.claude/nsai-edge/`), abfragbar, ehrlich (Miss statt Halluzination), mit Konfidenz + Herkunft + Inferenz + Decay. Der Kern-Nutzen für Claude Code funktioniert.
-- **Föderation / P2P-Sicherheit: NICHT produktionsreif.** Die drei 🔴 betreffen genau die verteilte Vertrauenskette. Bis zum Fix ist nur der lokale/Einzelknoten-Betrieb vertrauenswürdig.
+- **Database-based knowledge base (single node, local): REACHED + proven live.** Persistent (SQLite, `~/.claude/nsai-edge/`), queryable, honest (miss instead of hallucination), with confidence + provenance + inference + decay. The core benefit for Claude Code works.
+- **Federation / P2P security: NOT production-ready.** The three 🔴 concern exactly the distributed trust chain. Until the fix, only local/single-node operation is trustworthy.
 
-## Was gut lief
+## What went well
 
-- Verifikation gegen echte Quelle (Bundle-Code, PDF) statt Annahmen — fing Fremd-Erfindungen + lieferte echtes Wissen.
-- CDP5-Gate-Kette (Lint → Judgment-Reviewer → adversarial-auditor) hielt die Qualität messbar hoch und fing vor dem Merge schwere Bugs.
-- TDD-First + Fixed-Point-Entscheidung eliminierten ganze Fehlerklassen früh.
+- Verification against the real source (bundle code, PDF) instead of assumptions — caught external inventions + delivered real knowledge.
+- The CDP5 gate chain (lint → judgment reviewer → adversarial-auditor) kept quality measurably high and caught severe bugs before the merge.
+- TDD-first + the fixed-point decision eliminated whole error classes early.
 
-## Was besser muss
+## What must be better
 
-- **Grüne Tests gaben falsche Sicherheit:** Die Föderations-Tests umgingen den Signaturpfad (Fake-Signatur `'ed25519:x'` in `mergeIncoming`-Aufrufen). Sicherheits-Eigenschaften müssen End-to-End über den echten Verify-Pfad getestet werden, nicht über die Merge-Algebra allein. Siehe Memory [[feedback-green-tests-bypass-security]].
-- Architektur-Lücke (origin = Erstbehaupter vs. letzter Hop) war im Konzept sauber spezifiziert, aber die Implementierung wich ab — Konzept↔Code-Drift an einer Sicherheits-Invariante.
+- **Green tests gave false security:** the federation tests bypassed the signature path (fake signature `'ed25519:x'` in `mergeIncoming` calls). Security properties must be tested end-to-end over the real verify path, not over the merge algebra alone. See memory [[feedback-green-tests-bypass-security]].
+- Architecture gap (origin = first asserter vs. last hop) was cleanly specified in the Konzept, but the implementation deviated — Konzept↔code drift on a security invariant.
 
-## Kern-Lehre
+## Core lesson
 
-Ein bestandener Test-Lauf belegt nur, was getestet wird. Wenn Tests den sicherheitskritischen Pfad abkürzen (hier: Signatur/Herkunft), ist „alles grün" ein Trugschluss. Gegnerischer Review vor jedem Merge eines verteilten/sicherheitsrelevanten Slices ist Pflicht, nicht Kür. → [[feedback-green-tests-bypass-security]]
+A passed test run only proves what is tested. If tests shortcut the security-critical path (here: signature/provenance), "all green" is a fallacy. Adversarial review before every merge of a distributed/security-relevant slice is mandatory, not optional. → [[feedback-green-tests-bypass-security]]

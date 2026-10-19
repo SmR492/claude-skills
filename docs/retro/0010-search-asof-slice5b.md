@@ -1,42 +1,42 @@
-# Retro-ADR 0010 — `as_of` im Hybrid-Retrieval (NSAI-Edge Slice #5b)
+# Retro-ADR 0010 — `as_of` in hybrid retrieval (NSAI-Edge Slice #5b)
 
-**Status:** abgeschlossen (Adversarial JA-mit-Einschränkung → drei 🟡 differenziert behandelt) · autonom umgesetzt + self-merged (gmail/SmR492, PR #10)
-**Datum:** 2026-05-28 (Fortsetzung der autonomen Nacht-Session)
-**Zweck:** Slice #5b — `search({as_of:T})` schließt die letzte Lese-Linsen-Lücke; Retrospektive des kleinen, narrow scope gehaltenen Sub-Slices und der differenzierten Adversarial-Behandlung (mitfixen, entautologisieren, deferred).
+**Status:** completed (adversarial YES-with-reservation → three 🟡 handled differentially) · implemented autonomously + self-merged (gmail/SmR492, PR #10)
+**Date:** 2026-05-28 (continuation of the autonomous night session)
+**Purpose:** Slice #5b — `search({as_of:T})` closes the last read-lens gap; retrospective of the small sub-slice kept to narrow scope and of the differentiated adversarial handling (fix along, de-tautologize, deferred).
 
-## Kontext
-§H.2-Punkt 5 (Slice #5) hatte `as_of` an `query`/`verify`/`resolveBelief` gebracht, aber `search` blieb außen vor. Damit lieferte ein historisches `search` jetzt-gültige Kanten und Zukunfts-Episoden — Hybrid-Antwort zwischen den Achsen inkonsistent. Slice #5b schließt die Lücke.
+## Context
+§H.2 item 5 (Slice #5) had brought `as_of` to `query`/`verify`/`resolveBelief`, but `search` was left out. So a historical `search` returned currently valid edges and future episodes — hybrid answer inconsistent between the axes. Slice #5b closes the gap.
 
-Vorlauf war der reale End-to-End-Test gegen die EU-KI-VO-Compliance (`/tmp/demo-kivo.mjs`): Episode + autoritäts-gewichtete Fakten („gesetz" schlägt „llm" 1000:0), verify supported/contradicted/unknown (open-world), PPR-Multi-Hop, bi-temporal as-of, supersedeTemporally Entwurf→final, Provenienz. Alle Pfade wie erwartet — bestätigt die Stack-Reife.
+The lead-in was the real end-to-end test against EU AI Act compliance (`/tmp/demo-kivo.mjs`): episode + authority-weighted facts ("gesetz" beats "llm" 1000:0), verify supported/contradicted/unknown (open world), PPR multi-hop, bi-temporal as-of, supersedeTemporally draft→final, provenance. All paths as expected — confirms the stack's maturity.
 
-## CDP5-geprüfte Architektur-Entscheidungen (vorab)
-- **Narrow scope:** gleiche `_validClause`-Klausel wie `query`/`verify`/`resolveBelief`, keine eigene Lese-Logik. Linsen-Konsistenz strukturell (gleiche SQL), nicht behauptet.
-- **Determinismus-Gate unangetastet:** PPR bleibt lokale Float-Linse; `as_of` ist read-only, nicht im Wire, nicht in der Signatur, nicht in `exportSince`.
+## CDP5-checked architecture decisions (upfront)
+- **Narrow scope:** same `_validClause` clause as `query`/`verify`/`resolveBelief`, no own read logic. Lens consistency structural (same SQL), not asserted.
+- **Determinism gate untouched:** PPR remains a local float lens; `as_of` is read-only, not in the wire, not in the signature, not in `exportSince`.
 
-## Entscheidungschronik
-- **E1 — Demo zuerst** (`node /tmp/demo-kivo.mjs`): bestätigt, dass der Stack auf einem realen Compliance-Szenario die erwarteten Verdikte/Beliefs/Pfade liefert. Eine Subtilität: nach `reject` zeigt `verify` das Gerücht weiter als `contradicted` (statt `unknown`) — konsistent zur Dominanz-Logik, aber für die Erklärbarkeit fragwürdig (in Backlog notiert, kein 5b-Scope).
-- **E2 — Patch-statt-Slice:** kein eigener Konzept-Vorlauf, sondern UC-HR-Erweiterung (Schritt 2, AC-11.11–11.14). Lint blieb 10/10.
-- **E3 — Implementation TDD:** `search(as_of=null)` + `_validIso`-Vorprüfung + `_validClause`-Verkettung; `recallEpisodes(until=…)`; MCP-Schema + Aufruf. 145/145 grün (vor 🟡-Fixes).
-- **E4 — Adversarial-Audit (JA-mit-Einschränkung), differenziert behandelt:**
-  - **🟡-A** (recallEpisodes ignoriert `as_of` → Lese-Linsen-Bruch zwischen Kanten- und Episoden-Achse): **im 5b mitgefixt** — `recallEpisodes` bekommt `until`, `search` reicht `as_of` als until durch. AC-11.14/11.14b dazu.
-  - **🟡-B** (AC-11.13 testete objekt-bezogen → tautologisch belegt): **entautologisiert** zum per-Kante-Vertrag. KONZEPT-Text klargestellt: `search ⊆ query` ist NICHT der Vertrag (Topologie-Reichweiten unterscheiden sich, LIKE+k-Hop vs. exact+1-Hop). Der echte Vertrag: identische Validitäts-Klausel.
-  - **🟡-C** (UTC-Z nur lese-seitig, nicht daten-seitig — vorbestehender Defekt): **als Slice #5d deferred**, mit Repro-Case + Fix-Plan im KONZEPT.md eingetragen. Kein Scope-Creep in 5b.
-- **E5 — Konzept-Hygiene:** Fehlerfall-Block synchron mit AC-11.12 (🟡-1), Test-Belege bei AC-11.12/11.13 ergänzt (🟡-3).
-- **E6 — Self-Merge** (PR #10) nach vollem Gate.
+## Decision chronicle
+- **E1 — Demo first** (`node /tmp/demo-kivo.mjs`): confirms that the stack delivers the expected verdicts/beliefs/paths on a real compliance scenario. One subtlety: after `reject`, `verify` keeps showing the rumor as `contradicted` (instead of `unknown`) — consistent with the dominance logic, but questionable for explainability (noted in the backlog, not 5b scope).
+- **E2 — Patch instead of slice:** no own Konzept lead-in (Konzept = concept document), but a UC-HR extension (step 2, AC-11.11–11.14). Lint stayed 10/10.
+- **E3 — Implementation TDD:** `search(as_of=null)` + `_validIso` pre-check + `_validClause` chaining; `recallEpisodes(until=…)`; MCP schema + call. 145/145 green (before 🟡 fixes).
+- **E4 — Adversarial audit (YES-with-reservation), handled differentially:**
+  - **🟡-A** (recallEpisodes ignores `as_of` → read-lens break between the edge and episode axes): **fixed along in 5b** — `recallEpisodes` gets `until`, `search` passes `as_of` through as until. AC-11.14/11.14b added.
+  - **🟡-B** (AC-11.13 tested object-related → tautologically evidenced): **de-tautologized** to the per-edge contract. KONZEPT text clarified: `search ⊆ query` is NOT the contract (topology reaches differ, LIKE+k-hop vs. exact+1-hop). The real contract: identical validity clause.
+  - **🟡-C** (UTC-Z only on the read side, not the data side — pre-existing defect): **deferred as Slice #5d**, with repro case + fix plan entered in KONZEPT.md. No scope creep in 5b.
+- **E5 — Konzept hygiene:** error-case block in sync with AC-11.12 (🟡-1), test evidence added at AC-11.12/11.13 (🟡-3).
+- **E6 — Self-merge** (PR #10) after the full gate.
 
-## Prozess-Lehre (Kern)
-**Adversarial-Findings sind nicht eine Liste „zu fixen" — sie sind eine Liste mit drei Antworten: (a) jetzt fixen, (b) im Konzept klarstellen, (c) sauber deferred dokumentieren.** Slice #5b zeigt alle drei: 🟡-A war eine echte Folge des #5b-Designs, also gehört der Fix ins #5b. 🟡-B war ein Test-Schwäche-Fund (Tautologie) — entautologisieren und Vertrag korrekt formulieren. 🟡-C war ein vorbestehender Defekt, den #5b nur sichtbar macht — der gehört als eigener Slice in den Plan, nicht als Last in 5b. Diese Differenzierung schützt Reviewer + Auditor vor „Findings-Inflation" und hält den narrow scope wirklich narrow.
+## Process lesson (core)
+**Adversarial findings are not a list "to fix" — they are a list with three answers: (a) fix now, (b) clarify in the Konzept, (c) document cleanly as deferred.** Slice #5b shows all three: 🟡-A was a real consequence of the #5b design, so the fix belongs in #5b. 🟡-B was a test-weakness finding (tautology) — de-tautologize and formulate the contract correctly. 🟡-C was a pre-existing defect that #5b merely makes visible — it belongs in the plan as its own slice, not as a burden on 5b. This differentiation protects reviewer + auditor from "findings inflation" and keeps the narrow scope really narrow.
 
-**Den Test als Vertrag lesen, nicht als Indikator.** AC-11.13 war grün — der Auditor zeigte aber, dass der grüne Test nichts beweist (Tautologie über ein bestimmtes Objekt). Lehre wieder einmal: ein grüner Test ohne präzise Vertragsaussage gibt falsche Sicherheit. [[feedback-green-tests-bypass-security]]
+**Read the test as a contract, not as an indicator.** AC-11.13 was green — but the auditor showed that the green test proves nothing (tautology over a specific object). Lesson once again: a green test without a precise contract statement gives false security. [[feedback-green-tests-bypass-security]]
 
-**Nicht jeder Fund ist neu.** Der ⚡ Effekt-Test war: der Auditor fand auch das vorbestehende UTC-Z-Datenseite-Loch — ein Bug, den Slice #5b nicht erzeugt, aber sichtbarer macht. Kein 5b-Stopper, aber ein guter Anstoß für #5d.
+**Not every finding is new.** The ⚡ effect test was: the auditor also found the pre-existing UTC-Z data-side hole — a bug that Slice #5b does not create but makes more visible. Not a 5b stopper, but a good impulse for #5d.
 
-## Inhaltliche Lehre
-Lese-Linsen-Konsistenz ist eine **strukturelle** Eigenschaft, nicht eine behauptete: gleiche SQL-Klausel an allen Lese-Pfaden (resolveBelief, query, verify, search). Wo sich Topologie unterscheidet (LIKE vs. exact, k-Hop vs. 1-Hop), kann es trotzdem keine Validität-Inkonsistenz geben — der Vertrag ist „dieselbe Filter-Klausel", nicht „derselbe Subgraph".
+## Substantive lesson
+Read-lens consistency is a **structural** property, not an asserted one: same SQL clause on all read paths (resolveBelief, query, verify, search). Where topology differs (LIKE vs. exact, k-hop vs. 1-hop), there still cannot be a validity inconsistency — the contract is "the same filter clause", not "the same subgraph".
 
-Episoden-Achse braucht ihre eigene Linse (`occurred_at`, nicht `valid_*`) — bewusst getrennt, damit Episoden-GC und bi-temporale Sichtbarkeit nicht miteinander interferieren.
+The episode axis needs its own lens (`occurred_at`, not `valid_*`) — deliberately separated so that episode GC and bi-temporal visibility do not interfere with each other.
 
-## Offen
-- **Slice #5d** (deferred, dokumentiert): UTC-Z auf der Datenseite (`storeTriple`/`mergeIncoming` `asserted_at`) + einmalige Migration der Bestands-Spalte. Eigene Risiko-Betrachtung, Live-DB-Kopie-Test, dann eigener PR.
-- Föderierte Gültigkeit (Wire-v2) bleibt weiter deferred — bewusst.
-- `reject`-vs-`verify`-Subtilität (rejected-Tripel zeigt `contradicted` solange Dominanz besteht) — UX-Schliff für UC-V, keine Korrektheit-Lücke, Backlog.
+## Open
+- **Slice #5d** (deferred, documented): UTC-Z on the data side (`storeTriple`/`mergeIncoming` `asserted_at`) + one-time migration of the existing column. Own risk assessment, live-DB-copy test, then own PR.
+- Federated validity (wire v2) remains deferred — deliberately.
+- `reject`-vs-`verify` subtlety (a rejected triple shows `contradicted` as long as dominance holds) — UX polish for UC-V, no correctness gap, backlog.

@@ -1,213 +1,213 @@
-# Brücke: Defeasible Entrenchment & verdientes Trust-Modell
+# Bridge: Defeasible Entrenchment & Earned Trust Model
 
-> **Explorations-/Brücken-Material** (Design-Dialog Stefan ↔ Claude, 2026-05-29). **Keine CDP5-Bindung, kein ADR, keine Entscheidung** — zitierbarer **ADR-Input**. Verbindet die Lüge/Wahrheit/Fiktion-Linse (`06-…`) mit der „defeasible Entrenchment"-Richtung, die parallel eine andere Claude-Instanz formuliert hat.
+> **Exploration/bridge material** (design dialogue Stefan ↔ Claude, 2026-05-29). **No CDP5 binding, no ADR, no decision** — citable **ADR input**. Connects the lie/truth/fiction lens (`06-…`) with the "defeasible entrenchment" direction that another Claude instance formulated in parallel.
 >
-> **Lesehinweis (Arbeitsweise):** Dieses Dokument hält einen *Dialog gleichwertiger Beiträge* fest. Stefans Anregungen **(S)** und Claudes Verfeinerungen **(C)** sind markiert; abgelehnte/überarbeitete Erstvorschläge bleiben *stehen* (mit Begründung), weil der Denkweg Teil des Materials ist — passend zum Thema selbst (These → Antithese → Synthese). Stefan hält aktuell die verfeinerten Vorschläge für besser, bewertet sie aber als gleichwertige Optionen.
+> **Reading note (working method):** This document records a *dialogue of equal contributions*. Stefan's suggestions **(S)** and Claude's refinements **(C)** are marked; rejected/revised first proposals *remain* (with reasons), because the path of thought is part of the material — fitting the topic itself (thesis → antithesis → synthesis). Stefan currently considers the refined proposals better, but rates them as equal options.
 >
-> **Invarianten-Legende:** (1) Zero-Dep · (2) Offline · (3) Determinismus · (4) CRDT-Konvergenz · (5) lokale Lese-Linsen über signiertem Wire-Wert · (6) „Anzahl zählt nie" · (7) Open-World · (8) „Nie raten".
+> **Invariant legend:** (1) zero-dep · (2) offline · (3) determinism · (4) CRDT convergence · (5) local read lenses over the signed wire value · (6) "count never counts" · (7) open-world · (8) "never guess".
 
 ---
 
-## §1 Ausgangsspannung (aus `06-…` + Parallel-Instanz)
+## §1 Initial tension (from `06-…` + parallel instance)
 
-NSAI-Edge presst heute drei kategorial verschiedene Dinge in `source_type`/`trust_level`/`confidence`. **(S)** „Können wir Lüge/Wahrheit/Fiktion unterscheiden? Müssen wir das TrustLevel ersetzen?" **(C)** Nein-ersetzen, ja-ergänzen: das TrustLevel misst *Provenienz* korrekt; es fehlen zwei orthogonale Achsen. Ein „besseres System, das Lüge von Wahrheit unterscheidet", ist im starken Sinn unmöglich (Tarski) — genau der Überanspruch, gegen den das Projekt gebaut ist.
+NSAI-Edge today squeezes three categorially different things into `source_type`/`trust_level`/`confidence`. **(S)** "Can we distinguish lie/truth/fiction? Do we have to replace the TrustLevel?" **(C)** No-replace, yes-complement: the TrustLevel measures *provenance* correctly; two orthogonal axes are missing. A "better system that distinguishes lie from truth" is impossible in the strong sense (Tarski) — exactly the overreach the project is built against.
 
-## §2 Die drei orthogonalen Achsen
+## §2 The three orthogonal axes
 
-1. **Provenienz-Autorität** (WER) — `source_tier × origin_trust`. Entscheidbar, sozial/institutionell.
-2. **Wahrheitswert** (IST es so) — Korrespondenz/Kohärenz/Konsens; nach **Tarski** intern nur *approximierbar*, nie *definierbar*. Niemals als Feld gespeichert, immer abgeleitet.
-3. **Assertions-Modus** (WIE vorgebracht) — Kant-Modalität (problematisch/assertorisch/apodiktisch) + Searle/Lewis (Fiktion = commitment-*suspendiert*, nicht falsch). Fiktion wird *gescoped*, nicht widerlegt.
+1. **Provenance authority** (WHO) — `source_tier × origin_trust`. Decidable, social/institutional.
+2. **Truth value** (IS it so) — correspondence/coherence/consensus; per **Tarski** internally only *approximable*, never *definable*. Never stored as a field, always derived.
+3. **Assertion mode** (HOW put forward) — Kant modality (problematic/assertoric/apodictic) + Searle/Lewis (fiction = commitment-*suspended*, not false). Fiction is *scoped*, not refuted.
 
-Orthogonalität: autoritative Quelle kann Fiktives sagen; llm-Tier kann Wahres assertorisch sagen; eine Lüge hat volles Commitment + falschen Wert + beliebige Provenienz.
+Orthogonality: an authoritative source can say fictional things; the llm tier can say true things assertorically; a lie has full commitment + false value + arbitrary provenance.
 
-## §3 Defeasible Entrenchment (Architektur-Entscheidung, Parallel-Instanz)
+## §3 Defeasible entrenchment (architecture decision, parallel instance)
 
-**(S)** Kern-Axiom: **„Alles was reinkommt, ist erstmal widerlegbar, weil wir die Wahrheit noch nicht kennen."** = Fallibilismus / AGM-Entrenchment / Popper (trusted → tested).
-**(C)** **Trust nicht abschaffen, sondern von *terminaler Autorität* auf *defeasible Entrenchment* umstellen: Trust = Widerlegungs-*Schwelle*, nicht Verdikt.** Abschaffen bräche Sybil-Schutz, Echo-Kammer-Neutralisierung, deterministischen Merge, Domänen-Semantik (`gesetz > web`). Drei orakel-freie Pfade:
-1. **Contestation-Override:** großer + *unabhängiger* + korroborierter Widerspruch kippt Top-Tier auf `contested` — **nie auf `contradicted`** (man kann die Gegenseite nicht als *wahr* behaupten, nur die Autorität als *bestritten*).
-2. **Verdiente statt zugewiesene Trust** (Track-Record-Drift) — siehe §6.
-3. **Mensch-Override** (existiert; Endorsement = externes Orakel).
+**(S)** Core axiom: **"Everything that comes in is initially refutable, because we do not yet know the truth."** = fallibilism / AGM entrenchment / Popper (trusted → tested).
+**(C)** **Do not abolish trust, but switch it from *terminal authority* to *defeasible entrenchment*: trust = refutation *threshold*, not verdict.** Abolishing it would break Sybil protection, echo-chamber neutralization, deterministic merge, domain semantics (`gesetz > web`). Three oracle-free paths:
+1. **Contestation override:** a large + *independent* + corroborated contradiction tips a top tier to `contested` — **never to `contradicted`** (one cannot assert the other side as *true*, only the authority as *contested*).
+2. **Earned instead of assigned trust** (track-record drift) — see §6.
+3. **Human override** (exists; endorsement = external oracle).
 
-**Harte Grenze:** eine in sich konsistente, *unwidersprochene* Lüge einer vertrauten Quelle ist für *jedes* geschlossene System ohne Orakel unentdeckbar. Erreichbare Latte: **keine Lüge überlebt, der verfügbare unabhängige Evidenz widerspricht.**
+**Hard limit:** an internally consistent, *uncontradicted* lie from a trusted source is undetectable for *any* closed system without an oracle. Achievable bar: **no lie survives that available independent evidence contradicts.**
 
-## §4 Der Defeater-Trigger (wann wird ein Widerspruch zum Defeater?)
+## §4 The defeater trigger (when does a contradiction become a defeater?)
 
-**(S)** Alltagsregel: Unbekanntes erstmal hinnehmen; zwei gleich-fremde Widersprüche → im Netz bei *einer glaubwürdigen* Quelle nachsehen; widerspricht ein Fremder einer *bekannten* Quelle → ich vermute, der Fremde lügt, und lasse es mir belegen.
-**(C)** Das ist die fehlende Trigger-Spezifikation = **Erkenntnistheorie des Zeugnisses** (Reid: default-Glaube bis Defeater) + **Beweislast** (Walton). Drei Antworten, je nach Trust-Verhältnis:
+**(S)** Everyday rule: accept the unknown at first; two equally foreign contradictions → look it up online at *one credible* source; if a stranger contradicts a *known* source → I suspect the stranger is lying and have them prove it.
+**(C)** That is the missing trigger specification = **epistemology of testimony** (Reid: default belief until defeater) + **burden of proof** (Walton). Three answers, depending on the trust relationship:
 
-| Situation | Verhalten | Mechanik |
+| Situation | Behavior | Mechanics |
 |---|---|---|
-| **A.1** Fremd, kein Gegenwissen | „erstmal hinnehmen" | niedrige Entrenchment, default-Glaube, kein reject |
-| **A.2** Zwei *gleich*-fremde widersprechen sich | „glaubwürdige Quelle suchen" | `contested` + **Eskalation eine Tier-Stufe nach OBEN** |
-| **B** Bekannte X, Fremde ¬X | „Fremde lügt, soll's belegen" | Trusted **hält**; **Beweislast → Fremde**; Widerspruch **nicht verworfen**, sondern persistente offene Anfechtung |
+| **A.1** Foreign, no counter-knowledge | "accept at first" | low entrenchment, default belief, no reject |
+| **A.2** Two *equally* foreign sources contradict each other | "look for a credible source" | `contested` + **escalation one tier level UP** |
+| **B** Known X, foreign ¬X | "the stranger is lying, let them prove it" | trusted **holds**; **burden of proof → stranger**; contradiction **not discarded**, but persistent open contestation |
 
-Regeln daraus:
-- **Schwelle relativ zum Trust-Abstand:** ein Defeater kippt nur auf `contested`, wenn seine *entrenchment-gewichtete, durch unabhängige Wurzeln gestützte* Backing die Entrenchment der etablierten Aussage **übersteigt**. Darunter: nur protokolliert + Herausforderer belastet.
-- **Eskalation nach OBEN (Tier), Korroboration in die BREITE (unabhängige Wurzeln)** — zwei Achsen. Zehn voneinander abgeschriebene Fremde = *eine* Quelle (Hash-DAG-Independent-Roots → formales „Anzahl zählt nie").
-- **(C) Falle in B, ehrlicher Pushback:** „Fremde lügt" reproduziert exakt den Single-Point-of-Failure — *wenn die Bekannte lügt*, wischt man die wahrheitssagende Fremde weg. Schutz: abgewiesener Widerspruch bleibt eine **offene Schleife (Zeigarnik)**, die *akkumuliert* — jede *unabhängige* gleichlautende Anfechtung knabbert an der Entrenchment der Bekannten, bis genug unabhängige Widersprüche selbst eine hohe Schwelle reißen → `contested`. „Glaube, sie lügt" = *Präsumtion + persistente Anfechtung + Trust-Abzug*, **nicht löschen.** (Genau deshalb sind Contestation-Override und verdiente Trust *dieselbe* akkumulierende Maschine.)
+Rules derived from this:
+- **Threshold relative to trust distance:** a defeater tips to `contested` only if its *entrenchment-weighted backing, supported by independent roots,* **exceeds** the entrenchment of the established statement. Below that: only logged + challenger burdened.
+- **Escalation UP (tier), corroboration in BREADTH (independent roots)** — two axes. Ten strangers who copied from each other = *one* source (hash-DAG independent roots → formal "count never counts").
+- **(C) Trap in B, honest pushback:** "the stranger is lying" reproduces exactly the single point of failure — *if the known source lies*, one wipes away the truth-telling stranger. Protection: a dismissed contradiction remains an **open loop (Zeigarnik)** that *accumulates* — every *independent* identical contestation nibbles at the entrenchment of the known source, until enough independent contradictions themselves breach a high threshold → `contested`. "Believe they are lying" = *presumption + persistent contestation + trust deduction*, **not deletion.** (That is exactly why contestation override and earned trust are *the same* accumulating machine.)
 
-## §5 Die Eingangs-Matrix (Beurteilung beim Eingang einer These)
+## §5 The entry matrix (assessment on entry of a These)
 
-**(S)** „Eine 6-Faktoren-Matrix beim Eingang; solange ich sie nicht selbst bestätigt habe, gilt sie als *nicht gesichert* — nicht wahr/falsch, aber **mit Tendenzen**."
-**(C)** Ja — und „Matrix" trifft es: **Zeilen = Faktoren · Spalten = konkurrierende Objekte** → Spalten-Summe = **Tendenz-Verteilung**, der „Gewinner" ist nicht *wahr*, nur *stärkste Tendenz, weiterhin nicht gesichert*. Das re-derived die eigene A4/MYCIN-Position des Konzepts (*Konfidenz = Evidenz-Gewicht, keine Wahrscheinlichkeit-wahr-zu-sein*). Sauberer geschnitten als „6 gleichartige":
+**(S)** "A 6-factor matrix at entry; as long as I have not confirmed it myself, it counts as *not secured* — not true/false, but **with tendencies**."
+**(C)** Yes — and "matrix" is apt: **rows = factors · columns = competing objects** → column sum = **tendency distribution**, the "winner" is not *true*, only *strongest tendency, still not secured*. That re-derives the Konzept's (concept document's) own A4/MYCIN position (*confidence = evidence weight, not probability of being true*). Cut more cleanly than "6 of the same kind":
 
-- **Davor — Modus-Gate (Achse 3):** nur *assertorische* Thesen laufen durch die Matrix; Fiktion/Hypothese/Zitat → in eine **Welt/Kontext** gescoped (ATMS/Lewis), *keine* Wahrheits-Tendenz. (Das fehlte der 6er-Tabelle.)
-- **Tendenz-Faktoren (5):** ① Provenienz (`tier × origin_trust`) · ② Rebutting-Konsistenz (`verify`: widerspricht es höher-vertrautem Bestand?) · ③ Undercutting-Begründung (TMS: lebt die Stütze?) · ④ Korroboration (unabhängige Wurzeln) · ⑤ Aktualität (Decay). *(② und ③ getrennt = die zwei Defeater-Typen, Pollock rebut/undercut — kein Doppel.)*
-- **Boden, kein Faktor — Open-World:** keine Basis → `unknown`, *keine* Tendenz (ehrliches Nicht-Wissen).
-- **Behälter, kein Faktor — Status `gesichert`/`nicht gesichert`:** flippt nur durch Selbst-Bestätigung. Bis dahin: nur Tendenz.
-- **Repräsentation der Tendenz:** Belief-Verteilung *oder* **Possibility/Necessity-Intervall `[N, Π]`** (N = belegte Untergrenze, Π = nicht-ausgeschlossene Obergrenze, Lücke = „nicht gesichert", Lage darin = Tendenz). *Nur lokale Lese-Linse* (sonst Subjective-Logic-Wire-Bruch). Selbst „gesichert" = „bis widerlegt", nie „wahr" (Tarski).
+- **Before — mode gate (axis 3):** only *assertoric* theses pass through the matrix; fiction/hypothesis/quotation → scoped into a **world/context** (ATMS/Lewis), *no* truth tendency. (That was missing from the 6-row table.)
+- **Tendency factors (5):** ① provenance (`tier × origin_trust`) · ② rebutting consistency (`verify`: does it contradict higher-trusted stock?) · ③ undercutting justification (TMS: does the support still live?) · ④ corroboration (independent roots) · ⑤ recency (decay). *(② and ③ separate = the two defeater types, Pollock rebut/undercut — no duplication.)*
+- **Floor, not a factor — open-world:** no basis → `unknown`, *no* tendency (honest not-knowing).
+- **Container, not a factor — status `gesichert`/`nicht gesichert`:** flips only through self-confirmation. Until then: tendency only.
+- **Representation of the tendency:** belief distribution *or* **possibility/necessity interval `[N, Π]`** (N = evidenced lower bound, Π = not-excluded upper bound, gap = "not secured", position within it = tendency). *Local read lens only* (otherwise Subjective-Logic wire breach). Even "secured" = "until refuted", never "true" (Tarski).
 
-## §6 Trust-Dynamik — verdientes, lokales `origin_trust`
+## §6 Trust dynamics — earned, local `origin_trust`
 
-### Zwei Felder, nicht eins
-**(S)** „Wir brauchen ein TrustLevel 0–100 pro Quelle."
-**(C)** Ja zu *kontinuierlich + verdient*, aber: **0–1000 Integer-Promille** (konsistent mit Konfidenz, Determinismus/Parität), und **zwei orthogonale Felder**, damit die kontinuierliche Zahl den *harten* Tier nicht schluckt:
+### Two fields, not one
+**(S)** "We need a TrustLevel 0–100 per source."
+**(C)** Yes to *continuous + earned*, but: **0–1000 integer per mille** (consistent with confidence, determinism/parity), and **two orthogonal fields**, so that the continuous number does not swallow the *hard* tier:
 
-| Feld | Rolle | Eigenschaft |
+| Field | Role | Property |
 |---|---|---|
-| `source_tier` (0–6) | **Prior/Baseline** — wo die Widerlegungs-Schwelle startet | harte ordinale Klasse, *nicht* verrechenbar (trägt „gesetz>web unabhängig von Anzahl" + Tier-Cap) |
-| `origin_trust` (0–1000) | **Modulator** — driftet nach Track-Record | kontinuierlich, **lokal**, **verdient**, Lese-Linse |
+| `source_tier` (0–6) | **Prior/baseline** — where the refutation threshold starts | hard ordinal class, *not* computable against (carries "gesetz>web regardless of count" + tier cap) |
+| `origin_trust` (0–1000) | **Modulator** — drifts with track record | continuous, **local**, **earned**, read lens |
 
-Tier = Prior, `origin_trust` = Bewegung darum, Defeater-Trigger = was die Schwelle reißt. (Ein einziger Wert würde die harte Klasse auflösen → genug Hoch-Trust-Web schlägt ein Gesetz = Anzahl-Falle.)
+Tier = prior, `origin_trust` = movement around it, defeater trigger = what breaches the threshold. (A single value would dissolve the hard class → enough high-trust web beats a law = count trap.)
 
-### Score als Projektion einer Bilanz (Beta-Reputation)
-**(S)** „entwickler.de 79, Bild.de 36; verliert Bild den Disput, sinkt entwickler um 5, Bild steigt um 3."
-**(C) Pushback:** feste Deltas haben zwei Bugs — (a) Magnitude müsste mit der *Überraschung* skalieren (Elo: `Δ = K·(actual − expected)`); (b) feste −5/+3 lassen *netto* Punkte leaken → sogar ehrliche 50%-Quellen sinken auf 0. Besser: **Bilanz `(α Erfolge, β Fehlschläge)` speichern, Score *ableiten*** (nicht ein Konto mutieren):
+### Score as projection of a balance (Beta reputation)
+**(S)** "entwickler.de 79, Bild.de 36; if Bild loses the dispute, entwickler drops by 5, Bild rises by 3."
+**(C) Pushback:** fixed deltas have two bugs — (a) the magnitude would have to scale with the *surprise* (Elo: `Δ = K·(actual − expected)`); (b) fixed −5/+3 leak points *net* → even honest 50% sources sink to 0. Better: **store the balance `(α successes, β failures)`, *derive* the score** (instead of mutating an account):
 ```
 trustScore = floor( 1000 · α / (α+β) )          # Promille, deterministisch
 ```
-Das skaliert automatisch (junge Quelle bewegt sich viel, etablierte wenig), **ohne Deflation, ohne magische Deltas.** Die „leicht zu verlieren"-Asymmetrie kommt als *gedeckelter* Knopf (Fehlschlag-Übergewicht), nicht aus willkürlichen Zahlen.
+That scales automatically (a young source moves a lot, an established one little), **without deflation, without magic deltas.** The "easy to lose" asymmetry comes as a *capped* knob (failure overweight), not from arbitrary numbers.
 
-### Prior = skeptischer Start
-**(S)** „Start bei 30 (gute Skepsis), 50 = Mitte, 80 = vertrauenswürdig."
-**(C)** „30" ist kein Startscore, sondern ein **Beta-Prior** (sonst startet eine frische Quelle mathematisch bei 50): **Beta(3,7)** → `3/10 = 300‰`. Der eigentliche Knopf ist die Prior-**Stärke** `k=α₀+β₀`: „gute *bewegliche* Skepsis" = **schwacher** Prior (k≈10) → ~25–30 saubere Korroborationen bis 80 (erarbeitet, erreichbar). Starker Prior = Dauer-Vorurteil (schlecht). Bänder doppeln als kategoriale Präsentation (B5/Rosch): `<300` skeptisch · `300–500` unbestätigt · `500–800` plausibel · `≥800` vertrauenswürdig. Skala ist *nicht-linear* (30→50 billig, 80→90 teuer) — genau „muss erarbeitet werden".
+### Prior = skeptical start
+**(S)** "Start at 30 (good skepticism), 50 = middle, 80 = trustworthy."
+**(C)** "30" is not a start score but a **Beta prior** (otherwise a fresh source mathematically starts at 50): **Beta(3,7)** → `3/10 = 300‰`. The actual knob is the prior **strength** `k=α₀+β₀`: "good *movable* skepticism" = **weak** prior (k≈10) → ~25–30 clean corroborations to reach 80 (earned, reachable). Strong prior = permanent prejudice (bad). Bands double as categorical presentation (B5/Rosch): `<300` skeptical · `300–500` unconfirmed · `500–800` plausible · `≥800` trustworthy. The scale is *non-linear* (30→50 cheap, 80→90 expensive) — exactly "must be earned".
 
-### Eine Update-Regel für alle Fälle (inkl. Teilwahrheit)
-**(S)** „Beide teils wahr/teils gelogen → beide −1; einer mehr Wahrheit → der +1, der andere ±0."
-**(C)** „Wie viel Wahrheit" ist nur entscheidbar, weil die These in **atomare Tripel zerfällt**, je binär adjudiziert → **`s` = korroborierte/alle Tripel** der Quelle. Eine Regel subsumiert alle Fälle (Sieg/Niederlage/halb/mehr):
+### One update rule for all cases (incl. partial truth)
+**(S)** "Both partly true/partly lied → both −1; one with more truth → that one +1, the other ±0."
+**(C)** "How much truth" is only decidable because the These decomposes into **atomic triples**, each adjudicated binarily → **`s` = corroborated/all triples** of the source. One rule subsumes all cases (win/loss/half/more):
 ```
 α += korrobierte_Tripel ;  β += widerlegte_Tripel      # fraktional, s = c/N
 ```
-Erwartungs-Relativität fällt automatisch: eine 50%-Leistung **senkt** entwickler (Ruf 79), aber **hebt** Bild (Ruf 36) — *kein* fixes „beide −1".
-- **Kalibrierungs-Gewicht (C):** ein *überconfident* behauptetes, dann widerlegtes Tripel zählt **doppelt** auf β (Anmaßung schmerzt, ehrliche Unsicherheit kaum; Brier/ECE-Link → D1/E1).
-- **Surprise-Gewicht (C):** ein Fehlschlag bei hohem Stand kostet mehr (etablierte sinken schneller).
-- **Oracle-Gating (C):** Updates feuern **nur** auf adjudizierten Ausgängen (höher-Tier-Korrespondenz / unabhängige Korroboration / Mensch); der Herausforderer-Gewinn kommt aus den *beigebrachten Belegen*, nicht aus Lautstärke → blockt „Streit fabrizieren, um Trust zu farmen" (Sybil).
+Expectation relativity falls out automatically: a 50% performance **lowers** entwickler (reputation 79) but **raises** Bild (reputation 36) — *no* fixed "both −1".
+- **Calibration weight (C):** an *overconfidently* asserted, then refuted triple counts **double** on β (presumption hurts, honest uncertainty hardly; Brier/ECE link → D1/E1).
+- **Surprise weight (C):** a failure at a high level costs more (established ones sink faster).
+- **Oracle gating (C):** updates fire **only** on adjudicated outcomes (higher-tier correspondence / independent corroboration / human); the challenger's gain comes from the *evidence brought*, not from loudness → blocks "fabricate disputes to farm trust" (Sybil).
 
-### Recency statt Tenure (Mean-Reversion)
-**(S)** „Länge der Vertrauenswürdigkeit als Multiplikator: Neue steigen schwerer; etablierte+zuverlässige steigen von selbst; Etablierte können schneller sinken."
-**(C) Pushback:** *Kalenderlänge* ist die falsche Variable (gameable = **Sleeper-Angriff**; doppelt zählt, was Beta schon kann). Reframe als **anhaltende, jüngere Zuverlässigkeit** = **Mean-Reversion der Beta-Bilanz zum Prior** (Vergessen): `α ← λ·α + (1−λ)·α₀`, `β ← λ·β + (1−λ)·β₀`. Liefert alle drei Effekte evidenzbasiert:
+### Recency instead of tenure (mean reversion)
+**(S)** "Length of trustworthiness as a multiplier: newcomers rise harder; established+reliable ones rise by themselves; established ones can sink faster."
+**(C) Pushback:** *calendar length* is the wrong variable (gameable = **sleeper attack**; double-counts what Beta can already do). Reframe as **sustained, recent reliability** = **mean reversion of the Beta balance toward the prior** (forgetting): `α ← λ·α + (1−λ)·α₀`, `β ← λ·β + (1−λ)·β₀`. Delivers all three effects evidence-based:
 
-| Stefan-Effekt | aus Mean-Reversion |
+| Stefan's effect | from mean reversion |
 |---|---|
-| Neue haben's schwerer | Aufstieg muss die Reversion *überholen* (kein Parken auf kurzem Streak) — fair, ohne Newbie-Strafe |
-| Steigt, wenn etabliert+zuverlässig **bleibt** | anhaltende Treffer schlagen die Reversion → bleibt oben |
-| Etablierte sinken schneller | faded altes Guthaben schützt nicht mehr → Fehler-Lauf dominiert |
-| *Bonus: Anti-Sleeper* | stille Quelle driftet zurück auf 30 (steigt **nicht** durchs Altern) |
+| Newcomers have it harder | ascent must *outrun* the reversion (no parking on a short streak) — fair, without newbie penalty |
+| Rises if it **stays** established+reliable | sustained hits beat the reversion → stays on top |
+| Established ones sink faster | faded old credit no longer protects → the error run dominates |
+| *Bonus: anti-sleeper* | a silent source drifts back to 30 (does **not** rise through aging) |
 
-**(C)** Gegen Eigenschaft 1 als *extra* Drossel: der Prior macht Neue schon skeptisch; ein zusätzlicher Newbie-Throttle verschärft das Kaltstart-Problem unnötig. **Falle des wörtlichen Vorschlags:** „langsam-rauf-jung + schnell-runter-alt" als rohe Multiplikatoren → *niemand bleibt stabil oben* (Dauer-Churn). Mean-Reversion ist selbst-korrigierend.
-**Kosten (ehrlich):** verlässt reine Integer-Counts → Fixed-Point-Milli-Counts; braucht deterministischen Zeit-Anker (= *vorhandenes* Konfidenz-Decay, wiederverwendet); **ist Adaptivität, NICHT Sybil-Abwehr** (Forschung: Zeit-/Epoch-Decay hilft Sybil-Toleranz nicht — das macht MeritRanks Connectivity-Decay, *andere* Achse — nicht verwechseln).
+**(C)** Against property 1 as an *extra* throttle: the prior already makes newcomers skeptical; an additional newbie throttle needlessly aggravates the cold-start problem. **Trap of the literal proposal:** "slow-up-young + fast-down-old" as raw multipliers → *nobody stays stably on top* (permanent churn). Mean reversion is self-correcting.
+**Costs (honestly):** leaves pure integer counts → fixed-point milli counts; needs a deterministic time anchor (= the *existing* confidence decay, reused); **is adaptivity, NOT Sybil defense** (research: time/epoch decay does not help Sybil tolerance — that is done by MeritRank's connectivity decay, a *different* axis — do not confuse).
 
-### Offene Trust-Entscheidungen
-- **Global vs. pro (Quelle × Domäne):** CDPR (§7) zeigt: Trust zerfiel domänen-gespalten (Erzählung hielt, Technik/Marketing stürzten). Starkes Argument für domänen-spezifischen Trust; einfacher Start global. **Offen.**
-- **Einführungs-Provenienz:** Mensch-hinzugefügt startet ggf. bei 50 (Akt = schwaches Endorsement), anonym bei 30; eigenes Wissen/Inferenz (self) bleibt verankert (full).
-- **Konstanten** (`λ`, `α₀/β₀`, Bänder, Kalibrierungs-/Surprise-Gewicht) = Wire-Konstanten → Konstanten-Konsistenz-Gate.
+### Open trust decisions
+- **Global vs. per (source × domain):** CDPR (§7) shows: trust decayed domain-split (narrative held, tech/marketing crashed). Strong argument for domain-specific trust; simpler start global. **Open.**
+- **Introduction provenance:** human-added possibly starts at 50 (the act = weak endorsement), anonymous at 30; own knowledge/inference (self) stays anchored (full).
+- **Constants** (`λ`, `α₀/β₀`, bands, calibration/surprise weight) = wire constants → constants-consistency gate.
 
-## §6-neu (Synthese 2026-06-01): Impuls-Ledger-Trust über dem Provenienz-DAG
+## §6-new (synthesis 2026-06-01): Impulse-ledger trust over the provenance DAG
 
-> **Supersediert** die Konto-Mutations-Mechanik aus §6 (bleibt als Denkweg stehen, Doc-Konvention). Auch ersetzt das Tag-Propagations-Netz (#6 aus `08-…`): statt Trust über ein komplexes Tag-Netz oszillieren zu lassen, extrahieren wir die Dynamik gerichtet aus der **vorhandenen, zyklenfreien Provenienz-Struktur** + den Adjudikations-Urteilen. **(S)**-Idee (2026-06-01), **(C)** vier Invarianten-Korrekturen (Float→Integer, Primär-Events-only, Total-Ordnung, unabhängige-Wurzeln-Nenner).
+> **Supersedes** the account-mutation mechanics from §6 (remains as path of thought, doc convention). Also replaces the tag-propagation network (#6 from `08-…`): instead of letting trust oscillate over a complex tag network, we extract the dynamics directedly from the **existing, cycle-free provenance structure** + the adjudication verdicts. **(S)** idea (2026-06-01), **(C)** four invariant corrections (float→integer, primary events only, total order, independent-roots denominator).
 
-**Kern-Axiom:** Trust ist **kein gespeicherter Zustand**, sondern eine deterministische **Projektion (Fold)** über ein append-only **Ledger adjudizierter Impulse**, gerichtet entlang des TMS-DAG. Es gibt kein eingefrorenes `trust`-Feld; der Trust eines Knotens zu `T` = kumulierte Bilanz aller Verschiebungs-Impulse bis `T`.
+**Core axiom:** Trust is **not a stored state** but a deterministic **projection (fold)** over an append-only **ledger of adjudicated impulses**, directed along the TMS DAG. There is no frozen `trust` field; the trust of a node at `T` = cumulative balance of all shift impulses up to `T`.
 
-### Substrat — Event-Store (append-only)
-Gespeichert werden **NUR primäre Adjudikations-Events** auf dem *direkt* beurteilten Item:
+### Substrate — event store (append-only)
+ONLY **primary adjudication events** on the *directly* judged item are stored:
 `E = (target_id, adj_class, delta_promille, occurred_at_norm, event_hash)`
-- `adj_class ∈ {human_endorse, human_reject, oracle_higher_tier, auto_corroborate}` — Anker-Klasse (Oracle-Gating).
-- `delta_promille ∈ [−1000,+1000]` — **Integer-Promille, KEIN Float** (Invariante 3/4, gleiche Disziplin wie K1/K2/Conformance). Teilwahrheit aus der Tripel-Zerlegung: `delta = trunc(1000·(c−w)/N)` bei `c` korroborierten, `w` widerlegten von `N` atomaren Tripeln.
-- Quell-/Eltern-Beiträge werden **nicht** gespeichert — reine Read-Time-Projektion über den DAG (kein Doppel-Zählen, append-only bleibt rein).
+- `adj_class ∈ {human_endorse, human_reject, oracle_higher_tier, auto_corroborate}` — anchor class (oracle gating).
+- `delta_promille ∈ [−1000,+1000]` — **integer per mille, NO float** (invariants 3/4, same discipline as K1/K2/conformance). Partial truth from the triple decomposition: `delta = trunc(1000·(c−w)/N)` with `c` corroborated, `w` refuted of `N` atomic triples.
+- Source/parent contributions are **not** stored — pure read-time projection over the DAG (no double counting, append-only stays pure).
 
-### Projektion — der Fold (rein lesend, deterministisch)
-`trust(node, T)` = Fold über alle Events bis `T` in **deterministischer Total-Ordnung** `(occurred_at_norm, event_hash)` (sonst foldet nicht jeder Knoten identisch → CRDT-Bruch, Invariante 4). Drei gerichtete Beiträge je Event auf K:
-1. **Direkt (K):** Bilanz von K verschiebt sich um `delta`.
-2. **Quelle(K):** `Δ_source = trunc(delta · w_src / 1000)` — Beta-Bilanz der Quelle (§6) als Fold-Beitrag statt Konto-Mutation.
-3. **Eltern(K)** entlang `derived_from`/`episode_triples`, mit zwei Schutzfiltern:
-   - **Distanz-Decay (integer):** `delta_parent = trunc(delta · γ^d)`, `γ` Promille-Koeffizient, `γ^d` als d-fach getrunkte Multiplikation (kein Float-Exponential).
-   - **Attribuierung + Verdünnung:** Eltern-Abzug NUR bei prämissen-attribuiertem Versagen (**Undercut**, nicht Rebut — Pollock); geteilt durch `n` = **Anzahl unabhängiger Wurzeln** (Hash-DAG/MeritRank-Independence, NICHT roher Kind-Count): `Δ_parent = trunc(delta_parent / n)`. So kippt ein einzelnes fehlerhaftes Blatt keine breit gestützte Eltern-Hypothese.
+### Projection — the fold (read-only, deterministic)
+`trust(node, T)` = fold over all events up to `T` in **deterministic total order** `(occurred_at_norm, event_hash)` (otherwise not every node folds identically → CRDT breach, invariant 4). Three directed contributions per event on K:
+1. **Direct (K):** K's balance shifts by `delta`.
+2. **Source(K):** `Δ_source = trunc(delta · w_src / 1000)` — the source's Beta balance (§6) as a fold contribution instead of account mutation.
+3. **Parents(K)** along `derived_from`/`episode_triples`, with two protective filters:
+   - **Distance decay (integer):** `delta_parent = trunc(delta · γ^d)`, `γ` per-mille coefficient, `γ^d` as d-fold truncated multiplication (no float exponential).
+   - **Attribution + dilution:** parent deduction ONLY on premise-attributed failure (**undercut**, not rebut — Pollock); divided by `n` = **number of independent roots** (hash-DAG/MeritRank independence, NOT raw child count): `Δ_parent = trunc(delta_parent / n)`. Thus a single faulty leaf does not tip a broadly supported parent hypothesis.
 
-### Oracle-Gating / „Anzahl zählt nie" (Invariante 6)
-Nur extern-verankerte `adj_class` (`human_*`, `oracle_higher_tier`) erzeugen signifikante Verschiebungen. `auto_corroborate` (z. B. baugleiche Sätze aus 3 Büchern) stabilisiert nur innerhalb eines Plausibilitäts-Bands und erzeugt **keine eigenständigen Impuls-Zyklen**; korrelierte Kinder werden über ihren gemeinsamen Herkunfts-Hash als **ein** Signal gewertet.
+### Oracle gating / "count never counts" (invariant 6)
+Only externally anchored `adj_class` (`human_*`, `oracle_higher_tier`) produce significant shifts. `auto_corroborate` (e.g. identically built sentences from 3 books) only stabilizes within a plausibility band and produces **no independent impulse cycles**; correlated children are counted as **one** signal via their common origin hash.
 
-### Tags = Kaltstart-Prior (statisch, keine Dynamik)
-Neue Quelle ohne Historie: Tag-komponierter Beta-Prior (skeptisch, z. B. `Blog` → niedrig). Sobald eigene adjudizierte Events vorliegen, **dominiert der Fold den Prior vollständig.** Tags oszillieren nicht — sie sind nur der Kaltstart-Hint.
+### Tags = cold-start prior (static, no dynamics)
+New source without history: tag-composed Beta prior (skeptical, e.g. `Blog` → low). As soon as own adjudicated events exist, **the fold completely dominates the prior.** Tags do not oscillate — they are only the cold-start hint.
 
-### Eigenschaften
-- **Safe-by-default:** ohne Events bleibt jeder Knoten am Prior — das System schaukelt nicht, ist nur inert. → *sicher früh baubar*, lernt mit wachsendem Adjudikations-Strom (entschärft das Empirie-Gate #14).
-- **Gating-Invariante:** Fold läuft vollautomatisch, rein lesend, lokal — kein blockierender Schreib-/Sync-Pfad; optionale materialisierte Snapshots als Cache (Ledger bleibt maßgeblich, weil unveränderlich).
-- **Ausnahme institutioneller Floor:** ein berechneter Trust-Sturz senkt NIEMALS autonom einen institutionellen Tier/Floor (Gesetz); ein solcher Wechsel ist **endorsement-pflichtig** — das System schlägt vor, vollzieht nicht (Constraint #4 + Defeater-Typ „institutioneller Akt", §11-b).
+### Properties
+- **Safe-by-default:** without events every node stays at the prior — the system does not swing, it is merely inert. → *safely buildable early*, learns with a growing adjudication stream (defuses the empirics gate #14).
+- **Gating invariant:** the fold runs fully automatically, read-only, locally — no blocking write/sync path; optional materialized snapshots as cache (the ledger remains authoritative because it is immutable).
+- **Exception institutional floor:** a computed trust crash NEVER autonomously lowers an institutional tier/floor (law); such a change is **endorsement-mandatory** — the system proposes, does not execute (constraint #4 + defeater type "institutional act", §11-b).
 
-### AC-Skizzen
-- AC-T.1 Fold deterministisch + total-geordnet → gleiches Event-Set ⇒ identischer Trust auf zwei Knoten (CRDT-Parität).
-- AC-T.2 Integer-Promille durchgängig, kein Float (Konstanten-Konsistenz-Gate-fähig).
-- AC-T.3 Distanz-Decay gedeckelt: ein Blatt-Reject senkt einen breit (n unabhängige Kinder) gestützten Eltern-Knoten höchstens um `trunc(delta·γ^d/n)`.
-- AC-T.4 Undercut-vs-Rebut: ein Kind-Reject, das der Regel (nicht der Prämisse) zuzuschreiben ist, lässt den Eltern-Trust unberührt.
-- AC-T.5 Oracle-Gating: `auto_corroborate` allein hebt keinen Knoten über das Plausibilitäts-Band; korrelierte Herkunft = ein Signal.
-- AC-T.6 Institutioneller Floor: negativer Fold schlägt Tier-Senkung nur VOR; ohne Endorsement kein Vollzug.
-- AC-T.7 Safe-by-default: ohne Events == Prior (kein Drift).
+### AC sketches
+- AC-T.1 Fold deterministic + totally ordered → same event set ⇒ identical trust on two nodes (CRDT parity).
+- AC-T.2 Integer per mille throughout, no float (constants-consistency-gate-capable).
+- AC-T.3 Distance decay capped: a leaf reject lowers a parent node broadly supported (n independent children) by at most `trunc(delta·γ^d/n)`.
+- AC-T.4 Undercut vs. rebut: a child reject attributable to the rule (not the premise) leaves the parent trust untouched.
+- AC-T.5 Oracle gating: `auto_corroborate` alone lifts no node above the plausibility band; correlated origin = one signal.
+- AC-T.6 Institutional floor: a negative fold only PROPOSES a tier reduction; without endorsement no execution.
+- AC-T.7 Safe-by-default: without events == prior (no drift).
 
-## §7 Validierung an Beispielen
+## §7 Validation on examples
 
-### entwickler.de vs. Bild.de (Beta-Verlauf, illustrativ)
-| Ereignis | entwickler ✓/✗ · α/β · Score | Bild ✓/✗ · α/β · Score |
+### entwickler.de vs. Bild.de (Beta trajectory, illustrative)
+| Event | entwickler ✓/✗ · α/β · score | Bild ✓/✗ · α/β · score |
 |---|---|---|
-| Start (Prior 3/7) | — · 3/7 · **30** | — · 3/7 · **30** |
-| früh | +6✓ → 9/7 · 56 ; +5✓ → 14/7 · 67 | 1✓3✗ → 4/10 · 29 |
-| **Streit** | 4✓ → 18/7 · **72** ↑ | 1✓3✗ → 5/13 · **28** ↓ |
-| halb wahr (50%) | (würde *sinken*, da 50%<Ruf) | 2✓2✗ → 7/15 · **32** ↑ (50%>Ruf!) |
-| überconf. Patzer (×2) | 2✓ 2✗→β+4 → 20/11 · **65** ↓ | echter Upset (höher-Tier-Belege) 3✓1✗ → 10/16 · **38** ↑ |
-| Erholung | +7✓ → … → **~79** | zurück zum Muster → **~37** |
+| Start (prior 3/7) | — · 3/7 · **30** | — · 3/7 · **30** |
+| early | +6✓ → 9/7 · 56 ; +5✓ → 14/7 · 67 | 1✓3✗ → 4/10 · 29 |
+| **Dispute** | 4✓ → 18/7 · **72** ↑ | 1✓3✗ → 5/13 · **28** ↓ |
+| half true (50%) | (would *drop*, since 50%<reputation) | 2✓2✗ → 7/15 · **32** ↑ (50%>reputation!) |
+| overconf. blunder (×2) | 2✓ 2✗→β+4 → 20/11 · **65** ↓ | genuine upset (higher-tier evidence) 3✓1✗ → 10/16 · **38** ↑ |
+| Recovery | +7✓ → … → **~79** | back to pattern → **~37** |
 
-Lehren: derselbe Streit bewegt gegenläufig; „halb wahr" hebt die schwache, senkt die starke Quelle (erwartungs-relativ); Überconfidenz kostet doppelt; Bild klettert *nur* mit echten Belegen; der Gipfel ist klebrig; ein paar Treffer waschen keine schlechte Bilanz rein.
+Lessons: the same dispute moves them in opposite directions; "half true" lifts the weak and lowers the strong source (expectation-relative); overconfidence costs double; Bild climbs *only* with genuine evidence; the peak is sticky; a few hits do not launder a bad balance.
 
-### CD Projekt Red (realer Stresstest)
-| Zeit | Ereignis | Score |
+### CD Projekt Red (real stress test)
+| Time | Event | Score |
 |---|---|---|
-| 2007→2015 | Witcher 1→2→3+DLCs, *nachhaltig* | 30 → **~90** |
-| Dez 2020 | **Cyberpunk 2077** — kollektiv widerlegte, überconfident vermarktete Versprechen bei Höchst-Trust | **~40** (Ein-Ereignis-Crash) |
-| 2021→2024 | Patches → 1.5 → **2.0 + Phantom Liberty** (gefeiert), *nachhaltig* | 40 → **~80** (nicht ganz zurück auf 90) |
+| 2007→2015 | Witcher 1→2→3+DLCs, *sustained* | 30 → **~90** |
+| Dec 2020 | **Cyberpunk 2077** — collectively refuted, overconfidently marketed promises at peak trust | **~40** (single-event crash) |
+| 2021→2024 | patches → 1.5 → **2.0 + Phantom Liberty** (celebrated), *sustained* | 40 → **~80** (not fully back to 90) |
 
-**Warum das Modell das reproduziert:** Cyberpunk ist *ein Tripel-Schwall* × Überconfidenz(×2) × Höchst-Trust-Surprise(×2) × Recency-Dominanz → Titan stürzt aus großer Höhe. Ein *unbekanntes* Studio (30) fiele bei gleichem Fehler nur auf ~26. **Recency-Vergessen ist *notwendig* für die Erholung** (rein-kumulativ wäre die Crash-β-Masse fast unverwindbar — die reale 4-Jahres-Erholung *belegt empirisch*, dass Trust-Systeme vergessen). Plateau unter dem alten Gipfel = nicht-ganz-verblasste Narbe.
-**Wo es ächzt (ehrlich):** Trust ist hier *kein Skalar* — „CDPR×Erzählung" hielt, „CDPR×Technik/Marketing" stürzte → **stärkstes reales Argument für domänen-spezifischen Trust.** Plattformabhängige Adjudikation (PC vs. Last-Gen) → kontextuell/bitemporal. Soziale Verstärkung (Shitstorm/Refunds/Sony-Rauswurf) liegt *außerhalb* der epistemischen Ledger — das Modell bildet die *epistemische* Kurve ab, nicht die PR-Dynamik. Pre-Order = *Versprechens*-Trust (Achse-3-Modalität „über Zukunft", erst beim Einlösen adjudizierbar).
+**Why the model reproduces this:** Cyberpunk is *one burst of triples* × overconfidence(×2) × peak-trust surprise(×2) × recency dominance → the titan falls from a great height. An *unknown* studio (30) would fall only to ~26 for the same error. **Recency forgetting is *necessary* for the recovery** (purely cumulative, the crash β mass would be almost insurmountable — the real 4-year recovery *empirically proves* that trust systems forget). Plateau below the old peak = not-quite-faded scar.
+**Where it creaks (honestly):** trust here is *not a scalar* — "CDPR×narrative" held, "CDPR×tech/marketing" crashed → **strongest real argument for domain-specific trust.** Platform-dependent adjudication (PC vs. last gen) → contextual/bitemporal. Social amplification (shitstorm/refunds/Sony delisting) lies *outside* the epistemic ledger — the model maps the *epistemic* curve, not the PR dynamics. Pre-order = *promise* trust (axis-3 modality "about the future", adjudicable only on fulfillment).
 
-## §8 Ehrlichkeits-Grenzen (die Leitplanke gegen Über-Erwartung)
-- **Tarski:** kein internes Wahrheits-Orakel; `is_true`-Feld verboten; `verify()` ist Falsifikations-/Konsistenz-Maschine, kein Wahrheits-Beweiser.
-- Eine konsistente, unwidersprochene Lüge bleibt unentdeckbar; erreichbar: keine Lüge überlebt, der *verfügbare unabhängige Evidenz* widerspricht.
-- Trust *driftet mit adjudizierter Evidenz*, ist **kein Wahrheits-Sensor**; das Rating *akkumuliert die Urteile des Adjudikators*, erzeugt keine Wahrheit.
-- Single-Scalar-Trust strapaziert (CDPR-Domänen-Spaltung) → domänen-spezifisch offen.
+## §8 Honesty limits (the guardrail against over-expectation)
+- **Tarski:** no internal truth oracle; `is_true` field forbidden; `verify()` is a falsification/consistency machine, not a truth prover.
+- A consistent, uncontradicted lie remains undetectable; achievable: no lie survives that *available independent evidence* contradicts.
+- Trust *drifts with adjudicated evidence*, is **not a truth sensor**; the rating *accumulates the adjudicator's verdicts*, does not produce truth.
+- Single-scalar trust strained (CDPR domain split) → domain-specific open.
 
-## §9 Invarianten-Check (Gesamtmodell)
-| Invariante | Status |
+## §9 Invariant check (overall model)
+| Invariant | Status |
 |---|---|
-| (1) Zero-Dep | ✅ (Integer/Beta/Decay in JS) |
+| (1) Zero-dep | ✅ (integer/Beta/decay in JS) |
 | (2) Offline | ✅ |
-| (3) Determinismus | ✅ — Fixed-Point bei Recency-Milli-Counts; Konstanten Wire-fix |
-| (4) CRDT | ✅ — `origin_trust`/Tendenz sind *lokale* Lese-Linsen, nicht im signierten Wire |
-| (5) Lese-Linsen | ✅ — Bilanz/Score/`[N,Π]`/Modus lokal abgeleitet bzw. signiert; signierte Wire-Felder unangetastet |
-| (6) „Anzahl zählt nie" | ✅ — Korroboration = *unabhängige Wurzeln*; Trust-Drift zählt adjudizierte Tripel *einer* Quelle, kein Quellen-Voting |
-| (7) Open-World | ✅ — `unknown` ≠ falsch; Fiktion gescoped; Contestation → `contested`, nie `contradicted` |
-| (8) Nie raten | ✅ — Updates oracle-gated; Modus-Gate hält Fiktion aus Fakten; Lern-Drift = Constraint #4 → Vorschlags-/Endorsement-Modus |
+| (3) Determinism | ✅ — fixed point for recency milli counts; constants wire-fixed |
+| (4) CRDT | ✅ — `origin_trust`/tendency are *local* read lenses, not in the signed wire |
+| (5) Read lenses | ✅ — balance/score/`[N,Π]`/mode derived locally or signed; signed wire fields untouched |
+| (6) "Count never counts" | ✅ — corroboration = *independent roots*; trust drift counts adjudicated triples of *one* source, no source voting |
+| (7) Open-world | ✅ — `unknown` ≠ false; fiction scoped; contestation → `contested`, never `contradicted` |
+| (8) Never guess | ✅ — updates oracle-gated; mode gate keeps fiction out of facts; learning drift = constraint #4 → proposal/endorsement mode |
 
-## §10 Roadmap-Anschluss
-Substrat für **C1** (EigenTrust), **C3** (MeritRank — Sybil, *andere* Achse als Recency), **D1** (Conformal — Schwellen), **E1** (Meta-Kognition/Brier-ECE = Kalibrierungs-Gewicht), **A1** (Defeasible-Argumentation = `supports`/`rebuts`, grounded extension), **6.1** (Trust-Adjustment). **Nächster Schritt (Concept-First):** CDP5-**ADR** „Belief von terminaler Autorität → defeasible Entrenchment" + Slice-Konzept — **🔴-Slice** (Belief-Kern-Re-Fundierung: `resolveBelief`-Präzedenz tier-primär → entrenchment-gewichtet, eternal-Behandlung, mergeIncoming, Verdikt-Modell) → voller CDP5 + Threat-Model des Widerlegungs-Pfads + adversarial-auditor. **Dieses Dokument ist der ADR-Input, nicht der ADR.**
+## §10 Roadmap connection
+Substrate for **C1** (EigenTrust), **C3** (MeritRank — Sybil, a *different* axis than recency), **D1** (conformal — thresholds), **E1** (meta-cognition/Brier-ECE = calibration weight), **A1** (defeasible argumentation = `supports`/`rebuts`, grounded extension), **6.1** (trust adjustment). **Next step (concept-first):** CDP5 **ADR** "belief from terminal authority → defeasible entrenchment" + slice concept — **🔴 slice** (belief-core re-foundation: `resolveBelief` precedence tier-primary → entrenchment-weighted, eternal handling, mergeIncoming, verdict model) → full CDP5 + threat model of the refutation path + adversarial-auditor. **This document is the ADR input, not the ADR.**
 
-## §11 Offene Entscheidungen (für den ADR gesammelt)
-- (a) `temporality='eternal'`: streichen vs. als *max-Entrenchment / langsamster Decay* behalten (nicht „unfalsifizierbar").
-- (b) Defeater-Typen: Evidenz-Defeater vs. institutioneller Akt-Defeater **trennen** (Rat: trennen — sonst „widerlegt" Web-Mehrheit ein geltendes Gesetz) oder kollabieren.
-- (c) Widerlegungs-Schwelle: Integer-Regel, trust-/korroborations-gewichtet (unabhängige Wurzeln).
-- (d) akzeptiertes Restrisiko: konsistente Lüge ohne Widerspruch unentdeckbar — explizit deklarieren.
-- (e) **Domänen-spezifischer Trust** (global Start, später pro Domäne?).
-- (f) Prior-Stärke `k`, Recency-`λ`, Kalibrierungs-/Surprise-Gewicht, Bänder-Schwellen.
-- (g) Einführungs-Provenienz-Prior (Mensch-hinzugefügt 50 vs. anonym 30).
+## §11 Open decisions (collected for the ADR)
+- (a) `temporality='eternal'`: drop vs. keep as *max entrenchment / slowest decay* (not "unfalsifiable").
+- (b) Defeater types: **separate** evidence defeater vs. institutional-act defeater (advice: separate — otherwise a web majority "refutes" a law in force) or collapse.
+- (c) Refutation threshold: integer rule, trust-/corroboration-weighted (independent roots).
+- (d) Accepted residual risk: a consistent lie without contradiction is undetectable — declare explicitly.
+- (e) **Domain-specific trust** (start global, later per domain?).
+- (f) Prior strength `k`, recency `λ`, calibration/surprise weight, band thresholds.
+- (g) Introduction-provenance prior (human-added 50 vs. anonymous 30).
 
-## §12 Dialektik-Notiz (gleichwertige Beiträge)
-- **Stefan-Anregungen (S):** Lüge/Wahrheit/Fiktion-Frage · „TrustLevel ersetzen?" · kategorisches Denken & „These" · 6-Faktoren-Eingang · „nicht gesichert, mit Tendenz" · Trust 0–100 pro Quelle · −5/+3-Disput · ±1-Teilwahrheit · Prior 30/50/80 · Tenure-Multiplikator · CDPR-Stresstest · Axiom „alles erstmal widerlegbar".
-- **Claude-Verfeinerungen (C):** ergänzen-statt-ersetzen · drei Achsen · defeasible Entrenchment (mit Parallel-Instanz) · 0–1000 statt 0–100 · zwei Felder (`tier × origin_trust`) · Beta-Bilanz statt feste Deltas · fraktional+erwartungs-relativ+Tripel-Decomposition · Kalibrierungs-/Surprise-Gewicht · Mean-Reversion statt Tenure · Beweislast/Open-Loop-Trigger · Tarski-Leitplanke · domänen-spezifisch als reales Bedürfnis.
-- Beide als gleichwertige Optionen behandelt; Stefan hält die Verfeinerungen aktuell für die besseren — die Erstvorschläge bleiben hier mit Begründung erhalten.
+## §12 Dialectic note (equal contributions)
+- **Stefan's suggestions (S):** lie/truth/fiction question · "replace TrustLevel?" · categorical thinking & "These" · 6-factor entry · "not secured, with tendency" · trust 0–100 per source · −5/+3 dispute · ±1 partial truth · prior 30/50/80 · tenure multiplier · CDPR stress test · axiom "everything initially refutable".
+- **Claude's refinements (C):** complement-instead-of-replace · three axes · defeasible entrenchment (with parallel instance) · 0–1000 instead of 0–100 · two fields (`tier × origin_trust`) · Beta balance instead of fixed deltas · fractional+expectation-relative+triple decomposition · calibration/surprise weight · mean reversion instead of tenure · burden of proof/open-loop trigger · Tarski guardrail · domain-specific as a real need.
+- Both treated as equal options; Stefan currently considers the refinements the better ones — the first proposals remain here with reasons.

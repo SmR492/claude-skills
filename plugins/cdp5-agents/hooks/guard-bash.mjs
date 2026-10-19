@@ -6,8 +6,10 @@
 // Fails closed: any error or unparseable input exits 2 (the hook runner shows the reason and blocks).
 import { pathToFileURL } from 'node:url';
 import { readFileSync } from 'node:fs';
+import { agentName, PLUGIN_PREFIXES } from '../lib/agent-name.mjs';
+import { activeGrant } from '../lib/grants.mjs';
 
-export const PLUGIN_PREFIXES = ['cdp5-agents:', 'domain-agents:'];
+export { agentName, PLUGIN_PREFIXES };
 export const WRITING_WORKERS = new Set(['impl-debug', 'impl-uc', 'impl-refactor']);
 export const SHELL_TOOLS = new Set(['Bash', 'PowerShell']);
 
@@ -51,12 +53,6 @@ const POWERSHELL_DENY = /\b(out-file|set-content|add-content|remove-item|move-it
 export const INTERPRETER_INLINE = /^(-e|-p|-pe|-pi|-i|-r|-c|-m|--eval|--print|--input-type|--import|-r=.*|-E)$/;
 export const SCRIPT_FILE = /\.(mjs|cjs|js|php|py|rb|pl|sh)$/i;
 export const TOOL_SCRIPT_PATH = /^(\.\/)?([^/]+\/)*(plugins|vendor\/bin|node_modules\/\.bin)\//;
-
-export function agentName(agentType) {
-  const t = String(agentType ?? '');
-  const prefix = PLUGIN_PREFIXES.find((p) => t.startsWith(p));
-  return prefix ? t.slice(prefix.length) : null;
-}
 
 function tokens(segment) {
   // Whitespace split that keeps quoted strings together and strips the surrounding quotes for inspection.
@@ -227,18 +223,21 @@ export function verdict(command, tier, shell = 'bash') {
   return null;
 }
 
-export function decide(input) {
+export function decide(input, env = process.env) {
   const name = agentName(input.agent_type);
   if (!name) return null;
   if (!SHELL_TOOLS.has(input.tool_name)) return null;
   const command = input.tool_input?.command ?? '';
-  const tier = WRITING_WORKERS.has(name) ? 'worker' : 'judgment';
+  const isWorker = WRITING_WORKERS.has(name);
+  const grant = isWorker ? null : activeGrant(name, env);
+  const tier = isWorker || grant ? 'worker' : 'judgment';
   const shell = input.tool_name === 'PowerShell' ? 'powershell' : 'bash';
   const reason = verdict(command, tier, shell);
   if (!reason) return null;
-  const head = tier === 'worker'
-    ? 'Implementation workers deliver a diff; they do not commit, push, fetch or rewrite history (worker contract rule 8).'
-    : 'This agent runs read-only commands only (worker contract rule 8).';
+  let head;
+  if (isWorker) head = 'Implementation workers deliver a diff; they do not commit, push, fetch or rewrite history (worker contract rule 8).';
+  else if (grant) head = `A run grant is active for ${grant.root}: runs and writes inside it, still no commit, push, fetch or history rewrite (worker contract rule 8).`;
+  else head = 'This agent runs read-only commands only; runs need a grant for a disposable environment from the orchestrator (worker contract rule 8).';
   return { hookSpecificOutput: { hookEventName: 'PreToolUse', permissionDecision: 'deny', permissionDecisionReason: `${head} Blocked: ${reason}. Command: ${String(command).slice(0, 120)}` } };
 }
 
@@ -251,7 +250,7 @@ export function main() {
     return 2;
   }
   try {
-    const out = decide(input);
+    const out = decide(input, process.env);
     if (out) process.stdout.write(JSON.stringify(out));
     return 0;
   } catch (e) {

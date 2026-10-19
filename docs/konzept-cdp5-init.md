@@ -1,140 +1,140 @@
-# Konzept — cdp5-init (Hybrid-Skill: CLAUDE.md an den Marketplace anbinden)
+# Konzept — cdp5-init (hybrid skill: connect CLAUDE.md to the marketplace)
 
 **Version:** 1.1
-**Stand:** 2026-05-26
-**Scope:** Ein Skill `cdp5-init`, der die **CLAUDE.md eines Konsumenten** an den `claude-skills`-Marketplace anbindet: ein projektunabhängiger **Marker-Block** (`<!-- cdp5:start -->…<!-- cdp5:end -->`) mit Verweis auf **CDP5**, das **`cdp5-reference`-Gate** („vor jeder Aufgabe Doktrin-Ausschnitt laden"), die **Trigger-Map** (User-Aussage → Skill/Agent) und die Liste der `cdp5-gates`-Skills + `cdp5-agents`. Erneuter Lauf = **Update** (Block wird idempotent ersetzt). **Nicht enthalten:** Schreiben außerhalb des Marker-Blocks, projekt-spezifische Inhalte im Block, Änderung von Skills/Agents selbst, `settings.json`/Hook-Setup (das macht `tooling/install.sh` im jeweiligen Repo).
+**As of:** 2026-05-26
+**Scope:** A skill `cdp5-init` that connects a **consumer's CLAUDE.md** to the `claude-skills` marketplace: a project-independent **marker block** (`<!-- cdp5:start -->…<!-- cdp5:end -->`) with a reference to **CDP5**, the **`cdp5-reference` gate** ("load the doctrine excerpt before every task"), the **trigger map** (user statement → skill/agent) and the list of `cdp5-gates` skills + `cdp5-agents`. A repeated run = **update** (the block is replaced idempotently). **Not included:** writing outside the marker block, project-specific content in the block, changes to the skills/agents themselves, `settings.json`/hook setup (that is done by `tooling/install.sh` in the respective repo).
 
-## Determinismus-Profil (Hybrid, §32.9)
+## Determinism profile (hybrid, §32.9)
 
-| Teil | Art | Nachweis |
+| Part | Kind | Evidence |
 |---|---|---|
-| Merge/Diff-Kern (`cdp5-init.mjs`: Block zwischen Marker einfügen/ersetzen, Diff berechnen) | **deterministisch (T1)** | `node:test` (Idempotenz, Marker-Erhalt) |
-| Bestätigungs-Schleife + KI-Anpassung bei Ablehnung | **interaktiv/probabilistisch** | Diff-Gegenprobe + Nutzer-Bestätigung (s. Probabilistik-Statement) |
+| Merge/diff core (`cdp5-init.mjs`: insert/replace block between markers, compute diff) | **deterministic (T1)** | `node:test` (idempotence, marker preservation) |
+| Confirmation loop + AI adjustment on rejection | **interactive/probabilistic** | diff counter-check + user confirmation (see probabilistic statement) |
 
-## Probabilistik-Statement (§2.6, nur UC-03)
+## Probabilistik-Statement (probabilistic statement) (§2.6, UC-03 only)
 
-| UC | Toleranz-Schwelle | Validierungsstrategie | Fallback | EU-AI-Act-Klasse |
+| UC | Tolerance threshold | Validation strategy | Fallback | EU AI Act class |
 |---|---|---|---|---|
-| UC-01/02/04 (Merge/Diff/Write) | n/a (deterministisch) | Output = Beleg (Diff/Exit-Code) | — | minimal |
-| UC-03 KI-Block-Anpassung | ~85 % (Vorschlag) | **Kontext** = aktuelle CLAUDE.md + Anpassungswunsch; **Ausgabe** = angepasster Block; **Validierung** = erneuter deterministischer Diff + Nutzer-Bestätigung; **Fallback** = Operator editiert manuell; **Cutoff** n/a (kein externer Wissensabruf) | Operator-Handedit | minimal |
+| UC-01/02/04 (merge/diff/write) | n/a (deterministic) | Output = evidence (diff/exit code) | — | minimal |
+| UC-03 AI block adjustment | ~85 % (proposal) | **Kontext** (context) = current CLAUDE.md + change request; **Ausgabe** (output) = adjusted block; **Validierung** (validation) = renewed deterministic diff + user confirmation; **Fallback** = operator edits manually; **Cutoff** n/a (no external knowledge retrieval) | Operator hand edit | minimal |
 
-**Vendor-Risiko:** Merge-Kern reines Node.js (vendor-unabhängig); der KI-Anpassungs-Zweig nutzt Claude Code (Methode auf anderen Agent-Runner übertragbar).
+**Vendor risk:** merge core is pure Node.js (vendor-independent); the AI adjustment branch uses Claude Code (method transferable to another agent runner).
 
-## 1. Rollen
+## 1. Roles
 
-| Rolle | Beschreibung |
+| Role | Description |
 |---|---|
-| `Operator` | Mensch; bestätigt den Diff (ja/nein), formuliert Anpassungswünsche, trägt Verantwortung fürs Schreiben |
-| `Orchestrator` | Haupt-Agent: fährt `cdp5-init.mjs`, zeigt Diff, stellt die ja/nein-Frage, übernimmt bei „nein" die KI-Anpassung |
-| `cdp5-init.mjs` | deterministischer T1-Kern (Diff/Merge/Write), read-only außer mit `--write` |
+| `Operator` | Human; confirms the diff (yes/no), formulates change requests, carries the responsibility for writing |
+| `Orchestrator` | Main agent: runs `cdp5-init.mjs`, shows the diff, asks the yes/no question, takes over the AI adjustment on "no" |
+| `cdp5-init.mjs` | deterministic T1 core (diff/merge/write), read-only except with `--write` |
 
-## 2. Use-Case-Übersicht (§2.2)
+## 2. Use case overview (§2.2)
 
-UC-01 Diff-Vorschau (read-only) · UC-02 Bestätigen + Übernehmen · UC-03 Ablehnen → KI-Anpassung · UC-04 Idempotenz-/Update-Vertrag.
+UC-01 diff preview (read-only) · UC-02 confirm + apply · UC-03 reject → AI adjustment · UC-04 idempotence/update contract.
 
 ## 3. Use Cases
 
-### UC-01: Diff-Vorschau (read-only, Default)
-**Akteur:** `Orchestrator`/`Operator` · **Schritt-Typ:** Deterministisch
+### UC-01: Diff preview (read-only, default)
+**Actor:** `Orchestrator`/`Operator` · **Step type:** Deterministic
 
-**Verhalten**
-1. `cdp5-init.mjs --target=<CLAUDE.md>` (ohne `--write`) liest die Ziel-Datei (existiert sie nicht → leerer Ausgangstext).
-2. Berechnet den Soll-Zustand: Marker-Block vorhanden → ersetzen; nicht vorhanden → am Ende anhängen.
-3. Gibt einen **unified Diff** (Ist → Soll) auf stdout aus, **schreibt nichts**. Exit 0.
+**Behaviour**
+1. `cdp5-init.mjs --target=<CLAUDE.md>` (without `--write`) reads the target file (if it does not exist → empty starting text).
+2. Computes the target state: marker block present → replace; not present → append at the end.
+3. Prints a **unified diff** (current → target) to stdout, **writes nothing**. Exit 0.
 
-**Fehlerfälle**
-| Fall | Verhalten |
+**Error cases**
+| Case | Behaviour |
 |---|---|
-| `--target` fehlt | Exit 2 + Usage |
-| `--target` ist Verzeichnis statt Datei | Exit 2 (`guardPaths`, Input-Robustheits-Vertrag) |
-| Block-Quelle (`cdp5-block.md`) nicht lesbar | Exit 2 + Hinweis |
+| `--target` missing | Exit 2 + usage |
+| `--target` is a directory instead of a file | Exit 2 (`guardPaths`, input robustness contract) |
+| Block source (`cdp5-block.md`) not readable | Exit 2 + hint |
 
-**Akzeptanzkriterien**
-| # | Kriterium | Test-Typ | Status |
+**Acceptance criteria**
+| # | Criterion | Test type | Status |
 |---|---|---|---|
-| AC-1 | Ohne `--write` wird die Ziel-Datei **nicht** verändert (read-only) | Integration | grün |
-| AC-2 | Diff zeigt Anhängen (kein Marker) bzw. Ersetzen (Marker vorhanden) korrekt | Unit | grün |
+| AC-1 | Without `--write` the target file is **not** changed (read-only) | Integration | green |
+| AC-2 | Diff shows append (no marker) or replace (marker present) correctly | Unit | green |
 
-### UC-02: Bestätigen + Übernehmen
-**Akteur:** `Operator` (Bestätigung) · **Schritt-Typ:** Interaktiv → Deterministisch
+### UC-02: Confirm + apply
+**Actor:** `Operator` (confirmation) · **Step type:** Interactive → deterministic
 
-**Verhalten**
-1. Orchestrator zeigt den UC-01-Diff und stellt **eine** ja/nein-Frage.
-2. Bei **ja**: `cdp5-init.mjs --target=<CLAUDE.md> --write` → idempotenter Marker-Merge, Datei geschrieben. Exit 0.
-3. Bestätigung der Übernahme (Pfad + ersetzt/angehängt).
+**Behaviour**
+1. Orchestrator shows the UC-01 diff and asks **one** yes/no question.
+2. On **yes**: `cdp5-init.mjs --target=<CLAUDE.md> --write` → idempotent marker merge, file written. Exit 0.
+3. Confirmation of the application (path + replaced/appended).
 
-**Fehlerfälle**
-| Fall | Verhalten |
+**Error cases**
+| Case | Behaviour |
 |---|---|
-| Ziel-Datei nicht schreibbar | Exit 2 + Meldung, kein Teil-Write |
-| Schreiben bricht ab | Datei unverändert (atomar: erst vollständig zusammenbauen, dann schreiben) |
+| Target file not writable | Exit 2 + message, no partial write |
+| Write aborts | File unchanged (atomic: first assemble completely, then write) |
 
-**Akzeptanzkriterien**
-| # | Kriterium | Test-Typ | Status |
+**Acceptance criteria**
+| # | Criterion | Test type | Status |
 |---|---|---|---|
-| AC-1 | `--write` schreibt den Block nur zwischen den Markern; Inhalt außerhalb bleibt **byte-identisch** | Integration | grün |
-| AC-2 | Schreiben erfolgt nur nach `--write` (also nach Operator-„ja") | Integration | grün |
+| AC-1 | `--write` writes the block only between the markers; content outside stays **byte-identical** | Integration | green |
+| AC-2 | Writing happens only after `--write` (i.e. after the operator's "yes") | Integration | green |
 
-### UC-03: Ablehnen → KI-gestützte Anpassung
-**Akteur:** `Operator` + `Orchestrator` · **Schritt-Typ:** Interaktiv/probabilistisch
+### UC-03: Reject → AI-assisted adjustment
+**Actor:** `Operator` + `Orchestrator` · **Step type:** Interactive/probabilistic
 
-**Verhalten**
-1. Bei **nein** fragt der Orchestrator, **was** angepasst werden soll.
-2. Der Orchestrator passt den Block-Inhalt KI-gestützt an (z. B. nur Trigger-Map, andere Reihenfolge) und übergibt ihn als `--block=<angepasst.md>`.
-3. Erneuter UC-01-Diff (deterministische Gegenprobe) → zurück zu UC-02 (ja/nein). Schleife bis „ja" oder Abbruch.
+**Behaviour**
+1. On **no** the Orchestrator asks **what** is to be adjusted.
+2. The Orchestrator adjusts the block content AI-assisted (e.g. only the trigger map, a different order) and passes it as `--block=<angepasst.md>`.
+3. Renewed UC-01 diff (deterministic counter-check) → back to UC-02 (yes/no). Loop until "yes" or abort.
 
-**Fehlerfälle**
-| Fall | Verhalten |
+**Error cases**
+| Case | Behaviour |
 |---|---|
-| Wiederholte Ablehnung / kein Konsens | Abbruch; Operator editiert die CLAUDE.md manuell (Fallback) |
-| KI-Anpassung verletzt Marker-Format | deterministischer Merge weist es ab (Marker müssen erhalten bleiben) |
+| Repeated rejection / no consensus | Abort; operator edits the CLAUDE.md manually (fallback) |
+| AI adjustment violates the marker format | deterministic merge rejects it (markers must be preserved) |
 
-**Akzeptanzkriterien**
-| # | Kriterium | Test-Typ | Status |
+**Acceptance criteria**
+| # | Criterion | Test type | Status |
 |---|---|---|---|
-| AC-1 | `--block=<datei>` ersetzt den Default-Block-Inhalt im Merge (KI-Ausgabe einspeisbar) | Unit | grün |
-| AC-2 | Nach Anpassung wird erneut ein Diff gezeigt + bestätigt (kein Schreiben ohne erneutes „ja") | Integration | grün |
+| AC-1 | `--block=<datei>` replaces the default block content in the merge (AI output can be fed in) | Unit | green |
+| AC-2 | After an adjustment a diff is shown + confirmed again (no write without a renewed "yes") | Integration | green |
 
-### UC-04: Idempotenz-/Update-Vertrag
-**Akteur:** `cdp5-init.mjs` · **Schritt-Typ:** Deterministisch
+### UC-04: Idempotence/update contract
+**Actor:** `cdp5-init.mjs` · **Step type:** Deterministic
 
-**Verhalten**
-1. Zweiter `--write`-Lauf mit gleichem Block → Datei ist **unverändert** (Block ersetzt sich selbst, kein Duplikat).
-2. Bei Block-Aktualisierung (neue Skills/Agents) → nur der Marker-Block ändert sich, der Rest der CLAUDE.md bleibt unangetastet.
+**Behaviour**
+1. Second `--write` run with the same block → file is **unchanged** (block replaces itself, no duplicate).
+2. On a block update (new skills/agents) → only the marker block changes, the rest of the CLAUDE.md stays untouched.
 
-**Fehlerfälle**
-| Fall | Verhalten |
+**Error cases**
+| Case | Behaviour |
 |---|---|
-| Mehrere Marker-Paare in der Datei | erstes Paar wird ersetzt, weitere gemeldet (Warnung), kein stilles Mehrfach-Schreiben |
-| Nur Start- oder nur End-Marker vorhanden (kaputt) | Exit 2 + Hinweis „Marker-Paar inkonsistent", kein Write |
+| Several marker pairs in the file | first pair is replaced, further ones reported (warning), no silent multiple write |
+| Only start or only end marker present (broken) | Exit 2 + hint "Marker-Paar inkonsistent" (marker pair inconsistent), no write |
 
-**Akzeptanzkriterien**
-| # | Kriterium | Test-Typ | Status |
+**Acceptance criteria**
+| # | Criterion | Test type | Status |
 |---|---|---|---|
-| AC-1 | Zweiter identischer `--write`-Lauf → 0 Byte Diff (idempotent) | Integration | grün |
-| AC-2 | Inkonsistentes Marker-Paar → Exit 2, kein Write | Integration | grün |
+| AC-1 | Second identical `--write` run → 0 byte diff (idempotent) | Integration | green |
+| AC-2 | Inconsistent marker pair → Exit 2, no write | Integration | green |
 
-## 4. Entitäten / Artefakte
+## 4. Entities / artefacts
 
-| Artefakt | Typ | Ort |
+| Artefact | Type | Location |
 |---|---|---|
-| `cdp5-init.mjs` | T1-Kern: `mergeBlock(md, block)`, `computeDiff(a, b)`, CLI `--target/--diff/--write/--block` | `…/skills/cdp5-init/` |
-| `cdp5-init.test.mjs` | Tests (Idempotenz, Marker-Erhalt, read-only-Default, inkonsistente Marker) | `…/skills/cdp5-init/` |
-| `SKILL.md` | interaktive Orchestrierung (Diff → ja/nein → KI-Anpassung-Schleife) | `…/skills/cdp5-init/` |
-| `cdp5-block.md` | **Source-of-Truth** des Marker-Blocks (CDP5-Verweis, cdp5-reference-Gate, Trigger-Map, Skills-/Agents-Liste) | `…/skills/cdp5-init/` |
-| `lib/args.mjs` (`guardPaths`) | wiederverwendet für `--target`/`--block`-Pfad-Guards | `…/lib/` |
+| `cdp5-init.mjs` | T1 core: `mergeBlock(md, block)`, `computeDiff(a, b)`, CLI `--target/--diff/--write/--block` | `…/skills/cdp5-init/` |
+| `cdp5-init.test.mjs` | Tests (idempotence, marker preservation, read-only default, inconsistent markers) | `…/skills/cdp5-init/` |
+| `SKILL.md` | interactive orchestration (diff → yes/no → AI adjustment loop) | `…/skills/cdp5-init/` |
+| `cdp5-block.md` | **Source of truth** of the marker block (CDP5 reference, cdp5-reference gate, trigger map, skills/agents list) | `…/skills/cdp5-init/` |
+| `lib/args.mjs` (`guardPaths`) | reused for `--target`/`--block` path guards | `…/lib/` |
 
-## 5. Glossar
+## 5. Glossary
 
-| Begriff | Definition |
+| Term | Definition |
 |---|---|
-| Marker-Block | Bereich zwischen `<!-- cdp5:start -->` und `<!-- cdp5:end -->`; einzige Stelle, die `cdp5-init` schreibt |
-| idempotenter Merge | erneuter Lauf mit gleichem Block ändert die Datei nicht (Block ersetzt sich selbst) |
-| Hybrid-Skill | deterministischer Kern (T1) + interaktive/probabilistische Orchestrierung (SKILL.md), §32.9 |
-| cdp5-reference-Gate | Direktive im Block: „vor jeder Aufgabe Doktrin-Ausschnitt via `cdp5-reference` laden" (§28.6 JIT) |
+| Marker block | Area between `<!-- cdp5:start -->` and `<!-- cdp5:end -->`; the only place `cdp5-init` writes |
+| idempotent merge | a repeated run with the same block does not change the file (block replaces itself) |
+| Hybrid skill | deterministic core (T1) + interactive/probabilistic orchestration (SKILL.md), §32.9 |
+| cdp5-reference gate | Directive in the block: "vor jeder Aufgabe Doktrin-Ausschnitt via `cdp5-reference` laden" (load the doctrine excerpt via `cdp5-reference` before every task) (§28.6 JIT) |
 
 ## 6. Changelog
 
-**v1.0 (2026-05-26):** Erstkonzept. Schließt die Lücke „Marketplace-Neuinstallation verdrahtet keine CLAUDE.md": ein Hybrid-Skill `cdp5-init` merged einen projektunabhängigen Marker-Block (CDP5-Verweis + cdp5-reference-Gate + Trigger-Map + Skills/Agents) idempotent in die Ziel-CLAUDE.md. Flow: read-only Diff → Operator-Bestätigung (ja/nein) → bei „ja" `--write`, bei „nein" KI-Anpassung + erneuter Diff. Erster schreibender `cdp5-gates`-Skill — daher Schreiben nur zwischen Markern, nur mit `--write`, nur nach Bestätigung. Bezug: CDP5 §32.9 (Hybrid), §1.6/§23 (Mensch-Verantwortung beim Schreiben), Input-Robustheits-Vertrag (`guardPaths`). `konzept-reviewer`-Score = **9,5/10** (konzept-lint-Teil 10/10).
+**v1.0 (2026-05-26):** Initial Konzept (concept document). Closes the gap "a fresh marketplace install does not wire up any CLAUDE.md": a hybrid skill `cdp5-init` merges a project-independent marker block (CDP5 reference + cdp5-reference gate + trigger map + skills/agents) idempotently into the target CLAUDE.md. Flow: read-only diff → operator confirmation (yes/no) → on "yes" `--write`, on "no" AI adjustment + renewed diff. First writing `cdp5-gates` skill — hence writing only between markers, only with `--write`, only after confirmation. Reference: CDP5 §32.9 (hybrid), §1.6/§23 (human responsibility when writing), input robustness contract (`guardPaths`). `konzept-reviewer` score = **9.5/10** (konzept-lint part 10/10).
 
-**v1.1 (2026-05-26, umgesetzt):** Implementiert nach Score-Freigabe (14. cdp5-gates-Skill). `cdp5-init.mjs` (deterministischer Kern: `mergeBlock`/`computeDiff`/`findBlock` + CLI `--target`/`--diff`/`--write`/`--block`) + `cdp5-block.md` (Source-of-Truth-Block) + interaktive `SKILL.md`. Reviewer-Polish Dim 6 eingearbeitet: deterministische **Block-Invariante** (`blockInvariantError` — CDP5-Verweis + cdp5-reference-Gate müssen erhalten bleiben, sonst Reject Exit 2; deckt den KI-Anpassungs-Zweig) + Test, dass der Default-Block das Gate enthält. 11 Tests; Dogfood: Diff→write→idempotent, Bestand erhalten. AC rot→grün. Marketplace/README/§7-Count (13→14) nachgezogen.
+**v1.1 (2026-05-26, implemented):** Implemented after score approval (14th cdp5-gates skill). `cdp5-init.mjs` (deterministic core: `mergeBlock`/`computeDiff`/`findBlock` + CLI `--target`/`--diff`/`--write`/`--block`) + `cdp5-block.md` (source-of-truth block) + interactive `SKILL.md`. Reviewer polish dim 6 incorporated: deterministic **block invariant** (`blockInvariantError` — CDP5 reference + cdp5-reference gate must be preserved, otherwise reject Exit 2; covers the AI adjustment branch) + test that the default block contains the gate. 11 tests; dogfood: diff→write→idempotent, existing content preserved. AC red→green. Marketplace/README/§7 count (13→14) updated.

@@ -1,7 +1,7 @@
 {
   "name": "cdp5-gates",
-  "version": "0.6.0",
-  "description": "Deterministic read-only T1 skills per CDP5 §32.9 (skill determinism gate): decidable, repeated detectors as Node programs instead of LLM agents. Ships the concept maturity policy (gate plus weighted score) that konzept-lint and konzept-reviewer share. Every skill returns a reproducible report; the main agent acts on it.",
+  "version": "0.7.0",
+  "description": "Deterministic read-only T1 skills per CDP5 §32.9 (skill determinism gate): decidable, repeated detectors as Node programs instead of LLM agents. Ships the concept maturity policy (gate plus weighted score) that konzept-lint and konzept-reviewer share, and skill-lint, which checks skills and agents against the Agent Skills specification, the repository conventions and supply-chain signals before a plugin is installed. Every skill returns a reproducible report; the main agent acts on it.",
   "author": {
     "name": "SmR492",
     "url": "https://github.com/SmR492"

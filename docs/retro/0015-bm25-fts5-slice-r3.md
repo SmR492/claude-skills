@@ -1,49 +1,49 @@
-# Retro-ADR 0015 — FTS5+BM25 Volltext-Suche im Episoden-Recall (NSAI-Edge Slice #R3)
+# Retro-ADR 0015 — FTS5+BM25 full-text search in episode recall (NSAI-Edge Slice #R3)
 
-**Status:** abgeschlossen · autonom + self-merged (PR #15) · 2 Adversarial-Audit-Runden
-**Datum:** 2026-05-28
-**Zweck:** Retrospektive eines Slices, in dem die Wahl der Datenbank-Erweiterung **kritisch evaluiert** wurde — Stefan hatte explizit zwei Gemini-Snippets als Diskussionsgrundlage geteilt mit der Aufforderung „bewerte es aber bitte vorher". Genau das ist der Memory-Pattern „externe KI-Entwürfe nur Startmaterial".
+**Status:** completed · autonomous + self-merged (PR #15) · 2 adversarial audit rounds
+**Date:** 2026-05-28
+**Purpose:** Retrospective of a slice in which the choice of the database extension was **critically evaluated** — Stefan had explicitly shared two Gemini snippets as a basis for discussion with the request „bewerte es aber bitte vorher". That is exactly the memory pattern "external AI drafts are only starting material".
 
-## Kontext
-RAG-2026-Pattern: BM25 als Minimum-Viable-Baseline für Retrieval. Stefan teilte zwei SQLite-Code-Snippets (FTS5-MATCH + Recursive-CTE-Graph-Traversal) mit der Bitte, sie zu bewerten BEVOR Übernahme. Resultat: nur einer der zwei Snippets wurde übernommen — und auch der nur mit substanzieller Anpassung.
+## Context
+RAG-2026 pattern: BM25 as the minimum viable baseline for retrieval. Stefan shared two SQLite code snippets (FTS5 MATCH + recursive-CTE graph traversal) with the request to evaluate them BEFORE adoption. Result: only one of the two snippets was adopted — and even that only with substantial adaptation.
 
-## CDP5-geprüfte Architektur-Entscheidungen
-- **FTS5 nur auf `episodes.content`** — echter Volltext (1–8000 Zeichen) profitiert von BM25-Ranking. `knowledge_nodes.name` (atomare Identifier wie `EU-KI-VO`) bleibt LIKE — Whole-Token-Identifier lohnen FTS5 nicht.
-- **Recursive CTE bewusst NICHT übernommen** — würde unsere deterministische BFS-Reihenfolge (#R1), die Status-Konjunktion (#M.1) und die UC-BT-Lese-Linse (#5d) zurücksetzen. Vier Slices Härtung wären verloren.
-- **Vektor-Embeddings bewusst NICHT** — Determinismus-Bruch. 2026er Benches zeigen: BM25 schlägt sogar text-embedding-3-large.
-- **Phrase-Quote-Sanitization** — jeder Token nach Allowlist-Filter in `"token"` eingebettet. Schützt strukturell vor textuellen FTS5-Operatoren (AND/OR/NOT/NEAR).
+## CDP5-checked architecture decisions
+- **FTS5 only on `episodes.content`** — real full text (1–8000 characters) benefits from BM25 ranking. `knowledge_nodes.name` (atomic identifiers like `EU-KI-VO`) stays LIKE — whole-token identifiers do not warrant FTS5.
+- **Recursive CTE deliberately NOT adopted** — it would reset our deterministic BFS order (#R1), the status conjunction (#M.1) and the UC-BT read lens (#5d). Four slices of hardening would be lost.
+- **Vector embeddings deliberately NOT** — determinism break. 2026 benches show: BM25 even beats text-embedding-3-large.
+- **Phrase-quote sanitization** — every token after the allowlist filter is wrapped in `"token"`. Structurally protects against textual FTS5 operators (AND/OR/NOT/NEAR).
 
-## Entscheidungschronik
-- **E1** — Stefan teilt Gemini-Snippets, fordert Bewertung vor Übernahme. Snippet 1 (Recursive CTE) verworfen mit 6 Begründungen (Determinismus, Status, UC-BT, Performance, Wartbarkeit, gerichtet vs. ungerichtet). Snippet 2 (FTS5 MATCH+BM25) übernommen als Pattern, mit Sanitization-Pflicht.
-- **E2** — Empirische Vorabprüfung: FTS5 in `node:sqlite` verfügbar. Bindestrich-Identifier brauchen besondere Behandlung (Phrase-Mode). Trigram-Tokenizer hat 3-Zeichen-Minimum (matched `KI` nicht). Unicode61 mit tokenchars+`-` behält Whole-Tokens — aber Substring-Match auf Whole-Tokens funktioniert nicht. **Konsequenz**: FTS5 nicht für Knoten-Namen, sondern für Episode-Volltext (Sweet-Spot).
-- **E3** — Stefan bestätigt: Mehrwort-Anfragen nicht ausschließen, „normal weitermachen". Slice-Scope umfokussiert.
-- **E4** — Implementation: Schema (FTS5 + 3 Trigger), Sanitization-Helper, `recallEpisodes`-Erweiterung, idempotente Migration. 12 AC-Tests + 2 bestehende Tests angepasst.
-- **E5** — Adversarial-Audit Runde 1: **NEIN.** Zwei kritische Findings:
-  - 🔴-1 **Operator-Injection durch textuelle Operatoren**: Allowlist `\p{L}\p{N}\s` lässt `AND`/`OR`/`NOT`/`NEAR` durch. Empirisch: „Operatoren AND OR" → SQL-CRASH. „Sicherheit NOT wichtig" → maskiert das Matching. Stefans Halluzinations-Constraint direkt verletzt.
-  - 🔴-2 **Migrations-Bug bei Pre-R3-DBs**: `COUNT(*) FROM episodes_fts` reflektiert bei `content='episodes'`-FTS5-Tables die **Quell-Tabelle**, nicht den Index. Jede bestehende DB hätte nach R3-Update einen leeren FTS5-Index, der nie gefüllt würde → systematisch leere Treffer. Genau Stefans „plumpe Halluzination wenn Wissen fehlt"-Szenario.
-- **E6** — Fix Runde 1:
-  - 🔴-1: jeder Token in Phrase-Quotes (`"token"`) — FTS5 nimmt Phrasen wörtlich, keine Operator-Interpretation.
-  - 🔴-2: Migrations-Check auf FTS5-Shadow-Table `episodes_fts_docsize` (echte Index-Größe).
-  - 🟡: KONZEPT-Aussage zu k1/b-Pinning entschärft (FTS5 erlaubt keinen SQL-Override), Doku-Hinweis auf SQLite-Mindestversion.
-  - Regressionstests für beide 🔴 + term=''-Schutz.
-- **E7** — Adversarial-Audit Runde 2: **safe JA.** Phrase-Quoting strukturell wirksam (Quote-Injection via Allowlist ausgeschlossen). Migrations-Pfad mit Shadow-Count korrekt. Prefix-Matching jetzt nicht mehr möglich — als bewusste Scope-Grenze im KONZEPT dokumentiert (ergänzt).
-- **E8** — Self-Merge PR #15.
+## Decision chronicle
+- **E1** — Stefan shares Gemini snippets, demands evaluation before adoption. Snippet 1 (recursive CTE) discarded with 6 reasons (determinism, status, UC-BT, performance, maintainability, directed vs. undirected). Snippet 2 (FTS5 MATCH+BM25) adopted as a pattern, with mandatory sanitization.
+- **E2** — Empirical pre-check: FTS5 available in `node:sqlite`. Hyphenated identifiers need special handling (phrase mode). The trigram tokenizer has a 3-character minimum (does not match `KI`). Unicode61 with tokenchars+`-` keeps whole tokens — but substring match on whole tokens does not work. **Consequence**: FTS5 not for node names, but for episode full text (sweet spot).
+- **E3** — Stefan confirms: do not exclude multi-word queries, „normal weitermachen". Slice scope refocused.
+- **E4** — Implementation: schema (FTS5 + 3 triggers), sanitization helper, `recallEpisodes` extension, idempotent migration. 12 AC tests + 2 existing tests adjusted.
+- **E5** — Adversarial audit round 1: **NO.** Two critical findings:
+  - 🔴-1 **Operator injection via textual operators**: the allowlist `\p{L}\p{N}\s` lets `AND`/`OR`/`NOT`/`NEAR` through. Empirically: "Operatoren AND OR" → SQL CRASH. "Sicherheit NOT wichtig" → masks the matching. Stefan's hallucination constraint directly violated.
+  - 🔴-2 **Migration bug for pre-R3 DBs**: `COUNT(*) FROM episodes_fts` for `content='episodes'` FTS5 tables reflects the **source table**, not the index. Every existing DB would have had an empty FTS5 index after the R3 update that would never be filled → systematically empty hits. Exactly Stefan's „plumpe Halluzination wenn Wissen fehlt" scenario.
+- **E6** — Fix round 1:
+  - 🔴-1: every token in phrase quotes (`"token"`) — FTS5 takes phrases literally, no operator interpretation.
+  - 🔴-2: migration check on the FTS5 shadow table `episodes_fts_docsize` (real index size).
+  - 🟡: KONZEPT (concept document) statement on k1/b pinning softened (FTS5 allows no SQL override), doc note on the SQLite minimum version.
+  - Regression tests for both 🔴 + term='' protection.
+- **E7** — Adversarial audit round 2: **safe YES.** Phrase quoting structurally effective (quote injection excluded via allowlist). Migration path with shadow count correct. Prefix matching now no longer possible — documented in the KONZEPT as a deliberate scope boundary (added).
+- **E8** — Self-merge PR #15.
 
-## Prozess-Lehre (Kern)
-**Externer Code von KIs ist Startmaterial, nicht Lösung.** Stefans expliziter Reflex „bewerte es bitte VORHER" war richtig. Snippet 1 (Recursive CTE) wäre ein Rückschritt gewesen — alle vier vorigen Slice-Härtungen (Determinismus, Status, UC-BT, BFS-Reihenfolge) gingen verloren. Snippet 2 (FTS5 MATCH) war Standard-Boilerplate, aber **ohne Sanitization** eine Operator-Injection-Falle. Nur durch Bewertung gegen die bestehenden Leitplanken (Determinismus-Gate, Open-World, Adversarial-Audit-Lehren) konnte gefiltert werden, was tatsächlich passt. [[feedback-pushback-welcome]] · [[feedback-websearch-in-concept-phase]]
+## Process lesson (core)
+**External code from AIs is starting material, not a solution.** Stefan's explicit reflex „bewerte es bitte VORHER" was right. Snippet 1 (recursive CTE) would have been a step backwards — all four previous slice hardenings (determinism, status, UC-BT, BFS order) would have been lost. Snippet 2 (FTS5 MATCH) was standard boilerplate, but **without sanitization** an operator-injection trap. Only by evaluating against the existing guardrails (determinism gate, open world, adversarial-audit lessons) could what actually fits be filtered out. [[feedback-pushback-welcome]] · [[feedback-websearch-in-concept-phase]]
 
-**FTS5 hat zwei Operator-Klassen, nicht eine.** Symbol-Operatoren (`-`, `+`, `:`, `*`, `^`, `(`, `)`, `"`) sind die offensichtliche Klasse. Textuelle Operatoren (`AND`, `OR`, `NOT`, `NEAR`) sind die heimtückische — sie sind reine Letters und passieren naive Allowlists. Eine zufällig groß geschriebene deutsche Konjunktion am Satzanfang einer User-Anfrage konnte den ganzen Such-Pfad crashen. Adversarial-Audit ist genau dafür da.
+**FTS5 has two operator classes, not one.** Symbol operators (`-`, `+`, `:`, `*`, `^`, `(`, `)`, `"`) are the obvious class. Textual operators (`AND`, `OR`, `NOT`, `NEAR`) are the insidious one — they are pure letters and pass naive allowlists. A randomly capitalized German conjunction at the start of a sentence in a user query could crash the whole search path. Adversarial audit exists exactly for this.
 
-**External-Content-FTS5-Tables haben subtile Count-Semantik.** `SELECT COUNT(*) FROM episodes_fts` liefert *nicht* die Index-Größe sondern die **Quell-Tabellen-Größe**. Wer Migrations-Bedingungen darüber baut, baut auf Sand. Die FTS5-Shadow-Table `episodes_fts_docsize` ist der korrekte Pfad. Stefan-Audit-Lehre: jede neue DB-Konstruktion empirisch verifizieren, nicht aus Doku ableiten.
+**External-content FTS5 tables have subtle count semantics.** `SELECT COUNT(*) FROM episodes_fts` returns *not* the index size but the **source table size**. Whoever builds migration conditions on it builds on sand. The FTS5 shadow table `episodes_fts_docsize` is the correct path. Stefan audit lesson: verify every new DB construct empirically, do not derive it from docs.
 
-## Inhaltliche Lehre
-**FTS5 ist mächtig genau dort wo Volltext ist.** Knoten-Namen sind Identifier — FTS5 würde sie als Whole-Tokens speichern, der Gewinn ist null. Episoden sind Volltext — FTS5+BM25 wirkt semantisch. Klare Scope-Trennung gewonnen.
+## Substantive lesson
+**FTS5 is powerful exactly where there is full text.** Node names are identifiers — FTS5 would store them as whole tokens, the gain is zero. Episodes are full text — FTS5+BM25 works semantically. Clear scope separation gained.
 
-**Phrase-Quote-Sanitization ist die saubere Lösung für User-Input in FTS5.** Statt jeden Operator einzeln zu erkennen und zu entfernen (Cat-and-Mouse), wird jedes Token in Phrase-Quotes verpackt. FTS5 nimmt Phrasen wörtlich — alle Operatoren werden zu Literal-Tokens. Mehrwort-Suche bleibt erhalten via implicit-AND zwischen Phrasen. Defensiver Default, der auch zukünftige FTS5-Operatoren strukturell ausschließt.
+**Phrase-quote sanitization is the clean solution for user input in FTS5.** Instead of recognizing and removing every operator individually (cat and mouse), every token is wrapped in phrase quotes. FTS5 takes phrases literally — all operators become literal tokens. Multi-word search is preserved via implicit AND between phrases. A defensive default that also structurally excludes future FTS5 operators.
 
-**Bewusste Scope-Grenzen im KONZEPT explizit machen.** Prefix-Matching (`KI*`) ist mit Phrase-Quoting strukturell ausgeschlossen. Statt das implizit hinzunehmen, im KONZEPT explizit dokumentiert: „was NICHT angeboten wird". Schließt Konsumenten-Erwartungen ehrlich aus.
+**Make deliberate scope boundaries explicit in the KONZEPT.** Prefix matching (`KI*`) is structurally excluded with phrase quoting. Instead of accepting that implicitly, documented explicitly in the KONZEPT: "what is NOT offered". Honestly rules out consumer expectations.
 
-## Offen
-- **Slice #R3b (deferred):** Alias-Tabelle für Synonym-Knoten (Domain-Wörterbuch). Stemming für Deutsch (Wortstamm-Match „Schulungen" findet „Schulung").
-- **MCP-Schema-Cap für `term`-Länge** (DoS-Härtung) — nicht-blockierend, gleicher Stand wie pre-R3.
-- **Conformance-Vektor für FTS5-BM25** — falls die PHP-Seite je ihre eigene Volltext-Implementierung gegen unsere validieren will, brauchen wir einen kanonischen Test-Vektor.
+## Open
+- **Slice #R3b (deferred):** alias table for synonym nodes (domain dictionary). Stemming for German (word-stem match „Schulungen" finds „Schulung").
+- **MCP schema cap for `term` length** (DoS hardening) — non-blocking, same state as pre-R3.
+- **Conformance vector for FTS5-BM25** — if the PHP side ever wants to validate its own full-text implementation against ours, we need a canonical test vector.

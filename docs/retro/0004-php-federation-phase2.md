@@ -1,26 +1,26 @@
-# Retro-ADR 0004 — PHP-Föderations-Gegenseite (NSAI-Edge Phase 2)
+# Retro-ADR 0004 — PHP federation counterpart (NSAI-Edge phase 2)
 
-**Status:** abgeschlossen (Implementierung + Review) · ai-bundle-Branch `feature/graph-federation-phase2` NICHT gepusht/gemergt
-**Datum:** 2026-05-27
-**Zweck:** Retrospektive der Phase-2-Schleife — PHP-Gegenseite der Föderation (`nsai:graph:ingest`/`export`) im Symfony-Bundle `smr492/neuro-symbolic-ai-bundle`, konzept-first nach CDP5.
+**Status:** completed (implementation + review) · ai-bundle branch `feature/graph-federation-phase2` NOT pushed/merged
+**Date:** 2026-05-27
+**Purpose:** Retrospective of the phase-2 loop — PHP counterpart of the federation (`nsai:graph:ingest`/`export`) in the Symfony bundle `smr492/neuro-symbolic-ai-bundle`, Konzept-first (Konzept = concept document) per CDP5.
 
-## Kontext
-Nach dem Merge von PR #1 (nsai-edge live im Marketplace) die vom Nutzer autorisierte Phase 2: PHP wird co-gleichberechtigter P2P-Peer. Optionen bestätigt: Ingest **mit** Ed25519-Verify, Export **mit** Vector-Clock-Delta. Vorgabe: konzept-first, voller Loop (Konzept→Umsetzung→Review→Retro→Refinement).
+## Context
+After the merge of PR #1 (nsai-edge live in the marketplace), the user-authorized phase 2: PHP becomes a co-equal P2P peer. Options confirmed: ingest **with** Ed25519 verify, export **with** vector-clock delta. Requirement: Konzept-first, full loop (Konzept→implementation→review→retro→refinement).
 
-## Entscheidungschronik
-- **E1 — Interop zuerst de-riskt:** Vor dem Konzept ein Spike (PHP-sodium verifiziert Node-PKCS8-Ed25519 via raw-Key aus SPKI-PEM; triple_hash + signingString byte-identisch). Lehre aus den Adversarial-Runden: riskanten Interop empirisch beweisen, nicht annehmen.
-- **E2 — Konzept v1.1:** lint 10/10, konzept-reviewer 6,5→9,0/10 nach Einarbeitung. threat-modeler fand 7 föderations-spezifische Klassen (T1–T8) → als Paritäts-ACs F1.9–F1.15 verankert.
-- **E3 — Modell-Impedanz:** Schattentabelle `FederationEdge` (Wire 1:1) statt Föderations-Spalten am count-basierten `KnowledgeEdge` — beide Vertrauensmodelle koexistieren; native Projektion via `ingestFact()`.
-- **E4 — Umsetzung TDD-first:** WireCanonical/FederationMerge/WireValidator/PeerRegistry/Ingest+Export-Service/Commands + Doctrine-Migration. 37 Föderations-Tests (Krypto-/Merge-Cross-Conformance gegen Node-Fixtures + Functional), 142/142 Bundle grün.
-- **E5 — Adversarial-Review:** Verdikt safe-mit-Einschränkung, keine Forgery-Lücke. 3 Findings gefixt (Typ-Gate, striktes Datum, U+2028-Konformität).
+## Decision chronicle
+- **E1 — Interop de-risked first:** before the Konzept, a spike (PHP sodium verifies Node PKCS8 Ed25519 via raw key from SPKI PEM; triple_hash + signingString byte-identical). Lesson from the adversarial rounds: prove risky interop empirically, do not assume it.
+- **E2 — Konzept v1.1:** lint 10/10, konzept-reviewer 6.5→9.0/10 after incorporation. threat-modeler found 7 federation-specific classes (T1–T8) → anchored as parity ACs F1.9–F1.15.
+- **E3 — Model impedance:** shadow table `FederationEdge` (wire 1:1) instead of federation columns on the count-based `KnowledgeEdge` — both trust models coexist; native projection via `ingestFact()`.
+- **E4 — Implementation TDD-first:** WireCanonical/FederationMerge/WireValidator/PeerRegistry/ingest+export service/commands + Doctrine migration. 37 federation tests (crypto/merge cross-conformance against Node fixtures + functional), 142/142 bundle green.
+- **E5 — Adversarial review:** verdict safe-with-reservation, no forgery gap. 3 findings fixed (type gate, strict date, U+2028 conformance).
 
-## Prozess-Lehre (Kern) — Finding gegen die REALITÄT verifizieren, nicht gegen die Annahme
-Der adversarial-auditor meldete 🟡-1 „signingString divergiert bei U+2028: Node escaped, PHP nicht". Die Divergenz war **real**, aber die behauptete **Richtung falsch**: ein Hexdump von `JSON.stringify` zeigte, dass Node die rohen UTF-8-Bytes ausgibt (escaped NICHT), während **PHP** selbst escaped. Ein blindes Befolgen des Findings (PHP zusätzlich escapen) hätte die Byte-Identität erst **gebrochen**. Korrekt war `JSON_UNESCAPED_LINE_TERMINATORS` (PHP → roh = Node). → Auch ein qualifizierter, „sicher" klingender Review ist eine Behauptung; vor der Umsetzung gegen die Quelle prüfen ([[feedback-green-tests-bypass-security]], review-verify-Doktrin). Die grünen Tests verdeckten es, weil alle Fixtures ASCII waren — genau die Lücke, vor der „grüne Tests ≠ Sicherheit" warnt.
+## Process lesson (core) — verify the finding against REALITY, not against the assumption
+The adversarial-auditor reported 🟡-1 "signingString diverges at U+2028: Node escapes, PHP does not". The divergence was **real**, but the claimed **direction wrong**: a hexdump of `JSON.stringify` showed that Node outputs the raw UTF-8 bytes (does NOT escape), while **PHP** itself escapes. Blindly following the finding (additionally escaping in PHP) would have **broken** byte identity in the first place. Correct was `JSON_UNESCAPED_LINE_TERMINATORS` (PHP → raw = Node). → Even a qualified, "certain"-sounding review is a claim; check against the source before implementing ([[feedback-green-tests-bypass-security]], review-verify doctrine). The green tests masked it because all fixtures were ASCII — exactly the gap that "green tests ≠ security" warns about.
 
-## Inhaltliche Lehre
-Byte-Identität zweier Engines über Sprachgrenzen ist an wenigen, exakt benannten Stellen fragil: JSON-Escaping (Slashes/Unicode/Line-Terminators), Zahl-vs-String-Typen signierter Felder, Datums-Parser-Permissivität. Jede dieser Stellen gehört als Cross-Conformance-Fixture + Negativtest fixiert, nicht als Prosa-Zusicherung.
+## Substantive lesson
+Byte identity of two engines across language boundaries is fragile at a few, precisely named places: JSON escaping (slashes/Unicode/line terminators), number-vs-string types of signed fields, date-parser permissiveness. Each of these places belongs pinned as a cross-conformance fixture + negative test, not as a prose assurance.
 
-## Offen
-- **Node-Parität-Härtung (§1.2):** F1.9–F1.15 gelten als Paritäts-ACs auch für `engine.mjs` (freier peer_id, VC-Plausibilität, Quarantäne im UPDATE-Zweig, Live-Deckel). Eigener Slice — vom konzept-reviewer einzeln gegen den Code bestätigt. Noch offen.
-- ai-bundle-Branch ist lokal; Push/PR ist Mensch-Gate.
-- Phase 3: HTTP-Transport (Trifecta-Vorbedingung: Egress-Allowlist/Approval).
+## Open
+- **Node parity hardening (§1.2):** F1.9–F1.15 apply as parity ACs also to `engine.mjs` (free peer_id, VC plausibility, quarantine in the UPDATE branch, live cap). Own slice — to be confirmed individually against the code by the konzept-reviewer. Still open.
+- The ai-bundle branch is local; push/PR is a Mensch-Gate (human gate).
+- Phase 3: HTTP transport (Trifecta precondition: egress allowlist/approval).

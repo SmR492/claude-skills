@@ -1,79 +1,79 @@
-# Natur, Kognition & Alternativen — Synthese & Feature-Katalog
+# Nature, Cognition & Alternatives — Synthesis & Feature Catalog
 
-> **Explorations-Batch 2026-05-29** für NSAI-Edge. **Keine CDP5-Bindung** — bewusst breites, web-quellengestütztes Rohmaterial *für* das Konzept, **nicht** Konzept. Vorbild: `docs/Exploration/NotebookLM`. Erzeugt via 6 parallele Recherche-Agenten (interdisziplinär), die das Tool + die bereits evaluierten §I-Kandidaten kannten und *darüber hinaus* arbeiten sollten. Invarianten-Brüche sind **geflaggt, nicht gefiltert**.
+> **Exploration batch 2026-05-29** for NSAI-Edge. **No CDP5 binding** — deliberately broad, web-sourced raw material *for* the Konzept (concept document), **not** the Konzept itself. Model: `docs/Exploration/NotebookLM`. Produced via 6 parallel research agents (interdisciplinary) that knew the tool and the already evaluated §I candidates and were meant to work *beyond* them. Invariant violations are **flagged, not filtered**.
 >
-> Anlass: „explorier neue Features wie ein Mensch / wie andere Tiere / mit alternativen Lösungen" + drei Stefan-Vertiefungen (Lüge/Wahrheit/Fiktion, „TrustLevel ersetzen?", kategorisches Denken & die „These").
+> Trigger: "explore new features like a human / like other animals / with alternative solutions" + three deep dives requested by Stefan (lie/truth/fiction, "replace TrustLevel?", categorical thinking & the "These").
 
-## Die sechs Linsen
-| # | Datei | Linse | Stärkster Beitrag |
+## The six lenses
+| # | File | Lens | Strongest contribution |
 |---|---|---|---|
-| 01 | [Menschliches Gedächtnis](01-Menschliches-Gedaechtnis.md) | Neuro/Kognition | zwei orthogonale Achsen (storage/retrieval), Schlafphase, RIF, Reconsolidation, Metamemory |
-| 02 | [Schwarm- & Tierintelligenz](02-Schwarm-und-Tierintelligenz.md) | kollektive Intelligenz | Bienen-Cross-Inhibition (value-sensitive Belief), Stigmergie-Retrieval, Physarum-Pruning, CRISPR |
-| 03 | [Vertrauen, Immunität, Täuschung](03-Vertrauen-Immunitaet-Taeuschung.md) | Evolution/Immunologie | Danger-Theory-Quarantäne, Treg-Governor (Über-Quarantäne-Bremse), Defektor-Tracking |
-| 04 | [Alternative Denk-Architekturen](04-Alternative-Denk-Architekturen.md) | KR/theoret. Neuro | **VSA/HDC** (einziger Kandidat, der ALLE Invarianten besteht), Predictive Coding, t-Normen |
-| 05 | [Verteilte Koordination & Mensch-Agent-UX](05-Verteilte-Koordination-und-Mensch-Agent-UX.md) | verteilte Systeme + HAI | Hash-DAG (Sybil-immun + formales „Anzahl zählt nie"), **Mensch↔Agent-UX-Lücke** |
-| 06 | [Lüge/Wahrheit/Fiktion & epistemischer Modus](06-Luege-Wahrheit-Fiktion-und-epistemischer-Modus.md) | Erkenntnistheorie/Logik | **Drei orthogonale Achsen** (Provenienz/Wahrheit/Modus), These, Kant, Tarski |
+| 01 | [Human Memory](01-Menschliches-Gedaechtnis.md) | neuro/cognition | two orthogonal axes (storage/retrieval), sleep phase, RIF, reconsolidation, metamemory |
+| 02 | [Swarm & Animal Intelligence](02-Schwarm-und-Tierintelligenz.md) | collective intelligence | bee cross-inhibition (value-sensitive belief), stigmergy retrieval, Physarum pruning, CRISPR |
+| 03 | [Trust, Immunity, Deception](03-Vertrauen-Immunitaet-Taeuschung.md) | evolution/immunology | danger-theory quarantine, Treg governor (over-quarantine brake), defector tracking |
+| 04 | [Alternative Thinking Architectures](04-Alternative-Denk-Architekturen.md) | KR/theoretical neuro | **VSA/HDC** (the only candidate that passes ALL invariants), predictive coding, t-norms |
+| 05 | [Distributed Coordination & Human-Agent UX](05-Verteilte-Koordination-und-Mensch-Agent-UX.md) | distributed systems + HAI | hash DAG (Sybil-immune + formal "count never counts"), **human↔agent UX gap** |
+| 06 | [Lie/Truth/Fiction & Epistemic Mode](06-Luege-Wahrheit-Fiktion-und-epistemischer-Modus.md) | epistemology/logic | **three orthogonal axes** (provenance/truth/mode), These, Kant, Tarski |
 
 ---
 
-## Konvergente Quer-Themen (von mehreren Linsen *unabhängig* getroffen — das stärkste Signal)
+## Convergent cross-cutting themes (hit *independently* by several lenses — the strongest signal)
 
-1. **Zwei orthogonale Gedächtnis-Achsen.** Storage- vs. Retrieval-Stärke (Bjork), ACT-R base-level activation, FSRS-DSR — drei Linsen (01/04/05) landen unabhängig bei: `confidence` (signiert, ~Wahrheits-Anspruch, steigt nur) vs. eine lokale `activation`/Retrievability-Linse (zerfällt). **Bestätigt + fundiert den bereits evaluierten §I-Kandidaten E4** mit drei konvergenten Theorien.
-2. **Drei orthogonale *Wissens*-Achsen.** Provenienz-Autorität (TrustLevel — korrekt) · Wahrheitswert (nie intern entscheidbar, nur approximierbar) · Assertions-Modus (behauptet/vermutet/notwendig/fiktiv). Linse 06, gestützt von 01 (Source-Monitoring, Verbatim/Gist). **Das zentrale neue Ergebnis** — siehe Dok 06.
-3. **„Anzahl zählt nie" bekommt einen *formalen* Unterbau.** Bienen-Cross-Inhibition (max-artig, 02), Hash-DAG-Independent-Roots + Diversity-Prediction-Theorem (05), Image-Scoring-Caveat (03), VSA-Similarity-≠-Konfidenz (04) — vier Wege, die Invariante von einem Vorsatz zu einer *berechenbaren* Eigenschaft zu machen (unabhängige Wurzeln statt Quellen-Count).
-4. **Überraschung / Prediction-Error als Update-Tor.** Reconsolidation-PE-Gating (01) + Predictive-Coding-Präzision (04) konvergieren: Belief ändert sich proportional zu Präzision × Surprise — kleine Abweichung → Reinforce, große → Revision; Anti-Flapping eingebaut.
-5. **Offline-Konsolidierung („Schlafphase").** Sharp-Wave-Replay (01) als Batch-Träger für Episode→Semantik-Promotion, RIF-Aufräumen und Re-Inferenz — entkoppelt teure Operationen vom Online-Pfad (determinismus-freundlich).
-6. **Immun-Architektur in zwei Schichten + Bremse.** Restriction-Modification (angeboren, billig) + CRISPR-Spacer (adaptiv, gelernt) als Eingangs-/Gedächtnis-Abwehr (02/03), Danger-Theory statt self/non-self, Treg-Governor gegen Über-Quarantäne (03).
-7. **Retrieval als adaptives, nutzungsgetriebenes System.** Stigmergie-Pheromon-Layer (02) + Physarum-Topologie-Pruning (02) + ACT-R-Spreading-Activation-Buffer (01/04) — Retrieval-Pfade verstärken sich durch Nutzung, totes Wissen sinkt (ohne Löschen).
-8. **Die Mensch↔Agent-UX-Schicht fehlt ganz.** Transactive Memory, Kuratierungs-Transparenz, kategoriale Konfidenz-Präsentation, proaktives Erinnern (05) + Belief-Kategorien aus kategorialer Wahrnehmung (06). Billig (Lese-/Präsentations-Layer), hoher Vertrauens-Gewinn.
+1. **Two orthogonal memory axes.** Storage vs. retrieval strength (Bjork), ACT-R base-level activation, FSRS-DSR — three lenses (01/04/05) independently arrive at: `confidence` (signed, ~truth claim, only rises) vs. a local `activation`/retrievability lens (decays). **Confirms and grounds the already evaluated §I candidate E4** with three convergent theories.
+2. **Three orthogonal *knowledge* axes.** Provenance authority (TrustLevel — correct) · truth value (never internally decidable, only approximable) · assertion mode (asserted/assumed/necessary/fictional). Lens 06, supported by 01 (source monitoring, verbatim/gist). **The central new result** — see doc 06.
+3. **"Count never counts" gets a *formal* foundation.** Bee cross-inhibition (max-like, 02), hash-DAG independent roots + diversity prediction theorem (05), image-scoring caveat (03), VSA similarity ≠ confidence (04) — four ways to turn the invariant from a resolution into a *computable* property (independent roots instead of source count).
+4. **Surprise / prediction error as the update gate.** Reconsolidation PE gating (01) + predictive-coding precision (04) converge: belief changes in proportion to precision × surprise — small deviation → reinforce, large → revision; anti-flapping built in.
+5. **Offline consolidation ("sleep phase").** Sharp-wave replay (01) as the batch carrier for episode→semantics promotion, RIF cleanup and re-inference — decouples expensive operations from the online path (determinism-friendly).
+6. **Immune architecture in two layers + brake.** Restriction-modification (innate, cheap) + CRISPR spacers (adaptive, learned) as entry/memory defense (02/03), danger theory instead of self/non-self, Treg governor against over-quarantine (03).
+7. **Retrieval as an adaptive, usage-driven system.** Stigmergy pheromone layer (02) + Physarum topology pruning (02) + ACT-R spreading-activation buffer (01/04) — retrieval paths strengthen through use, dead knowledge sinks (without deletion).
+8. **The human↔agent UX layer is missing entirely.** Transactive memory, curation transparency, categorical confidence presentation, proactive reminding (05) + belief categories from categorical perception (06). Cheap (read/presentation layer), high trust gain.
 
 ---
 
-## Feature-Katalog (Naturvorbild/Theorie → NSAI-Edge-Hebel)
+## Feature catalog (natural model/theory → NSAI-Edge lever)
 
-Spalte „Inv." = grobe Invarianten-Verträglichkeit (✅ sicher / ⚠️ mit Auflage / 🔴 bricht eine harte Invariante, nur als Rohmaterial). „Roadmap" = Bezug zu bestehenden §H/§I-Kandidaten.
+Column "Inv." = rough invariant compatibility (✅ safe / ⚠️ with conditions / 🔴 breaks a hard invariant, raw material only). "Roadmap" = relation to existing §H/§I candidates.
 
-| Vorbild | NSAI-Edge-Hebel | Inv. | Roadmap-Bezug |
+| Model | NSAI-Edge lever | Inv. | Roadmap relation |
 |---|---|---|---|
-| ACT-R / Bjork / FSRS | `activation`-Achse neben `confidence` (storage/retrieval) | ✅ | **E4** (zwei Decay-Achsen) — fundiert |
-| Kant-Modalität + Searle/Lewis | `assertion_mode` {problematic/assertoric/apodictic} + `suspended` | ✅ | **neu** |
-| de Kleer ATMS + Lewis | `world`/`context`-Scopes (Fiktion/Hypothese isoliert) | ✅ | **neu** |
-| Tarski + Wahrheitstheorien | Mehrsignal-`verify()` {korrespondenz, kohaerenz, konsens} | ✅ | erweitert UC-V |
-| Frankfurt „On Bullshit" | `truth_orientation`-Flag (llm = truth-indifferent, kein Faktum-Aufstieg ohne Korroboration) | ✅ | erweitert source_type |
-| „These" / Toulmin / Dung | `epistemic_status` + `supports`/`rebuts`-Kanten | ✅ | **A1** (Defeasible) — liefert UC-Bedarf |
-| Aristoteles A/E/I/O | `quantity`/`polarity` (Falsifizierbarkeit, closed-world-Inseln) | ✅ | erweitert UC-V |
-| Rosch / kategoriale Wahrnehmung | Belief-Kategorien als Projektion der Konfidenz (verbürgt/…/zweifelhaft) | ✅ | UX, vgl. B5 |
-| VSA / Hyperdimensional Computing | holographische Tripel-Vektoren (SHA-Seed, integer), Cleanup-Retrieval, Analogie via Unbinding | ✅ | **ersetzt E3-Bedarf**, ergänzt B1 |
-| Sparse Distributed Memory | inhaltsadressierbares, tippfehler-robustes Recall | ✅ | ergänzt B1/Retrieval |
-| Bienen-Cross-Inhibition | value-sensitive Belief-Resolution (Rival-Dämpfung, Pitchfork) | ⚠️ | ersetzt/erweitert UC-12 |
-| Quorum-Hill-Response | sigmoide Quorum-Schwelle (Evidenzstärke, nicht Count) | ⚠️ | erweitert UC-MS |
-| Stigmergie-Pheromon | usage-Layer auf Kanten (Retrieval-Ranking, verdunstet) | ⚠️ | erweitert UC-HR (PPR) |
-| Physarum | Topologie-Pruning → cold-storage-Tiering (kein Delete) | ⚠️ | **neu** (Skalierung) |
-| Reconsolidation / Predictive Coding | PE-/präzisions-gated Belief-Update | ⚠️ | erweitert UC-12/TMS |
-| Sharp-Wave-Replay | Idle-„Schlafphase": Batch-Konsolidierung + Re-Inferenz | ⚠️ | bündelt UC-EP + Inferenz |
-| Retrieval-Induced Forgetting | aktive Suppression überstimmter Konkurrenten (activation) | ⚠️ | erweitert Decay/UC-12 |
-| Matzinger Danger-Theory | Danger-Score statt fremd→Quarantäne | ⚠️ | erweitert UC-05 |
-| Regulatorische T-Zellen | Treg-Governor (Über-Quarantäne-Bremse, Meta-Regelkreis) | ⚠️ | passt zu **E1** Meta-Kognition |
-| CRISPR-Spacer + RM | zweistufige Immunabwehr (angeboren + adaptives Muster-Gedächtnis) | ⚠️🔴 | erweitert UC-05/UC-09 (Zensur-Risiko!) |
-| Vampirfledermaus-Reziprozität | dyadische Reziprozitäts-Bilanz für Trust-Adjustment | ⚠️ | erweitert **6.1** (Trust-Adjust) |
-| Hash-DAG (Kleppmann) + Diversity-Theorem | kausaler Hash-DAG: Sybil-immun + „unabhängige Wurzeln" = formales „Anzahl zählt nie" | ⚠️ | erweitert UC-08/UC-MS, vgl. C3 |
-| Merkle-Search-Tree | O(log n)-Anti-Entropy + 1-Hash-Gesundheits-Fingerprint | ✅ | erweitert UC-06/07, vgl. E2 |
-| Transactive Memory (Wegner) | „Wer-weiß-Was"-Zuständigkeits-Index + Routing | ✅ | **neu** (UX/Föderation) |
-| Forgetting-by-Design | Tombstone-Tripel + Krypto-Shredding + Vergessens-Audit | ⚠️ | **neu** (Privacy/GDPR) |
-| Proaktives Erinnern (Extended Mind) | Konflikt-Frühwarnung beim Kontext-Eintritt | ⚠️ | **neu** (UX) |
-| Klonale Selektion | generative Reconciliation-Hypothesen (Self-Critique) | 🔴 | erweitert UC-SC (stark flaggen) |
-| REM-„Träumen" | Hypothesen-Sandbox aus fernen Kanten | 🔴 | **neu** (nur Sandbox) |
+| ACT-R / Bjork / FSRS | `activation` axis next to `confidence` (storage/retrieval) | ✅ | **E4** (two decay axes) — grounded |
+| Kant modality + Searle/Lewis | `assertion_mode` {problematic/assertoric/apodictic} + `suspended` | ✅ | **new** |
+| de Kleer ATMS + Lewis | `world`/`context` scopes (fiction/hypothesis isolated) | ✅ | **new** |
+| Tarski + theories of truth | multi-signal `verify()` {korrespondenz, kohaerenz, konsens} | ✅ | extends UC-V |
+| Frankfurt "On Bullshit" | `truth_orientation` flag (llm = truth-indifferent, no promotion to fact without corroboration) | ✅ | extends source_type |
+| "These" / Toulmin / Dung | `epistemic_status` + `supports`/`rebuts` edges | ✅ | **A1** (defeasible) — supplies the UC need |
+| Aristotle A/E/I/O | `quantity`/`polarity` (falsifiability, closed-world islands) | ✅ | extends UC-V |
+| Rosch / categorical perception | belief categories as a projection of confidence (vouched/…/doubtful) | ✅ | UX, cf. B5 |
+| VSA / hyperdimensional computing | holographic triple vectors (SHA seed, integer), cleanup retrieval, analogy via unbinding | ✅ | **replaces the E3 need**, complements B1 |
+| Sparse distributed memory | content-addressable, typo-robust recall | ✅ | complements B1/retrieval |
+| Bee cross-inhibition | value-sensitive belief resolution (rival damping, pitchfork) | ⚠️ | replaces/extends UC-12 |
+| Quorum Hill response | sigmoid quorum threshold (evidence strength, not count) | ⚠️ | extends UC-MS |
+| Stigmergy pheromone | usage layer on edges (retrieval ranking, evaporates) | ⚠️ | extends UC-HR (PPR) |
+| Physarum | topology pruning → cold-storage tiering (no delete) | ⚠️ | **new** (scaling) |
+| Reconsolidation / predictive coding | PE-/precision-gated belief update | ⚠️ | extends UC-12/TMS |
+| Sharp-wave replay | idle "sleep phase": batch consolidation + re-inference | ⚠️ | bundles UC-EP + inference |
+| Retrieval-induced forgetting | active suppression of outvoted competitors (activation) | ⚠️ | extends decay/UC-12 |
+| Matzinger danger theory | danger score instead of foreign→quarantine | ⚠️ | extends UC-05 |
+| Regulatory T cells | Treg governor (over-quarantine brake, meta control loop) | ⚠️ | fits **E1** meta-cognition |
+| CRISPR spacers + RM | two-stage immune defense (innate + adaptive pattern memory) | ⚠️🔴 | extends UC-05/UC-09 (censorship risk!) |
+| Vampire-bat reciprocity | dyadic reciprocity balance for trust adjustment | ⚠️ | extends **6.1** (trust adjust) |
+| Hash DAG (Kleppmann) + diversity theorem | causal hash DAG: Sybil-immune + "independent roots" = formal "count never counts" | ⚠️ | extends UC-08/UC-MS, cf. C3 |
+| Merkle search tree | O(log n) anti-entropy + 1-hash health fingerprint | ✅ | extends UC-06/07, cf. E2 |
+| Transactive memory (Wegner) | "who-knows-what" responsibility index + routing | ✅ | **new** (UX/federation) |
+| Forgetting-by-design | tombstone triples + crypto-shredding + forgetting audit | ⚠️ | **new** (privacy/GDPR) |
+| Proactive reminding (extended mind) | conflict early warning on context entry | ⚠️ | **new** (UX) |
+| Clonal selection | generative reconciliation hypotheses (self-critique) | 🔴 | extends UC-SC (flag strongly) |
+| REM "dreaming" | hypothesis sandbox from distant edges | 🔴 | **new** (sandbox only) |
 
 ---
 
-## Priorisierungs-Heuristik (für das spätere Konzept, nicht bindend)
+## Prioritization heuristic (for the later Konzept, not binding)
 
-- **Invarianten-sichere Quick Wins (✅, kaum Konzept-Risiko):** `assertion_mode` + `world`-Scopes (Dok 06, Hebel 1+2) · Belief-Kategorien-Projektion (B5/Rosch) · Mehrsignal-`verify()` · VSA-Retrieval-Schicht (Dok 04 — der „seltene Volltreffer") · Merkle-Search-Tree-Anti-Entropy · Transactive-Memory-Routing. Diese verlängern das tragende Muster ohne Invarianten-Bruch.
-- **Mittel (⚠️, brauchen Slice-Design + ggf. adversarial-auditor):** Cross-Inhibition/Hill-Quorum (Belief-Pfad → 🔴-Auditor) · Danger-Score + Treg-Governor · Stigmergie/Physarum-Retrieval · Schlafphase · Hash-DAG (Architektur-Eingriff).
-- **Bewusst Rohmaterial / hohes Risiko (🔴):** generative Hypothesen (klonale Selektion, „Träumen") — nur in nie-replizierter Sandbox mit Endorsement-Gate · föderiert geteilte CRISPR-Blocklists (Zensur-/Trust-Laundering-Vektor) · jede „uninformed-ballast"-Aufweichung von „Anzahl zählt nie".
+- **Invariant-safe quick wins (✅, hardly any Konzept risk):** `assertion_mode` + `world` scopes (doc 06, levers 1+2) · belief-category projection (B5/Rosch) · multi-signal `verify()` · VSA retrieval layer (doc 04 — the "rare direct hit") · Merkle-search-tree anti-entropy · transactive-memory routing. These extend the load-bearing pattern without breaking an invariant.
+- **Medium (⚠️, need slice design + possibly adversarial-auditor):** cross-inhibition/Hill quorum (belief path → 🔴 auditor) · danger score + Treg governor · stigmergy/Physarum retrieval · sleep phase · hash DAG (architecture intervention).
+- **Deliberately raw material / high risk (🔴):** generative hypotheses (clonal selection, "dreaming") — only in a never-replicated sandbox with endorsement gate · federated shared CRISPR blocklists (censorship/trust-laundering vector) · any "uninformed-ballast" softening of "count never counts".
 
-## Was bewusst Rohmaterial bleibt
-Mehrere Ideen brechen eine harte Invariante (geflaggt mit 🔴/❌ in den Dokumenten): generatives Hypothesen-Raten (vs. „Nie raten"), Stimmen-/Dichte-Akkumulation (vs. „Anzahl zählt nie"), Float-Pfade im föderierten Wire (vs. Determinismus), neue Belief-Repräsentationen im Wire (vs. Parität, vgl. abgelehntes C2 Subjective Logic). Sie stehen hier als **Denkanstöße**, nicht als Empfehlungen — die Stefan-Barriere-Schicht (§I.6) und das Drei-Achsen-Prinzip filtern sie im Konzept.
+## What deliberately stays raw material
+Several ideas break a hard invariant (flagged with 🔴/❌ in the documents): generative hypothesis guessing (vs. "never guess"), vote/density accumulation (vs. "count never counts"), float paths in the federated wire (vs. determinism), new belief representations in the wire (vs. parity, cf. rejected C2 Subjective Logic). They stand here as **food for thought**, not as recommendations — the Stefan barrier layer (§I.6) and the three-axes principle filter them in the Konzept.
 
-## Anschluss ans Konzept
-Dieser Batch ist **Rohmaterial** (wie die NotebookLM-Berichte): zu übernehmen ist nur, was die Stefan-Barriere (§I.6) bestätigt; Abgelehntes mit Begründung verzeichnen (§I.5-Muster, „Pushback erwünscht"). Konkreter nächster Schritt wäre — Concept-First — ein **CDP5-Slice-Konzept (UC + AC-Tabellen)** für die invarianten-sicheren Quick Wins, allen voran das **Drei-Achsen-Modell aus Dok 06** (`assertion_mode` + Welten + Mehrsignal-`verify`), das die meisten Folge-Ideen erst sauber einrahmt.
+## Connection to the Konzept
+This batch is **raw material** (like the NotebookLM reports): only what the Stefan barrier (§I.6) confirms is to be adopted; record what is rejected with reasons (§I.5 pattern, "pushback welcome"). The concrete next step would be — concept-first — a **CDP5 slice concept (UC + AC tables)** for the invariant-safe quick wins, above all the **three-axes model from doc 06** (`assertion_mode` + worlds + multi-signal `verify`), which is what first frames most of the follow-on ideas cleanly.
