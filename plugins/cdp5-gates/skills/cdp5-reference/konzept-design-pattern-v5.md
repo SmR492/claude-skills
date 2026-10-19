@@ -101,7 +101,7 @@ Jede LLM-Antwort ist probabilistisch. LLMs reproduzieren Syntax und stilistische
 Der Entwickelnde trägt die **volle** Verantwortung für den Code — genauso wie früher, als Hilfskräfte zugearbeitet haben (Provenienz: Lischke 2026). Im Konzept explizit festlegen:
 - Wer hat im UC die Entscheidungs-Gewalt? KI ist niemals Entscheider, sondern Vorschlag-Generator.
 - Wer prüft das Endergebnis? Wer haftet?
-- Stakeholder-Kommunikation ist nur zu ~7 % verbal (Mehrabian-Regel, Wolff 2026) — der Rest (Tonfall, Körpersprache) bleibt menschlich. Entscheidungs-Workshops, Domain Storytelling, Event Storming sind LLM-resistent.
+- Stakeholder-Kommunikation trägt einen großen nonverbalen Anteil (Tonfall, Körpersprache), der menschlich bleibt; die oft zitierte 7-%-Zahl (Mehrabian, *Silent Messages*) gilt nur für inkongruente Gefühlsaussagen und wird hier nicht als allgemeine Regel geführt. Entscheidungs-Workshops, Domain Storytelling, Event Storming sind LLM-resistent.
 
 ### 1.7 Konkretheits-Trennung — CDP5 abstrakt, konkrete Cases im Wiki/Trace
 
@@ -235,7 +235,7 @@ Format: nummerierte Liste mit den Pflicht-Feldern pro Eintrag.
 
 ### Modus D — UC → Code-Übergang (Konzept verlässt das Doc)
 
-**Situation:** Ein Konzept nach §1–§23 ist fertig (Score ≥ 8/10, Walk-Through bestanden, AC-Tabellen vollständig). Geht in die Implementation.
+**Situation:** Ein Konzept nach §1–§23 ist fertig (Gate der Reife-Policy bestanden, Score ≥ Projekt-Schwelle, Walk-Through bestanden, AC-Tabellen vollständig). Geht in die Implementation.
 
 **Werkzeug-Kombination:**
 1. CONTEXT.md anlegen oder aktualisieren mit Konzept-Glossar
@@ -272,7 +272,7 @@ Format: nummerierte Liste mit den Pflicht-Feldern pro Eintrag.
 
 | Rolle | Wer | Aufgabe |
 |---|---|---|
-| **Unternehmung / Geschäftsleitung** | Main-Session (Orchestrator) | Auftrag verstehen, CDP5-Modus (§29) wählen, an Stufen-Worker delegieren, überwachen, **verifizieren** (§10.6), Mensch-Gates (§23) halten |
+| **Unternehmung / Geschäftsleitung** | Main-Session (Orchestrator) | Auftrag verstehen, CDP5-Modus (§29) wählen, an Stufen-Worker delegieren, überwachen, **verifizieren** (§32.8 (4)), Ergebnisse **synthetisieren**, Mensch-Gates (§23) halten. Der Orchestrator entscheidet, briefed, verifiziert und synthetisiert; er analysiert, recherchiert und implementiert nicht selbst, dafür holt er Experten-Worker. Aufwandsskalierung gehört zu seiner Rolle: ein Agent mit wenigen Tool-Calls für einen Fakt, zwei bis vier Worker für einen Vergleich, mehr nur bei komplexer Recherche; vor einem Team erst prüfen, ob ein Subagent reicht (Rollentext: Skill `orchestrate` im Plugin cdp5-agents) |
 | **Fachabteilung / Worker** | Subagent pro Stufe-Rolle | Isolierte Facharbeit in **frischem, kleinem Kontext** (Drift-Schutz), mit eingebackener Methodik + gebundenen Tools |
 | **Werkzeug / Verfahren** | Skill | Entweder (A) als Methodik in den Worker eingebacken oder (B) vom Orchestrator gefahren (MCP/Interaktion) |
 
@@ -292,7 +292,7 @@ Format: nummerierte Liste mit den Pflicht-Feldern pro Eintrag.
 |---|---|---|
 | Read-only / mechanisch (Mapping, Wiki-Query, Lint, Git) | **haiku** | billig, kein tiefes Reasoning nötig |
 | Implementation / Scaffolding / Debug / Refactor | **sonnet** | guter Code-Reasoning-/Kosten-Tradeoff |
-| Security · Architektur · Konzept-Review · Verifikation | **opus** (think hard/harder) | Fehler hier sind teuer/irreversibel |
+| Security · Architektur · Konzept-Review · Verifikation · Gegenrollen | **opus** (`effort: high`) | Fehler hier sind teuer/irreversibel |
 
 Der Orchestrator selbst läuft im stärksten verfügbaren Modell (Reasoning-Last liegt in Delegation + Verifikation), die Facharbeit wird ins passende günstigere Modell ausgelagert.
 
@@ -335,7 +335,7 @@ Nach Abschluss der **Review-Stufe** ist ein **Retro-ADR** Pflicht. Lessons liege
 
 **Bedarf — wann ein eigener Worker entsteht (vor dem Anlegen prüfen):**
 1. **Stufen-Rolle als Baseline:** Jede der fünf Stufen (§32.4) hat wiederkehrende Rollen. Eine Rolle verdient einen eigenen Worker, wenn sie eine **abgrenzbare, wiederkehrende** Tätigkeit der Stufe ist (z. B. Review → symfony / code / security / access / verify).
-2. **Wiederholungs-Schwelle:** ab der **3. Wiederholung** derselben manuell ausgeführten Tätigkeit → eigener Worker (gezählt über Retro-ADRs / Log).
+2. **Wiederholungs-Schwelle:** ab der **3. Wiederholung** derselben manuell ausgeführten Tätigkeit → eigener Worker. Gezählt werden **Läufe** im Nutzungslog (`usage-log.jsonl`, geschrieben vom SubagentStop-Hook des Plugins cdp5-agents; manuelle Tätigkeiten trägt der Orchestrator als `manual:<tätigkeit>` ein), nicht Dokumente oder Zitate.
 3. **Sofort-Trigger:** ein einzelner manueller Prozess mit vielen unterschiedlichen Teilaufgaben (multi-step) → **sofort** als Worker evaluieren, nicht erst nach 3×.
 4. **Abgrenzungs-/Merge-Check:** überschneidet die Tätigkeit einen bestehenden Worker, wird dieser **erweitert oder gemergt** statt einen zweiten anzulegen.
 5. **Kosten/Nutzen (Anti-Pattern):** **kein** Worker für eine Ein-Schuss-Aktivität — Wartungs-Burden ohne Wiederverwendung lohnt nicht. Im Zweifel macht der Orchestrator es einmal selbst, oder ein Querschnitt-Skill greift.
@@ -346,19 +346,21 @@ Nach Abschluss der **Review-Stufe** ist ein **Retro-ADR** Pflicht. Lessons liege
 ---
 name: <stufe-rolle>            # z. B. impl-uc, review-security — Bindestrich; Doppelpunkt ist plugin:skill vorbehalten
 description: <Zweck in einem Satz + „Use when …"-Trigger>
-tools: <minimal nötige Tools>  # z. B. Read, Edit, Write, Bash, Grep, Glob
+tools: <minimal nötige Tools>  # z. B. Read, Edit, Write, Bash, Grep, Glob; Write/Edit nur für Implementierungs-Worker
 model: haiku | sonnet | opus   # nach §32.3
+effort: low | medium | high | xhigh | max   # Denk-Tiefe: Gegenrollen/Reviewer high, Implementierungs-Worker medium
 color: <optional>
 ---
 ```
 
 **Body:**
-1. **Erste Zeile = Thinking-Level:** `**Begin with 'think hard' before tool use.**` (`think harder`/`ultrathink` nur bei Security/Architektur/Verifikation; haiku-Worker meist ohne).
+1. **Keine Thinking-Phrasen.** Die Denk-Tiefe setzt das Frontmatter-Feld `effort`, nicht eine Zeile wie „think harder" (aktuelle Modelle übersteuern auf solche Phrasen; Anweisungen, das eigene Reasoning wiederzugeben, lösen Verweigerungen aus). Der Worker-Vertrag (Skill `worker-contract`) wird vom SubagentStart-Hook injiziert; die erste Ausgabezeile des Workers ist die Quittung `contract: v<N> <hash>`.
 2. **Rolle in einem Satz** + Abgrenzung zu Nachbar-Workern.
 3. **Inputs** — was der Orchestrator übergibt.
 4. **Workflow** — nummerierte Schritte = die eingebackene Stufen-Methodik (§32.4 Spalte A).
 5. **Tool-Binding:** deterministische Verfahren inline (z. B. Test-Worker ruft die Suite via Bash). **Keine MCP-Tools** — MCP-/Interaktions-Skills fährt der Orchestrator (§32.4 Spalte B) und reicht das Ergebnis hinein.
-6. **Anti-Patterns** + **Output-Format** — Rückgabe an den Orchestrator; Behauptungen mit Beleg (§10.6).
+6. **Rechte und Pflichten (§5 der Rolle):** mindestens drei Rechte und drei Pflichten über den Worker-Vertrag hinaus; ein Recht, dessen Grundlage ein MUSS in Doktrin oder Playbook ist, hat eine Zwillingspflicht mit Prüfung.
+7. **Output-Format** — Rückgabe an den Orchestrator; Behauptungen mit Beleg (§32.8 (3)/(4)); erste Zeile die Vertrags-Quittung, dann das Ergebnis in einem Satz, dann die Belege.
 
 **Scaffolding-Ablauf (Orchestrator oder `skill-creator`):**
 1. Stufe + Rolle wählen (§32.4); Name `stufe-rolle`.
@@ -402,12 +404,13 @@ Zwei Drift-Richtungen, beide tödlich: **Context-Rot** (Worker-Kontext läuft vo
 - Deterministisch (→ Code/Skill): Tests (phpunit/phpstan), Lints, Modell↔OpenAPI-Diff, Enum-Drift, Link-/Broken-Ref-Scan, Frontmatter-/Tabellen-Konsistenz, Route-Discovery, Massen-Rename, Roadmap↔Code-Inventur, Retro↔Memory-Loop-Check.
 - Judgment (→ LLM-Worker): Reife-Score, Gap-Bewertung, UC→Code-Logik, Code-Qualitäts-Urteil, LLM-as-Judge-Eval.
 
-**(2) Task-Brief = Pointer, nicht Paste (Pflicht):** Der Brief enthält Ziel + engen Task (eine Stufe, eine Rolle), **Pointer auf die Single-Source-Dateien** (CONTEXT.md, Spec-/UC-Pfad, einschlägige ADR-Pfade, Glossar) — der Worker liest das **Original lazy + scoped** —, Scope + AC, explizites Out-of-Scope, und die Stop-Regel (3). Kopierte Kontext-Walls sind verboten: sie erzeugen Overflow (Context-Rot) **und** Paraphrase-Drift (Worker arbeitet an der Zusammenfassung statt am Original).
+**(2) Task-Brief = Pointer, nicht Paste (Pflicht):** Der Brief enthält den Auftrag **wörtlich**, das Output-Format, das exakte Target (Repo + Commit, Container, Dokument-ID + Fassung, URL + Datum), engen Task (eine Stufe, eine Rolle), **Pointer auf die Single-Source-Dateien** (CONTEXT.md, Spec-/UC-Pfad, einschlägige ADR-Pfade, Glossar) — der Worker liest das **Original lazy + scoped** —, Scope + AC, explizites Out-of-Scope, die Werkzeuge und Quellen, die Wegwerf-Umgebung für Probeläufe oder „keine", die benötigten Doktrin-Abschnitte als Auszug oder den Pfad der Doktrin-Kopie, und die Stop-Regel (3). Als **Original** gilt auch eine aus der Wissensschicht **generierte, hash-geprüfte Kopie** (Provenienzzeile je Abschnitt, Diff-und-Hash-Review vor dem Commit, keine Handänderung); bis die Wissensschicht angebunden ist, ist die gebündelte Kopie `konzept-design-pattern-v5.md` der Master und wird nur per PR geändert. Kopierte Kontext-Walls bleiben verboten: sie erzeugen Overflow (Context-Rot) **und** Paraphrase-Drift (Worker arbeitet an der Zusammenfassung statt am Original).
 
 **(3) Worker-Contract — Beleg-Pflicht + Stop-Retro:**
 - Output **immer mit Beleg** (Datei:Zeile / Befehlsausgabe).
 - Fehlt Kontext zum eindeutigen Arbeiten → **STOP, keine Annahme.** Der Worker liefert ein **Stop-Retro-ADR** (Layout §32.6) zurück: **was** er getan hat (Entscheidungschronik bis zum Stop), **warum** er stoppt (die konkrete Lücke + warum nicht eindeutig auflösbar), **was** er braucht (welche Info/Entscheidung schließt sie). So weiß der Main-Agent vollständig, was passiert ist — und geht gezielt mit dem Nutzer in die Konversation (§1.9), statt blind weiterzumachen oder neu herzuleiten.
-- Worker mit Write-Tool schreiben das Stop-Retro nach `docs/retro/`; Nur-Lese-Worker geben es im Output zurück, der Orchestrator persistiert es. Es fließt ins finale Retro-ADR (§32.6) ein.
+- Der Worker gibt das Stop-Retro im Output zurück; der Orchestrator persistiert es nach der **Ablage-Weiche** (§28): eigene Repos → `docs/retro/`; Firmen-Repos → nichts KI-Generiertes ins Repo, sondern das Memory-Verzeichnis außerhalb des Repos (`~/.claude/projects/<projekt>/memory/`) bzw. später die Wissensschicht; Flüchtiges in den Scratch-Bereich. Es fließt ins finale Retro-ADR (§32.6) ein.
+- Weitere Vertragsregeln (Severity-Skala, Urteils-Mapping pass / pass-mit-Auflage / block, begrenzte Versuche, Provenienz je Aussage, Frischkontext der Gegenrollen, Sprache) stehen im Skill `worker-contract` des Plugins cdp5-agents; er ist die eine Quelle und wird je Worker-Start injiziert.
 
 **(4) Verifikations-Gate:** Worker-Behauptungen werden vor jeder Folge-Aktion gegen die Quelle geprüft — deterministisch wo möglich, sonst `review-verify` (§10.6). Under-Context-Behauptungen werden genau hier abgefangen.
 
@@ -447,6 +450,18 @@ Orchestrierung heißt **nicht** automatisch viele parallele Agenten. Drei Stufen
 
 ---
 
+### 32.11 Devil's-Advocate-Gate (Pflicht-Pass vor irreversiblen Wahlen)
+
+**Trigger:** jedes ADR mit Status „vorgeschlagen", jede Einführung eines neuen Subsystems, Moduls oder Modus (§27.1.1), jede Wahl, die irreversibel wird, und der Gesamt-Abschluss eines Auftrags. §11.4 fordert den Pass für „Decide" wörtlich; dieser Paragraph macht ihn zum Gate.
+
+**Ablauf:** Der Orchestrator startet `devils-advocate` in frischem Kontext (kein Anteil an der Wahl) mit dem wörtlichen Auftrag, der gewählten Option, den verworfenen Alternativen und ihren Kosten. Fehlt die verworfene Alternative, wird sie angefordert, nicht erfunden; die Nulloption darf der Pass selbst bilden. Der Pass liefert je Einwand einen Beleg-Ort und ein ex ante prüfbares Entkräftungs-Kriterium, prüft die Existenz-Frage (§27.1.1) und gibt ein dreiwertiges Verdikt: (a) die Begründung trägt, (b) die Alternative ist stärker, (c) die Nulloption schlägt beide.
+
+**Gate-Regel:** Bei (b) oder (c) bleibt die Ausführung blockiert, bis der menschliche Entscheider je Einwand Annahme oder begründete Ablehnung im ADR dokumentiert (§28.2). Ein Pass ohne frischen Kontext oder ohne benannte Alternative ist ungültig und wird wiederholt. Der Pass ist ein Gegenvotum, kein Veto: entscheiden tut der Mensch (§23.3).
+
+**Ausschlüsse:** keine Devil's-Advocate-Pässe in blameless Retros (§32.6) und nicht in menschlich sensiblen oder privaten Playbooks; dort ist die Gegenprobe `psy-grenzwaechter`. Private Entscheidungen zu Gesundheit, Beziehungen, Therapie oder Kindern sind ausgeschlossen; private Verwaltungs-, Finanz- und Rechtsentscheidungen nicht.
+
+**Abgrenzung:** Artefakte prüft `adversarial-auditor` (ex post, empirisch), Prognosen `pessimistic-realist`; die drei bilden die Gegenrollen-Triade (§32.17). Der Pass zählt im Nutzungslog (§32.7 (2)).
+
 ## 10.6 / 10.7 / 19 — Verifikation & Modell↔API-Konsistenz
 
 Die Verifikations-Mechanik gehört zum Arbeitsweg: sie fängt Drift zwischen Soll (Spec/Modell) und Ist (Code) ab.
@@ -469,7 +484,7 @@ Beide sind im `.claude/agents/`- bzw. `.github/agents/`-Verzeichnis als separate
 | Nachweis-Typ | Wo verankert | Beispiel |
 |---|---|---|
 | **Test / AC** | Akzeptanzkriterien-Tabelle (§11.7) | „AC-2: Anonymer Besucher bekommt 401" |
-| **Policy-Score** | gewichtete Policy-Datei (§10.5) | `implementation-clarity.policy.md`, weight 0.7 |
+| **Policy-Score** | Reife-Policy (`cdp5-gates/policy/reife-rubrik.policy.md`, §7) | Dimension `ac`, Gewicht 0,15; Gate-Item G7 |
 | **Checklist-Item** | Pflicht-Checkliste (§7) | „[ ] Probabilistik-Statement im Kopf" |
 | **Trace-Span** | OpenTelemetry-Span (§15.1) | `gen_ai.*`-Attribut pro LLM-Call |
 
@@ -533,9 +548,11 @@ Durable Artefakte sind die Abwehr gegen **Gedächtnisverlust**: sie halten Domai
 
 **Zweck:** Harte / asymmetrische Entscheidungen durabel machen.
 
-**Pflicht-Struktur:** **Kontext** (Situation) · **Entscheidung** (was wurde entschieden) · **Konsequenzen** (Plus / Minus / Tests / Audit-Scope) · **Alternativen erwogen** (was verworfen wurde und warum).
+**Pflicht-Struktur:** **Titel + Datum** · **Entscheider** (Mensch; der Agent bereitet vor, der Mensch entscheidet, §23) · **Quelle** (wörtliches Zitat der Entscheidung, z. B. aus dem Brief oder Chat) · **Status** (vorgeschlagen / entschieden / abgelöst durch …) · **Kontext** (Situation) · **Optionen inkl. Nulloption** · **Entscheidung** (was wurde entschieden) · **Konsequenzen** (Plus / Minus / Tests / Audit-Scope) · **Alternativen erwogen** (was verworfen wurde und warum) · bei Einführung eines neuen Subsystems/Moduls/Modus die **vier Antworten der Existenz-Frage (§27.1.1)** und das Ergebnis des Devil's-Advocate-Passes (§32.11) · **Supersede-Link**, wenn eine frühere Entscheidung abgelöst wird (nie stilles Umschreiben). Je Key-Risk-Indicator: Schwelle, Beobachter, Prüfdatum. Ohne Entscheider und Datum ist ein ADR ein Vorschlag (FEHLER-08/FEHLER-13).
 
-**Pfad:** `docs/adr/ADR-NNN-<slug>.md`, fortlaufend nummeriert.
+**Known-Issue-Zeile** für bewusst akzeptierte Risiken und verworfene Lint-Befunde: `known-issue: <Punkt> | decided by: <Person> | date: <YYYY-MM-DD> | reason: <ein Satz> | source: <Ablage>`.
+
+**Pfad (Ablage-Weiche):** eigene Repos → `docs/adr/ADR-NNN-<slug>.md`, fortlaufend nummeriert; Firmen-Repos → nur KI-freie ADRs im Repo, alles KI-Generierte in das Memory-Verzeichnis außerhalb des Repos bzw. später die Wissensschicht; Privates → beim Nutzer, in keinem Dienst.
 
 ### 28.3 Slice-Issue-Briefs
 
@@ -1078,6 +1095,8 @@ Pflicht am Ende jedes Konzepts (Tabelle: Entity, Tabelle, Beschreibung).
 
 ## 7. Checkliste vor Fertigstellung
 
+> Diese Liste ist das **Gate** (Schicht 1) der Reife-Policy `plugins/cdp5-gates/policy/reife-rubrik.policy.md` (Items G1–G11, je als [det] für `konzept-lint` oder [jdg] für `konzept-reviewer` markiert). Die Policy ist die einzige Rubrik; §9 A.2, §10.3 und §10.5 verweisen auf sie. Ein offenes Gate-Item heißt „nicht reif", unabhängig vom Score.
+
 **Basis-Checkliste:**
 - [ ] Alle UCs haben nummerierte Schritte
 - [ ] Alle Pflicht-Felder belegt
@@ -1135,10 +1154,12 @@ Das Konzept selbst wird durch KI geprüft — **bevor** eine einzige Code-Zeile 
 ### 10.3 Review-Zyklus
 
 ```
-Konzept-Entwurf → KI-Review (Score + Lückenliste)
-  → Entwickler entscheidet: beheben oder „Won't Fix" → Nächster Review-Lauf
-  → Score ≥ 8/10 → implementierungsreif
+Konzept-Entwurf → konzept-lint (Gate det-Items + Teil-Score) → konzept-reviewer (Gate jdg-Items + Score + Lückenliste)
+  → Entwickler entscheidet: beheben oder „Won't Fix" (Known-Issue-Zeile, §28.2) → Nächster Review-Lauf (max. 2 Judgment-Runden, dann Mensch)
+  → Gate bestanden UND Score ≥ Schwelle der Projekt-Policy → implementierungsreif
 ```
+
+Schwelle und Skala stehen in der Projekt-Policy (Plugin-Default 8,0), nicht in der Doktrin; der Reviewer meldet die Schwellen-Erreichung als Feststellung, das Projekt entscheidet.
 
 **Interview-Modus statt statischer Lückenliste (Provenienz: Bartels):** Der Review-Agent arbeitet stärker, wenn er **eine** Lücke findet, **eine** gezielte Rückfrage stellt, die Antwort entgegennimmt und die Korrektur direkt ins strukturierte Dokument einwebt — dann erst die nächste Runde (analog dem initialen Spec-Interview, Anhang A.3).
 
@@ -1162,7 +1183,7 @@ Der Score ist kein absoluter Qualitätswert, sondern eine Diskussionsgrundlage. 
 │       └── integration-clarity.policy.md
 ```
 
-Persona definiert die Review-Rolle (kritischer Architekt, scort UCs gegen die Policies, schlägt keine Implementation vor, nutzt das Glossar). Policies sind gewichtet und definieren Pass/Fail (z. B. „A UC is implementation-ready when: all flow steps numbered, all field types include unit + range, all branches as explicit numbered steps, no ‚etc.'-prose, all exception classes named. Score 1–10 per UC, < 8 = blocked.").
+Persona definiert die Review-Rolle (kritischer Architekt, scort UCs gegen die Policies, schlägt keine Implementation vor, nutzt das Glossar). Policies sind gewichtet und definieren Pass/Fail. Das hier gezeigte Layout ist ein **Beispiel für eine Verzeichnis-Konvention**, keine Rubrik; die geltende Rubrik ist die Reife-Policy des Plugins cdp5-gates (`policy/reife-rubrik.policy.md`, Gate plus gewichtete Dimensionen). In Claude Code liegen Agent-Dateien unter `.claude/agents/` bzw. im Plugin; in Firmen-Repos wird keines von beidem committet (§28).
 
 > Verifikationsagent (§10.6), Verifikations-Konvention (§10.7) und Modell↔API-Check (§19) stehen in **Teil 2** — sie gehören zum Arbeitsweg.
 
@@ -1306,6 +1327,17 @@ Das Konzept ist kein freistehendes Dokument, sondern Teil der Repo-Toolchain. Pf
 
 Pro UC mindestens einmal: laut vorlesen · erklären können (ohne Konzept-Dokument vor Augen) · drei Test-Cases pro UC frei aus dem Kopf nennen · bei Lücken Konzept ergänzen, nicht implementieren.
 
+### 23.3 Mensch-Gate: irreversible und außenwirksame Schritte
+
+Der Satz „destruktive/irreversible Schritte bleiben Mensch-Gate, nie auto" ist die Regel, auf die Rollen mit „§23" eskalieren. Sie gilt für technische wie geschäftliche Schritte:
+
+- technisch: Schema-Drop, force-push, Migration-Cutoff, Branch-Delete, Löschen von Daten oder Umgebungen;
+- Integration: Freigabe eines MCP-Servers oder einer externen Integration (§33.3), insbesondere bei ungebrochener Lethal Trifecta oder ungevettetem Drittanbieter;
+- geschäftlich: Investor-Outreach, Term-Sheet-Zusage, Signatur, Versand nach außen;
+- Entscheidungen: jede Wahl, die den Devil's-Advocate-Pass (§32.11) mit Verdikt (b) oder (c) nicht übersteht, und jede Prognose, die „nicht tragbar" plus irreversible Zusage trifft.
+
+Der Mensch entscheidet mit Entscheider und Datum im ADR (§28.2); ein Agent bereitet vor und hält an. Gesundheits- und Krisenthemen folgen nicht §23, sondern den Eskalationsregeln der Psy-Domäne.
+
 ---
 
 # Teil 5 — LLM-/Agenten-Erweiterungen (nur bei LLM-UCs)
@@ -1393,7 +1425,9 @@ In KI-Systemen kommen Evaluation und Monitoring nicht zuletzt, sondern treiben d
 
 ### 15.1 OpenTelemetry GenAI-Conventions
 
-Pflicht-Attribute pro LLM-Span:
+Pflicht, wenn OTel im Projekt eingesetzt wird. Die GenAI Semantic Conventions sind **versioniert** und Attributnamen wurden zwischen Fassungen umbenannt (z. B. ist `gen_ai.system` in neueren Fassungen abgelöst); das Konzept nennt die verwendete Konventions-Version und übernimmt die Attributnamen aus genau dieser Fassung. Die Liste unten ist ein Beispiel auf dem Stand von v5.0. Deaktiviertes Sampling speichert jeden Prompt; Kosten- und Datenschutzfolgen regelt §15.6.
+
+Pflicht-Attribute pro LLM-Span (Beispiel):
 
 ```json
 {
@@ -1508,7 +1542,7 @@ Initialisierung als Handshake: `initialize` → `notifications/initialized` → 
 
 ### 16.5 OAuth-Empfehlung
 
-Der MCP-Standard empfiehlt OAuth (Provenienz: Heinicke 2026). Im Konzept für jeden MCP-Server: ist OAuth aktiv? Wer hat Zugriff? Wie werden Tokens rotiert?
+Für HTTP-Transporte definiert die MCP-Spezifikation einen **optionalen** OAuth-basierten Autorisierungsablauf (mit Audience-Validierung und ohne Token-Passthrough als MUSS, wenn er genutzt wird); STDIO-Server nutzen ihn nicht und beziehen Credentials aus der Umgebung. Im Konzept für jeden MCP-Server: ist OAuth aktiv? Wer hat Zugriff? Wie werden Tokens rotiert? Admin- oder Lese-Token? Statische Tokens in `headers` prüft `mcp-config-lint`.
 
 ### 16.6 Warnung: zu viele Tools = schlechtere Antworten
 
@@ -1602,7 +1636,7 @@ Im Konzept dokumentieren, wo der Konversations-State lebt: Session-Cookie, DB-Ta
 
 | Komponente | Beispiel | Pflicht-Hinweis |
 |---|---|---|
-| Embedding-Modell | `nomic-embed-text` (4 096 Dimensionen) | — |
+| Embedding-Modell | `nomic-embed-text` (768 Dimensionen; Beispiel, Modell und Dimension sind Projektvariable) | — |
 | Vektor-DB | Milvus / pgvector | — |
 | Chunking | semantisch (nicht zeichenbasiert) | — |
 | Retriever-K | klein halten (2–5) | — |
@@ -1711,7 +1745,7 @@ Der Pattern-Katalog: bewährte Erkenntnisse (§24) und das Anti-Pattern-Prüfras
 | Sachbearbeiter-Perspektive für Queue-Konzepte | Quarantäne NSAI | „Was liegt auf dem Stapel?" |
 | Regulatorische Verweise direkt im UC | DB-Modul (DGUV V78) | Hinweis-Spalte / Fußnote |
 | Schrittnummerierung im Ablauf | Leßner/Bartels 2026 | „Implementiere Schritt X.Y" als Prompt |
-| Konzept-Score als Diskussionsgrundlage | Bartels 2026 | 8/10 ist implementierungsreif |
+| Konzept-Score als Diskussionsgrundlage | Bartels 2026 | ursprünglich „8/10 ist implementierungsreif"; seit v5.1 Gate plus Score nach Projekt-Policy (§7) |
 | Subsysteme klein halten | Leßner/Toth 2026 | Self-Contained UCs |
 | KI prüft Spezifikation gegen Code | Bartels 2026 | Verifikationsagent nach jedem Sprint (§10.6) |
 | Semantische Anker im Glossar | Müller 2026 | 2–4 Stichworte als LLM-Trigger |
@@ -1835,7 +1869,7 @@ Der Pattern-Katalog: bewährte Erkenntnisse (§24) und das Anti-Pattern-Prüfras
 ## Selbst-Anwendung — CDP5 als Review-Prüfraster gegen andere Konzepte
 
 Beim `konzept-review` werden andere Konzepte gegen CDP5 gemessen — insbesondere prüfen:
-- §1–§14: Konzept-Struktur vollständig; Score-Threshold **8/10** (§10.3/§10.4)
+- §1–§14: Konzept-Struktur vollständig; Gate der Reife-Policy bestanden und Score ≥ Projekt-Schwelle (§7, §10.3/§10.4)
 - §1.7 Konkretheits-Trennung: keine konkreten Code/Repo/SHA-Details im Konzept-Doc
 - §1.8 CONTEXT.md/ADR-Pflicht: bei Brownfield-Anteil Pflicht
 - §7 erweiterte Checkliste: bei Implementation-Plan-Anteil zusätzliche Pflicht-Punkte
@@ -1886,9 +1920,12 @@ Identifiziere: 1) UCs mit Interpretationsspielraum (Prosa statt Ablaufstruktur)
 4) Fehlende Fehlerfälle (Grenzwerte/Ausnahmen) 5) Fehlende UCs für Admin/Sachbearbeiter
 6) Status ohne Übergänge 7) Fehlende technische Anhänge
 
-Gib einen Score 1–10 je UC und einen Gesamt-Score.
+Bewerte nach der Reife-Policy des Projekts (Gate-Items und gewichtete Dimensionen),
+nenne die Policy-Datei und melde die Schwellen-Erreichung als Feststellung.
 Stelle bei Unklarheiten Rückfragen, statt Annahmen zu treffen.
 ```
+
+> Der Satz „implementierungsreif, wenn ein KI-Agent daraus ohne Rückfragen korrekten, wartbaren Code generieren kann" ist der Zweck-Satz der Reife-Policy; der Prompt vergibt keinen eigenen Score mehr (eine Rubrik, §7).
 
 ### A.3 Interview-Prompt (lückenfüllend, iterativ)
 
@@ -2078,6 +2115,7 @@ Künftige Cases mit demselben Pflicht-Schema: Pseudonym · Stack + Charakter · 
 
 | Datum | Version | Änderung | Grund |
 |---|---|---|---|
+| 2026-10 | **v5.1** | Repo-Kopie als Interims-Master (Wissensschicht Orbit nachgelagert; §32.8 (2): generierte, hash-geprüfte Kopie gilt als Original). §32.1 Orchestrator entscheidet/briefed/verifiziert/synthetisiert, keine Facharbeit, Aufwandsskalierung. §32.7: `effort`-Frontmatter statt Thinking-Phrasen, Worker-Vertrag + Quittung, Nutzungslog als Zählregel, Rechte/Pflichten je Rolle. §32.8 (2) Brief-Pflichtfelder, (3) Ablage-Weiche und Verweis auf den Worker-Vertrag. **§32.11 Devil's-Advocate-Gate neu.** §28.2 ADR-Pflichtfelder (Entscheider, Datum, Quelle, Status, Nulloption, Supersede, Known-Issue-Zeile) und Ablage-Weiche. **§23.3 Mensch-Gate-Liste** (technisch, Integration, geschäftlich, Entscheidungen). Eine Reife-Rubrik: §7 ist das Gate der Policy `cdp5-gates/policy/reife-rubrik.policy.md`; §9 A.2, §10.3, §10.5, §10.7, §29 D, §B und die Provenienz-Tabelle verweisen darauf, keine Zahl mehr in der Doktrin (Plugin-Default 8,0). Korrekturen: §1.6 Mehrabian-Zahl gestrichen, §16.5 MCP-Autorisierung optional (HTTP) mit Audience/Passthrough, §20.3 nomic-embed-text 768 Dimensionen. Rollen: 35 geprüft, siehe `docs/cdp5-review/DECISIONS.md`; Rollen- und Playbook-Quelle ist das Repo (Plugins cdp5-agents, domain-agents), Orbit wird daraus generiert. | Review aller Rollen, Playbooks und Paragraphen 2026-10-12/13 und Entscheidungen 2026-10-19; Orbit-Server-Stilllegung (nsai-edge entfernt, Orbit-MCP als spätere Wissensschicht) |
 | 2026-05 | **v5.0** | **Restrukturierung** für kontextarmes Einlesen: Teil 0 (Mission + Arbeitsschleife) neu; Anti-Drift-/Gedächtnis-Mechanik (§29/§32/§28/§27/§10.6/§19) als **Teil 2** nach vorn; LLM-Spezifika (§13/§15/§16/§18/§20–§22) in überspringbaren **Teil 4** gebündelt; Prompt-Pattern (§9)/Golden-Samples (§31)/Cases (§30) in **Anhang**. Autoren-Zitate → Inline-Regeln (Portabilität). Stubs §8/§12 gestrichen; §11.3+§11.6 gemergt; Probabilistik (§1.5/§2.6/§18) querverlinkt. §-Anker unverändert (alle `(§X.Y)`-Verweise gelten). Neu: §32.6 Memory-Loop-Verifikation; §24 +Konzept-Splitting/Plan-Treue/Findings-als-Issues + die Arbeitsweg-Patterns als Katalog-Einträge; **§33 Sicherheit (neuer Teil 3): Lethal-Trifecta-Gate, Agent-Runtime-Härtung, MCP-Tool-/Server-Sicherheit, Threat-Modeling-light, Security-Gates, LLM-Bedrohungsklassen, Doppel-Review/Lizenz; §25 +3 Anti-Patterns, §7-Security-Checkblock; Folge-Teile Authoring/LLM/Erkenntnisse → Teil 4/5/6. **Gap-Review-Ergänzungen (Branche + 4 Hefte + Anthropic-Docs):** §16.8 MCP-Tool-Design · §32.10 Fan-out-Ökonomie · §28.6 Kontext-Hygiene/CLAUDE.md-Pruning · §19.4 AsyncAPI↔Context-Map · §22.5 Real-User-Rollouts · §2.6 EU-AI-Act-Hochrisiko-Pflichten+CRA/NIS2 · §27.6/§20.3/§15.4-Erweiterungen** | Mission geschärft: CDP5 richtet Wissensdoktrin + Patterns ein und gibt der KI einen drift-/gedächtnisverlust-freien Arbeitsweg. Aus Review/Retro + Pattern-Konsolidierung über Brain/Memory/Wiki |
 | 2026-05 | v4.7 | §32.9 Skill-Determinismus-Gate; §32.8 (6)/(7); §1.9 Worker-Selbst-Flag; §11.4 Review-Korollar; §25 +3 Anti-Patterns | Review/Retro der eq-library-v3-Anwendung |
 | 2026-05 | v4.6 | §32.8 Drift-Vermeidung (Determinismus-Gate, Pointer-Brief, Stop-Retro, Verifikations-Gate) | Isolation allein verlagert Drift nur |
@@ -2086,6 +2124,21 @@ Künftige Cases mit demselben Pflicht-Schema: Pseudonym · Stack + Charakter · 
 | 2026-05 | v4.0–4.2 | §27 Implementation-Werkzeugkasten; §28 durable Artefakte; §29 Modi A–E; §30/§31; Self-Containment | Pocock-Toolkit + Brownfield-Lehren; aus einer Datei erfüllbar |
 | 2026-05 | v3.0/3.1 | „Coden mit KI"-Auswertung (14 Sektionen); TDD-First §11.7 | Wissensbasis Konzept-Schreiben |
 
+### Anker-Umzüge (Redirect-Tabelle)
+
+Die v5.0-Aussage „§-Anker unverändert" gilt nicht für die folgenden Anker; Zitate darauf sind zu prüfen und umzuhängen:
+
+| Alter Anker | Status | Nachfolger |
+|---|---|---|
+| §8 | Stub gestrichen (v5.0) | kein Nachfolger; Zitate entfernen |
+| §12 | Stub gestrichen (v5.0) | kein Nachfolger; Zitate entfernen |
+| §11.6 | in §11.3 gemergt (v5.0) | §11.3 |
+| §10.0 | nie als eigener Abschnitt vorhanden | §10.1 |
+| §32.18 | nicht vorhanden | §32.17 (Rollen-Graph) prüfen |
+| „Beleg-Kette (§10.6)" in Rollen- und Playbook-Texten | Zitat-Drift: §10.6 ist der Verifikationsagent neben dem Review-Agent | Beleg-Pflicht ist §32.8 (3)/(4) |
+| „Worker-Regel §32.7" für das Skills-/Agents-Verbot | Zitat-Drift: §32.7 (5) verbietet nur MCP | §32.2 (6) |
+| „Audit (§27.4)" | Zitat-Drift: §27.4 ist die Vertical-TDD-Schleife | §11.4 / §32.11 |
+
 ---
 
-> **Ende CDP5 (v5.0).** Vorgänger CDP4 (v4.7, `konzept-design-pattern-v4.md`) bleibt frozen als Fallback-Referenz.
+> **Ende CDP5 (v5.1).** Vorgänger CDP4 (v4.7, `konzept-design-pattern-v4.md`) bleibt frozen als Fallback-Referenz.
