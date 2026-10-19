@@ -194,6 +194,10 @@ Pack roles (user direction 2026-10-19): the knowledge an agent or skill rests on
 
 ## D. Repository changes (claude-skills; each needs your go and a commit request)
 
+**Rule for every D item (user, 2026-10-19): before it is built, the current best practice for the latest Claude models is researched on the web and checked against the design; sources and resulting changes are recorded in the item.**
+
+**D-9 best-practice check (2026-10-19).** Sources: Anthropic "Prompting best practices" (current models incl. Fable 5.1/Mythos 5.1, Opus 5.5), "Prompting Claude Fable 5", "Prompting Claude Fable 5.1", Claude Code "Best practices", "Hooks reference", "Security". Findings applied: (1) plain wording, no emphatic markers (Opus 4.5/4.6 "more responsive to the system prompt … dial back any aggressive language"; Fable 5 "steer most behaviors with a brief instruction"); (2) rule 2 carries Anthropic's grounding sentence for long runs ("Report outcomes faithfully: if tests fail, say so with the output; if a step was skipped, say that"), which "nearly eliminated fabricated status reports"; (3) rule 6 adopts "Keep changes and tests to what the task asks for" (extras are follow-up notes, not changes); (4) rule 9 matches "separate, fresh-context verifier subagents tend to outperform self-critique"; (5) rule 10 adds "lead with the outcome" and avoids any instruction to reproduce reasoning (Fable 5 `reasoning_extraction` refusal); (6) thinking depth via `effort` frontmatter, no "think harder" phrases (E8); (7) hooks remain the enforcement layer ("Unlike CLAUDE.md instructions which are advisory, hooks are deterministic"), `additionalContext` worded as facts. Trade-off noted: the acknowledgement line precedes the outcome sentence; it is a machine check and costs one line. Built and tested: 13/13 tests incl. mutation cases (missing core.md, tampered core.md, stale SKILL.md, missing or wrong acknowledgement, block-once guard).
+
 | # | Change | Sources |
 |---|---|---|
 | D-1 | mcp-config-lint: `@latest`/dist-tags unpinned, unpinned third-party → 🔴 / exit 1, secrets in `headers`, scan tools/list descriptions | role 14, par-33.3 |

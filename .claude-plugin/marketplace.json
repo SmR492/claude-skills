@@ -18,8 +18,8 @@
     {
       "name": "cdp5-agents",
       "source": "./plugins/cdp5-agents",
-      "description": "Projektunabhängige CDP5-Methodik-Agents (Judgment, read-only): konzept-reviewer, review-verify, adversarial-auditor, threat-modeler, mcp-security-reviewer.",
-      "version": "0.1.1"
+      "description": "Project-independent CDP5 judgment agents (read-only): konzept-reviewer, review-verify, adversarial-auditor, threat-modeler, mcp-security-reviewer; shared worker contract via SubagentStart/SubagentStop hooks with usage log.",
+      "version": "0.2.0"
     },
     {
       "name": "orbit-workflow",
