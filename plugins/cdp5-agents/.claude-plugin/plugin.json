@@ -1,7 +1,7 @@
 {
   "name": "cdp5-agents",
-  "version": "0.2.0",
-  "description": "Project-independent CDP5 judgment agents (read-only): concept review, spec-to-code verification, adversarial audit, threat modeling, MCP security review. Ships the shared worker contract, injected by a SubagentStart hook and acknowledged under a SubagentStop hook that also writes the usage log.",
+  "version": "0.3.0",
+  "description": "CDP5 agents for the engineering loop: judgment and counter-roles (konzept-reviewer, review-verify, adversarial-auditor, threat-modeler, mcp-security-reviewer, devils-advocate, pessimistic-realist, review-code, pm-retro), implementation workers (impl-debug, impl-uc, impl-refactor) and the orchestrate skill for the main session. Ships the shared worker contract (SubagentStart injection, SubagentStop acknowledgement and usage log) and a PreToolUse guard that keeps judgment agents read-only and workers off commit and push.",
   "author": { "name": "SmR492", "url": "https://github.com/SmR492" },
   "keywords": ["cdp5", "code-review", "verification", "threat-modeling", "mcp", "security"]
 }

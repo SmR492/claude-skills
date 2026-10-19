@@ -1,0 +1,16 @@
+{
+  "name": "domain-agents",
+  "version": "0.1.0",
+  "description": "Domain agents and session skills built from the former CDP5 knowledge-pack roles: marketing-strategist, psy-domaenen-rechercheur and psy-grenzwaechter as agents; business-lingo, psy-knowledge, psy-diagnostik-navigator, psy-therapiebegleiter, psy-paar-moderator and ux-knowledge as skills with their knowledge packs shipped as supporting files. Requires the cdp5-agents plugin for the worker contract hooks.",
+  "author": {
+    "name": "SmR492",
+    "url": "https://github.com/SmR492"
+  },
+  "keywords": [
+    "cdp5",
+    "marketing",
+    "business-lingo",
+    "ux",
+    "knowledge-packs"
+  ]
+}

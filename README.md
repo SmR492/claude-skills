@@ -1,56 +1,66 @@
 # claude-skills
 
-Ein **Claude-Code-Plugin-Marketplace** mit projektunabhängigen, deterministischen Werkzeugen nach **CDP5 §32.9** (Skill-Determinismus-Gate): entscheidbare, wiederholte Tätigkeiten laufen als **programmierte T1-Skills** (Node.js, host-seitig) statt über ein LLM — gleicher Input → gleiches Ergebnis, der Output *ist* der Beleg.
+A Claude Code plugin marketplace for the CDP5 way of working: deterministic T1 skills where a task is decidable, judgment agents with a shared worker contract where it is not, and knowledge packs shipped as supporting files. Everything is project-independent and read-only unless a role says otherwise.
 
-## Installation (für Kolleg:innen)
+## Installation
 
 ```
 /plugin marketplace add SmR492/claude-skills
 /plugin install cdp5-gates@claude-skills
 /plugin install cdp5-agents@claude-skills
+/plugin install domain-agents@claude-skills
 ```
 
-## Plugin `cdp5-gates` — read-only deterministische Skills (T1)
+`domain-agents` requires `cdp5-agents` (worker-contract hooks).
 
-| Skill | Was | Aufruf-Kern |
+## Plugins
+
+### cdp5-gates: deterministic T1 skills
+
+Node programs, `node:` builtins only, same input same output; the output is the evidence. `konzept-mapper`, `konzept-lint` (gate plus weighted score against the shipped maturity policy), `konzept-const-sync`, `konzept-model-api`, `ac-to-test-scaffold` (placeholders, not red tests), `test-gap`, `roadmap-drift`, `retro-memory-loop-check`, `wiki-lint`, `mcp-config-lint`, `mcp-doc-drift-gate`, `secrets-scan`, `pii-scan`, `profile-check`, `cdp5-init`, `cdp5-reference`.
+
+The concept maturity policy lives in `plugins/cdp5-gates/policy/reife-rubrik.policy.md`; `reife-rubrik.policy.json` is generated from it (`node plugins/cdp5-gates/scripts/generate-rubric.mjs`, `--check` in CI). Two layers: a binary gate (G1–G11, decided by the lint where deterministic) and seven weighted dimensions; default threshold 8.0; a project may ship its own copy.
+
+### cdp5-agents: agents for the engineering loop
+
+| Agent | Role | Effort |
 |---|---|---|
-| **konzept-mapper** | UC↔Code-Mapping (✓/teilweise/fehlt) | `--konzept=… --repo=…` |
-| **wiki-lint** | Broken-Links · Orphans · Frontmatter-Konsistenz | `--wiki=…` |
-| **konzept-model-api** | Enum-Drift + Modell↔OpenAPI-Property-Diff | `--repo=… --openapi=…` |
-| **test-gap** | sicherheitskritische Klassen (Voter/State-Processor/Authenticator) ohne Test | `--repo=…` |
-| **roadmap-drift** | als FERTIG markierte Roadmap-Artefakte real im Code? | `--roadmap=… --repo=…` |
-| **retro-memory-loop-check** | in Retro-ADRs zitierte Memory-Slugs real angelegt + Pointer? | `--retro=… --memory=…` |
-| **mcp-config-lint** | MCP-Config-Risiken (Tool-Poisoning, Rug-Pull, Cleartext-Secrets) | `--config=…` |
-| **secrets-scan** | Klartext-Secrets im Repo (Keys/Tokens/Private-Keys/.env) | `--repo=…` |
-| **cdp5-reference** | CDP5-Doktrin abfragbar nach §-Nummer oder Schlagwort (just-in-time, statt 2000 Zeilen) | `--section=… \| --keyword=… \| --list` |
-| **konzept-lint** | Konzept-Struktur + AC-Tabellen + binär/verifizierbare AC + bedingt LLM-/RAG-Felder + deterministischer Teil-Score (konfig. Rubrik) | `--konzept=… [--rubric=…]` |
-| **ac-to-test-scaffold** | failing Test-Skelette AUS den Konzept-AC (TDD-First, druckt read-only) | `--konzept=… [--lang=php\|js]` |
-| **pii-scan** | Klartext-PII (E-Mail/IBAN/Telefon/Kreditkarte+Luhn), redacted, Hybrid | `--repo=…` |
-| **profile-check** | Konzept + Repo gegen einmal deklariertes `project-profile.md` (EU-AI-Act/Security/Runtime/Test-Framework/Pflicht-Tokens) | `--profile=… [--konzept=… --repo=…]` |
-| **cdp5-init** | bindet eine Konsumenten-CLAUDE.md an den Marketplace an (idempotenter Marker-Block: CDP5-Verweis + cdp5-reference-Gate + Trigger-Map + Skills/Agents); Hybrid, schreibt nur mit `--write` | `--target=… [--write] [--block=…]` |
+| konzept-reviewer | gate and score of a concept against the policy | high |
+| review-verify | verifies claims against the source before anyone acts | high |
+| adversarial-auditor | refutes finished work with a counter-test (FREIGABE, FREIGABE-MIT-AUFLAGEN, SPERRE) | high |
+| devils-advocate | counter-vote on a choice, existence question, null option | high |
+| pessimistic-realist | outside view on a forecast, reference class, pre-mortem | high |
+| threat-modeler | STRIDE, §33.2 checklist, §33.6 classes, Trifecta block | high |
+| mcp-security-reviewer | MCP integration security and maturity | high |
+| review-code | architecture and code review, Schema C.1 | high |
+| pm-retro | blameless retro with carry-over and Kaizen | high |
+| impl-debug | reproduce, red before fix, root cause, green after | medium |
+| impl-uc | one vertical slice, test-first, diff only | medium |
+| impl-refactor | behaviour-preserving merge, split, cleanup with evidence | medium |
 
-Alle Skills sind **read-only**, **parametrisiert** (kein projektspezifischer Pfad/Code eingebacken) und **dependency-frei** (nur `node:`-Builtins). Jeder liefert einen Report; der Main-Agent handelt darauf.
+The `orchestrate` skill is the role text of the main session: trigger, brief template, counter-roles by object type, re-brief limit, worktrees, cost, planning rules, usage log.
 
-## Plugin `cdp5-agents` — projektunabhängige Judgment-Agents
+Shared mechanics:
 
-| Agent | Was |
-|---|---|
-| **konzept-reviewer** | Gap-Analyse + Reife-Score eines Konzepts (CDP5 §2/§7/§10) |
-| **review-verify** | Behauptungen gegen Quelle/Code verifizieren (§10.6) |
-| **adversarial-auditor** | gegnerischer Review für 🔴-Slices + empirische Gegenprobe (§11.4) |
-| **threat-modeler** | STRIDE-light über Entry-Points/Trust-Boundaries (§33.4) |
-| **mcp-security-reviewer** | MCP-Integration: Lethal Trifecta, Tool-Härtung, Maturity (§33.1/§33.3/§16.8) |
+- `skills/worker-contract/SKILL.md` is the one contract for every agent; its core is generated into `core.md` (`node plugins/cdp5-agents/scripts/generate-contract.mjs`) and injected by a `SubagentStart` hook. The agent's first output line acknowledges the contract hash; a `SubagentStop` hook asks once if it is missing and appends one line per completed run to the usage log (`${CLAUDE_PLUGIN_DATA}/usage-log.jsonl`).
+- A `PreToolUse` hook keeps judgment agents read-only on Bash and keeps implementation workers off commit, push and history rewrites.
+- Agents set `effort` in their frontmatter; no thinking phrases, no doctrine lookup by script. The brief carries the doctrine excerpt or the path of the bundled copy.
+- `roles-dormant/` holds role texts without an agent file; they are built at the third logged run.
 
-Agents sind **read-only** (Findings + Vorschläge, keine destruktiven Aktionen), self-contained (Methode inline) und projektunabhängig.
+### domain-agents: domain agents and session skills
 
-**Pflicht-Vorlauf:** Jeder Agent holt sich vor der Arbeit den nötigen CDP5-Kontext über das `cdp5-reference`-Skill (Abfrage per § / Schlagwort) bzw. liest/grept die gebündelte Doktrin — so hat er den vollen Kontext, ohne dass die 2000-Zeilen-Doktrin in jeden Prompt geladen werden muss (CDP5 §28.6 just-in-time-Retrieval). Den Pfad gibt der aufrufende Orchestrator im Brief mit (Subagents bekommen keine Skills durchgereicht, lesen die Datei aber direkt).
+Agents `marketing-strategist`, `psy-domaenen-rechercheur`, `psy-grenzwaechter`; session skills `business-lingo` (frameworks and lenses), `psy-diagnostik-navigator`, `psy-therapiebegleiter`, `psy-paar-moderator`; knowledge packs `business-lingo/entries` (89), `ux-knowledge/entries` (118), `psy-knowledge/entries` (12, names removed), `marketing-knowledge/entries` (21). Packs are generated by `plugins/domain-agents/scripts/build-packs.mjs` from the Orbit export and marked unverified. See `plugins/domain-agents/README.md`.
+
+### orbit-workflow
+
+A `SessionStart` hook that loads the latest Orbit report and open FastNotes of the current project. Orbit is the knowledge layer that is wired in after the agent rebuild; see `docs/cdp5-review/DECISIONS.md`.
 
 ## Tests
 
 ```bash
-node --test plugins/cdp5-gates/skills/*/*.test.mjs plugins/cdp5-gates/lib/*.test.mjs
+node --test plugins/cdp5-gates/skills/*/*.test.mjs plugins/cdp5-gates/lib/*.test.mjs plugins/cdp5-agents/hooks/*.test.mjs plugins/orbit-workflow/hooks/*.test.mjs plugins/domain-agents/scripts/*.test.mjs
 ```
 
-## Lizenz / Beitrag
+## Decisions
 
-Projektunabhängig gehalten — enthält keine Struktur oder Code konkreter Projekte. PRs willkommen.
+`docs/cdp5-review/DECISIONS.md` records the review of all 35 former roles, the decisions A1–A11, the per-role verdicts and the repository changes D-1 to D-13 with their best-practice checks. `docs/cdp5-review/_cross-cutting.md` holds the cross-cutting findings.
