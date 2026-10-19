@@ -20,7 +20,13 @@ export function hashOf(text) {
   return createHash('sha256').update(text, 'utf8').digest('hex').slice(0, 12);
 }
 
-export function extractCore(skillMd) {
+// A BOM or CRLF checkout (Git for Windows core.autocrlf=true, PowerShell pipes) must not change the contract hash.
+export function normalizeText(text) {
+  return String(text ?? '').replace(/^﻿/, '').replace(/\r\n?/g, '\n');
+}
+
+export function extractCore(skillMdRaw) {
+  const skillMd = normalizeText(skillMdRaw);
   const version = skillMd.match(/<!--\s*contract-version:\s*(\d+)\s*-->/)?.[1];
   if (!version) throw new Error('SKILL.md has no <!-- contract-version: N --> marker');
   const blocks = [...skillMd.matchAll(/<!--\s*core\s*-->\s*\n([\s\S]*?)\n\s*<!--\s*\/core\s*-->/g)].map((m) => m[1].trim());
@@ -32,7 +38,8 @@ export function renderCore(version, body) {
   return `WORKER-CONTRACT v${version} sha256:${hashOf(body)}\n\n${body}\n`;
 }
 
-export function parseCore(coreMd) {
+export function parseCore(coreMdRaw) {
+  const coreMd = normalizeText(coreMdRaw);
   const m = coreMd.match(HEADER_RE);
   if (!m) throw new Error('core.md has no WORKER-CONTRACT header');
   const body = coreMd.slice(m.index + m[0].length).trim();
@@ -112,7 +119,7 @@ export function appendUsage(entry, env = process.env) {
 
 export function readStdinJson() {
   try {
-    return JSON.parse(readFileSync(0, 'utf8') || '{}');
+    return JSON.parse(readFileSync(0, 'utf8').replace(/^﻿/, '') || '{}');
   } catch {
     return {};
   }

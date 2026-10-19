@@ -141,7 +141,10 @@ export function grantApplies(grant, cwd, sessionId = undefined) {
   return isWithin(cwd, grant.root) && sessionMatches(grant, sessionId);
 }
 
+// realpathSync.native expands Windows 8.3 short names (RIEDL_~1); the JS implementation keeps them, so a worktree
+// under a short-name temp dir would never equal the project path.
 function real(p) {
+  try { return realpathSync.native(p); } catch {}
   try { return realpathSync(p); } catch { return resolve(p); }
 }
 

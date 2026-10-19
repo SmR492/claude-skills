@@ -62,7 +62,7 @@ test('creates a detached worktree on the exact base, runs the baseline, issues t
     assert.equal(res.grant.uses, 2);
     const grant = activeGrant('adversarial-auditor', env);
     assert.equal(grant.root, wt);
-    assert.equal(grant.project, realpathSync(r), 'the grant is bound to the repository, not to the caller\'s cwd');
+    assert.equal(grant.project, realpathSync.native(r), 'the grant is bound to the repository, not to the caller\'s cwd');
     const lines = briefLines(res);
     assert.match(lines[0], /^disposable environment: /);
     assert.match(lines[1], new RegExp(`^base commit: ${first}`));

@@ -57,7 +57,7 @@ export function listSections(md) {
 function main(argv) {
   const a = Object.fromEntries(argv.slice(2).map((x) => { const [k, ...r] = x.split('='); return [k.replace(/^--/, ''), r.length ? r.join('=') : true]; }));
   guardPaths([[a.doctrine, 'file']]);   // optional --doctrine: wrong type/missing → exit 2 instead of a crash
-  const md = readFileSync(typeof a.doctrine === 'string' ? a.doctrine : DEFAULT_DOCTRINE, 'utf8');
+  const md = readFileSync(typeof a.doctrine === 'string' ? a.doctrine : DEFAULT_DOCTRINE, 'utf8').replace(/^﻿/, '').replace(/\r\n?/g, '\n');
   if (a.list) { console.log(listSections(md).join('\n')); process.exit(0); }
   if (typeof a.section === 'string') {
     const s = bySection(md, a.section);

@@ -6,7 +6,7 @@
 //   when it is present, emit nothing (cdp5-agents injects the contract itself, no double injection).
 // The sibling is looked up relative to this plugin's root (marketplace layout: plugins/<name>/), and through
 // CDP5_AGENTS_ROOT when the two plugins are installed from different locations.
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
@@ -18,13 +18,21 @@ export function pluginRoot(env = process.env) {
 export function siblingCore(env = process.env) {
   const candidates = [];
   if (env.CDP5_AGENTS_ROOT) candidates.push(join(resolve(env.CDP5_AGENTS_ROOT), 'skills', 'worker-contract', 'core.md'));
-  candidates.push(join(pluginRoot(env), '..', 'cdp5-agents', 'skills', 'worker-contract', 'core.md'));
+  const root = pluginRoot(env);
+  // Marketplace checkout: plugins/<name>/. Installed cache: ~/.claude/plugins/cache/<marketplace>/<name>/<version>/.
+  candidates.push(join(root, '..', 'cdp5-agents', 'skills', 'worker-contract', 'core.md'));
+  const cacheSibling = join(root, '..', '..', 'cdp5-agents');
+  if (existsSync(cacheSibling)) {
+    let versions = [];
+    try { versions = readdirSync(cacheSibling).sort().reverse(); } catch {}
+    for (const version of versions) candidates.push(join(cacheSibling, version, 'skills', 'worker-contract', 'core.md'));
+  }
   return candidates.find((p) => existsSync(p)) ?? null;
 }
 
 export function readInput() {
   try {
-    return JSON.parse(readFileSync(0, 'utf8') || '{}');
+    return JSON.parse(readFileSync(0, 'utf8').replace(/^﻿/, '') || '{}');
   } catch {
     return {};
   }

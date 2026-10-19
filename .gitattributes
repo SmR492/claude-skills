@@ -1,0 +1,7 @@
+# Every text file is checked out with LF on every platform. The hooks hash the worker contract, the lints match
+# headings and frontmatter line by line, and the plugin cache is a git clone on the user's host; a CRLF checkout
+# (Git for Windows default core.autocrlf=true) would change hashes and break the regexes.
+* text=auto eol=lf
+*.png binary
+*.jpg binary
+*.pdf binary

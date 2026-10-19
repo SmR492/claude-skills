@@ -655,7 +655,7 @@ export function decide(input, env = process.env) {
 export function main() {
   let input;
   try {
-    input = JSON.parse(readFileSync(0, 'utf8'));
+    input = JSON.parse(readFileSync(0, 'utf8').replace(/^﻿/, ''));
   } catch (e) {
     process.stderr.write(`cdp5-agents guard: unreadable hook input (${e.message}); failing closed\n`);
     return 2;

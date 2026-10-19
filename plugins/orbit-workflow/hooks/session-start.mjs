@@ -202,7 +202,7 @@ export async function briefing({ cwd, env = process.env, now = () => new Date().
 async function main() {
   let input = {};
   try {
-    input = JSON.parse(readFileSync(0, 'utf8') || '{}');
+    input = JSON.parse(readFileSync(0, 'utf8').replace(/^﻿/, '') || '{}');
   } catch {}
   let context = '';
   try {
