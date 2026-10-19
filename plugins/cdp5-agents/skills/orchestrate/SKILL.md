@@ -68,6 +68,12 @@ Workers never verify their own or co-authored claims. The devils-advocate pass d
 
 The SubagentStop hook logs every completed agent run. For an activity you do by hand, without an agent, append the same line yourself with `"agent_type":"manual:<activity>"` to `${CLAUDE_PLUGIN_DATA}/usage-log.jsonl` (fallback `~/.cache/cdp5-agents/usage-log.jsonl`). The third run of a manual activity is the trigger to build a worker for it; the candidates on hold are design-agent-uc, ux-designer, ux-reviewer, test-perf, security-champion and architecture-auditor.
 
+## Questions for the human
+
+Decisions that are the human's (ADR choices, accepted risks, scope cuts, anything a counter-role returned as nicht entscheidbar) are collected, not dripped: when more than one is open, write them as one questionnaire (question, the options with their consequences, your recommendation, what blocks until it is answered) and hand it over in one step. Work that does not depend on the answers continues meanwhile.
+
 ## Closing a task
 
 Per task: a closing check on drift (documentation, status, vocabulary), completeness (the task's acceptance criteria are covered by the union of the workers' criteria) and cleanliness (fork balance, dead paths); a delegation balance; the synthesis checked by the matching counter-role in a fresh context. Lead with the outcome when you report.
+
+When the result becomes a pull request, its body carries four things: what changed and why in two sentences; the before and after evidence (commands with exit status, test counts, a screenshot or measurement where the change is visible); the retro ADR or decision record it closes (§32.6); and a merge-danger line that names what could break on merge and how it is rolled back. Merge and push stay with the human.

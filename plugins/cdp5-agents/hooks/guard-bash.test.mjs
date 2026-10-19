@@ -18,6 +18,8 @@ const JUDGMENT_ALLOWED = [
   'grep -rn "Voter" src/', 'grep -q foo file 2>/dev/null', 'rg -n foo src', 'cat composer.json', 'ls -la vendor/bin', 'find . -name "*.php" | head',
   'wc -l src/Foo.php', 'echo $HOME', 'docker ps', 'cat a.txt 2>&1 | head', 'sha256sum hooks.json', 'curl -sI https://example.org',
   'node plugins/cdp5-gates/skills/mcp-config-lint/mcp-config-lint.mjs --config=.mcp.json', 'php vendor/bin/phpstan.php --version',
+  'node "${CLAUDE_PLUGIN_ROOT}/skills/mcp-config-lint/mcp-config-lint.mjs" --config=.mcp.json', 'node $CLAUDE_PLUGIN_ROOT/skills/konzept-lint/konzept-lint.mjs --konzept=docs/konzept.md',
+  'node /home/u/.claude/plugins/cache/claude-skills/cdp5-gates/skills/secrets-scan/secrets-scan.mjs --root=.',
   'wsl -e bash -c "cd ~/repo && git rev-parse HEAD"', 'sed -n 1,20p file.txt', 'awk \'{print $1}\' file.txt', 'npm ls --depth=0', 'composer show',
 ];
 

@@ -52,7 +52,9 @@ const POWERSHELL_DENY = /\b(out-file|set-content|add-content|remove-item|move-it
 
 export const INTERPRETER_INLINE = /^(-e|-p|-pe|-pi|-i|-r|-c|-m|--eval|--print|--input-type|--import|-r=.*|-E)$/;
 export const SCRIPT_FILE = /\.(mjs|cjs|js|php|py|rb|pl|sh)$/i;
-export const TOOL_SCRIPT_PATH = /^(\.\/)?([^/]+\/)*(plugins|vendor\/bin|node_modules\/\.bin)\//;
+// Tool scripts a judgment agent may run: the marketplace checkout (plugins/…), an installed plugin (${CLAUDE_PLUGIN_ROOT}/… or
+// a path under .claude/plugins/), a skill script (…/skills/<skill>/<script>) and the project's own tool binaries.
+export const TOOL_SCRIPT_PATH = /^(\.\/)?([^/]+\/)*(plugins|vendor\/bin|node_modules\/\.bin)\/|^\$\{?CLAUDE_PLUGIN_ROOT\}?\/|\/\.claude\/plugins\/|\/skills\/[^/]+\/[^/]+\.(mjs|cjs|js|py|sh)$/;
 
 function tokens(segment) {
   // Whitespace split that keeps quoted strings together and strips the surrounding quotes for inspection.

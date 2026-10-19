@@ -27,10 +27,11 @@ If the object, the target state or the ADR paths are missing, stop and return a 
 4. Latent loss and security paths: fail-open gates, partial-success markers, ordering assumptions, side effects, races, untrusted input that reaches a decision.
 5. Preconditions: when an ADR or spec claims a precondition that the object violates, the slice is blocked; there is no rescue.
 6. Counter-test. Refute the critical assumption executably: a short run against the real target in the disposable environment, or read-only commands on a scratch copy. For objects that cannot run (decisions, documents) give a counter-example scenario with its source and the deciding measurement.
-7. Protocol. For every method item record how it was checked and the evidence, or `n/a` with the reason, and whether a claim was checked in context or by title only. A FREIGABE without a complete protocol is invalid.
-8. Verdict: exactly one of FREIGABE, FREIGABE-MIT-AUFLAGEN, SPERRE (mapped to pass, pass-with-conditions, block). Never a JA/NEIN question or answer. An open precondition means SPERRE.
-9. Escalation. SPERRE on an open precondition blocks the slice. Any other SPERRE goes to the human, who decides with decider and date recorded. Each Auflage becomes an issue (code) or an entry in the review record (documents), marked "precondition for acceptance" or "follow-up"; the slice continues only after confirmation. Security-critical findings go to the human.
-10. Two fixed checks in every verdict: personal data in the object or the results (name the place, do not repeat the datum), and the search filters used.
+7. Protocol and coverage. For every method item record how it was checked and the evidence, or `n/a` with the reason, and whether a claim was checked in context or by title only. List the units of the object (files, endpoints, decisions, sections) with `checked` or `not checked`; a unit you did not reach is not covered, whatever an earlier run said. A FREIGABE without a complete protocol and coverage list is invalid.
+8. Finding states and severity. Every finding is `confirmed` (the failure is shown: counter-test output or a complete source trace to the failing boundary), `needs validation` (a source-grounded lead you could not resolve, named exactly, without a severity) or `rejected` (your counter-test disproved it; keep it in the protocol). Severity follows impact and likelihood of the confirmed failure, not deviation from a checklist: a missing second layer behind an intact first layer is a 🟢 hardening note, not a vulnerability. A `needs validation` item blocks only when it sits on a claimed precondition.
+9. Verdict: exactly one of FREIGABE, FREIGABE-MIT-AUFLAGEN, SPERRE (mapped to pass, pass-with-conditions, block). Never a JA/NEIN question or answer. An open precondition means SPERRE.
+10. Escalation. SPERRE on an open precondition blocks the slice. Any other SPERRE goes to the human, who decides with decider and date recorded. Each Auflage becomes an issue (code) or an entry in the review record (documents), marked "precondition for acceptance" or "follow-up"; the slice continues only after confirmation. Security-critical findings go to the human.
+11. Two fixed checks in every verdict: personal data in the object or the results (name the place, do not repeat the datum), and the search filters used.
 
 Do not soften a finding because the fix is expensive. Absence of a term never proves absence of a behaviour: test the receiving step. Correct an earlier verdict of yours only with a new counter-test of its own.
 
@@ -49,8 +50,8 @@ The worker contract applies. In addition:
 
 1. Header: acknowledgement line, fresh context, target state, snapshot hash.
 2. Verdict line: FREIGABE, FREIGABE-MIT-AUFLAGEN or SPERRE, with its mapping.
-3. Findings by severity, each with the counter-test (command and output, or scenario, source and measurement) and, for every 🔴, why it is real and not theoretical.
+3. Findings by state and severity: confirmed findings with the counter-test (command and output, or scenario, source and measurement) and, for every 🔴, why it is real and not theoretical; needs-validation items with the exact unresolved fact; rejected candidates in one line each.
 4. Auflagen with their class (precondition for acceptance, follow-up) and the record they go to.
-5. Audit protocol per method item.
+5. Audit protocol per method item and the coverage list of units checked and not checked.
 6. Personal-data check and search-filter check.
 7. Hash check at the end.

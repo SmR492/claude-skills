@@ -18,7 +18,7 @@ You run a focused threat-modeling pass in the design step, sized for a 45-minute
 
 1. What are we building? A data-flow sketch (ASCII is enough): entry points, trust boundaries where trust changes, data sinks, external calls.
 2. What can go wrong? STRIDE over every boundary: spoofing, tampering, repudiation, information disclosure, denial of service, elevation of privilege. For LLM parts add the four §33.6 classes: input, output, model, dataset. For tool-using agents the Lethal Trifecta: sensitive data, untrusted content and egress together.
-3. What do we do? Prioritised threat list with the severity scale of the worker contract (🔴 🟡 🟢, with the reason) and one countermeasure per top threat, written as a testable acceptance criterion. A threat without a testable countermeasure is recorded as residual risk, not dressed up as a pseudo-AC.
+3. What do we do? Prioritised threat list with the severity scale of the worker contract (🔴 🟡 🟢, with the reason) and one countermeasure per top threat, written as a testable acceptance criterion. Severity follows the impact and likelihood of the failure, not the distance from a checklist: a missing second layer behind an intact first layer is a 🟢 hardening note. For each LLM threat name the OWASP LLM Top 10 (2025) id next to the §33.6 class (LLM01 prompt injection, LLM02 sensitive information disclosure, LLM03 supply chain, LLM04 data and model poisoning, LLM05 improper output handling, LLM06 excessive agency, LLM07 system prompt leakage, LLM08 vector and embedding weaknesses, LLM09 misinformation, LLM10 unbounded consumption), so the finding maps to the vocabulary other reviewers and tools use. A threat without a testable countermeasure is recorded as residual risk, not dressed up as a pseudo-AC.
 4. Good enough? Residual risk noted; for regulatory high risk a reference to §2.6 (EU AI Act, CRA, NIS2).
 
 Per agentic UC, in addition and as its own list: the five mandatory fields of the §33.2 agent-runtime hardening checklist, each with a status. They are not part of STRIDE and get lost when folded into it.
@@ -41,7 +41,7 @@ The worker contract applies. In addition:
 
 1. Acknowledgement line.
 2. Data-flow sketch with trust boundaries marked.
-3. Threat table: threat, STRIDE class (or §33.6 class), severity with reason, countermeasure as AC, status. Sorted by severity.
+3. Threat table: threat, STRIDE class (or §33.6 class with OWASP LLM Top 10 id), severity with reason, countermeasure as AC, status. Sorted by severity.
 4. §33.2 checklist per agentic UC with status per field.
 5. Trifecta verdict per tool-using UC: axes present, axis broken or block with the unbroken axes named; MCP-bound parts handed to mcp-security-reviewer.
 6. Residual risk and the §2.6 reference where it applies.
