@@ -205,7 +205,7 @@ Drei gleichberechtigte Qualitätsziele, je mit Messgröße, Mechanik und Schwell
 
 ## 4. Reife-Rubrik (für das „≥ 9,0/10"-Ziel)
 
-Score = gewichteter Mittelwert (0–10) über: **Sachbearbeiter-Test** (0,2) · **Pflicht-Struktur vollständig** (0,2) · **UC-Schritte nummeriert + verzweigt** (0,15) · **AC-Tabelle je UC** (0,15) · **Fehlerfälle vollständig** (0,1) · **Nachweis-Konvention** §10.7 (0,1) · **Glossar/Vokabular** (0,1). Jede „Pflicht" ohne Nachweis-Typ = automatischer Abzug. ≥ 9,0 = implementierungsreif. Als §10.5-Policy verankert (Gewichte reproduzierbar, nicht nur Prosa): [`reife-rubrik.policy.md`](reife-rubrik.policy.md).
+Score = gewichteter Mittelwert (0–10) über: **Sachbearbeiter-Test** (0,2) · **Pflicht-Struktur vollständig** (0,2) · **UC-Schritte nummeriert + verzweigt** (0,15) · **AC-Tabelle je UC** (0,15) · **Fehlerfälle vollständig** (0,1) · **Nachweis-Konvention** §10.7 (0,1) · **Glossar/Vokabular** (0,1). Jede „Pflicht" ohne Nachweis-Typ = automatischer Abzug. ≥ 9,0 = implementierungsreif. Als Policy verankert (Gewichte reproduzierbar, nicht nur Prosa): [`plugins/cdp5-gates/policy/reife-rubrik.policy.md`](../plugins/cdp5-gates/policy/reife-rubrik.policy.md) — Gate (§7-Items) plus Score; Plugin-Default-Schwelle 8,0, Projekt-Schwelle dieses Repos 9,0.
 
 ---
 
@@ -232,7 +232,7 @@ Pro UC-Schritt erfasst: **Token** (`gen_ai.usage.total_tokens`, Sampling aus §1
 | `cdp5-reference` | T1-Skill (Doktrin + Query) | `…/skills/cdp5-reference/` |
 | Marketplace-Manifest | Config | `.claude-plugin/marketplace.json` (+ je Plugin `.claude-plugin/plugin.json`) |
 | Skill-Struktur | Konvention | `plugins/<plugin>/skills/<name>/{SKILL.md, *.mjs, *.test.mjs}` |
-| **Reife-Rubrik (Policy)** | §10.5-Artefakt | `docs/reife-rubrik.policy.md` — 7 Gewichte für „≥ 9,0" (UC-01), reproduzierbar |
+| **Reife-Rubrik (Policy)** | Policy-Artefakt | `plugins/cdp5-gates/policy/reife-rubrik.policy.md` (+ generierte `.json`) — Gate plus 7 gewichtete Dimensionen, reproduzierbar |
 | **CDP5-Doktrin (ausgeliefert)** | Wissensbasis | `…/cdp5-reference/konzept-design-pattern-v5.md` — **v5 (aktiv)**; v4.7 FROZEN, **nicht** gebündelt |
 
 ---

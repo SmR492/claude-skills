@@ -12,8 +12,8 @@
     {
       "name": "cdp5-gates",
       "source": "./plugins/cdp5-gates",
-      "description": "Read-only deterministische T1-Skills nach CDP5 §32.9: konzept-mapper, konzept-lint, ac-to-test-scaffold, konzept-model-api, test-gap, roadmap-drift, retro-memory-loop-check, wiki-lint, mcp-config-lint, secrets-scan, pii-scan, profile-check, cdp5-init, cdp5-reference. Reproduzierbar (Programm, kein LLM); Output ist der Beleg.",
-      "version": "0.5.2"
+      "description": "Read-only deterministic T1 skills per CDP5 §32.9: konzept-mapper, konzept-lint (gate plus score against the shipped maturity policy), ac-to-test-scaffold, konzept-model-api, test-gap, roadmap-drift, retro-memory-loop-check, wiki-lint, mcp-config-lint, secrets-scan, pii-scan, profile-check, cdp5-init, cdp5-reference. Reproducible (program, no LLM); the output is the evidence.",
+      "version": "0.6.0"
     },
     {
       "name": "cdp5-agents",
