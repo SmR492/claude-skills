@@ -89,6 +89,22 @@ test('retro without any cited slug and without `no new lesson:` → 🟡, does n
   } finally { rmSync(base, { recursive: true, force: true }); }
 });
 
+test('two retros with the same four-digit number → 🟡 numbering finding, does not gate', () => {
+  const base = mkdtempSync(join(tmpdir(), 'rm-'));
+  try {
+    const retro = join(base, 'retro'); const mem = join(base, 'memory');
+    mkdirSync(retro); mkdirSync(mem);
+    for (const f of ['0001-a.md', '0001-b.md', '0002-c.md']) writeFileSync(join(retro, f), '- no new lesson: fixture.');
+    writeFileSync(join(mem, 'MEMORY.md'), '');
+    const r = checkLoop(retro, mem);
+    const n = r.findings.filter((f) => f.kind === 'numbering');
+    assert.equal(n.length, 1);
+    assert.equal(n[0].sev, '🟡');
+    assert.match(n[0].file, /0001-a\.md, 0001-b\.md/);
+    assert.equal(r.broken, false);
+  } finally { rmSync(base, { recursive: true, force: true }); }
+});
+
 test('CLI: runs from a path containing a space and prints output', () => {
   const base = mkdtempSync(join(tmpdir(), 'cdp5 gates '));
   try {

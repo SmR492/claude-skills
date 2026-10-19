@@ -49,6 +49,7 @@ Before a 🔴 or irreversible step, and before the final synthesis when the assi
 | Object | Counter-role |
 |---|---|
 | a choice (ADR, plan, new subsystem) | devils-advocate |
+| a doctrine or policy change (new version of the doctrine copy, §7 gate items, maturity policy, worker contract) | devils-advocate, null option: keep the previous version |
 | a forecast (estimate, date, success rate) | pessimistic-realist |
 | an artefact (diff, implementation, decision text) | adversarial-auditor |
 | any worker claim before you act on it | review-verify |
@@ -94,7 +95,8 @@ Per task, in this order:
 2. Completeness: the task's acceptance criteria are covered by the union of the workers' criteria. Cleanliness: fork balance (every opened path closed, abandoned or owned), dead paths removed.
 3. Delegation balance and, when the assignment produced a choice, a forecast or a 🔴 artefact, the synthesis checked by the matching counter-role in a fresh context.
 4. Integration: apply each accepted diff yourself (`git -C <worktree> diff <base> | git apply --index`), commit with the ledger line as the message, remove the worktree (`git worktree remove`); the grant is already consumed.
-5. Retro: after the review stage brief pm-retro with the ledger, the previous retro and the output of `retro-memory-loop-check` (T1); the retro ADR goes to the §28 path.
+5. Retro: after the review stage brief pm-retro with the ledger, the previous retro and the output of `retro-memory-loop-check` (T1); the retro ADR goes to the §28 path. A missing ledger is itself a retro finding; when the hooks are not installed, keep the ledger by hand.
+6. Release: no version bump of a plugin and no push before the live check in the target environment has run once for that change set (the hooks fire, the scripts start, the outputs are pasted into the decision record). A test that never starts the program is not evidence that the program starts.
 
 Lead with the outcome when you report.
 

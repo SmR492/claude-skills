@@ -41,6 +41,17 @@ export function checkLoop(retroDir, memoryDir) {
     if (n === 0 && !NO_LESSON_RE.test(text))
       findings.push({ sev: '🟡', kind: 'no-lesson', file: rel, detail: 'cites no memory slug and has no `no new lesson:` line — loop open' });
   }
+  // Consecutive numbering (§32.6): two retro files with the same four-digit prefix in one directory break the
+  // carry-over chain (which retro is "the previous one"?).
+  const byNumber = new Map();
+  for (const f of mdFiles(retroDir)) {
+    const m = /^(\d{4})-/.exec(f.split(/[\\/]/).pop());
+    if (!m) continue;
+    if (!byNumber.has(m[1])) byNumber.set(m[1], []);
+    byNumber.get(m[1]).push(relative(retroDir, f));
+  }
+  for (const [num, files] of byNumber) if (files.length > 1)
+    findings.push({ sev: '🟡', kind: 'numbering', file: files.join(', '), detail: `retro number ${num} is used ${files.length} times — renumber or move to the owning project` });
   for (const [slug, sources] of cited) {
     const fileExists = existsSync(join(memoryDir, `${slug}.md`));
     const hasPointer = new RegExp(`\\]\\([^)]*${slug}\\.md\\)`).test(index);   // markdown link target, not a bare mention
@@ -56,7 +67,8 @@ function main(argv) {
   const r = checkLoop(a.retro, a.memory);
   if (a.json) { console.log(JSON.stringify(r, null, 2)); process.exit(r.broken ? 1 : 0); }
   const slugFindings = r.findings.filter((f) => f.kind === 'slug');
-  console.log(`retro→memory loop — ${r.cited} cited slugs, ${slugFindings.length} broken, ${r.findings.length - slugFindings.length} retros without lesson\n`);
+  const numbering = r.findings.filter((f) => f.kind === 'numbering').length;
+  console.log(`retro→memory loop — ${r.cited} cited slugs, ${slugFindings.length} broken, ${r.findings.length - slugFindings.length - numbering} retros without lesson, ${numbering} duplicate retro numbers\n`);
   for (const f of r.findings) {
     if (f.kind === 'slug') {
       const why = [!f.fileExists && 'file missing', !f.hasPointer && 'no MEMORY.md link'].filter(Boolean).join(' + ');
