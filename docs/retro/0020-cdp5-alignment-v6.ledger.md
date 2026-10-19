@@ -21,3 +21,5 @@ Mode: C (review and teardown of the agent set) · started 2026-10-19 · kept by 
 | Blind-test round 2 (8 roles + devils-advocate on v6.0 + re-audit + impl-uc) | done | ROLE-TEST-2026-10-19-R2.md | 119/120 | ESC-1 live install open |
 | Fix: self-grant, human-confirmed grants, worktree-root and session binding, lock, audit, guard bypasses and false denials (implementer) | done | aef4f30, 5d7d4c9, this commit | 24 tests red first; review-verify closure check 14/14 after the session fix; red-first reproduced 25/41 on fb8ac28 | residual risk recorded |
 | Doctrine v6.0 conditions from the devils-advocate pass (free anchors, fork balance, collisions) | done | 83f7eb4 | anchors.test strict | own-scope items for the human |
+| Release v0.11.0 / v0.11.1 (descriptions ≤ 500 chars) | done | d09e7e9, 6b5a9ad | sync without warnings | — |
+| Live install on the Windows host, portability fixes, v0.11.2 | done | 4aedae8, d488f50 | WSL 266/266, Windows 265 pass + 1 skipped; hook probe D-14 | first real orchestrate run in a new session |

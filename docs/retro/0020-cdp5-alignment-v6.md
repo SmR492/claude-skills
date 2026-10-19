@@ -63,7 +63,7 @@ Four fresh-context reviewers read the engineering agents, the orchestration mech
 
 | Root cause | Action | Owner | Criterion | Status |
 |---|---|---|---|---|
-| RC1 | Release gate: no version bump and no push before the live install test ran on the user's host with the hook outputs recorded | orchestrator; human holds push | DECISIONS.md carries a "live install" row with host, Claude Code version, inject/check-ack/guard/usage-log outputs | rule added to orchestrate (Closing a task, step 6); test itself **open — human decision ESC-1** |
+| RC1 | Release gate: no version bump and no push before the live install test ran on the user's host with the hook outputs recorded | orchestrator; human holds push | DECISIONS.md carries a "live install" row with host, Claude Code version, inject/check-ack/guard/usage-log outputs | rule added to orchestrate (Closing a task, step 6); test **done** 2026-10-19 on the user's Windows host (DECISIONS.md D-14): three portability defects found and fixed, v0.11.2 installed, hook outputs recorded |
 | RC2 | Deterministic anchor check over every agent file and SKILL.md against the doctrine copy and its redirect table | implementer | test red on `§99.9`, green on the repository | **done** — `plugins/cdp5-agents/hooks/anchors.test.mjs` |
 | RC3 | Numbering check in retro-memory-loop-check; ledger by hand when hooks are absent | orchestrator | 🟡 `numbering` finding fires on 0001/0002; ledger file exists for this run | **done** — check and test added; ledger `0020-cdp5-alignment-v6.ledger.md`; renumbering **open — human decision** |
 | RC4 | Counter-role row "doctrine or policy change → devils-advocate, null option: keep the previous version"; run the pass on v6.0 | orchestrator | row in orchestrate; DECISIONS.md records the pass | row **done**; pass on v6.0 runs in blind-test round 2 |
@@ -86,18 +86,18 @@ Decidable requirements (an entry point starts, an anchor resolves, a number is u
 
 | Path | State | Owner |
 |---|---|---|
-| Live install test with installed plugins | open | orchestrator, gated by human (ESC-1) |
-| Push of the local commits | open | human |
+| Live install test with installed plugins | closed: D-14, Windows host, v0.11.2; first real orchestrate run in a new session still to observe | orchestrator |
+| Push of the local commits | closed: v0.11.0, v0.11.1, v0.11.2 released, `main` fast-forwarded | human |
 | Duplicate retro numbers 0001/0002 (cdp5 vs nsai-edge) | open | human decides: renumber or move nsai-edge retros |
 | Devils-advocate pass on v6.0 | closed: (a) with conditions, all four applied (83f7eb4); own-scope items (§32.11 trigger, triad clause) for the human | orchestrator |
 | Grant and guard 🔴 from threat-modeler and auditor (self-grant, main-checkout scope, unbroken trifecta) | closed by test-verified fix (aef4f30, 5d7d4c9, session mandatory); live host test open | orchestrator |
 | Calibration set for the rubric | open | orchestrator |
-| Eval suites with `claude plugin eval` | open, depends on live install | orchestrator |
+| Eval suites with `claude plugin eval` | open, unblocked by the live install (format: `evals/<case>/prompt.md` with max_turns, timeout_seconds, model, allowed_tools; graders regex, tool_used, tool_order, file_exists, llm, baseline; three runs per arm) | orchestrator |
 | German Orbit paragraphs as generator source | open | orchestrator (Orbit phase) |
 | Not adopted from superpowers | abandoned, reasons recorded | — |
 | Crisis numbers C1 | closed (checked 2026-10-19) | — |
 
 ## Escalations
 
-- **ESC-1 (RC1, 🔴):** release gate. Options: (a) no version bump and no push until the live install test is recorded; (b) push now with a known-issue line "hooks and T1 entry points unexecuted on the host"; (c) keep it as an open line. Recommendation: (a).
+- **ESC-1 (RC1, 🔴):** release gate. Options: (a) no version bump and no push until the live install test is recorded; (b) push now with a known-issue line "hooks and T1 entry points unexecuted on the host"; (c) keep it as an open line. Recommendation: (a). **Closed 2026-10-19 with (a):** the user asked for the release and installed the toolchain on the host; the live test ran before `main` moved, found three host-only defects (CRLF checkout, 8.3 paths, cache layout) and v0.11.2 carries the fixes (D-14).
 - **ESC-2 (RC2):** citation integrity as a test in the repository's own suite — implemented as `anchors.test.mjs`; closes with this retro.

@@ -46,6 +46,10 @@ test('spec: a well-formed skill passes; name, directory, description and size vi
     assert.ok(checks(lintSkill(long)).includes('🔴S4'));
     const big = skill(root, 'big', 'name: big\ndescription: Big. Use when big.', `# Big\n${'line\n'.repeat(520)}`);
     assert.ok(checks(lintSkill(big)).includes('🟡S5'));
+    const heavy = skill(root, 'heavy', 'name: heavy\ndescription: Heavy. Use when heavy.', `# Heavy\n${`${'word '.repeat(40)}\n`.repeat(110)}`);
+    const heavyChecks = checks(lintSkill(heavy));
+    assert.ok(heavyChecks.includes('🟡S9'), 'a body over 20,000 characters exceeds the 5,000-token re-injection budget');
+    assert.ok(!heavyChecks.includes('🟡S5'), 'S9 is independent of the line count');
     const refs = skill(root, 'refs', 'name: refs\ndescription: Refs. Use when refs.', '# Refs\n\nSee [guide](references/REFERENCE.md) and run `scripts/run.mjs`. Example link syntax: `[title](slug.md)`; other plugin: `policy/other.md`.\n');
     assert.deepEqual(lintSkill(refs).findings, [], 'paths outside the skill\'s own directories and examples in inline code are not checked');
     mkdirSync(join(refs, 'references'));

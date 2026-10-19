@@ -20,7 +20,7 @@ Exit: `0` no 🔴 · `1` at least one 🔴 · `2` usage error. A path with a `SK
 Specification (agentskills.io):
 
 - 🔴 **S1** no frontmatter. **S2** `name` missing or not 1–64 lowercase letters, digits and single hyphens. **S3** `name` differs from the directory name (skills) or file name (agents). **S4** `description` missing or over 1024 characters.
-- 🟡 **S4** description does not say when to use the skill. **S5** body over 500 lines. **S6** referenced file missing. **S7** `compatibility` or `allowed-tools` malformed.
+- 🟡 **S4** description does not say when to use the skill. **S5** body over 500 lines. **S6** referenced file missing. **S7** `compatibility` or `allowed-tools` malformed. **S9** body over about 5,000 tokens (20,000 characters): after a context compaction Claude Code re-injects at most 5,000 tokens per skill and cuts the end, so the operative rules stand first or move to `references/`.
 - 🟢 **S6** reference nested deeper than one level. **S8** frontmatter key unknown to the spec and to Claude Code.
 
 Conventions of this repository (off with `--spec-only`):

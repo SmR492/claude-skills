@@ -93,6 +93,8 @@ export function lintSkill(skillDir, { kind = 'skill', conventions = true } = {})
   for (const k of keys) if (!SPEC_KEYS.has(k) && !CLAUDE_KEYS.has(k)) add('🟢', 'S8', `frontmatter key "${k}" is neither in the Agent Skills spec nor a known Claude Code field`);
   const bodyLines = body.split(/\r?\n/).length;
   if (bodyLines > 500) add('🟡', 'S5', `body has ${bodyLines} lines (spec recommends under 500; move detail to references/)`);
+  // S9: after a context compaction Claude Code re-injects a skill body up to 5,000 tokens and cuts the end.
+  if (body.length > 20_000) add('🟡', 'S9', `body is about ${Math.round(body.length / 4)} tokens; the post-compaction re-injection keeps the first 5,000 tokens per skill, so the operative rules stand first or move to references/`);
   // S6: relative file references must exist and stay one level deep
   const prose = stripFences(body);
   const refs = new Set();

@@ -25,7 +25,7 @@ claude plugin install domain-agents@claude-skills
 claude plugin install orbit-workflow@claude-skills   # optional, needs the Orbit MCP
 ```
 
-Start a new session afterwards. The SessionStart bootstrap of cdp5-agents prints the script paths, the data directory and the session id; if that block is missing, the hooks did not run (most often: Node not on the PATH). `/skill-doctor` lists the loaded skills and their context cost; `claude plugin eval` runs a plugin's eval suite once one exists.
+Start a new session afterwards. The SessionStart bootstrap of cdp5-agents prints the script paths, the data directory and the session id; if that block is missing, the hooks did not run (most often: Node not on the PATH). `/skill-doctor` lists the loaded skills and their context cost; `/doctor prompt-audit` checks the loaded CLAUDE.md files, skills and agents for outdated or contradictory instructions; `claude plugin eval` runs a plugin's eval suite once one exists. The repository is checked out with LF on every platform (`.gitattributes`), so the contract hash and the lints behave the same on Windows, macOS and Linux.
 
 ## Plugins
 
