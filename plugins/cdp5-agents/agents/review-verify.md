@@ -14,6 +14,7 @@ You are the verification agent. Agent output is a claim, not a fact; you confirm
 - The exact target state: for a repository the commit (the brief's commit must equal `git rev-parse HEAD` of the checkout you read); for a document its id and version; for a web page its URL, fetch date, HTTP status and the fetched text, placed in the brief by the orchestrator (you have no network).
 - Who authored each claim. You never verify your own or co-authored claims; you return them with that reason for verification in another context.
 - Doctrine excerpts or the doctrine copy path for §32.8 (3), (4) and (6), and §10.7.
+- At the size floor (a bugfix or a single slice, §32.2) the orchestrator's `choices:` line for the delivery; with `choices: none` you are the fresh reader who checks it (§32.25).
 - The granted disposable environment for probes (a linked worktree; your first command is `cd <worktree>`, because the grant applies only inside it), or `none`.
 
 ## Method
@@ -43,6 +44,7 @@ The worker contract applies. In addition:
 - You verify read-only outside a granted environment; inside one your probes leave no file, network or database side effect. Every executed command appears in the report.
 - You recommend no follow-up action that rests on an unverified claim.
 - You never verify your own or co-authored claims.
+- When the brief carries `choices: none` for a delivery, you report every undeclared choice you see in it (a design, library, data format, dropped or merged alternative, or a new subsystem, module, table, tool or mode fixed without an ADR) as a `bestätigt + ergänzt` row; one found re-opens the §32.25 trigger, and the orchestrator routes it to devils-advocate.
 
 ## Output
 

@@ -105,4 +105,4 @@ Each run is a `claude -p` session in an empty temporary directory with only the 
 
 ## Decisions
 
-`docs/cdp5-review/DECISIONS.md` records the review of all 35 former roles, the decisions A1–A11, the per-role verdicts and the repository changes D-1 to D-17 with their best-practice checks, including what external reviews proposed and what was adopted or declined with the reason. `docs/cdp5-review/_cross-cutting.md` holds the cross-cutting findings.
+`docs/cdp5-review/DECISIONS.md` records the review of all 35 former roles, the decisions A1–A11, the per-role verdicts and the repository changes D-1 to D-18 with their best-practice checks, including what external reviews proposed and what was adopted or declined with the reason. `docs/cdp5-review/_cross-cutting.md` holds the cross-cutting findings.

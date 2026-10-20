@@ -6,20 +6,20 @@
   },
   "metadata": {
     "description": "The CDP5 way of working as a Claude Code marketplace: deterministic T1 skills, judgment agents under a shared worker contract, domain knowledge packs, Orbit session hook.",
-    "version": "0.12.2"
+    "version": "0.12.3"
   },
   "plugins": [
     {
       "name": "cdp5-gates",
       "source": "./plugins/cdp5-gates",
       "description": "Read-only deterministic T1 skills per CDP5 §32.9: konzept-lint with the shipped maturity policy, konzept-mapper, konzept-model-api, ac-to-test-scaffold, test-gap, roadmap-drift, retro-memory-loop-check, wiki-lint, mcp-config-lint, mcp-doc-drift-gate, secrets-scan, pii-scan, profile-check, skill-lint, cdp5-init, cdp5-reference. Programs, no LLM; one exit-code and severity convention.",
-      "version": "0.8.5"
+      "version": "0.8.6"
     },
     {
       "name": "cdp5-agents",
       "source": "./plugins/cdp5-agents",
       "description": "CDP5 agents, the orchestrate skill and cdp5-doctor: nine judgment and counter-roles (konzept-reviewer, review-verify, adversarial-auditor, threat-modeler, mcp-security-reviewer, devils-advocate, pessimistic-realist, review-code, pm-retro), three implementation workers (impl-debug, impl-uc, impl-refactor); worker contract via hooks, allowlist shell guard with human-confirmed run grants, worktree-setup and grant-run, host check.",
-      "version": "0.6.1"
+      "version": "0.6.2"
     },
     {
       "name": "domain-agents",

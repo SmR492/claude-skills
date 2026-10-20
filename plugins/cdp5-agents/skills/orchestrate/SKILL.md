@@ -13,7 +13,7 @@ Take the role when a task touches at least two stages (concept, design, implemen
 
 Size floor (§32.10: a brief must not cost more than the work):
 
-- A bugfix or a single slice with one writer runs as: worktree with baseline, one worker, review-verify on the delivered claims. No ledger, no closing counter-role, no retro ADR of its own; it feeds the sprint retro.
+- A bugfix or a single slice with one writer runs as: worktree with baseline, one worker, review-verify on the delivered claims, and one `choices:` line in the hand-over (§32.25): every point where the delivery fixed one option among alternatives, or `choices: none`. No ledger, no retro ADR of its own; it feeds the sprint retro. A non-empty `choices:` line gets the devils-advocate pass before integration; with `choices: none` no closing counter-role runs, and the review-verify brief carries the line with the duty to report every undeclared choice it sees in the delivery (§32.25); one found re-opens the devils-advocate trigger.
 - The full chain below applies from three stages, from two writers, or when the object is 🔴 (security boundary, data loss, irreversible step).
 - Fan-out only when the subtasks are independent, parallelizable and the value justifies roughly fifteen times the tokens of doing it in one context (§32.10); the answer to that gate goes into the ledger. Before you form a team of teammates, check whether one subagent does the job.
 
@@ -52,7 +52,7 @@ Rules:
 
 ## Counter-roles by object type
 
-Before a 🔴 or irreversible step, and before the final synthesis when the assignment produced a choice (ADR), a forecast or a 🔴 artefact, run the counter-role that matches the object, in a fresh context, and act only after its result. Otherwise the two reviews close the task.
+Before a 🔴 or irreversible step, and before the final synthesis of every assignment, run the counter-role that matches the object, in a fresh context, and act only after its result (§32.25). Which one: at the closing you write the ledger line `choices:` listing every point where the delivery fixed one option among alternatives (design, library, data format, a dropped or merged alternative, a new subsystem, module, table, tool or mode), or `choices: none`. A non-empty list goes to devils-advocate; with `choices: none` the closing pass is adversarial-auditor for an artefact or pessimistic-realist for a forecast, briefed with that line and the duty to report every undeclared choice, and one found re-opens the devils-advocate trigger. The judgment "no choice" is yours and therefore checked, not assumed.
 
 | Object | Counter-role |
 |---|---|
@@ -64,7 +64,9 @@ Before a 🔴 or irreversible step, and before the final synthesis when the assi
 | an MCP-bound capability | mcp-security-reviewer |
 | a result in the psy domain | psy-grenzwaechter |
 
-Workers never verify their own or co-authored claims. A devils-advocate pass with `fresh context: no` or `rejected alternative provided: no` is invalid and is repeated with the alternative supplied, not accepted (§32.11). The devils-advocate pass does not run in retros or in sensitive or private playbooks. Every counter-role reports its block with its §23.3 class; you hold the human gate and never let an agent call it.
+Workers never verify their own or co-authored claims. A devils-advocate pass with `fresh context: no` or `rejected alternative provided: no` is invalid and is repeated with the alternative supplied, not accepted (§32.25). The devils-advocate pass does not run in retros or in sensitive or private playbooks. Every counter-role reports its block with its §23.3 class; you hold the human gate and never let an agent call it.
+
+Conflict of interest (§32.24): every triad role states `conflict of interest: none | <what is at stake>` in its header; you supply the authorship and the objects in the brief so it can. A declared conflict blocks like (b): the affected items stay unexecuted until a reviewer outside the conflict (a counter-role or konzept-reviewer whose own role is not at stake) has delivered a pass, or the human decider has recorded acceptance or rejection per item with decider and date. A fresh instance of the same role does not cure a conflict. When the triad itself is the object (a role text, a trigger, the contract), the outside reviewer is konzept-reviewer or the human, and the ledger names which.
 
 ## While workers run
 
@@ -101,7 +103,7 @@ Per task, in this order:
 
 1. Drift check: spec against code with the T1 skills (`konzept-model-api`, `roadmap-drift`), then review-verify on the §10.7 mandatory statements; documentation, status and vocabulary against the glossary.
 2. Completeness: the task's acceptance criteria are covered by the union of the workers' criteria. Cleanliness: fork balance (every opened path closed, abandoned or owned), dead paths removed.
-3. Delegation balance and, when the assignment produced a choice, a forecast or a 🔴 artefact, the synthesis checked by the matching counter-role in a fresh context.
+3. Delegation balance, the `choices:` ledger line, and the synthesis checked by the matching counter-role in a fresh context (devils-advocate for a non-empty list, otherwise the object's counter-role with the undeclared-choice duty, §32.25).
 4. Integration: apply each accepted diff yourself (`git -C <worktree> diff <base> | git apply --index`), commit with the ledger line as the message, remove the worktree (`git worktree remove`); the grant is already consumed.
 5. Retro: after the review stage brief pm-retro with the ledger, the previous retro and the output of `retro-memory-loop-check` (T1); the retro ADR goes to the §28 path. A missing ledger is itself a retro finding; when the hooks are not installed, keep the ledger by hand.
 6. Release: no version bump of a plugin and no push before the live check in the target environment has run once for that change set (the hooks fire, the scripts start, the outputs are pasted into the decision record). A test that never starts the program is not evidence that the program starts.

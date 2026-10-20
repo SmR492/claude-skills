@@ -6,6 +6,7 @@ import { join, basename } from 'node:path';
 
 const PLUGIN = fileURLToPath(new URL('..', import.meta.url)).replace(/[\\/]$/, '');
 const DOMAIN = join(PLUGIN, '..', 'domain-agents', 'agents');
+const DOCTRINE = join(PLUGIN, '..', 'cdp5-gates', 'skills', 'cdp5-reference', 'konzept-design-pattern-v6.md');
 const EFFORT = new Set(['low', 'medium', 'high', 'xhigh', 'max']);
 const MODELS = new Set(['sonnet', 'opus', 'haiku', 'fable', 'inherit']);
 const TOOLS = new Set(['Read', 'Grep', 'Glob', 'Bash', 'Write', 'Edit', 'WebFetch', 'WebSearch']);
@@ -75,6 +76,31 @@ test('role-specific anchors', () => {
   assert.match(byName['mcp-security-reviewer'].body, /token passthrough/i);
   assert.match(byName['devils-advocate'].body, /null option/i);
   assert.match(byName['pessimistic-realist'].body, /unsupported forecast/);
+  // §32.24 conflict-of-interest rule (D-18): every triad role carries the header line, and the closing counter-role
+  // for `choices: none` has the undeclared-choice duty. These were the audit's red checks (absent before v6.1).
+  for (const role of ['devils-advocate', 'adversarial-auditor', 'pessimistic-realist']) {
+    assert.match(byName[role].body, /conflict of interest: none \| <what/, `${role}: §32.24 header line`);
+  }
+  for (const role of ['adversarial-auditor', 'pessimistic-realist', 'review-verify']) {
+    assert.match(byName[role].body, /undeclared choice/, `${role}: duty for \`choices: none\` (§32.25)`);
+  }
+  assert.doesNotMatch(byName['devils-advocate'].body, /hand the pass to another reviewer/, 'devils-advocate: the routing right without a duty is gone');
+});
+
+test('§32.25 closing trigger: the doctrine and the orchestrate skill both carry the `choices:` ledger line', () => {
+  const doctrine = readFileSync(DOCTRINE, 'utf8');
+  const gate = doctrine.slice(doctrine.indexOf('### 32.25 Devil'), doctrine.indexOf('### 32.21 Fresh-context rule'));
+  assert.match(gate, /`choices:`/, 'doctrine §32.25 names the ledger line');
+  assert.match(gate, /undeclared choice/, 'doctrine §32.25 gives the fallback counter-role the duty');
+  assert.doesNotMatch(gate, /when the assignment produced a choice\. When it produced no choice/, 'the self-assessed condition of v6.0 is gone');
+  const orchestrate = readFileSync(join(PLUGIN, 'skills', 'orchestrate', 'SKILL.md'), 'utf8');
+  assert.ok((orchestrate.match(/`choices:/g) || []).length >= 3, 'orchestrate names the line at the size floor, the counter-role section and the closing');
+  assert.match(orchestrate, /conflict of interest: none \| <what is at stake>/);
+  assert.doesNotMatch(orchestrate, /§32\.11/, 'orchestrate cites the moved gate as §32.25');
+});
+
+test('role-specific anchors (workers)', () => {
+  const byName = Object.fromEntries(files.map((p) => { const a = parse(p); return [a.fm.name, a]; }));
   assert.match(byName['review-code'].body, /Schema C\.1/);
   assert.match(byName['impl-debug'].body, /false positive/i);
   assert.match(byName['impl-uc'].body, /placeholder/i);

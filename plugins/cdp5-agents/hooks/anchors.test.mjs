@@ -77,8 +77,8 @@ test('the anchor parser reads multi-anchor headings and the redirect table', () 
 test('a fixture citing a missing paragraph is caught (red-first control)', () => {
   const anchors = doctrineAnchors(readFileSync(DOCTRINE, 'utf8'));
   assert.ok(!anchors.known.has('99.9'));
-  for (const a of ['32.20', '32.21', '32.22', '32.23', '32.24', '27.1.1', '35.1', '32.6.1', '1.11']) assert.ok(anchors.known.has(a), `v6 anchor §${a} is known`);
-  for (const a of ['32.12', '32.13', '32.15', '32.17', '32.19', '35.2']) {
+  for (const a of ['32.20', '32.21', '32.22', '32.23', '32.24', '32.25', '27.1.1', '35.1', '32.6.1', '1.11']) assert.ok(anchors.known.has(a), `v6 anchor §${a} is known`);
+  for (const a of ['32.11', '32.12', '32.13', '32.14', '32.15', '32.16', '32.17', '32.19', '35.2']) {
     assert.ok(!anchors.known.has(a), `§${a} must not be redefined in the copy (it means something else in Orbit)`);
     assert.ok(anchors.redirected.has(a), `§${a} is listed in the redirect table`);
   }
