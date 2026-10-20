@@ -101,7 +101,7 @@ claude plugin eval plugins/cdp5-agents --scaffold --allow-tools Bash Agent --tru
 claude plugin eval plugins/cdp5-gates --case lookup-doctrine --runs 1 --ablation none --allow-tools Bash --trust-plugin   # cheapest smoke run
 ```
 
-Each run is a `claude -p` session in an empty temporary directory with only the plugin under test loaded (its hooks included, no user settings, no other plugins), so `Bash` and `Agent` must be granted on the command line. Results land in `evals/results/` (ignored by git); the summary table and `report.html` are the evidence a release note cites.
+Each run is a `claude -p` session in an empty temporary directory with only the plugin under test loaded (its hooks included, no user settings, no other plugins), so `Bash` and `Agent` must be granted on the command line. A shell grant requires a sandbox backend on the machine: on Linux and macOS the one Claude Code's sandbox uses, on Windows the sandbox feature, which is not generally available yet; without it the run is refused rather than run unconfined (checked 2026-10-20 on a Windows host with Claude Code 2.1.304: the cases load and the graders parse, the run stops with "sandbox required but unavailable"). Results land in `evals/results/` (ignored by git); the summary table and `report.html` are the evidence a release note cites.
 
 ## Decisions
 

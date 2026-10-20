@@ -92,7 +92,7 @@ Decidable requirements (an entry point starts, an anchor resolves, a number is u
 | Devils-advocate pass on v6.0 | closed: (a) with conditions, all four applied (83f7eb4); own-scope items (§32.11 trigger, triad clause) for the human | orchestrator |
 | Grant and guard 🔴 from threat-modeler and auditor (self-grant, main-checkout scope, unbroken trifecta) | closed by test-verified fix (aef4f30, 5d7d4c9, session mandatory); live host test open | orchestrator |
 | Calibration set for the rubric | open | orchestrator |
-| Eval suites with `claude plugin eval` | suites written (cdp5-gates: lookup-doctrine, secrets-scan-fires, konzept-lint-first; cdp5-agents: worker-ack, guard-tripwire; D-15); full two-arm runs with their cost are the human's call | human runs, orchestrator reads |
+| Eval suites with `claude plugin eval` | suites written (cdp5-gates: lookup-doctrine, secrets-scan-fires, konzept-lint-first; cdp5-agents: worker-ack, guard-tripwire; D-15); they load on the host, but a Bash-granted run needs a sandbox backend the Windows host lacks; full runs on Linux/macOS or once the Windows sandbox ships | human (machine with sandbox), orchestrator reads |
 | German Orbit paragraphs as generator source | open | orchestrator (Orbit phase) |
 | Not adopted from superpowers | abandoned, reasons recorded | — |
 | Crisis numbers C1 | closed (checked 2026-10-19) | — |
