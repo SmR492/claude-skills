@@ -6,14 +6,14 @@
   },
   "metadata": {
     "description": "The CDP5 way of working as a Claude Code marketplace: deterministic T1 skills, judgment agents under a shared worker contract, domain knowledge packs, Orbit session hook.",
-    "version": "0.12.1"
+    "version": "0.12.2"
   },
   "plugins": [
     {
       "name": "cdp5-gates",
       "source": "./plugins/cdp5-gates",
       "description": "Read-only deterministic T1 skills per CDP5 §32.9: konzept-lint with the shipped maturity policy, konzept-mapper, konzept-model-api, ac-to-test-scaffold, test-gap, roadmap-drift, retro-memory-loop-check, wiki-lint, mcp-config-lint, mcp-doc-drift-gate, secrets-scan, pii-scan, profile-check, skill-lint, cdp5-init, cdp5-reference. Programs, no LLM; one exit-code and severity convention.",
-      "version": "0.8.4"
+      "version": "0.8.5"
     },
     {
       "name": "cdp5-agents",

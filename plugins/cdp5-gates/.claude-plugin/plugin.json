@@ -1,6 +1,6 @@
 {
   "name": "cdp5-gates",
-  "version": "0.8.4",
+  "version": "0.8.5",
   "description": "Deterministic read-only T1 skills per CDP5 §32.9: decidable, repeated detectors as Node programs instead of LLM agents (konzept-lint with the shipped maturity policy, mcp-config-lint, secrets-scan, pii-scan, skill-lint and more). One exit-code and severity convention; every report is reproducible evidence the main agent acts on.",
   "author": {
     "name": "SmR492",

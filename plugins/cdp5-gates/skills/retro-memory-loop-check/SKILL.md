@@ -35,7 +35,7 @@ Exit: `0` no 🔴 · `1` ≥1 🔴 · `2` usage or input error (missing argument
    Bare words are **not** citations — `project_root` or `reference_count` in prose are identifiers, not memory slugs.
 2. **Loop closed** (🔴 otherwise) — for each cited slug: `<memory>/<slug>.md` exists **and** `<memory>/MEMORY.md` contains a markdown link to it (`](…slug.md)`). A bare mention of the slug in `MEMORY.md` does not count as a pointer.
 3. **Lesson declared** (🟡 otherwise, §32.6 + pm-retro rule) — a retro file that cites zero slugs must contain a line with `no new lesson:` (case-insensitive) so that "nothing to promote" is an explicit decision, not an omission.
-4. **Consecutive numbering** (🟡, §32.6) — two files under `--retro` whose names start with the same `NNNN-` prefix break the carry-over chain; renumber or move the foreign one to its project. `kind: numbering`, `file` lists both names.
+4. **Consecutive numbering** (🟡, §32.6) — two files in the same directory under `--retro` whose names start with the same `NNNN-` prefix break the carry-over chain; renumber, or move the foreign series into its own subdirectory (each directory is one chain). A `NNNN-<slug>.ledger.md` next to `NNNN-<slug>.md` is the retro's ledger, not a second retro. `kind: numbering`, `file` lists both names.
 
 ## Limits
 

@@ -42,16 +42,22 @@ export function checkLoop(retroDir, memoryDir) {
       findings.push({ sev: '🟡', kind: 'no-lesson', file: rel, detail: 'cites no memory slug and has no `no new lesson:` line — loop open' });
   }
   // Consecutive numbering (§32.6): two retro files with the same four-digit prefix in one directory break the
-  // carry-over chain (which retro is "the previous one"?).
+  // carry-over chain (which retro is "the previous one"?). Each directory is its own chain, so a second project's
+  // series lives in a subdirectory without colliding. `NNNN-<slug>.ledger.md` is the retro's ledger, not a retro.
   const byNumber = new Map();
   for (const f of mdFiles(retroDir)) {
-    const m = /^(\d{4})-/.exec(f.split(/[\\/]/).pop());
+    const name = f.split(/[\\/]/).pop();
+    if (/\.ledger\.md$/i.test(name)) continue;
+    const m = /^(\d{4})-/.exec(name);
     if (!m) continue;
-    if (!byNumber.has(m[1])) byNumber.set(m[1], []);
-    byNumber.get(m[1]).push(relative(retroDir, f));
+    const key = `${relative(retroDir, f).split(/[\\/]/).slice(0, -1).join('/')}\u0000${m[1]}`;
+    if (!byNumber.has(key)) byNumber.set(key, []);
+    byNumber.get(key).push(relative(retroDir, f));
   }
-  for (const [num, files] of byNumber) if (files.length > 1)
-    findings.push({ sev: '🟡', kind: 'numbering', file: files.join(', '), detail: `retro number ${num} is used ${files.length} times — renumber or move to the owning project` });
+  for (const [key, files] of byNumber) if (files.length > 1) {
+    const num = key.split('\u0000')[1];
+    findings.push({ sev: '🟡', kind: 'numbering', file: files.join(', '), detail: `retro number ${num} is used ${files.length} times in one directory — renumber, or move the foreign series into its own subdirectory` });
+  }
   for (const [slug, sources] of cited) {
     const fileExists = existsSync(join(memoryDir, `${slug}.md`));
     const hasPointer = new RegExp(`\\]\\([^)]*${slug}\\.md\\)`).test(index);   // markdown link target, not a bare mention

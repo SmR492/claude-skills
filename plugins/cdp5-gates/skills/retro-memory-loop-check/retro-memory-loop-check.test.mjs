@@ -105,6 +105,23 @@ test('two retros with the same four-digit number → 🟡 numbering finding, doe
   } finally { rmSync(base, { recursive: true, force: true }); }
 });
 
+test('numbering is per directory: a second series in a subdirectory and a .ledger.md companion are not duplicates', () => {
+  const base = mkdtempSync(join(tmpdir(), 'rm-'));
+  try {
+    const retro = join(base, 'retro'); const mem = join(base, 'memory');
+    mkdirSync(join(retro, 'other-project'), { recursive: true }); mkdirSync(mem);
+    for (const f of ['0001-a.md', '0002-b.md', '0020-c.md', '0020-c.ledger.md', 'other-project/0001-x.md', 'other-project/0002-y.md']) writeFileSync(join(retro, f), '- no new lesson: fixture.');
+    writeFileSync(join(mem, 'MEMORY.md'), '');
+    assert.deepEqual(checkLoop(retro, mem).findings.filter((f) => f.kind === 'numbering'), []);
+    // The same number twice inside the subdirectory is still a finding there.
+    writeFileSync(join(retro, 'other-project', '0002-z.md'), '- no new lesson: fixture.');
+    const n = checkLoop(retro, mem).findings.filter((f) => f.kind === 'numbering');
+    assert.equal(n.length, 1);
+    assert.match(n[0].file, /other-project[\\/]0002-y\.md, other-project[\\/]0002-z\.md/);
+    assert.match(n[0].detail, /in one directory/);
+  } finally { rmSync(base, { recursive: true, force: true }); }
+});
+
 test('CLI: runs from a path containing a space and prints output', () => {
   const base = mkdtempSync(join(tmpdir(), 'cdp5 gates '));
   try {

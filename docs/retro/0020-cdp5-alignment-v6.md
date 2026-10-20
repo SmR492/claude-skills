@@ -88,8 +88,8 @@ Decidable requirements (an entry point starts, an anchor resolves, a number is u
 |---|---|---|
 | Live install test with installed plugins | closed: D-14, Windows host, v0.11.2; first real worker run observed 2026-10-20 (D-16: handback-aware stop check) | orchestrator |
 | Push of the local commits | closed: v0.11.0, v0.11.1, v0.11.2 released, `main` fast-forwarded | human |
-| Duplicate retro numbers 0001/0002 (cdp5 vs nsai-edge) | open | human decides: renumber or move nsai-edge retros |
-| Devils-advocate pass on v6.0 | closed: (a) with conditions, all four applied (83f7eb4); own-scope items (§32.11 trigger, triad clause) for the human | orchestrator |
+| Duplicate retro numbers 0001/0002 (cdp5 vs nsai-edge) | closed 2026-10-20 (D-17): the nsai-edge series 0001–0019 moved to `docs/retro/nsai-edge/`, numbering check counts per directory and ignores `.ledger.md` companions | orchestrator |
+| Devils-advocate pass on v6.0 | (a) with conditions, all four applied (83f7eb4); the three own-scope items (§32.11 trigger, triad clause, role text) audited 2026-10-20 by adversarial-auditor: SPERRE, F1–F4 open for the human (D-17) | human |
 | Grant and guard 🔴 from threat-modeler and auditor (self-grant, main-checkout scope, unbroken trifecta) | closed by test-verified fix (aef4f30, 5d7d4c9, session mandatory); live host test open | orchestrator |
 | Calibration set for the rubric | open | orchestrator |
 | Eval suites with `claude plugin eval` | suites written (cdp5-gates: lookup-doctrine, secrets-scan-fires, konzept-lint-first; cdp5-agents: worker-ack, guard-tripwire; D-15); they load on the host, but a Bash-granted run needs a sandbox backend the Windows host lacks; full runs on Linux/macOS or once the Windows sandbox ships | human (machine with sandbox), orchestrator reads |
