@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { parseOpenApi, parsePhp, diff } from './model-api-drift.mjs';
+import { parseOpenApi, parsePhp, diff } from './konzept-model-api.mjs';
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync, cpSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { tmpdir } from 'node:os';
@@ -14,7 +14,7 @@ function cliCopy() {
   const root = mkdtempSync(join(tmpdir(), 'cdp5 gates-'));
   cpSync(join(HERE, '..', '..', 'lib'), join(root, 'lib'), { recursive: true });
   cpSync(HERE, join(root, 'skills', 'konzept-model-api'), { recursive: true });
-  return { root, script: join(root, 'skills', 'konzept-model-api', 'model-api-drift.mjs') };
+  return { root, script: join(root, 'skills', 'konzept-model-api', 'konzept-model-api.mjs') };
 }
 
 test('parseOpenApi reads schema properties + enum block (neutral fixtures)', () => {

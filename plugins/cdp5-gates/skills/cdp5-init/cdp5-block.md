@@ -25,6 +25,7 @@ Non-trivial tasks are orchestrated according to **CDP5** (concept → design →
 | Check project defaults against the profile | `profile-check` |
 | Before installing a plugin / after writing a skill or agent | `skill-lint` |
 | Wire/update CLAUDE.md to the marketplace | `cdp5-init` |
+| Bootstrap block missing in a new session / "the hooks did not run" | `cdp5-doctor` |
 | Concept maturity/gap review (judgment) | `konzept-reviewer` |
 | Verify claims against code/source | `review-verify` |
 | Code review of a diff or slice | `review-code` |
@@ -40,3 +41,4 @@ Non-trivial tasks are orchestrated according to **CDP5** (concept → design →
 - **`cdp5-gates`** (deterministic T1 skills, read-only — exception: `cdp5-init --write` after confirmation): konzept-lint · ac-to-test-scaffold · konzept-mapper · konzept-model-api · konzept-const-sync · roadmap-drift · secrets-scan · pii-scan · mcp-config-lint · mcp-doc-drift-gate · wiki-lint · test-gap · retro-memory-loop-check · profile-check · skill-lint · cdp5-init · cdp5-reference.
 - **`cdp5-agents`** — judgment (read-only): konzept-reviewer · review-verify · review-code · adversarial-auditor · devils-advocate · pessimistic-realist · threat-modeler · mcp-security-reviewer · pm-retro.
 - **`cdp5-agents`** — implementation workers (write in their worktree, no commit): impl-uc · impl-debug · impl-refactor.
+- **`cdp5-agents`** — skills of the main session: orchestrate (role text) · worker-contract (reference) · cdp5-doctor (host check, read-only).

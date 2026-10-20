@@ -119,7 +119,9 @@ export function lintSkill(skillDir, { kind = 'skill', conventions = true } = {})
     if (/think (hard|harder|deeply)|ultrathink/i.test(body)) add('🟡', 'C1', 'thinking phrase in the body; thinking depth belongs in the effort field');
     const emphatic = (body.match(/\b(MUST|NEVER|ALWAYS|CRITICAL|IMPORTANT)\b/g) ?? []).length;
     if (emphatic >= 3) add('🟡', 'C2', `${emphatic} emphatic markers (MUST/NEVER/ALWAYS/CRITICAL/IMPORTANT); current models over-trigger on them, plain wording suffices`);
-    const germanLines = prose.split(/\r?\n/).filter((l) => !/^\s*[|>]/.test(l) && GERMAN.test(l)).length;
+    // Quoted spans („…“, “…”, "…") are source material (doctrine quotes, verdict vocabulary), not the skill's own prose.
+    const unquoted = (l) => l.replace(/„[^“”"]*[“”"]|“[^”]*”|"[^"\n]*"/g, '');
+    const germanLines = prose.split(/\r?\n/).filter((l) => !/^\s*[|>]/.test(l) && GERMAN.test(unquoted(l))).length;
     if (germanLines >= 3) add('🟡', 'C3', `${germanLines} prose lines look German; the repository language is English (quotes and verdict vocabulary excepted)`);
     if (kind === 'agent') {
       if (fm.model && !/^(opus|sonnet|haiku|inherit)$/.test(fm.model)) add('🟡', 'C4', `model "${fm.model}" is not one of opus, sonnet, haiku, inherit`);

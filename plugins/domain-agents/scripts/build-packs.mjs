@@ -64,6 +64,38 @@ export function slugFor(ref) {
   return String(ref).replace(/^[A-Z]+:/, '').replace(/[^a-z0-9-]/gi, '-').toLowerCase();
 }
 
+// Pack manifest: one JSON per pack with what a reader needs before trusting an entry. Derived from the entries only
+// (no timestamp of the build), so the same input gives the same manifest.
+export function manifestFor({ prefix, title, entries, redacted, overrideRefs }) {
+  const migrated = [...new Set(entries.map((e) => e.migrated).filter(Boolean))].sort();
+  return {
+    pack: title ?? `${prefix} knowledge pack`,
+    prefix,
+    entries: entries.length,
+    refs: entries.map((e) => e.ref),
+    source: 'Orbit doctrine export (riedl/nsai/doktrin), bulk extraction on 2026-07-02; each entry names its own source (a page of a source book, or none for an internal doctrine entry)',
+    migrated_to_orbit: migrated,
+    review_status: 'unverified: content not checked against a primary source; figures and legal statements are starting points',
+    redaction: redacted ? 'personal names replaced by [Person]' : 'none',
+    overrides: overrideRefs,
+    license: 'summaries of the source books named per entry; the books themselves are not shipped',
+    generator: 'scripts/build-packs.mjs',
+  };
+}
+
+// Reads an existing pack directory back into the entry shape manifestFor needs (ref, migrated), so the manifest can
+// be rebuilt without the raw export.
+export function entriesFromPack(dir) {
+  const entries = [];
+  for (const f of readdirSync(dir).filter((x) => x.endsWith('.md') && x !== 'INDEX.md').sort()) {
+    const text = readFileSync(join(dir, f), 'utf8');
+    const ref = text.match(/^Ref: `([^`]+)`/m)?.[1];
+    if (!ref) continue;
+    entries.push({ ref, migrated: text.match(/migrated to Orbit (\d{4}-\d{2}-\d{2})/)?.[1] ?? null });
+  }
+  return entries;
+}
+
 export function buildPack({ source, prefix, out, refs = null, names = [], overrides = {}, title = null }) {
   const files = readdirSync(source).filter((f) => f.startsWith(`${prefix}-`) && f.endsWith('.json')).sort();
   const wanted = refs ? new Set(refs) : null;
@@ -85,12 +117,34 @@ export function buildPack({ source, prefix, out, refs = null, names = [], overri
     index.push(`| \`${e.ref}\` | ${redact(e.title, names)} | ${e.category} | [${file}](${file}) |`);
   }
   writeFileSync(join(out, 'INDEX.md'), index.join('\n') + '\n');
+  const manifest = manifestFor({ prefix, title, entries, redacted: names.length > 0, overrideRefs: Object.keys(overrides).filter((r) => entries.some((e) => e.ref === r)).sort() });
+  writeFileSync(join(out, 'MANIFEST.json'), JSON.stringify(manifest, null, 2) + '\n');
   return { count: entries.length, missing: [...missing] };
+}
+
+// Rebuilds MANIFEST.json of an existing pack from its entries (for packs whose raw export is not at hand).
+export function writeManifest({ dir, prefix, title = null, redacted = false, overrides = {} }) {
+  const entries = entriesFromPack(dir);
+  const manifest = manifestFor({ prefix, title, entries, redacted, overrideRefs: Object.keys(overrides).filter((r) => entries.some((e) => e.ref === r)).sort() });
+  writeFileSync(join(dir, 'MANIFEST.json'), JSON.stringify(manifest, null, 2) + '\n');
+  return manifest;
 }
 
 export function main(argv = process.argv.slice(2)) {
   const a = Object.fromEntries(argv.map((x) => { const [k, ...r] = x.split('='); return [k.replace(/^--/, ''), r.join('=')]; }));
-  if (!a.source || !a.prefix || !a.out) { console.error('Usage: build-packs.mjs --source=<raw dir> --prefix=BL --out=<dir> [--refs=BL:a,BL:b] [--redact=name1,name2] [--overrides=<json>] [--title=<INDEX heading>]'); return 2; }
+  if (a.manifest) {
+    if (!a.prefix) { console.error('Usage: build-packs.mjs --manifest=<entries dir> --prefix=BL [--title=<pack title>] [--redacted] [--overrides=<json>]'); return 2; }
+    try {
+      const overrides = a.overrides ? JSON.parse(readFileSync(a.overrides, 'utf8')) : {};
+      const m = writeManifest({ dir: a.manifest, prefix: a.prefix, title: a.title || null, redacted: 'redacted' in a, overrides });
+      console.log(`${a.prefix}: MANIFEST.json written for ${m.entries} entries in ${a.manifest}`);
+      return 0;
+    } catch (e) {
+      console.error(e.message);
+      return 2;
+    }
+  }
+  if (!a.source || !a.prefix || !a.out) { console.error('Usage: build-packs.mjs --source=<raw dir> --prefix=BL --out=<dir> [--refs=BL:a,BL:b] [--redact=name1,name2] [--overrides=<json>] [--title=<INDEX heading>]  |  --manifest=<entries dir> --prefix=BL [--title=…] [--redacted] [--overrides=<json>]'); return 2; }
   const refs = a.refs ? a.refs.split(',').map((s) => s.trim()).filter(Boolean) : null;
   const names = a.redact ? a.redact.split(',').map((s) => s.trim()).filter(Boolean) : [];
   try {

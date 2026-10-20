@@ -18,7 +18,7 @@ node "${CLAUDE_PLUGIN_ROOT}/skills/konzept-const-sync/konzept-const-sync.mjs" \
   --konzept=<KONZEPT.md> --spec=<rules.mjs> [--conformance=<conformance.mjs>] [--keys=<keys.json>] [--json]
 ```
 
-**Executes the module's top-level code via `import()`; run only on code built in this repository (§33.1).** This applies to `--spec` and `--conformance`: whatever those modules do at import time happens on the host.
+**Executes the module's top-level code via `import()`; run only on code built in this repository (§33.1).** This applies to `--spec` and `--conformance`: whatever those modules do at import time happens on the host. Every output names the imported modules (`executed_target_modules` in `--json`, the header line in text). A module from an untrusted checkout needs a run grant and a disposable environment first.
 
 The spec must provide `export const DEFAULT_SPEC = {...}`. `conformance.mjs` (optional) is mirrored against the spec: every exported object is compared key by key against the tracked scalar keys (e.g. `QUORUM_CONSTANTS.quorumAuthFloor`, `DECAY_RECALL_CONSTANTS.recallDecayDivisor`).
 

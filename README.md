@@ -1,6 +1,6 @@
 # claude-skills
 
-A Claude Code plugin marketplace for the CDP5 way of working: deterministic T1 skills where a task is decidable, judgment agents with a shared worker contract where it is not, and knowledge packs shipped as supporting files. Everything is project-independent and read-only unless a role says otherwise.
+A Claude Code plugin marketplace for the CDP5 way of working: deterministic T1 skills where a task is decidable, judgment agents with a shared worker contract where it is not, and knowledge packs shipped as supporting files. Everything is project-independent and read-only unless a role says otherwise. New here: `docs/concepts.md` explains the eight terms this README uses (T1 skill, judgment agent, counter-role, worker contract, gate, run grant, worktree, orchestrator) and which tool fits which situation. Everything except `orbit-workflow` runs without Orbit.
 
 ## Installation
 
@@ -25,7 +25,13 @@ claude plugin install domain-agents@claude-skills
 claude plugin install orbit-workflow@claude-skills   # optional, needs the Orbit MCP
 ```
 
-Start a new session afterwards. The SessionStart bootstrap of cdp5-agents prints the script paths, the data directory and the session id; if that block is missing, the hooks did not run (most often: Node not on the PATH). `/skill-doctor` lists the loaded skills and their context cost; `/doctor prompt-audit` checks the loaded CLAUDE.md files, skills and agents for outdated or contradictory instructions; `claude plugin eval` runs a plugin's eval suite once one exists. The repository is checked out with LF on every platform (`.gitattributes`), so the contract hash and the lints behave the same on Windows, macOS and Linux.
+Start a new session afterwards. The SessionStart bootstrap of cdp5-agents prints the script paths, the data directory and the session id; if that block is missing, the hooks did not run. The host check says why:
+
+```
+node "$HOME/.claude/plugins/cache/claude-skills/cdp5-agents/<version>/skills/cdp5-doctor/cdp5-doctor.mjs"
+```
+
+It prints one line per fact (`ok`, `warn`, `FAIL`): Node version and path, git, the four hook scripts, the worker contract hash, line endings, the data directory, whether a session has started with the hooks, the usage log, and the sibling plugins; exit 1 on any FAIL. After a fresh install the expected result is all `ok` except `bootstrap` and `usage log` on `warn`, which turn `ok` with the first session and the first agent run. On Windows the Windows PATH counts: a Node inside WSL is reported as missing. `/skill-doctor` lists the loaded skills and their context cost; `/doctor prompt-audit` checks the loaded CLAUDE.md files, skills and agents for outdated or contradictory instructions; `claude plugin eval` runs a plugin's eval suite once one exists. The repository is checked out with LF on every platform (`.gitattributes`), so the contract hash and the lints behave the same on Windows, macOS and Linux.
 
 ## Plugins
 
@@ -33,7 +39,7 @@ Start a new session afterwards. The SessionStart bootstrap of cdp5-agents prints
 
 Node programs, `node:` builtins only, same input same output; the output is the evidence. `konzept-mapper`, `konzept-lint` (gate G1–G15 plus weighted score against the shipped maturity policy), `konzept-const-sync`, `konzept-model-api`, `ac-to-test-scaffold` (placeholders, not red tests), `test-gap`, `roadmap-drift`, `retro-memory-loop-check`, `wiki-lint`, `mcp-config-lint`, `mcp-doc-drift-gate`, `secrets-scan`, `pii-scan`, `profile-check`, `skill-lint` (spec, conventions and supply-chain check of skills and plugins), `cdp5-init`, `cdp5-reference`.
 
-One convention for every detector: exit `0` means no 🔴 finding, `1` at least one 🔴, `2` a usage or input error; every finding is printed with 🔴 🟡 🟢 and carries `sev` in `--json`, so the orchestrator maps it to pass, pass-with-conditions or block. Generators and lookups (`ac-to-test-scaffold`, `cdp5-reference`, `cdp5-init`) never exit 1. `mcp-doc-drift-gate` and `konzept-const-sync` import the target module and therefore execute its top-level code; run them only on code built in the repository. All scripts start through `pathToFileURL`, so they run on Windows hosts and from paths with spaces.
+One convention for every detector: exit `0` means no 🔴 finding, `1` at least one 🔴, `2` a usage or input error; every finding is printed with 🔴 🟡 🟢 and carries `sev` in `--json`, so the orchestrator maps it to pass, pass-with-conditions or block. Generators and lookups (`ac-to-test-scaffold`, `cdp5-reference`, `cdp5-init`) never exit 1. `mcp-doc-drift-gate` and `konzept-const-sync` import the target module and therefore execute its top-level code; run them only on code built in the repository, and on a foreign checkout only inside a disposable environment under a run grant. Both name the imported module in every output (`executed_target_module(s)` in `--json`, the header line in text). The `--json` shapes differ per skill (rows for the mapper, dimensions for the lint, findings for the scanners); what they share is the `sev` marker on every finding and the exit code. All scripts start through `pathToFileURL`, so they run on Windows hosts and from paths with spaces. Script names equal the skill name (`<skill>/<skill>.mjs`) with one exception kept on purpose: `cdp5-reference/cdp5.mjs`, the lookup typed by hand in the CLAUDE.md gate line.
 
 The concept maturity policy lives in `plugins/cdp5-gates/policy/reife-rubrik.policy.md`; `reife-rubrik.policy.json` is generated from it (`node plugins/cdp5-gates/scripts/generate-rubric.mjs`, `--check` in CI). Two layers: a binary gate (G1–G11, decided by the lint where deterministic) and seven weighted dimensions; default threshold 8.0; a project may ship its own copy.
 
@@ -56,7 +62,7 @@ The concept maturity policy lives in `plugins/cdp5-gates/policy/reife-rubrik.pol
 
 Model tiers follow doctrine §32.3: judgment, counter-roles and security on `opus`; implementation workers, retro moderation and marketing on `sonnet`; purely mechanical work is a T1 skill, not an agent. `hooks/agents.test.mjs` pins the mapping.
 
-The `orchestrate` skill is the role text of the main session: trigger, brief template, counter-roles by object type, re-brief limit, worktrees, cost, planning rules, usage log.
+The `orchestrate` skill is the role text of the main session: trigger, brief template, counter-roles by object type, re-brief limit, worktrees, cost, planning rules, usage log. `cdp5-doctor` is the read-only host check described under Install.
 
 Shared mechanics:
 
@@ -71,7 +77,7 @@ Shared mechanics:
 
 ### domain-agents: domain agents and session skills
 
-Agents `marketing-strategist`, `psy-domaenen-rechercheur`, `psy-grenzwaechter`; session skills `business-lingo` (frameworks and lenses), `psy-diagnostik-navigator`, `psy-therapiebegleiter`, `psy-paar-moderator`; knowledge packs `business-lingo/entries` (89), `ux-knowledge/entries` (118), `psy-knowledge/entries` (12, names removed), `marketing-knowledge/entries` (21). Packs are generated by `plugins/domain-agents/scripts/build-packs.mjs` from the Orbit export and marked unverified. See `plugins/domain-agents/README.md`.
+Agents `marketing-strategist`, `psy-domaenen-rechercheur`, `psy-grenzwaechter`; session skills `business-lingo` (frameworks and lenses), `psy-diagnostik-navigator`, `psy-therapiebegleiter`, `psy-paar-moderator`; knowledge packs `business-lingo/entries` (89), `ux-knowledge/entries` (118), `psy-knowledge/entries` (12, names removed), `marketing-knowledge/entries` (21). Packs are generated by `plugins/domain-agents/scripts/build-packs.mjs` from the Orbit export and marked unverified; each pack carries a `MANIFEST.json` (source, migration date, review status, redaction, overrides). See `plugins/domain-agents/README.md`.
 
 ### orbit-workflow
 
@@ -80,9 +86,23 @@ A `SessionStart` hook that loads the latest Orbit report and open FastNotes of t
 ## Tests
 
 ```bash
-node --test plugins/cdp5-gates/skills/*/*.test.mjs plugins/cdp5-gates/lib/*.test.mjs plugins/cdp5-agents/hooks/*.test.mjs plugins/orbit-workflow/hooks/*.test.mjs plugins/domain-agents/scripts/*.test.mjs
+node --test plugins/cdp5-gates/skills/*/*.test.mjs plugins/cdp5-gates/lib/*.test.mjs plugins/cdp5-agents/hooks/*.test.mjs plugins/cdp5-agents/skills/*/*.test.mjs plugins/orbit-workflow/hooks/*.test.mjs plugins/domain-agents/scripts/*.test.mjs
 ```
+
+Run the suite on every platform the plugins are installed on; the Windows host found defects WSL never showed (D-14).
+
+## Evals
+
+`plugins/cdp5-gates/evals/` and `plugins/cdp5-agents/evals/` hold behaviour cases for `claude plugin eval`: one directory per case with `prompt.md` (frontmatter and prompt), `graders/*.md` and, where the case needs files, `case.yaml` with a `scaffold.sh`. The cases test what the unit tests cannot: that Claude reaches for the T1 skill instead of reading by eye (`lookup-doctrine`, `secrets-scan-fires`, `konzept-lint-first`), that a spawned agent receives and acknowledges the contract (`worker-ack`), and that the guard stops a judgment agent's write and the report says so (`guard-tripwire`). Deterministic graders (`tool_used`, `regex`) carry `arm: both` so the baseline arm without the plugin shows the difference; one `llm` grader per case judges the answer.
+
+```bash
+claude plugin eval plugins/cdp5-gates --scaffold --allow-tools Bash --trust-plugin                 # three runs with, three without the plugin
+claude plugin eval plugins/cdp5-agents --scaffold --allow-tools Bash Agent --trust-plugin
+claude plugin eval plugins/cdp5-gates --case lookup-doctrine --runs 1 --ablation none --allow-tools Bash --trust-plugin   # cheapest smoke run
+```
+
+Each run is a `claude -p` session in an empty temporary directory with only the plugin under test loaded (its hooks included, no user settings, no other plugins), so `Bash` and `Agent` must be granted on the command line. Results land in `evals/results/` (ignored by git); the summary table and `report.html` are the evidence a release note cites.
 
 ## Decisions
 
-`docs/cdp5-review/DECISIONS.md` records the review of all 35 former roles, the decisions A1–A11, the per-role verdicts and the repository changes D-1 to D-13 with their best-practice checks. `docs/cdp5-review/_cross-cutting.md` holds the cross-cutting findings.
+`docs/cdp5-review/DECISIONS.md` records the review of all 35 former roles, the decisions A1–A11, the per-role verdicts and the repository changes D-1 to D-15 with their best-practice checks, including what external reviews proposed and what was adopted or declined with the reason. `docs/cdp5-review/_cross-cutting.md` holds the cross-cutting findings.

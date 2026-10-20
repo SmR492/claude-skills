@@ -23,3 +23,5 @@ Mode: C (review and teardown of the agent set) · started 2026-10-19 · kept by 
 | Doctrine v6.0 conditions from the devils-advocate pass (free anchors, fork balance, collisions) | done | 83f7eb4 | anchors.test strict | own-scope items for the human |
 | Release v0.11.0 / v0.11.1 (descriptions ≤ 500 chars) | done | d09e7e9, 6b5a9ad | sync without warnings | — |
 | Live install on the Windows host, portability fixes, v0.11.2 | done | 4aedae8, d488f50 | WSL 266/266, Windows 265 pass + 1 skipped; hook probe D-14 | first real orchestrate run in a new session |
+| Gemini report "Claude Code Tools und Befehle" → skill-lint S9, channel check, prompt-audit, eval format; v0.11.3 | done | e3d711d | tests green; batch 10 | — |
+| Three external reviews (Perplexity, Gemini 4, Grok 4.7) → concepts page, cdp5-doctor, import marker, pack manifests, C3 quotes, rename, eval suites; v0.12.0 | done | this commit | suite green on WSL and Windows; eval smoke run; batch 11 / D-15 | full eval runs (cost) with the human |

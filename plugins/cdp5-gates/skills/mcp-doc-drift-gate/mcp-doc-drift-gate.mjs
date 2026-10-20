@@ -86,12 +86,14 @@ for (const t of TOOLS) {
 
 const critical = findings.filter((f) => f.sev === '🔴').length;
 const exitCode = critical === 0 ? 0 : 1;
-const summary = { tools_checked: TOOLS.length, findings: findings.length, drift: critical, tools_without_output_contract: toolsWithoutOutputContract, exit: exitCode };
+// executed_target_module: the import above ran the module's top-level code on this host; the consumer sees it in
+// every output so the "code built in this repository" rule stays visible where the result is read.
+const summary = { tools_checked: TOOLS.length, findings: findings.length, drift: critical, tools_without_output_contract: toolsWithoutOutputContract, executed_target_module: ARGS.mcp, exit: exitCode };
 
 if (ARGS.json) {
   console.log(JSON.stringify({ ...summary, findings }, null, 2));
 } else {
-  console.log(`mcp-doc-drift-gate — ${summary.tools_checked} tools checked, ${critical} drift spots\n`);
+  console.log(`mcp-doc-drift-gate — ${summary.tools_checked} tools checked, ${critical} drift spots (imported ${ARGS.mcp}; its top-level code ran)\n`);
   for (const f of findings) console.log(`  ${f.sev} ${f.tool} — ${f.detail}`);
   if (findings.length) console.log('');
   console.log(critical === 0 ? `no drift  ·  exit ${exitCode}` : `${critical} drift  ·  exit ${exitCode}`);

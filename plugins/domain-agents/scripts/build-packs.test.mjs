@@ -3,7 +3,37 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, mkdirSync, readFileSync, writeFileSync, rmSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { parseEntry, render, buildPack, redact, slugFor, applyOverrides } from './build-packs.mjs';
+import { parseEntry, render, buildPack, redact, slugFor, applyOverrides, writeManifest, entriesFromPack, main } from './build-packs.mjs';
+
+test('buildPack writes a MANIFEST.json derived from the entries, and --manifest rebuilds it from the pack alone', () => {
+  const root = mkdtempSync(join(tmpdir(), 'packs-'));
+  const src = join(root, 'raw');
+  mkdirSync(src);
+  writeFileSync(join(src, 'PSY-a.json.json'), rawEntry('PSY:a', 'A', 'Alice advises.', ['p1']));
+  writeFileSync(join(src, 'PSY-b.json.json'), rawEntry('PSY:b', 'B', 'sb', []));
+  const overridesPath = join(root, 'overrides.json');
+  writeFileSync(overridesPath, JSON.stringify({ 'PSY:a': [['p1', 'q1']], 'PSY:zzz': [['x', 'y']] }));
+  try {
+    buildPack({ source: src, prefix: 'PSY', out: join(root, 'psy'), names: ['Alice'], overrides: JSON.parse(readFileSync(overridesPath, 'utf8')), title: 'PSY knowledge pack' });
+    const m = JSON.parse(readFileSync(join(root, 'psy', 'MANIFEST.json'), 'utf8'));
+    assert.equal(m.pack, 'PSY knowledge pack');
+    assert.equal(m.entries, 2);
+    assert.deepEqual(m.refs, ['PSY:a', 'PSY:b']);
+    assert.deepEqual(m.migrated_to_orbit, ['2026-09-02']);
+    assert.match(m.review_status, /^unverified/);
+    assert.equal(m.redaction, 'personal names replaced by [Person]');
+    assert.deepEqual(m.overrides, ['PSY:a'], 'only overrides that hit an entry are listed');
+    assert.ok(!('generated_at' in m), 'no build timestamp: same input, same manifest');
+    assert.deepEqual(entriesFromPack(join(root, 'psy')), [{ ref: 'PSY:a', migrated: '2026-09-02' }, { ref: 'PSY:b', migrated: '2026-09-02' }]);
+    rmSync(join(root, 'psy', 'MANIFEST.json'));
+    const code = main([`--manifest=${join(root, 'psy')}`, '--prefix=PSY', '--title=PSY knowledge pack', '--redacted', `--overrides=${overridesPath}`]);
+    assert.equal(code, 0);
+    assert.deepEqual(JSON.parse(readFileSync(join(root, 'psy', 'MANIFEST.json'), 'utf8')), m, 'the rebuilt manifest equals the one the build wrote');
+    assert.equal(main(['--manifest=' + join(root, 'psy')]), 2, 'prefix is required');
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
 
 test('overrides replace person-specific passages per ref without naming them in the repo', () => {
   const e = parseEntry(rawEntry('PSY:modus-trennung', 'Modes', 'Rule.', ['Individual mode (to Alice: short; to Bob: factual).', 'Couple mode.']));

@@ -3,6 +3,9 @@ node_modules/
 *.log
 .tmp/
 
+# claude plugin eval writes its runs here; the cases are tracked, the results are not.
+plugins/*/evals/results/
+
 # Exploration source material (never committed): copyrighted e-book PDFs and NotebookLM raw dumps
 # are ingest sources; the knowledge belongs in the knowledge layer, not as binary or copyright
 # risk in a possibly public repository history.

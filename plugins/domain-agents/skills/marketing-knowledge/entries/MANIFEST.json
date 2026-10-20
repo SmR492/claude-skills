@@ -1,0 +1,37 @@
+{
+  "pack": "Marketing knowledge pack (SU subset)",
+  "prefix": "SU",
+  "entries": 21,
+  "refs": [
+    "SU:account-based-marketing-abm",
+    "SU:affiliate-marketing",
+    "SU:brand-loyalty",
+    "SU:brand-marketing",
+    "SU:brand-positioning",
+    "SU:content-marketing",
+    "SU:customer-acquisition-cost",
+    "SU:go-to-market-strategy",
+    "SU:growth-hacking",
+    "SU:guerilla-marketing",
+    "SU:lifetime-value",
+    "SU:marketing-channels",
+    "SU:marketing",
+    "SU:net-promoter-score",
+    "SU:product-led-growth-plg",
+    "SU:sales-funnel",
+    "SU:social-proof",
+    "SU:value-proposition",
+    "SU:viral-effects",
+    "SU:voice-of-the-customer",
+    "SU:word-of-mouth-marketing-womm"
+  ],
+  "source": "Orbit doctrine export (riedl/nsai/doktrin), bulk extraction on 2026-07-02; each entry names its own source (a page of a source book, or none for an internal doctrine entry)",
+  "migrated_to_orbit": [
+    "2026-09-02"
+  ],
+  "review_status": "unverified: content not checked against a primary source; figures and legal statements are starting points",
+  "redaction": "none",
+  "overrides": [],
+  "license": "summaries of the source books named per entry; the books themselves are not shipped",
+  "generator": "scripts/build-packs.mjs"
+}

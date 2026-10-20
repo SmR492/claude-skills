@@ -132,6 +132,7 @@ test('AC-11: JSON mode yields machine-readable format', () => {
   const out = JSON.parse(r.stdout);
   assert.equal(out.findings.length >= 1, true);
   assert.equal(out.findings[0].kind, 'tier-decl');
+  assert.deepEqual(out.executed_target_modules, [sPath], 'the output names the modules whose top-level code ran');
 });
 
 test('AC-12: conformance mirror drift is detected', () => {

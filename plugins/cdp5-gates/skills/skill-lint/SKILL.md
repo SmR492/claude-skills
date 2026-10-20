@@ -39,5 +39,5 @@ Supply chain (off with `--no-scan`), over every file of the tree:
 - Pattern-based. Obfuscation that splits a keyword across string concatenation, or code loaded at runtime from an allowed-looking URL, is not seen. The counter-check is reading the flagged files and the hooks.
 - `X3` scans markdown, text and JSON; code is out of scope for that check, so a lint whose source contains the attack phrases (like `mcp-config-lint`) is not flagged there, and a pattern definition in code is reported as 🟢 by the other checks.
 - `S6` checks only references into the skill's own subdirectories (`references/`, `scripts/`, `assets/`, …); a path whose first segment is not a directory of the skill is treated as pointing elsewhere.
-- The German heuristic counts function words outside tables and quotes; a skill that legitimately quotes German doctrine may reach the threshold.
+- The German heuristic counts function words outside tables, blockquotes and quotation marks („…“, “…”, "…"); a skill that quotes German doctrine inline without quotation marks may still reach the threshold.
 - The check does not run the skill and does not inspect what a skill's scripts download at runtime; `claude plugin eval` and `/skill-doctor` measure behaviour and cost, this lint measures the files.

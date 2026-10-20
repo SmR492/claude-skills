@@ -17,7 +17,7 @@ This skill turns that into a **deterministic** pre-merge gate without any LLM ca
 node "${CLAUDE_PLUGIN_ROOT}/skills/mcp-doc-drift-gate/mcp-doc-drift-gate.mjs" --mcp=<path-to-mcp-server.mjs> [--json]
 ```
 
-**Executes the module's top-level code via `import()`; run only on code built in this repository (§33.1).** The gate does not write anything, but it is not sandboxed — whatever the server module does at import time (connecting, reading env, spawning) happens.
+**Executes the module's top-level code via `import()`; run only on code built in this repository (§33.1).** The gate does not write anything, but it is not sandboxed — whatever the server module does at import time (connecting, reading env, spawning) happens. Every output names the imported module (`executed_target_module` in `--json`, the header line in text), so the reader of a result sees what ran. A judgment agent runs this gate only on the module its brief names; a module from an untrusted checkout needs a run grant and a disposable environment first.
 
 ## Severity and exit codes
 

@@ -10,7 +10,7 @@ The deterministic diff part of the former `konzept-model-api` agent as a program
 ## Invocation
 
 ```bash
-node "${CLAUDE_PLUGIN_ROOT}/skills/konzept-model-api/model-api-drift.mjs" \
+node "${CLAUDE_PLUGIN_ROOT}/skills/konzept-model-api/konzept-model-api.mjs" \
   --repo=<repo-root> --openapi=<path/openapi.yaml> [--strict] [--json]
 ```
 

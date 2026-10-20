@@ -215,12 +215,15 @@ if (ARGS.conformance) {
 }
 
 const exitCode = findings.some((f) => f.sev === '🔴') ? 1 : 0;
-const summary = { konzept: ARGS.konzept, lines_scanned: lines.length, tracked_constants: annot.size, keys_source: ARGS.keys || 'default (NSAI-Edge)', findings: findings.length, conformance_checked: conformanceChecked, exit: exitCode };
+// executed_target_modules: the imports above ran the modules' top-level code on this host; the consumer sees it in
+// every output so the "code built in this repository" rule stays visible where the result is read.
+const executed = [ARGS.spec, ...(conformanceChecked ? [ARGS.conformance] : [])];
+const summary = { konzept: ARGS.konzept, lines_scanned: lines.length, tracked_constants: annot.size, keys_source: ARGS.keys || 'default (NSAI-Edge)', findings: findings.length, conformance_checked: conformanceChecked, executed_target_modules: executed, exit: exitCode };
 
 if (ARGS.json) {
   console.log(JSON.stringify({ ...summary, findings }, null, 2));
 } else {
-  console.log(`konzept-const-sync — ${summary.lines_scanned} lines, ${annot.size} tracked constants, ${findings.length} drift findings\n`);
+  console.log(`konzept-const-sync — ${summary.lines_scanned} lines, ${annot.size} tracked constants, ${findings.length} drift findings (imported ${executed.join(', ')}; top-level code ran)\n`);
   for (const f of findings) console.log(`  ${f.sev} ${f.line ? `L${f.line}` : 'mirror'} [${f.kind}] — ${f.detail}`);
   if (findings.length) console.log('');
   console.log(findings.length === 0 ? `no drift — concept constants match the spec  ·  exit ${exitCode}` : `${findings.length} drift  ·  exit ${exitCode}`);

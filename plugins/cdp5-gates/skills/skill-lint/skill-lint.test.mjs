@@ -80,6 +80,8 @@ test('conventions: thinking phrases, emphatic markers, German prose, agent model
     assert.ok(!checks(lintSkill(noisy, { conventions: false })).some((x) => x.startsWith('🟡C')), '--spec-only drops convention checks');
     const german = skill(root, 'deutsch', 'name: deutsch\ndescription: Deutsch. Use when deutsch.', '# Deutsch\n\nDas ist eine Regel und sie wird nicht gebrochen.\nHier wird auch nichts geändert, oder doch.\nUnd das muss so sein.\n');
     assert.ok(checks(lintSkill(german)).includes('🟡C3'));
+    const quoted = skill(root, 'zitate', 'name: zitate\ndescription: Quotes. Use when quoting.', '# Quotes\n\nThe doctrine says „Das ist eine Regel und sie wird nicht gebrochen“ about this.\nThe verdict reads "FREIGABE nur mit Auflagen, nicht ohne" in the record.\nRule 3 quotes “Und das muss so sein” verbatim.\n> Hier wird auch nichts geändert, oder doch.\n');
+    assert.ok(!checks(lintSkill(quoted)).includes('🟡C3'), 'German inside quotation marks and blockquotes is source material, not prose');
     mkdirSync(join(root, 'agents'));
     const agent = join(root, 'agents', 'my-agent.md');
     writeFileSync(agent, '---\nname: my-agent\ndescription: Reviews. Use when reviewing.\nmodel: gpt\neffort: turbo\n---\nBody.\n');

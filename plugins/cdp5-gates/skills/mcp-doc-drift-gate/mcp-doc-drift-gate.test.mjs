@@ -107,6 +107,14 @@ test('AC-8: JSON mode returns machine-readable format', () => {
   assert.equal(out.tools_checked, 1);
   assert.equal(out.findings.length, 1);
   assert.equal(out.findings[0].kind, 'input');
+  assert.equal(out.executed_target_module, path, 'the output names the module whose top-level code ran');
+});
+
+test('AC-8b: the text output says which module was imported and that its top-level code ran', () => {
+  const { dir, path } = tmpServer(`[{ name: 'foo', description: 'Sets subject.', inputSchema: { type: 'object', properties: { subject: {} } }, outputContract: [] }]`);
+  const r = spawnSync('node', [SKILL, `--mcp=${path}`], { encoding: 'utf8' });
+  cleanup(dir);
+  assert.match(r.stdout, /imported .*srv\.mjs; its top-level code ran/);
 });
 
 test('AC-9: TOOLS not exported → exit 2', () => {

@@ -99,7 +99,7 @@ export function diff(php, api, { strict = false } = {}) {
 
 function main(argv) {
   const args = Object.fromEntries(argv.slice(2).map((a) => { const [k, v] = a.split('='); return [k.replace(/^--/, ''), v ?? true]; }));
-  if (!args.repo || !args.openapi) { console.error('Usage: model-api-drift.mjs --repo=<root> --openapi=<openapi.yaml> [--strict] [--json]'); process.exit(2); }
+  if (!args.repo || !args.openapi) { console.error('Usage: konzept-model-api.mjs --repo=<root> --openapi=<openapi.yaml> [--strict] [--json]'); process.exit(2); }
   guardPaths([[args.repo, 'dir'], [args.openapi, 'file']]);
   const php = parsePhp(collectFiles(args.repo, ['.php']));
   const api = parseOpenApi(readFileSync(args.openapi, 'utf8'));
