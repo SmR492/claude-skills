@@ -71,10 +71,23 @@ export function usageLogPath(env = process.env) {
   return join(dataDir(env), 'usage-log.jsonl');
 }
 
+// Tools through which a subagent delivers its final report to the caller instead of writing a text block
+// (Claude Code 2.1.30x: SubagentHandback with input.message). Their message is the final answer the hook judges.
+export const HANDBACK_TOOLS = new Set(['SubagentHandback']);
+
+function handbackText(block) {
+  if (block?.type !== 'tool_use' || !HANDBACK_TOOLS.has(block.name)) return null;
+  const m = block.input?.message;
+  return typeof m === 'string' ? m : null;
+}
+
 function textBlocks(content) {
   if (typeof content === 'string') return content;
   if (!Array.isArray(content)) return '';
-  return content.filter((b) => b?.type === 'text' && typeof b.text === 'string').map((b) => b.text).join('\n');
+  return content
+    .map((b) => (b?.type === 'text' && typeof b.text === 'string' ? b.text : handbackText(b)))
+    .filter((t) => typeof t === 'string')
+    .join('\n');
 }
 
 function isAssistant(entry) {
@@ -104,9 +117,12 @@ export function transcriptLastAssistant(path) {
   return parts.filter(Boolean).join('\n');
 }
 
-// The message the stop hook judges: the hook input's last_assistant_message, or the transcript when that is absent.
+// The message the stop hook judges: the hook input's last_assistant_message, or the transcript when that is absent
+// or blank. Blank happens when the agent's last message is only a handback tool call; the transcript then yields
+// the handback message.
 export function finalMessage(input) {
-  if (input.last_assistant_message !== undefined && input.last_assistant_message !== null) return String(input.last_assistant_message);
+  const given = input.last_assistant_message;
+  if (given !== undefined && given !== null && String(given).trim() !== '') return String(given);
   return transcriptLastAssistant(input.agent_transcript_path ?? input.transcript_path);
 }
 

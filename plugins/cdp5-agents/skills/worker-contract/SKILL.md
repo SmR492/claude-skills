@@ -106,10 +106,10 @@ Every role lists at least three rights and three duties beyond this contract. A 
 
 ## Usage log
 
-The SubagentStop hook appends one line per completed agent run to `usage-log.jsonl` in the plugin data directory (`${CLAUDE_PLUGIN_DATA}` in hook processes; the SessionStart bootstrap writes the resolved directory to `~/.cache/cdp5-agents/data-dir` so scripts run from the main session find the same file; fallback `~/.cache/cdp5-agents/`):
+The SubagentStop hook, or the PreToolUse hook on the SubagentHandback tool when the worker reports through it (Claude Code 2.1.271 and later), appends one line per completed agent run to `usage-log.jsonl` in the plugin data directory (`${CLAUDE_PLUGIN_DATA}` in hook processes; the SessionStart bootstrap writes the resolved directory to `~/.cache/cdp5-agents/data-dir` so scripts run from the main session find the same file; fallback `~/.cache/cdp5-agents/`):
 
 ```
-{"ts":"2026-10-19T08:00:00.000Z","agent_type":"cdp5-agents:review-verify","agent_id":"…","session_id":"…","cwd":"…","contract":"v2 1a2b3c4d5e6f","result":"ok"}
+{"ts":"2026-10-19T08:00:00.000Z","agent_type":"cdp5-agents:review-verify","agent_id":"…","session_id":"…","cwd":"…","contract":"v2 1a2b3c4d5e6f","result":"ok","via":"stop"}
 ```
 
 `result` is one of ok, no-ack, hedged, contract-missing, so a retro can count the failing runs too.

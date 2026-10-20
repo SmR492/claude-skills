@@ -9,7 +9,7 @@ import { spawnSync } from 'node:child_process';
 import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { pluginRoot, verify, usageLogPath, paths as contractPaths } from '../../lib/contract.mjs';
-import { dataDir, pointerPath, readSessionPointer } from '../../lib/data-dir.mjs';
+import { dataDir, pointerPath, sessionPointerPath, readSessionPointer } from '../../lib/data-dir.mjs';
 
 export const MIN_NODE = 20;
 
@@ -83,7 +83,10 @@ export function checks(env = process.env, opts = {}) {
 
   const pointer = pointerPath(env);
   const session = readSessionPointer(env);
-  if (existsSync(pointer) && session) add('bootstrap', 'ok', `a session started with the hooks (last session ${session}; pointer ${pointer})`);
+  // The write time of the session pointer tells whether the current session ran the bootstrap or only an older one did.
+  let written = '';
+  try { written = `, written ${statSync(sessionPointerPath(env)).mtime.toISOString()}`; } catch { written = ''; }
+  if (existsSync(pointer) && session) add('bootstrap', 'ok', `a session started with the hooks (last session ${session}${written}; pointer ${pointer})`);
   else if (existsSync(pointer)) add('bootstrap', 'warn', `the bootstrap ran (pointer ${pointer}) but no session id was recorded; grants need --session`);
   else add('bootstrap', 'warn', `no session has started with the hooks yet (no pointer at ${pointer}); start a new Claude Code session and look for the cdp5-agents block`);
 

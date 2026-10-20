@@ -168,6 +168,56 @@ test('transcript fallback: the last assistant message is read from the JSONL tra
   }
 });
 
+// Shape of the real record Claude Code 2.1.304 wrote when a worker ended with the SubagentHandback tool (2026-10-20).
+function handbackLine(report, id = 'msg_01') {
+  return JSON.stringify({
+    parentUuid: 'p', isSidechain: true, agentId: 'a1', type: 'assistant',
+    message: { model: 'claude-opus-5-5', id, type: 'message', role: 'assistant', content: [{ type: 'tool_use', id: 't9', name: 'SubagentHandback', input: { message: report } }] },
+  });
+}
+
+test('handback: a final report delivered through the SubagentHandback tool is the message the hook judges', () => {
+  const root = mkdtempSync(join(tmpdir(), 'cdp5-handback-'));
+  try {
+    const path = join(root, 'agent.jsonl');
+    const report = 'contract: v1 abcdef123456\nfresh context: yes\nVerdict: confirmed.';
+    writeFileSync(path, [
+      JSON.stringify({ type: 'assistant', message: { id: 'm1', role: 'assistant', content: [{ type: 'tool_use', id: 't1', name: 'Read', input: {} }] } }),
+      JSON.stringify({ type: 'user', message: { role: 'user', content: [{ type: 'tool_result', tool_use_id: 't1', content: 'x' }] } }),
+      handbackLine(report),
+      JSON.stringify({ type: 'user', message: { role: 'user', content: [{ type: 'tool_result', tool_use_id: 't9', content: [{ type: 'text', text: '{"success":true}' }] }] } }),
+      '',
+    ].join('\n'));
+    assert.equal(transcriptLastAssistant(path), report);
+    assert.equal(finalMessage({ last_assistant_message: '', agent_transcript_path: path }), report, 'a blank last_assistant_message falls back to the transcript');
+    assert.equal(finalMessage({ last_assistant_message: '  \n', agent_transcript_path: path }), report);
+    assert.equal(finalMessage({ agent_transcript_path: path }), report);
+    assert.equal(finalMessage({ last_assistant_message: 'given', agent_transcript_path: path }), 'given', 'a non-blank message still wins');
+    writeFileSync(path, JSON.stringify({ type: 'assistant', message: { id: 'm3', role: 'assistant', content: [{ type: 'tool_use', id: 't2', name: 'Bash', input: { command: 'ls' } }] } }) + '\n');
+    assert.equal(transcriptLastAssistant(path), '', 'other tool calls are not a final answer');
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('check-ack: a handback report with the acknowledgement passes on the first stop and is logged ok', () => {
+  const { root, env } = sandbox();
+  try {
+    const v = generated(env);
+    const transcript = join(root, 'agent.jsonl');
+    writeFileSync(transcript, handbackLine(`contract: v${v.version} ${v.hash}\nfresh context: yes\nVerdict: bestätigt.`) + '\n');
+    const r = run(CHECK, env, { hook_event_name: 'SubagentStop', agent_type: 'cdp5-agents:review-verify', agent_id: 'a1', stop_hook_active: false, last_assistant_message: '', agent_transcript_path: transcript });
+    assert.equal(r.status, 0, r.err);
+    assert.equal(r.out, '', 'no block');
+    assert.deepEqual(usageLog(root).map((e) => e.result), ['ok']);
+    writeFileSync(transcript, handbackLine('Verdict: bestätigt, no acknowledgement.') + '\n');
+    const missing = run(CHECK, env, { agent_type: 'cdp5-agents:review-verify', stop_hook_active: false, last_assistant_message: '', agent_transcript_path: transcript });
+    assert.equal(missing.json.decision, 'block', 'a handback without the line is still asked for it');
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
 test('check-ack: acknowledged answer passes and writes one usage log line with result ok', () => {
   const { root, env } = sandbox();
   try {

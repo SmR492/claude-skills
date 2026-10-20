@@ -86,7 +86,7 @@ Decidable requirements (an entry point starts, an anchor resolves, a number is u
 
 | Path | State | Owner |
 |---|---|---|
-| Live install test with installed plugins | closed: D-14, Windows host, v0.11.2; first real orchestrate run in a new session still to observe | orchestrator |
+| Live install test with installed plugins | closed: D-14, Windows host, v0.11.2; first real worker run observed 2026-10-20 (D-16: handback-aware stop check) | orchestrator |
 | Push of the local commits | closed: v0.11.0, v0.11.1, v0.11.2 released, `main` fast-forwarded | human |
 | Duplicate retro numbers 0001/0002 (cdp5 vs nsai-edge) | open | human decides: renumber or move nsai-edge retros |
 | Devils-advocate pass on v6.0 | closed: (a) with conditions, all four applied (83f7eb4); own-scope items (§32.11 trigger, triad clause) for the human | orchestrator |

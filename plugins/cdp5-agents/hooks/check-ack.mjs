@@ -7,6 +7,7 @@ import { pluginRoot, verify, ackPresent, appendUsage, readStdinJson, finalMessag
 import { agentName } from '../lib/agent-name.mjs';
 import { consumeGrant } from '../lib/grants.mjs';
 import { hedgedClaims, claimReason } from '../lib/claims.mjs';
+import { readMarker, clearMarker } from '../lib/handback.mjs';
 
 function block(reason) {
   process.stdout.write(JSON.stringify({ decision: 'block', reason }));
@@ -32,6 +33,7 @@ function log(input, contract, result, now, env) {
       cwd: input.cwd ?? '',
       contract,
       result,
+      via: 'stop',
     }, env);
   } catch (e) {
     process.stderr.write(`cdp5-agents: usage log not written (${e.message})\n`);
@@ -50,6 +52,12 @@ export function judge(message, v) {
 
 export function main(env = process.env, now = () => new Date().toISOString()) {
   const input = readStdinJson();
+  // A worker that reported through the SubagentHandback tool was judged, logged and released by check-handback;
+  // its stop must not add a second line or spend a second grant use.
+  if (readMarker(input.agent_id, env).logged) {
+    clearMarker(input.agent_id, env);
+    return 0;
+  }
   const secondPass = Boolean(input.stop_hook_active);
   const v = verify(pluginRoot(env));
   if (!v.ok) {

@@ -23,11 +23,11 @@ Exit: `0` no fail · `1` at least one fail · `2` usage error. `--json` prints `
 ok    node           node v24.20.0 at C:\Program Files\nodejs\node.exe
 ok    git            git version 2.55.0
 ok    plugin root    C:\Users\<user>\.claude\plugins\cache\claude-skills\cdp5-agents\<version>
-ok    hooks          4 hook scripts present (bootstrap.mjs, inject-contract.mjs, guard-bash.mjs, check-ack.mjs)
+ok    hooks          5 hook scripts present (bootstrap.mjs, inject-contract.mjs, guard-bash.mjs, check-handback.mjs, check-ack.mjs)
 ok    contract       worker contract v2 sha256:<hash> (SKILL.md and core.md agree)
 ok    line endings   LF
 ok    data dir       <data dir> (writable)
-ok    bootstrap      a session started with the hooks (last session <id>; pointer <path>)
+ok    bootstrap      a session started with the hooks (last session <id>, written <time>; pointer <path>)
 ok    usage log      <n> lines in <data dir>/usage-log.jsonl; last result ok
 ok    cdp5-gates     <path>
 ok    domain-agents  <path>
