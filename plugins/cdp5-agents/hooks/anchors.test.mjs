@@ -104,3 +104,11 @@ test('D-19: a project decision procedure never answers a blocking devils-advocat
   assert.match(orchestrate, /may keep the ledger there/);
   assert.match(orchestrate, /company-repository rule wins/);
 });
+
+test('D-20 user decisions: no handback while an own background job runs, and the second re-brief always goes to a fresh worker', () => {
+  const contract = readFileSync(join(PLUGINS, 'cdp5-agents', 'skills', 'worker-contract', 'SKILL.md'), 'utf8');
+  const core = readFileSync(join(PLUGINS, 'cdp5-agents', 'skills', 'worker-contract', 'core.md'), 'utf8');
+  for (const text of [contract, core]) assert.match(text, /background job you started is still running/);
+  const orchestrate = readFileSync(join(PLUGINS, 'cdp5-agents', 'skills', 'orchestrate', 'SKILL.md'), 'utf8');
+  assert.match(orchestrate, /the cost of re-reading is no reason to keep the first instance/);
+});
