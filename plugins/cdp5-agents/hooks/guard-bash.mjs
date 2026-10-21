@@ -533,10 +533,13 @@ export function segmentVerdict(segment, tier, shell = 'bash') {
   const cmdTok = cmd[0];
   const lower = cmdTok ? baseName(cmdTok.text, shell).toLowerCase() : '';
   // Orchestrator tools, any tier: only a viewer may name them.
-  if (mentionsOrchestratorScript(toks) && (!VIEWERS.has(lower) || r.viaXargs)) return ORCHESTRATOR_REASON;
+  const redirects = redirections(segment, shell);
+  if (redirects.some((x) => /^\/dev\/(tcp|udp)\//.test(x.target))) return 'a redirection to /dev/tcp or /dev/udp is network access, which agents do not have';
+  const writes = redirects.some((x) => !redirectAllowed(x, shell));
+  if (mentionsOrchestratorScript(toks) && (!VIEWERS.has(lower) || r.viaXargs || writes)) return ORCHESTRATOR_REASON;
   // The plugin's own state (grants, session pointer, data-dir pointer, usage log), any tier: only a viewer may name
   // it. A worker can still write it through a script it wrote itself; this is a tripwire against the ordinary forms.
-  if (mentionsPluginState(segment) && (!VIEWERS.has(lower) || r.viaXargs)) return PLUGIN_STATE_REASON;
+  if (mentionsPluginState(segment) && (!VIEWERS.has(lower) || r.viaXargs || writes)) return PLUGIN_STATE_REASON;
   if (tier === 'judgment') {
     const pre = judgmentPrecheck(segment, shell);
     if (pre) return pre;
@@ -595,10 +598,24 @@ export function segmentVerdict(segment, tier, shell = 'bash') {
   return readOnlyOptionsVerdict(cmdTok.text, lower, args);
 }
 
+const LITERAL_HEREDOC_WRITE = /^(?:cat(?:[ \t]+>>?[ \t]*[\w./~+@%,=-]+)+|tee(?:[ \t]+-a)?(?:[ \t]+[\w./~+@%,=-]+)+)[ \t]+<<(-?)(?:'([A-Za-z_]\w*)'|"([A-Za-z_]\w*)")[ \t]*\n/;
+
+export function literalHeredocWrite(command) {
+  const text = String(command).replace(/\s+$/, '');
+  const m = LITERAL_HEREDOC_WRITE.exec(text);
+  if (!m) return null;
+  const delimiter = m[2] ?? m[3];
+  const lines = text.slice(m[0].length).split('\n');
+  const closes = (line) => (m[1] ? line.replace(/^\t+/, '') : line) === delimiter;
+  if (!closes(lines[lines.length - 1])) return null;
+  if (lines.slice(0, -1).some(closes)) return null;
+  return m[0].trimEnd();
+}
+
 export function verdict(command, tier, shell = 'bash') {
   let segments;
   try {
-    segments = splitSegments(command);
+    segments = splitSegments(tier === 'worker' && shell === 'bash' ? literalHeredocWrite(command) ?? command : command);
   } catch (e) {
     return `command could not be parsed (${e.message})`;
   }

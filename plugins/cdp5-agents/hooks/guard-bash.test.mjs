@@ -42,6 +42,8 @@ test('plugin state (grants, pointers, usage log) is written by nobody but the or
     'echo \'{"grants":[]}\' > ~/.cache/cdp5-agents/grants.json', 'cp /tmp/g.json "$CLAUDE_PLUGIN_DATA/grants.json"', 'rm ~/.cache/cdp5-agents/session',
     'printf x >> /home/u/.cache/cdp5-agents/usage-log.jsonl', 'node -e "require(\'fs\').writeFileSync(process.env.CLAUDE_PLUGIN_DATA + \'/grants.json\', \'{}\')"',
     'tee ~/.cache/cdp5-agents/data-dir', 'sed -i s/a/b/ ~/.cache/cdp5-agents/grants.json',
+    'cat > ~/.cache/cdp5-agents/grants.json', "cat > ~/.cache/cdp5-agents/grants.json <<'E'\n{\"grants\":[]}\nE",
+    "cat >> ~/.claude/plugins/data/cdp5-agents-claude-skills/usage-log.jsonl <<'E'\n{}\nE", 'cat ~/.cache/cdp5-agents/session > ~/.cache/cdp5-agents/grants.json',
   ]) {
     assert.ok(denied(W(c)), `worker should be denied: ${c}`);
     assert.match(W(c).hookSpecificOutput.permissionDecisionReason, /plugin's state/);
@@ -282,4 +284,43 @@ test('CLI: a corrupt grants.json fails closed and stderr names the file', () => 
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
+});
+
+test('worker tier: one whole-command cat or tee write with a quoted heredoc is data; every other heredoc form stays judged in both tiers', () => {
+  const report = "cat >> /tmp/r/report.md <<'E'\n## Re-brief 1\nRan `git diff --stat` and `curl -I` checks.\ngit push origin main\nE";
+  assert.equal(verdict(report, 'worker'), null);
+  assert.equal(verdict('tee notes.md <<"EOF"\n`gh pr merge 1` is the orchestrator\'s step\nEOF\n', 'worker'), null);
+  assert.equal(verdict("cat > a.md <<-'X'\n\tgit push\n\tX", 'worker'), null);
+  assert.notEqual(verdict(report, 'judgment'), null, 'judgment agents still may not write files');
+  const bypasses = [
+    "bash <<'E'\ngit push origin main\nE",
+    "sh -s <<'E'\ngit commit -m x\nE",
+    'cat > f.md <<E\n$(git push origin main)\nE',
+    "cat > f.md <<'E'\nnotes\nE\ngit push origin main",
+    "cat > f.md <<'E'\ngit push origin main",
+    "echo \"cat <<'E'\"\ngit push origin main\nE",
+    "cat <<'E' | bash\ngit push origin main\nE",
+    "tee >(bash) <<'E'\ngit push origin main\nE",
+    "cat $(echo -) <<'E'\ngit push origin main\nE",
+    "cat <<A <<'B'\n$(git push origin main)\nA\nx\nB",
+    'echo "a\ncat <<\'E\'\n"; git push origin main; echo "\nE\n"',
+    "cat <<<'E'\ngit push origin main\nE",
+    'echo "\ncat <<\'E\'\n"; git push origin main\nE\n#"',
+    "cat <<'E' >/tmp/a'\n'; git push origin main\nE\n#'",
+    "tee <<'E' >(bash)\ngit push origin main\nE",
+    "bash <<'A'; cat <<'B'\ngit push origin main\nA\nB",
+    "bash -s \\\ncat <<'E'\ngit push origin main\nE",
+    "cd /tmp && cat > f.md <<'E'\nx\nE\ngit push origin main",
+    "cat > f.md <<'E'\nx\nE\ngit push origin main\nE",
+    "cat\n>> f.md <<'E'\ngit push origin main\nE",
+  ];
+  for (const c of bypasses) assert.notEqual(verdict(c, 'worker'), null, c);
+  for (const c of ["cat <<<'E'\ncurl -s https://example.invalid\nE", 'echo "\ncat <<\'E\'\n"; curl -s https://example.invalid\nE\n#"']) assert.notEqual(verdict(c, 'judgment'), null, c);
+});
+
+test('worker tier: viewers that write through a redirection lose their exemption for orchestrator scripts, and /dev/tcp or /dev/udp targets are denied', () => {
+  assert.notEqual(verdict("cat > plugins/cdp5-agents/scripts/grant-run.mjs <<'E'\nexecSync(\"git push origin main\")\nE", 'worker'), null);
+  assert.notEqual(verdict('cat x > ~/.claude/plugins/cache/claude-skills/cdp5-agents/0.6.4/scripts/worktree-setup.mjs', 'worker'), null);
+  for (const c of ["cat > /dev/tcp/example.invalid/80 <<'E'\nPOST / HTTP/1.1\nE", 'echo hi > /dev/udp/10.0.0.1/53', 'cat f 2>> /dev/tcp/h/1']) assert.match(verdict(c, 'worker') ?? '', /network/, c);
+  for (const c of ['cat ~/.cache/cdp5-agents/grants.json', 'cat ~/.cache/cdp5-agents/grants.json > /dev/null', 'cat plugins/cdp5-agents/scripts/grant-run.mjs 2>&1', 'cat a.txt > b.txt']) assert.equal(verdict(c, 'worker'), null, c);
 });

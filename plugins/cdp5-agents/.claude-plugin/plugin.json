@@ -1,6 +1,6 @@
 {
   "name": "cdp5-agents",
-  "version": "0.6.4",
+  "version": "0.6.5",
   "description": "CDP5 agents for the engineering loop: nine judgment and counter-roles, three implementation workers, the orchestrate skill for the main session and cdp5-doctor for the host check. Shared worker contract via hooks (acknowledgement, hedged-claim check, usage log), an allowlist shell guard with human-confirmed run grants, a SessionStart bootstrap, the scripts worktree-setup and grant-run, and an eval suite.",
   "author": { "name": "SmR492", "url": "https://github.com/SmR492" },
   "keywords": ["cdp5", "code-review", "verification", "threat-modeling", "mcp", "security"]
