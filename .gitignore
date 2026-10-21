@@ -3,8 +3,24 @@ node_modules/
 *.log
 .tmp/
 
-# Exploration-Quellmaterial (NICHT committen): urheberrechtlich geschützte E-Book-PDFs
-# + NotebookLM-Rohdumps sind Ingest-Quellen — Wissen gehört in die nsai-edge-Graph-DB,
-# nicht als Binärlast/Copyright-Risiko in die (ggf. öffentliche) Repo-Historie.
+# claude plugin eval writes its runs here; the cases are tracked, the results are not.
+plugins/*/evals/results/
+
+# Exploration source material (never committed): copyrighted e-book PDFs and NotebookLM raw dumps
+# are ingest sources; the knowledge belongs in the knowledge layer, not as binary or copyright
+# risk in a possibly public repository history.
 docs/Exploration/Books/
 docs/Exploration/NotebookLM/
+
+# CDP5 review records: verbatim Orbit originals and raw data, may carry personal data.
+# Only DECISIONS.md and _cross-cutting.md are committed.
+docs/cdp5-review/role/
+docs/cdp5-review/playbook/
+docs/cdp5-review/par/
+docs/cdp5-review/domain/
+docs/cdp5-review/cdp5/
+docs/cdp5-review/_data/
+docs/cdp5-review/_scratch-backup/
+docs/cdp5-review/msgs/
+docs/cdp5-review/HANDOVER-*.md
+docs/inventory-2026-10-12.md

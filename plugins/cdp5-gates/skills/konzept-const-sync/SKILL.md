@@ -1,55 +1,87 @@
 ---
 name: konzept-const-sync
-description: Read-only T1-Gate gegen Konstanten-Drift zwischen Konzept-Prosa und Code-Spec. Difft numerische Konstanten in einem Konzept-Dokument (Tier-Skalen, benannte Schwellen, Inline-Arithmetik) gegen die Single Source of Truth (`rules.mjs` `DEFAULT_SPEC`) und optional `conformance.mjs`. Schließt die Fehlerklasse „Konstante in Prosa ≠ Code", die grüne Tests UND Adversarial-Audits systematisch übersehen. Use bei „Konstanten gegen Spec prüfen", „const drift", „sourceTier/Schwellen-Drift", VOR Konzept-Merges mit Zahlenwerten.
+description: T1 gate against constant drift between concept prose and code spec. Diffs numeric constants in a concept document (enumeration scales, named thresholds, inline arithmetic) against the single source of truth (`rules.mjs` `DEFAULT_SPEC`) and optionally `conformance.mjs`. Tracked keys are configurable via `--keys`; the default set is the NSAI-Edge one. Closes the error class "constant in prose ≠ code", which green tests AND adversarial audits systematically miss. Use for "check constants against spec", "const drift", "sourceTier/threshold drift", BEFORE merging concept changes that contain numeric values.
 ---
 
-# konzept-const-sync (CDP5 T1-Gate)
+# konzept-const-sync (CDP5 T1 gate)
 
-## Warum
+## Why
 
-Aus den Konzept-Fehlerfunden 2026-05 (NSAI-Edge K1/K2): eine in `rules.mjs` definierte `sourceTier`-Skala wurde im Konzept-Text (UC-MS) mit **anderer** Nummerierung wiederholt (`behoerde=4` statt `5`, Phantom-Tier `audit=6`), und ein AUTH_FLOOR-Beispiel rechnete falsch (`full × fachquelle = 3000`, aber als „erreicht 4500" deklariert). Beide hätten eine PHP-Re-Implementierung **nach dem Text** in die Paritäts-Drift geführt.
+From the concept error findings of 2026-05 (NSAI-Edge K1/K2): a `sourceTier` scale defined in `rules.mjs` was repeated in the concept text (UC-MS) with **different** numbering (`behoerde=4` instead of `5`, phantom tier `audit=6`), and an AUTH_FLOOR example calculated wrongly (`full × fachquelle = 3000`, but declared as "reaches 4500"). Both would have led a PHP re-implementation written **from the text** into parity drift.
 
-Diese Klasse ist tückisch: **grüne Tests lesen nur `rules.mjs`** (sehen den Text nie), **Adversarial-Audits prüfen nur Verhalten** (sehen die Prosa nie). Nur ein Diff Text↔Spec fängt sie — deterministisch, in 0 LLM-Token.
+This class is treacherous: **green tests only read `rules.mjs`** (they never see the text), **adversarial audits only check behaviour** (they never see the prose). Only a text↔spec diff catches it — deterministically, in 0 LLM tokens.
 
-## Aufruf
+## Invocation
 
 ```bash
 node "${CLAUDE_PLUGIN_ROOT}/skills/konzept-const-sync/konzept-const-sync.mjs" \
-  --konzept=<KONZEPT.md> --spec=<rules.mjs> [--conformance=<conformance.mjs>] [--json]
+  --konzept=<KONZEPT.md> --spec=<rules.mjs> [--conformance=<conformance.mjs>] [--keys=<keys.json>] [--json]
 ```
 
-Exit: `0` konsistent · `1` Drift gefunden · `2` Nutzungsfehler.
+**Executes the module's top-level code via `import()`; run only on code built in this repository (§33.1).** This applies to `--spec` and `--conformance`: whatever those modules do at import time happens on the host. Every output names the imported modules (`executed_target_modules` in `--json`, the header line in text). A module from an untrusted checkout needs a run grant and a disposable environment first.
 
-Die Spec muss `export const DEFAULT_SPEC = {...}` führen (dynamic import). `conformance.mjs` (optional) wird zusätzlich gegen `rules.mjs` gespiegelt (`QUORUM_CONSTANTS`, `DECAY_RECALL_CONSTANTS`).
+The spec must provide `export const DEFAULT_SPEC = {...}`. `conformance.mjs` (optional) is mirrored against the spec: every exported object is compared key by key against the tracked scalar keys (e.g. `QUORUM_CONSTANTS.quorumAuthFloor`, `DECAY_RECALL_CONSTANTS.recallDecayDivisor`).
 
-## Checks (deterministisch, kein LLM)
+## Severity and exit codes
 
-1. **Annotation** `name(N)` — `name` muss in der Spec genau diesen Wert haben. Erlaubte Namen: `sourceTier`-Tiers, `quorumTrustRank`-Ränge (Quorum-Domäne gewinnt bei Namens-Kollision, z. B. `authoritative(1500)` statt trustFactor-`1000`), benannte Skalare.
-2. **Tier-Deklaration** `name = N` / `name: N` — gegen `sourceTier`. Fängt die K1-Klasse (Skalen-Enumeration im Text).
-3. **Skalar-Deklaration** `KEY = N` — **nur normative Verdikt-Schwellen** (`AUTH_FLOOR`/`quorumAuthFloor`, `quorumMulti`, `deleteThreshold`, `quarantineThreshold`, `contestedThreshold`, `beliefSharpness`).
-4. **Decay-‰** `name … N ‰` (‰-verankert) — gegen `decayPerPeriod`.
-5. **Arithmetik** `a × b = c` (rein numerisch UND annotiert `name(A) × name(B) = C`) — verifiziert das Produkt. Fängt die K2-Klasse.
-6. **Phantom-Key** — ein unbekannter `name=N`-Token in einer Zeile mit ≥2 bekannten Tier-Namen (z. B. `audit=6`).
+| Marker | Meaning | Gates? |
+|---|---|---|
+| 🔴 | blocks — every drift finding (annotation, declaration, arithmetic, phantom, mirror) | yes → exit `1` |
+| 🟡 | defect with workaround | no (not emitted by this skill today) |
+| 🟢 | polish | no (not emitted by this skill today) |
 
-## Bewusste Scope-Grenzen (false-positive-Schutz)
+Exit: `0` no 🔴 · `1` ≥1 🔴 · `2` usage or input error (missing `--konzept`/`--spec`, path not a file, import failure, no `DEFAULT_SPEC`, invalid `--keys` file).
+`--json` prints `{ konzept, lines_scanned, tracked_constants, keys_source, findings, conformance_checked, exit, findings[] }`; every finding carries `sev`, `line` (0 = mirror), `kind`, `detail`.
 
-- **Tunables** (`recallProtectionDays`, `recallDecayDivisor`, `reinforceDelta`, `demote*`, `trustAdjustMinEvidence`) werden NUR in Annotationsform `KEY(N)` geprüft — eine bare `recallProtectionDays = 0`-Zeile ist im Konzept ein **AC-Szenario** („=0 deaktiviert das Feature"), keine Default-Behauptung.
-- **trustFactor** (`authoritative`=1000) wird NICHT in Deklarationsform geprüft (kollidiert mit `quorumTrustRank.authoritative`=1500); nur die Annotationsform der Quorum-Domäne gilt.
-- **`recencyHalflifeDays`** (mit `∞`) wird nicht numerisch geprüft.
-- **Autoren-Konvention (bewusst, nicht im Gate aufgeweicht):** wer einen FALSCHEN Wert als Beispiel beschreibt (Drift-Demo, „vorher/nachher"), schreibt ihn NICHT in `name=N`-/`name: N`-Deklarationsform — sonst flaggt das Gate ihn korrekt als Drift. Stattdessen Prosa-Form ohne `=`/`:`: „`behoerde` auf 4 statt 5". Das Gate bleibt strikt (fängt echte Drift zuverlässig); die Disziplin liegt beim Text.
-- Bedeutungs-/Wortlaut-Korrektheit bleibt Judgment (`konzept-reviewer`). Befunde sind Hinweise, die der Main-Agent verifiziert (CDP5 §10.6).
+## Tracked keys (`--keys`)
 
-## Warum dediziert (nicht in `konzept-model-api`)
+The plugin is project-independent; the key set is data. `--keys=<file>` takes a JSON **array**; each entry is a spec key name or an object:
 
-`konzept-model-api` difft PHP-Enums ↔ OpenAPI-YAML. `konzept-const-sync` difft Konzept-Prosa ↔ JS-`DEFAULT_SPEC` — andere Quell-Domäne, anderer Parser. Getrennt gehalten, beide bleiben fokussiert.
+```json
+[
+  "quorumAuthFloor",                                   // scalar (number): annotation + declaration
+  { "name": "AUTH_FLOOR", "spec": "quorumAuthFloor" }, // alias used in the concept text
+  { "name": "reinforceDelta", "mode": "annotation" },  // tunable: annotation form only
+  { "name": "sourceTier", "mode": "map" },             // object: every key → annotation + declaration
+  { "name": "quorumTrustRank", "mode": "map-annotation" },
+  { "name": "decayPerPeriod", "mode": "permille" }     // object: every key → `name … N ‰`
+]
+```
 
-## Beispiel-Output
+- Without `mode`, a numeric spec value is `scalar`, an object value is `map`.
+- Later entries win on name collision (default list: `quorumTrustRank.authoritative=1500` beats a tier of the same name).
+- A name absent from the spec is skipped silently (the same key file can serve several spec versions).
+- **Without `--keys` the default is the NSAI-Edge set** (`DEFAULT_KEYS` in the script): `sourceTier` (map), `quorumTrustRank` (map-annotation), `decayPerPeriod` (permille), normative scalars `quorumAuthFloor`/`AUTH_FLOOR`, `quorumMulti`, `deleteThreshold`, `quarantineThreshold`, `contestedThreshold`, `beliefSharpness`, and the tunables `reinforceDelta`, `recallProtectionDays`, `recallDecayDivisor`, `demoteLimitedThreshold`, `demoteUntrustedThreshold`, `trustAdjustMinEvidence` (annotation only). `keys_source` in the JSON output tells which set was used.
+
+## Checks (deterministic, no LLM)
+
+1. **Annotation** `name(N)` — `name` must have exactly this value in the spec. Allowed names: keys of `map`/`map-annotation` entries and all scalar/annotation entries.
+2. **Map-key declaration** `name = N` / `name: N` — keys of `map` entries (`tier-decl`). Catches the K1 class (scale enumeration in the text).
+3. **Scalar declaration** `KEY = N` — `scalar` entries only (`scalar-decl`); `annotation` entries are deliberately excluded (see limits).
+4. **Permille** `name … N ‰` (‰-anchored) — keys of `permille` entries (`decay-decl`).
+5. **Arithmetic** `a × b = c` (purely numeric AND annotated `name(A) × name(B) = C`) — verifies the product. Catches the K2 class.
+6. **Phantom key** — an unknown `name=N` token in a line with ≥2 known map keys (e.g. `audit=6`).
+7. **Mirror** (with `--conformance`) — exported objects of `conformance.mjs` vs. the tracked scalar values of the spec.
+
+## Deliberate scope limits (false-positive protection)
+
+- **Tunables** (`annotation` mode) are checked ONLY in annotation form `KEY(N)` — a bare `recallProtectionDays = 0` line in the concept is an **AC scenario** ("=0 disables the feature"), not a default claim.
+- **`map-annotation`** keys (`quorumTrustRank`, `authoritative`=1500) are NOT checked in declaration form (collides with the trustFactor scale, `authoritative`=1000); only the annotation form applies.
+- Non-numeric spec values (e.g. `recencyHalflifeDays` with `∞`) are not checked.
+- **Author convention (deliberate, not softened in the gate):** whoever describes a WRONG value as an example (drift demo, "before/after") does NOT write it in `name=N` / `name: N` declaration form — otherwise the gate correctly flags it as drift. Use prose form without `=`/`:` instead: "`behoerde` at 4 instead of 5". The gate stays strict (reliably catches real drift); the discipline lies with the text.
+- Meaning/wording correctness remains judgement (`konzept-reviewer`). Findings are hints that the main agent verifies (CDP5 §10.6).
+
+## Why dedicated (not inside `konzept-model-api`)
+
+`konzept-model-api` diffs PHP enums ↔ OpenAPI YAML. `konzept-const-sync` diffs concept prose ↔ JS `DEFAULT_SPEC` — different source domain, different parser. Kept separate, both stay focused.
+
+## Example output
 
 ```
-konzept-const-sync — 1718 Zeilen, 25 getrackte Konstanten, 2 Drift-Stellen
+konzept-const-sync — 1718 lines, 25 tracked constants, 2 drift findings
 
-  ✗ Z1035 [tier-decl] — `behoerde=4` ≠ sourceTier 5
-  ✗ Z1047 [arithmetic] — 1000 × 3 = 4500 (korrekt: 3000)
+  🔴 L1035 [tier-decl] — `behoerde=4` ≠ sourceTier 5
+  🔴 L1047 [arithmetic] — 1000 × 3 = 4500 (correct: 3000)
 
-2 Drift  ·  Exit 1
+2 drift  ·  exit 1
 ```

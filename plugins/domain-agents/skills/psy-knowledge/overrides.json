@@ -1,0 +1,10 @@
+{
+  "_note": "Per-ref replacements applied by scripts/build-packs.mjs after name redaction. Person-specific passages are replaced by a pointer to the private communication rule the user keeps outside this plugin (DECISIONS.md A11).",
+  "PSY:modus-trennung": [
+    ["Tonalitaetsregeln aus dem Familien-Kommunikationsleitfaden \\(an .*?\\)\\.", "Tonalitaetsregeln aus der privaten Kommunikationsvorgabe der Person (eine private Datei beim Nutzer; der personenbezogene Teil ist nicht Teil dieses Pakets)."]
+  ],
+  "PSY:krisen-eskalation": [
+    ["Telefonseelsorge 0800 1110111 / 0800 1110222\\.", "Telefonseelsorge 0800 1110111 / 0800 1110222 / 116 123 (kostenfrei, Tag und Nacht; Quelle: telefonseelsorge.de, geprueft 2026-10-19); 116117 und 112: Quelle 116117.de, geprueft 2026-10-19 (116117 rund um die Uhr, 112 bei Lebensgefahr)."],
+    ["\\s*\\(analog PRIV:[^)]*\\)", ""]
+  ]
+}

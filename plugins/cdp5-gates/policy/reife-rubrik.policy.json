@@ -1,0 +1,162 @@
+{
+  "_generated": "from reife-rubrik.policy.md by scripts/generate-rubric.mjs; do not edit",
+  "version": 3,
+  "threshold": 8,
+  "gate": [
+    {
+      "id": "G1",
+      "item": "Every UC has numbered, branched steps: a `1.` line followed by `2.` or `1.1` (§3.0)",
+      "kind": "det",
+      "check": "uc_steps_numbered"
+    },
+    {
+      "id": "G2",
+      "item": "Document head present: Version and Scope (Scope, Geltungsbereich or Umfang; §2.1)",
+      "kind": "det",
+      "check": "kopf"
+    },
+    {
+      "id": "G3",
+      "item": "Every UC has an error-case table: an error-case heading followed by a table, not prose (§3.2)",
+      "kind": "det",
+      "check": "error_tables"
+    },
+    {
+      "id": "G4",
+      "item": "Status lifecycle present (diagram or transition table), or the document states `No status lifecycle: <reason>` / `Kein Status-Lebenszyklus: <Grund>` (§3: optional when no object has a status)",
+      "kind": "det",
+      "check": "lifecycle"
+    },
+    {
+      "id": "G5a",
+      "item": "Roles overview present: a roles heading or a role table (§2.3)",
+      "kind": "det",
+      "check": "roles_overview"
+    },
+    {
+      "id": "G5b",
+      "item": "Roles overview current: every actor named in a UC is a row, no stale role",
+      "kind": "jdg",
+      "check": "roles_current"
+    },
+    {
+      "id": "G6",
+      "item": "Probabilistic statement when the concept has LLM UCs (§2.6)",
+      "kind": "det",
+      "check": "probabilistik"
+    },
+    {
+      "id": "G7",
+      "item": "Every UC has an acceptance-criteria table (§11.7)",
+      "kind": "det",
+      "check": "ac_tables"
+    },
+    {
+      "id": "G8",
+      "item": "Glossary present (§14)",
+      "kind": "det",
+      "check": "glossar"
+    },
+    {
+      "id": "G9",
+      "item": "Changelog present, or the head's Version is below 2.0 (§6: changelog mandatory from v2.0; without a parsable Version the changelog is required)",
+      "kind": "det",
+      "check": "changelog"
+    },
+    {
+      "id": "G10",
+      "item": "Clerk test passed: a trained operator can run every UC from the document alone (§1.1)",
+      "kind": "jdg",
+      "check": "clerk_test"
+    },
+    {
+      "id": "G11",
+      "item": "No open assumptions: open questions were asked, not guessed (§1.9)",
+      "kind": "jdg",
+      "check": "no_open_assumptions"
+    },
+    {
+      "id": "G12",
+      "item": "Every UC names Actor and Route (`**Actor:**`/`**Akteur:**`, `**Route:**`; §3)",
+      "kind": "det",
+      "check": "actor_route"
+    },
+    {
+      "id": "G13",
+      "item": "Vendor risk statement when the concept has LLM UCs (§2.7)",
+      "kind": "det",
+      "check": "vendor_risk"
+    },
+    {
+      "id": "G14",
+      "item": "Entity overview present (§5)",
+      "kind": "det",
+      "check": "entity_overview"
+    },
+    {
+      "id": "G15",
+      "item": "Responsibility matrix present (§23.1)",
+      "kind": "det",
+      "check": "responsibility_matrix"
+    }
+  ],
+  "dimensions": [
+    {
+      "id": "sachbearbeiter",
+      "name": "Clerk test (§1.1): the document alone suffices to run every UC deterministically",
+      "weight": 0.2,
+      "kind": "jdg",
+      "scoredBy": "konzept-reviewer"
+    },
+    {
+      "id": "struktur",
+      "name": "Mandatory structure (§2, §5, §23.1): head, UCs with Actor and Route, roles overview, lifecycle, entity overview, responsibility matrix; probabilistic statement, vendor risk statement and §13.1 fields for LLM UCs, §20.3 fields for RAG UCs",
+      "weight": 0.2,
+      "kind": "det",
+      "scoredBy": "konzept-lint"
+    },
+    {
+      "id": "uc_schritte",
+      "name": "UC steps numbered and branched (§3.0): fraction of UCs with at least two numbered steps",
+      "weight": 0.15,
+      "kind": "det",
+      "scoredBy": "konzept-lint"
+    },
+    {
+      "id": "ac",
+      "name": "Acceptance criteria per UC, binary and verifiable (§11.7)",
+      "weight": 0.15,
+      "kind": "det",
+      "scoredBy": "konzept-lint"
+    },
+    {
+      "id": "fehlerfaelle",
+      "name": "Error cases per UC (§3.2)",
+      "weight": 0.1,
+      "kind": "det",
+      "scoredBy": "konzept-lint"
+    },
+    {
+      "id": "nachweis",
+      "name": "Evidence convention (§10.7): every obligation statement names one of the four evidence types (Test/AC, Policy score, Checklist item, Trace span)",
+      "weight": 0.1,
+      "kind": "mixed",
+      "scoredBy": "konzept-lint scores presence of a type, konzept-reviewer may lower it with an anchored reason"
+    },
+    {
+      "id": "glossar",
+      "name": "Glossary and vocabulary (§14): glossary present and every backticked glossary term used in at least one UC",
+      "weight": 0.1,
+      "kind": "det",
+      "scoredBy": "konzept-lint"
+    }
+  ],
+  "weights": {
+    "struktur": 0.2,
+    "uc_schritte": 0.15,
+    "ac": 0.15,
+    "fehlerfaelle": 0.1,
+    "nachweis": 0.1,
+    "glossar": 0.1
+  }
+}

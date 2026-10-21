@@ -1,64 +1,64 @@
-# Handoff: Credibility-Scoring (CDP5 §28.4)
+# Handoff: Credibility Scoring (CDP5 §28.4)
 
-> **Übergabe-Dokument** für die Fortsetzung des Glaubwürdigkeits-Scoring-Strangs. Stand 2026-06-01. Self-contained: was steht, was blockiert, wo weitermachen.
+> **Handover document** for the continuation of the credibility-scoring strand. Status 2026-06-01. Self-contained: what stands, what blocks, where to continue.
 >
-> **Verhältnis zum Entrenchment-Strang:** Dieses Scoring liefert das **Trust-/Glaubwürdigkeits-Substrat** für die ADR „Belief von terminaler Autorität → defeasible Entrenchment" (die der andere Strang fährt). Reihenfolge bleibt: **(1) Entrenchment-ADR → (2) dieses Scoring → (3) Modus-Achse (`assertion_mode`/Welten).** Voller Modell-Hintergrund: `07-Bruecke-zu-Defeasible-Entrenchment.md`; offene Grundsatz-Entscheidungen: `08-Offene-Punkte-zum-Entscheiden.md`.
+> **Relation to the entrenchment strand:** This scoring supplies the **trust/credibility substrate** for the ADR "belief from terminal authority → defeasible entrenchment" (which the other strand drives). The order remains: **(1) entrenchment ADR → (2) this scoring → (3) mode axis (`assertion_mode`/worlds).** Full model background: `07-Bruecke-zu-Defeasible-Entrenchment.md`; open fundamental decisions: `08-Offene-Punkte-zum-Entscheiden.md`.
 
 ## TL;DR
-Es gibt ein CDP5-Konzept **`nsai-edge/KONZEPT-credibility-scoring.md` (v0.3, konzept-lint 10/10, 11 UCs)**. Zwei Review-Runden durchlaufen. **Der deterministische Kern ist solide; die adversariale Sicherheit der *gelernten* Schicht ist es nicht** — und das ist eine Architektur-Entscheidung, kein Patch. **Blockiert auf einer Stefan-Entscheidung (A/B/Hybrid, siehe unten).**
+There is a CDP5 Konzept (concept document) **`nsai-edge/KONZEPT-credibility-scoring.md` (v0.3, konzept-lint 10/10, 11 UCs)**. Two review rounds completed. **The deterministic core is solid; the adversarial security of the *learned* layer is not** — and that is an architecture decision, not a patch. **Blocked on a Stefan decision (A/B/hybrid, see below).**
 
-## ✅ Entscheidung getroffen: A — MeritRank integrieren (Stefan, 2026-06-01)
+## ✅ Decision made: A — integrate MeritRank (Stefan, 2026-06-01)
 
-**Begründung:** „Wir entwickeln eh erst alles und gehen dann live" → die Abhängigkeit auf den C3-MeritRank-Slice ist kein Blocker; gebaut wird die adversarial-saubere Voll-Architektur (A), nicht die herunterskalierte B-Variante.
+**Reasoning:** "We develop everything first anyway and then go live" → the dependency on the C3 MeritRank slice is not a blocker; what gets built is the adversarially clean full architecture (A), not the scaled-down B variant.
 
-Hintergrund — das Re-Audit (v0.3) zeigte: alle Sicherheitsmechanismen der gelernten Schicht (Varianz-Gate, Korroborations-Quorum, Domänen-Trennung) ruhen auf `independentRoots` = „DAG-disjunkte Provenienz". Das ist **vom Angreifer beim Ingest baubar** → keine Sybil-Resistenz → zirkuläre Vorbedingung (§32.8(7)). **Strukturell ≠ unmanipulierbar, solange der Angreifer den Ingest-Graphen baut.**
+Background — the re-audit (v0.3) showed: all security mechanisms of the learned layer (variance gate, corroboration quorum, domain separation) rest on `independentRoots` = "DAG-disjoint provenance". That is **constructible by the attacker at ingest** → no Sybil resistance → circular precondition (§32.8(7)). **Structural ≠ unmanipulable, as long as the attacker builds the ingest graph.**
 
-→ Sybil-Resistenz ist **Voraussetzung, nicht Beiwerk**. Drei Wege:
+→ Sybil resistance is a **prerequisite, not an accessory**. Three paths:
 
-| Option | Inhalt | Konsequenz |
+| Option | Content | Consequence |
 |---|---|---|
-| **A** | MeritRank (C3) integrieren → `independentRoots` Sybil-resistent (Connectivity-Decay) | adversarial-sound, aber Scoring **hängt am C3-Slice** |
-| **B** | herunterskalieren: nur **gated Anker + Mensch** sind sicherheitsrelevant; Pfad (c) sperren; Domäne/Struktur nur aus **endorseter Ontologie**; gelernte Propagation = **etikettierter, nicht-adversarialer Ranking-Hinweis** | sofort sicher, kleiner Scope |
-| **Hybrid** *(Empfehlung)* | **B jetzt** (verteidigbarer Kern) **+ A als Roadmap** (gelernte Schicht bekommt Zähne, wenn C3 landet) | löst N-1/N-3/N-4/N-6 in einem Schnitt |
+| **A** | integrate MeritRank (C3) → `independentRoots` Sybil-resistant (connectivity decay) | adversarially sound, but scoring **depends on the C3 slice** |
+| **B** | scale down: only **gated anchors + human** are security-relevant; lock path (c); domain/structure only from **endorsed ontology**; learned propagation = **labeled, non-adversarial ranking hint** | immediately secure, smaller scope |
+| **Hybrid** *(recommendation)* | **B now** (defensible core) **+ A as roadmap** (the learned layer gets teeth when C3 lands) | solves N-1/N-3/N-4/N-6 in one cut |
 
-**Konsequenz von A:** `independentRoots` wird über MeritRank (C3) Sybil-resistent (Connectivity-/Transitivity-Decay, **Seed = die exogenen gated/Mensch-Anker**). Dadurch koppelt dieser Slice an **C3-MeritRank** (selbst noch `evaluated_pending`, §I.3-C3) — beide müssen co-designt werden, `independentRoots` ist die geteilte Schnittstelle. Der Seed (gated/Mensch) wird tragend (Decentralized-Reputation-Trilemma: MeritRank opfert Seed-Unabhängigkeit für Sybil-Toleranz — passt zur „exogener Anker"-Linie aus 07/08).
+**Consequence of A:** `independentRoots` becomes Sybil-resistant via MeritRank (C3) (connectivity/transitivity decay, **seed = the exogenous gated/human anchors**). This couples this slice to **C3 MeritRank** (itself still `evaluated_pending`, §I.3-C3) — both must be co-designed, `independentRoots` is the shared interface. The seed (gated/human) becomes load-bearing (decentralized-reputation trilemma: MeritRank sacrifices seed independence for Sybil tolerance — fits the "exogenous anchor" line from 07/08).
 
-## Was steht (verteidigbar)
-- **Modell (07):** Glaubwürdigkeit = interne, deterministische Lese-Linse über gewöhnlichen Knoten; Beta-Bilanz `(α,β)` → Score `floordiv(1000·α/(α+β))`; skeptischer Prior Beta(3,7)=300‰; 5 Bänder; trust-abhängige Recency; Kalibrierungs- + Surprise-Gewicht; Propagation über `ist_ein` (Partial Pooling); Domänen-Trennung; anker-gebundene Adjudikation.
-- **Mechanik-Fixe HALTEN (empirisch belegt im Re-Audit):** **F-1** (Reversion-Vorzeichen, hoher Score → langsam verblassen), **F-2** (asymmetrischer Limiter: Strafen bypassen den Cap), **F-4** (Egress nur 5 Bänder, gated/Mensch-Adjudikation, gelernte Knoten adjudizieren nie), **F-5** (`floordiv` Richtung −∞, Division in floor, Node↔PHP-Parität inkl. negativer Numeratoren).
-- **Lint:** struktureller Teil-Score 10/10, alle 11 UCs mit binären AC + Fehlerfällen. Test-Skelette via `ac-to-test-scaffold` ableitbar (32+ AC).
+## What stands (defensible)
+- **Model (07):** credibility = internal, deterministic read lens over ordinary nodes; Beta balance `(α,β)` → score `floordiv(1000·α/(α+β))`; skeptical prior Beta(3,7)=300‰; 5 bands; trust-dependent recency; calibration + surprise weight; propagation via `ist_ein` (partial pooling); domain separation; anchor-bound adjudication.
+- **Mechanics fixes HOLD (empirically confirmed in the re-audit):** **F-1** (reversion sign, high score → slow fading), **F-2** (asymmetric limiter: penalties bypass the cap), **F-4** (egress only 5 bands, gated/human adjudication, learned nodes never adjudicate), **F-5** (`floordiv` toward −∞, division in floor, Node↔PHP parity incl. negative numerators).
+- **Lint:** structural partial score 10/10, all 11 UCs with binary AC + error cases. Test skeletons derivable via `ac-to-test-scaffold` (32+ AC).
 
-## Review-Historie
-| Runde | Gate | Ergebnis |
+## Review history
+| Round | Gate | Result |
 |---|---|---|
-| v0.1 | konzept-lint | 10/10 (nach AC-ID-/Scope-Fix) |
-| v0.1 | konzept-reviewer (a) | **6,4/10** — Kern unter-spezifiziert (L1 Black-Box-Formeln, L2 Determinismus, L3 Skala), 3 fehlende UCs (Adjudizieren, pin/unpin, Audit-Log) |
-| v0.1 | adversarial-auditor (b) | **NEIN** — F-1 (Vorzeichen), F-2 (Velocity-Achse), F-3 (Varianz-Gate gegen Sybils invertiert), F-4 (zirkulärer Adjudikator), F-5 (Float/Parität) |
-| v0.2 | Fixe | F-1/F-2/F-3/F-4/F-5 + L1/L8/L9/L10 + UC-08/09/10 |
-| v0.3 | V1/V2/V3 + Gemini-Ledger (§10) | Domäne trust-unabh. Single-Primary (UC-11); Kohärenz drei-wertig + numer. Toleranz; absoluter Floor + Cold-Start-Cap |
-| v0.3 | adversarial-auditor (Re-Audit) | **NEIN** — Mechanik hält, aber neue 🔴: ingest-manipulierbare Struktur (siehe Funde) |
+| v0.1 | konzept-lint | 10/10 (after AC-ID/scope fix) |
+| v0.1 | konzept-reviewer (a) | **6.4/10** — core under-specified (L1 black-box formulas, L2 determinism, L3 scale), 3 missing UCs (adjudicate, pin/unpin, audit log) |
+| v0.1 | adversarial-auditor (b) | **NO** — F-1 (sign), F-2 (velocity axis), F-3 (variance gate inverted against Sybils), F-4 (circular adjudicator), F-5 (float/parity) |
+| v0.2 | fixes | F-1/F-2/F-3/F-4/F-5 + L1/L8/L9/L10 + UC-08/09/10 |
+| v0.3 | V1/V2/V3 + Gemini ledger (§10) | domain trust-independent single-primary (UC-11); coherence three-valued + numeric tolerance; absolute floor + cold-start cap |
+| v0.3 | adversarial-auditor (re-audit) | **NO** — mechanics hold, but new 🔴: ingest-manipulable structure (see findings) |
 
-## Offene Funde → v0.4-Arbeitsliste
-**A-Kern (löst F-3/N-3):**
-- **F-3/N-3 🔴 → A:** `independentRoots` über einen **MeritRank-gewichteten Walk** neu definieren (Seed = gated/Mensch-Anker; **Connectivity-Decay** dämpft N Sybil-Wurzeln hinter *einer* Brücke auf ~1; **Transitivity-Decay** dämpft mit Distanz zum Seed). Damit ist `independentRoots` nicht mehr ingest-fälschbar → Varianz-Gate + Quorum tragen, **Pfad (c) wieder sicher freischaltbar** (Anker muss zusätzlich die strittige (S,P,O) corroborieren). Geteilte Schnittstelle zum C3-Slice.
+## Open findings → v0.4 worklist
+**A core (solves F-3/N-3):**
+- **F-3/N-3 🔴 → A:** redefine `independentRoots` via a **MeritRank-weighted walk** (seed = gated/human anchors; **connectivity decay** dampens N Sybil roots behind *one* bridge to ~1; **transitivity decay** dampens with distance to the seed). Thus `independentRoots` is no longer ingest-forgeable → variance gate + quorum hold, **path (c) can safely be re-enabled** (the anchor must additionally corroborate the disputed (S,P,O)). Shared interface to the C3 slice.
 
-**Auch unter A nötig (A subsumiert das NICHT — Korrektur der früheren Gruppierung):**
-- **N-1 🔴** `domainOf` ingest-manipulierbar über Inhalts-`ist_ein` — MeritRank betrifft den *Provenienz-Trust*-Graphen, **nicht die Inhalts-Ontologie**. Bleibt nötig: `domainOf` nutzt nur **gated/endorsete** Inhalts-`ist_ein`; ingest-neue Kanten → Default-Domäne `unzugeordnet`. (AC-11.5)
-- **N-4 🟡** `source_tier` **nicht selbst-behauptbar** (Default web bis Endorsement); `COLD_DOMAIN_CAP` → 500 (nie an die `plausibel`-Schwelle).
-- **N-6 🟡** Domänen-Erzeugung gated (ingest-frei → gemeinsame `unzugeordnet`-Sammeldomäne); Liveness-AC.
+**Also needed under A (A does NOT subsume this — correction of the earlier grouping):**
+- **N-1 🔴** `domainOf` ingest-manipulable via content `ist_ein` — MeritRank concerns the *provenance-trust* graph, **not the content ontology**. Still needed: `domainOf` uses only **gated/endorsed** content `ist_ein`; ingest-new edges → default domain `unzugeordnet`. (AC-11.5)
+- **N-4 🟡** `source_tier` **not self-assertable** (default web until endorsement); `COLD_DOMAIN_CAP` → 500 (never up to the `plausibel` threshold).
+- **N-6 🟡** domain creation gated (ingest-free → shared `unzugeordnet` collection domain); liveness AC.
 
-**Gabel-unabhängig (sofort, reine Mechanik):**
-- **N-2 🔴** V3-Toleranzband bricht den Float-Vertrag (`value()` nirgends als Integer spezifiziert; AC-8.4-Beispiel „180,2" ist Float + testet die Grenze nicht). Fix: `value()` als **Fixed-Point-Integer (Milli) pro Prädikat-Typ**; Toleranz integer-only; AC-8.4 mit echtem Grenzwert (181,8→corrob., 181,9→contra.) + `anchor=0`-Sonderfall; Node↔PHP-Grenzwert-AC.
-- **N-5 🟡** Audit-Log-Lücke: `velocityLimit`/`rollback` mutieren die Bilanz **nach** dem Audit-Eintrag ohne eigenen Eintrag. Fix: velocity/rollback/release/revert schreiben je einen Eintrag; **Δ-Konservierung** (Bilanz = Σ Audit-Deltas). (AC-10.4)
-- **§3.0** Verhalten-Schritte aller UCs nummerieren (in v0.3 inline gepackt → Lint-Warnung „Schritte nicht nummeriert", kein Gate-Fail, aber §3.0-Pflicht).
-- **V4** Konstanten-Tuning (k, `LAM_MIN/MAX`, `VELOCITY_CAP`, `BANDS`, `TIER_BASELINE`, `NUMERIC_TOLERANCE`, `COLD_DOMAIN_CAP`, `BLEND_W`, `INDEP_CAP`) — Stefan-Entscheidung.
+**Fork-independent (immediately, pure mechanics):**
+- **N-2 🔴** V3 tolerance band breaks the float contract (`value()` nowhere specified as integer; AC-8.4 example "180,2" is float + does not test the boundary). Fix: `value()` as **fixed-point integer (milli) per predicate type**; tolerance integer-only; AC-8.4 with a real boundary value (181,8→corrob., 181,9→contra.) + `anchor=0` special case; Node↔PHP boundary AC.
+- **N-5 🟡** Audit-log gap: `velocityLimit`/`rollback` mutate the balance **after** the audit entry without their own entry. Fix: velocity/rollback/release/revert each write one entry; **Δ conservation** (balance = Σ audit deltas). (AC-10.4)
+- **§3.0** Number the behavior steps of all UCs (packed inline in v0.3 → lint warning "steps not numbered", no gate fail, but §3.0 obligation).
+- **V4** Constants tuning (k, `LAM_MIN/MAX`, `VELOCITY_CAP`, `BANDS`, `TIER_BASELINE`, `NUMERIC_TOLERANCE`, `COLD_DOMAIN_CAP`, `BLEND_W`, `INDEP_CAP`) — Stefan decision.
 
-## Kern-Lehre (für jede ingest-getriebene Trust-Mechanik)
-**Sybil-Resistenz ist Voraussetzung, nicht Beiwerk.** Jede Sicherheitseigenschaft, die auf graph-struktureller Eigenschaft ruht (Domäne, unabhängige Wurzeln, Provenienz-Diversität), ist wertlos, solange der Angreifer die Struktur beim Ingest baut. Adversariale Garantien gibt es nur an **exogenen Ankern** (gated/institutionell, Mensch-Endorsement) oder über die **Identitäts-/Kosten-Achse (MeritRank)** — nie aus der gelernten Schicht allein. Das deckt sich mit dem Entrenchment-Befund (07/08): der Mensch / `user_rejected_at` ist das einzige externe Orakel; alles andere ist defeasibel und manipulierbar.
+## Core lesson (for every ingest-driven trust mechanic)
+**Sybil resistance is a prerequisite, not an accessory.** Every security property that rests on a graph-structural property (domain, independent roots, provenance diversity) is worthless as long as the attacker builds the structure at ingest. Adversarial guarantees exist only at **exogenous anchors** (gated/institutional, human endorsement) or via the **identity/cost axis (MeritRank)** — never from the learned layer alone. This coincides with the entrenchment finding (07/08): the human / `user_rejected_at` is the only external oracle; everything else is defeasible and manipulable.
 
-## Nächster Schritt für den übernehmenden Agenten
-1. ✅ **Entscheidung A getroffen** (2026-06-01) — kein Blocker mehr.
-2. v0.4 schreiben: §3.0-Numerierung + N-2 + N-5 (sofort, gabel-unabhängig) + **A** (`independentRoots` via MeritRank) + die auch-unter-A-nötigen **N-1/N-4/N-6**.
-3. `konzept-lint` → `konzept-reviewer` → **erneuter `adversarial-auditor`-Lauf** (🔴-Pflicht).
-4. **C3-MeritRank-Slice** als Vorbedingung in der Roadmap (§I.7) verankern; `independentRoots` dort Sybil-resistent definieren (geteilte Schnittstelle). C3 ist selbst `evaluated_pending` → braucht eigenes Slice-Konzept; **C3 und dieses Scoring co-designen.**
-5. Integration als `§J` in die Haupt-`KONZEPT.md` **erst nach** dem Entrenchment-ADR (V5).
+## Next step for the agent taking over
+1. ✅ **Decision A made** (2026-06-01) — no more blocker.
+2. Write v0.4: §3.0 numbering + N-2 + N-5 (immediately, fork-independent) + **A** (`independentRoots` via MeritRank) + the also-needed-under-A **N-1/N-4/N-6**.
+3. `konzept-lint` → `konzept-reviewer` → **renewed `adversarial-auditor` run** (🔴 obligation).
+4. Anchor the **C3 MeritRank slice** as a precondition in the roadmap (§I.7); define `independentRoots` Sybil-resistant there (shared interface). C3 is itself `evaluated_pending` → needs its own slice concept; **co-design C3 and this scoring.**
+5. Integration as `§J` into the main `KONZEPT.md` **only after** the entrenchment ADR (V5).

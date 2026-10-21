@@ -1,14 +1,19 @@
 #!/usr/bin/env node
-// CDP5 §32.9 T1-Skill — Retro→Memory-Loop-Check (read-only): jeder in Retro-/ADR-Dokumenten
-// zitierte Memory-Slug (feedback_* / project_* / [[slug]]) muss real angelegt sein UND einen
-// Pointer im Memory-Index haben — sonst verdampft die Lehre (CDP5 §32.6).
-// Exit: 0 = Loop dicht · 1 = ≥1 zitierter Slug fehlt/ohne Pointer · 2 = Nutzungsfehler.
+// CDP5 §32.9 T1 skill — retro→memory loop check (read-only): every memory slug cited in
+// retro/ADR documents (`feedback_x` / [[slug]] / (…slug.md) link) must actually exist AND have a
+// markdown link in the memory index — otherwise the lesson evaporates (CDP5 §32.6).
+// A retro that cites nothing and does not declare `no new lesson:` leaves the loop open (🟡).
+// Exit: 0 = no 🔴 · 1 = ≥1 🔴 (cited slug missing/without pointer) · 2 = usage error.
 
 import { readFileSync, existsSync, readdirSync, lstatSync } from 'node:fs';
 import { join, relative } from 'node:path';
+import { pathToFileURL } from 'node:url';
 import { guardPaths } from '../../lib/args.mjs';
 
-const SLUG_RE = /(?:\[\[([a-z0-9][a-z0-9_-]+)\]\]|\b((?:feedback|project|reference)_[a-z0-9_]+)\b|\(((?:feedback|project|reference)_[a-z0-9_]+)\.md\))/g;
+// Citation forms (bare words are NOT citations — `project_root` in prose is an identifier, not a slug):
+//   [[slug]]  ·  `feedback_x` in backticks  ·  (…/feedback_x.md) markdown link target
+const SLUG_RE = /\[\[([a-z0-9][a-z0-9_-]+)\]\]|`((?:feedback|project|reference)_[a-z0-9_]+)`|\((?:[^()\s]*\/)?((?:feedback|project|reference)_[a-z0-9_]+)\.md\)/g;
+const NO_LESSON_RE = /^[^\n]*\bno new lesson:/im;
 
 function mdFiles(dir) {
   const out = [];
@@ -20,25 +25,45 @@ function mdFiles(dir) {
 export function checkLoop(retroDir, memoryDir) {
   const indexPath = join(memoryDir, 'MEMORY.md');
   const index = existsSync(indexPath) ? readFileSync(indexPath, 'utf8') : '';
-  const cited = new Map(); // slug -> Set(quelle)
+  const cited = new Map(); // slug -> Set(source)
+  const findings = [];
   for (const f of mdFiles(retroDir)) {
     const text = readFileSync(f, 'utf8');
+    const rel = relative(retroDir, f);
+    let n = 0;
     for (const m of text.matchAll(SLUG_RE)) {
       const slug = m[1] || m[2] || m[3];
       if (!slug) continue;
+      n++;
       if (!cited.has(slug)) cited.set(slug, new Set());
-      cited.get(slug).add(relative(retroDir, f));
+      cited.get(slug).add(rel);
     }
+    if (n === 0 && !NO_LESSON_RE.test(text))
+      findings.push({ sev: '🟡', kind: 'no-lesson', file: rel, detail: 'cites no memory slug and has no `no new lesson:` line — loop open' });
   }
-  const findings = [];
+  // Consecutive numbering (§32.6): two retro files with the same four-digit prefix in one directory break the
+  // carry-over chain (which retro is "the previous one"?). Each directory is its own chain, so a second project's
+  // series lives in a subdirectory without colliding. `NNNN-<slug>.ledger.md` is the retro's ledger, not a retro.
+  const byNumber = new Map();
+  for (const f of mdFiles(retroDir)) {
+    const name = f.split(/[\\/]/).pop();
+    if (/\.ledger\.md$/i.test(name)) continue;
+    const m = /^(\d{4})-/.exec(name);
+    if (!m) continue;
+    const key = `${relative(retroDir, f).split(/[\\/]/).slice(0, -1).join('/')}\u0000${m[1]}`;
+    if (!byNumber.has(key)) byNumber.set(key, []);
+    byNumber.get(key).push(relative(retroDir, f));
+  }
+  for (const [key, files] of byNumber) if (files.length > 1) {
+    const num = key.split('\u0000')[1];
+    findings.push({ sev: '🟡', kind: 'numbering', file: files.join(', '), detail: `retro number ${num} is used ${files.length} times in one directory — renumber, or move the foreign series into its own subdirectory` });
+  }
   for (const [slug, sources] of cited) {
     const fileExists = existsSync(join(memoryDir, `${slug}.md`));
-    const hasPointer = new RegExp(`\\(${slug}\\.md\\)|\\b${slug}\\b`).test(index);
-    if (!fileExists || !hasPointer) {
-      findings.push({ slug, fileExists, hasPointer, sources: [...sources] });
-    }
+    const hasPointer = new RegExp(`\\]\\([^)]*${slug}\\.md\\)`).test(index);   // markdown link target, not a bare mention
+    if (!fileExists || !hasPointer) findings.push({ sev: '🔴', kind: 'slug', slug, fileExists, hasPointer, sources: [...sources] });
   }
-  return { cited: cited.size, findings, broken: findings.length > 0 };
+  return { cited: cited.size, findings, broken: findings.some((f) => f.sev === '🔴') };
 }
 
 function main(argv) {
@@ -47,13 +72,19 @@ function main(argv) {
   guardPaths([[a.retro, 'dir'], [a.memory, 'dir']]);
   const r = checkLoop(a.retro, a.memory);
   if (a.json) { console.log(JSON.stringify(r, null, 2)); process.exit(r.broken ? 1 : 0); }
-  console.log(`Retro→Memory-Loop — ${r.cited} zitierte Slugs, ${r.findings.length} gebrochen\n`);
+  const slugFindings = r.findings.filter((f) => f.kind === 'slug');
+  const numbering = r.findings.filter((f) => f.kind === 'numbering').length;
+  console.log(`retro→memory loop — ${r.cited} cited slugs, ${slugFindings.length} broken, ${r.findings.length - slugFindings.length - numbering} retros without lesson, ${numbering} duplicate retro numbers\n`);
   for (const f of r.findings) {
-    const why = [!f.fileExists && 'Datei fehlt', !f.hasPointer && 'kein MEMORY.md-Pointer'].filter(Boolean).join(' + ');
-    console.log(`  ✗ ${f.slug} — ${why}  (zitiert in: ${f.sources.join(', ')})`);
+    if (f.kind === 'slug') {
+      const why = [!f.fileExists && 'file missing', !f.hasPointer && 'no MEMORY.md link'].filter(Boolean).join(' + ');
+      console.log(`  ${f.sev} ${f.slug} — ${why}  (cited in: ${f.sources.join(', ')})`);
+    } else {
+      console.log(`  ${f.sev} ${f.file} — ${f.detail}`);
+    }
   }
-  if (!r.broken) console.log('  Loop dicht: jeder zitierte Slug existiert + hat Pointer.');
+  if (!r.findings.length) console.log('  loop closed: every cited slug exists and is linked from MEMORY.md.');
   process.exit(r.broken ? 1 : 0);
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) main(process.argv);
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) main(process.argv);

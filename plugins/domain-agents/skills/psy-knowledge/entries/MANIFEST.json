@@ -1,0 +1,31 @@
+{
+  "pack": "PSY knowledge pack",
+  "prefix": "PSY",
+  "entries": 12,
+  "refs": [
+    "PSY:diagnose-vs-verdacht",
+    "PSY:fallkonzeption",
+    "PSY:keine-behandlung-nur-vorbereitung",
+    "PSY:komorbiditaets-matrix",
+    "PSY:krisen-eskalation",
+    "PSY:leitlinien-primat",
+    "PSY:modus-trennung",
+    "PSY:paar-modus",
+    "PSY:termin-vorbereitung",
+    "PSY:traumabegleitung",
+    "PSY:uebungsbegleitung",
+    "PSY:versorgungspfad-deutschland"
+  ],
+  "source": "Orbit doctrine export (riedl/nsai/doktrin), bulk extraction on 2026-07-02; each entry names its own source (a page of a source book, or none for an internal doctrine entry)",
+  "migrated_to_orbit": [
+    "2026-09-02"
+  ],
+  "review_status": "unverified: content not checked against a primary source; figures and legal statements are starting points",
+  "redaction": "personal names replaced by [Person]",
+  "overrides": [
+    "PSY:krisen-eskalation",
+    "PSY:modus-trennung"
+  ],
+  "license": "summaries of the source books named per entry; the books themselves are not shipped",
+  "generator": "scripts/build-packs.mjs"
+}

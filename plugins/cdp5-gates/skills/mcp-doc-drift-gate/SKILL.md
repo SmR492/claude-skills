@@ -1,27 +1,38 @@
 ---
 name: mcp-doc-drift-gate
-description: Read-only T1-Gate gegen Consumer-Sycophancy bei MCP-Tools. Lädt einen MCP-Server (Konvention `export const TOOLS = [...]`) per dynamic import und prüft für jedes Tool, dass alle `inputSchema.properties.*` und alle deklarierten `outputContract`-Felder in der Tool-`description` als Token vorkommen. Verhindert die Klasse Halluzination, bei der ein LLM-Konsument ein undokumentiertes Feld sieht und sich seine Bedeutung selbst erfindet. Use bei „mcp doc check", „tool description drift", VOR jedem MCP-Slice-Merge.
+description: T1 gate against consumer sycophancy in MCP tools. Loads an MCP server (convention `export const TOOLS = [...]`) via dynamic import and checks, for every tool, that all `inputSchema.properties.*` and all declared `outputContract` fields occur as whole words in the tool `description`. Prevents the hallucination class where an LLM consumer sees an undocumented field and invents its meaning. Use on "mcp doc check", "tool description drift", BEFORE every MCP slice merge.
 ---
 
-# mcp-doc-drift-gate (CDP5 T1-Gate)
+# mcp-doc-drift-gate (CDP5 T1 gate)
 
-## Warum
+## Why
 
-Aus Retro-ADR 0016 (NSAI-Edge UC-VPS): wird ein neues Output-Feld eingeführt **ohne** dass die MCP-Tool-Description es erwähnt, liest ein LLM-Konsument das Feld im Output, findet keinen Anker und **erfindet sich eine Bedeutung**. „Consumer-Sycophancy" — strukturell vergleichbar zur klassischen Sycophancy (Tests grün, Halluzination im Output). Stefans Auftrag aus Tages-Retro: „Backlog-Idee `mcp-doc-drift-gate` priorisieren".
+From retro ADR 0016 (NSAI-Edge UC-VPS): when a new output field is introduced **without** the MCP tool description mentioning it, an LLM consumer reads the field in the output, finds no anchor and **invents a meaning**. "Consumer sycophancy" — structurally comparable to classic sycophancy (tests green, hallucination in the output). Stefan's mandate from the daily retro: "prioritise the backlog idea `mcp-doc-drift-gate`".
 
-Dieser Skill macht das **deterministisch** und ohne LLM-Aufruf zu einem Pre-Merge-Gate.
+This skill turns that into a **deterministic** pre-merge gate without any LLM call.
 
-## Aufruf
+## Invocation
 
 ```bash
 node "${CLAUDE_PLUGIN_ROOT}/skills/mcp-doc-drift-gate/mcp-doc-drift-gate.mjs" --mcp=<path-to-mcp-server.mjs> [--json]
 ```
 
-Exit: `0` keine Drift · `1` Drift gefunden · `2` Nutzungsfehler.
+**Executes the module's top-level code via `import()`; run only on code built in this repository (§33.1).** The gate does not write anything, but it is not sandboxed — whatever the server module does at import time (connecting, reading env, spawning) happens. Every output names the imported module (`executed_target_module` in `--json`, the header line in text), so the reader of a result sees what ran. A judgment agent runs this gate only on the module its brief names; a module from an untrusted checkout needs a run grant and a disposable environment first.
 
-## Konvention
+## Severity and exit codes
 
-Der MCP-Server-Pfad muss ein ES-Modul sein und `TOOLS` als Array exportieren (Standard-Pattern in den NSAI-Edge-Servern):
+| Marker | Meaning | Gates? |
+|---|---|---|
+| 🔴 | blocks — input/output drift, tool shape violation | yes → exit `1` |
+| 🟡 | defect with workaround — tool without `outputContract` (output drift unchecked) | no |
+| 🟢 | polish | no (not emitted by this skill today) |
+
+Exit: `0` no 🔴 · `1` ≥1 🔴 · `2` usage or input error (missing `--mcp`, path not a file, import failure, no `TOOLS` export).
+`--json` prints `{ tools_checked, findings, drift, tools_without_output_contract, exit, findings[] }`; every finding carries `sev`, `tool`, `kind` (`shape` | `input` | `output` | `coverage`), `detail`.
+
+## Convention
+
+The MCP server path must be an ES module and export `TOOLS` as an array (standard pattern in the NSAI-Edge servers):
 
 ```js
 export const TOOLS = [
@@ -29,33 +40,35 @@ export const TOOLS = [
     name: 'graph__verify',
     description: '... supported / contradicted / unknown ... physical_status ...',
     inputSchema: { type: 'object', properties: { subject: {...}, predicate: {...}, ... } },
-    outputContract: ['verdict', 'contested', 'physical_status'],  // OPTIONAL — wenn nicht da: nur Input-Drift geprüft
+    outputContract: ['verdict', 'contested', 'physical_status'],  // OPTIONAL — if absent: only input drift is checked
   },
 ];
 ```
 
-`outputContract` ist optional, aber stark empfohlen — er macht das Gate erst für die ADR-0016-Klasse wirksam.
+`outputContract` is optional but strongly recommended — it is what makes the gate effective for the ADR-0016 class.
 
 ## Checks
 
-1. **Tool-Struktur**: jedes TOOL hat `name`, `description`, `inputSchema`.
-2. **Input-Drift**: jedes Feld in `inputSchema.properties` muss im Description-Text als Token vorkommen (case-insensitive Substring-Match auf Wortgrenzen).
-3. **Output-Drift** (wenn `outputContract` deklariert): jedes Feld muss in der Description vorkommen.
-4. **Whitespace-Tolerant**: Tokenisierung normalisiert Whitespace.
+1. **Tool shape** (🔴): every TOOL is an object with non-empty `name`, non-empty `description` and an `inputSchema` object. A missing `inputSchema` is reported as `shape: inputSchema missing`; the input-drift check then runs over zero fields.
+2. **Input drift** (🔴): every field in `inputSchema.properties` must occur in the description as a whole word (case-insensitive; `[A-Za-z0-9_]` form the word, so `predicate` does not match `predicate_x`). Markdown, backticks and punctuation around the word are fine. There is no whitespace normalisation — field names never contain whitespace.
+3. **Output drift** (🔴, when `outputContract` is declared): every field must occur in the description.
+4. **Coverage note** (🟡): a tool without `outputContract` is listed so the reader knows its output drift was NOT checked.
 
-## Beispiel-Output
+## Example output
 
 ```
-mcp-doc-drift-gate — 13 Tools geprüft, 2 Drift-Stellen
+mcp-doc-drift-gate — 13 tools checked, 2 drift spots
 
-  ✗ graph__verify — Output-Feld `physical_status` nicht in description
-  ✗ graph__search — Input-Feld `max_hops` nicht in description
+  🔴 graph__verify — Output field `physical_status` not in description
+  🔴 graph__search — Input field `max_hops` not in description
+  🟡 graph__stats — tool without outputContract — output drift was NOT checked
 
-2 Drift  ·  Exit 1
+2 drift  ·  exit 1
 ```
 
-## Was es NICHT prüft (bewusst Scope-Grenze)
+## What it does NOT check (deliberate scope boundary)
 
-- Bedeutungs-Korrektheit der Description (Judgment-Task → `konzept-reviewer` o. ä.).
-- Vollständigkeit der `outputContract`-Deklaration. Wenn der Skill weder Output-Drift findet noch eine `outputContract` sieht, gibt er eine **Hinweis-Notiz** aus, kein Fail.
-- Wire-Vertrag / Föderation (anderer Skill: `mcp-config-lint`).
+- Semantic correctness of the description (judgment task → `konzept-reviewer` or similar).
+- Completeness of the `outputContract` declaration. A tool without one yields a 🟡 note, not a fail.
+- Nested schema fields (`properties.foo.properties.bar`) — only the top-level `inputSchema.properties` keys are checked.
+- Wire contract / federation (different skill: `mcp-config-lint`).

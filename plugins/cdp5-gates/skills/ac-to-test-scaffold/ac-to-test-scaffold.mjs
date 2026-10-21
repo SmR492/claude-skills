@@ -1,24 +1,19 @@
 #!/usr/bin/env node
-// CDP5 §11.7/§27.4 T1-Skill — ac-to-test-scaffold (read-only): erzeugt FAILING Test-Skelette
-// AUS den Akzeptanzkriterien-Tabellen des Konzepts (nicht aus dem Code → echtes TDD-First).
-// Druckt nur auf stdout (read-only); Dev/Orchestrator legt die Dateien an.
-// Exit: 0 = Skelette erzeugt · 1 = keine AC gefunden · 2 = Nutzungsfehler.
+// CDP5 §11.7/§27.4 T1 skill — ac-to-test-scaffold (read-only): generates placeholder test skeletons
+// FROM the acceptance-criteria tables of the concept (not from the code → genuine TDD-first).
+// The skeletons are placeholders (incomplete/todo), not red tests — the dev turns each one into a
+// real failing assertion before implementing.
+// Prints to stdout only (read-only); dev/orchestrator creates the files.
+// Exit: 0 = skeletons generated · 2 = usage/input error (also: no AC table found — input state, not a finding).
 
 import { readFileSync } from 'node:fs';
+import { pathToFileURL } from 'node:url';
+import { parseUCs } from '../../lib/scan.mjs';
 import { guardPaths } from '../../lib/args.mjs';
 
-export function parseUCs(md) {
-  const ucs = []; let cur = null;
-  for (const line of md.split('\n')) {
-    const h = line.match(/^#{2,3}\s+(UC[-\s][^\n]*)/i);   // H2 ODER H3 (UCs oft unter `## N. Use Cases`)
-    if (h) { cur = { title: h[1].trim(), body: '' }; ucs.push(cur); continue; }
-    if (/^#{1,2}\s/.test(line) && !/^#{2,3}\s+UC/i.test(line)) cur = null;
-    if (cur) cur.body += line + '\n';
-  }
-  return ucs;
-}
+export { parseUCs };
 
-/** AC-Zeilen → {id, kriterium, klasse, methode}. Test-Klasse aus Spalte mit `Class::method`. */
+/** AC rows → {id, kriterium, klasse, methode}. Test class from the column containing `Class::method`. */
 export function extractACs(md) {
   const out = [];
   for (const uc of parseUCs(md)) {
@@ -39,22 +34,22 @@ export function extractACs(md) {
 
 function renderPhp(byClass) {
   return Object.entries(byClass).map(([cls, acs]) => {
-    const methods = acs.map((ac) => `    public function ${ac.methode}(): void\n    {\n        // ${ac.id}: ${ac.kriterium}\n        self::markTestIncomplete('${ac.id} noch nicht implementiert (TDD-First: erst rot).');\n    }`).join('\n\n');
-    return `<?php\ndeclare(strict_types=1);\n// Auto-Scaffold aus Konzept-AC — erst ROT, dann implementieren (CDP5 §11.7/§27.4).\nfinal class ${cls} extends \\PHPUnit\\Framework\\TestCase\n{\n${methods}\n}`;
+    const methods = acs.map((ac) => `    public function ${ac.methode}(): void\n    {\n        // ${ac.id}: ${ac.kriterium}\n        self::markTestIncomplete('${ac.id} not yet implemented (placeholder from concept AC — todo).');\n    }`).join('\n\n');
+    return `<?php\ndeclare(strict_types=1);\n// Auto-scaffold from concept ACs — placeholders (incomplete/todo), replace with real assertions, then implement (CDP5 §11.7/§27.4).\nfinal class ${cls} extends \\PHPUnit\\Framework\\TestCase\n{\n${methods}\n}`;
   }).join('\n\n');
 }
 
 function renderJs(byClass) {
-  const lines = ["import { test } from 'node:test';", "// Auto-Scaffold aus Konzept-AC — erst ROT, dann implementieren (CDP5 §11.7/§27.4).", ''];
+  const lines = ["import { test } from 'node:test';", "// Auto-scaffold from concept ACs — placeholders (todo), replace with real assertions, then implement (CDP5 §11.7/§27.4).", ''];
   for (const acs of Object.values(byClass)) for (const ac of acs)
-    lines.push(`test('${ac.id}: ${ac.kriterium.replace(/'/g, "\\'")}', () => {\n  throw new Error('${ac.id} noch nicht implementiert (TDD-First: erst rot).');\n});`);
+    lines.push(`test('${ac.id}: ${ac.kriterium.replace(/'/g, "\\'")}', () => {\n  throw new Error('${ac.id} not yet implemented (placeholder from concept AC — todo).');\n});`);
   return lines.join('\n');
 }
 
 export function scaffold(md, lang = 'php') {
   const acs = extractACs(md);
   const byClass = {};
-  for (const ac of acs) {                          // Methodennamen je Klasse deduplizieren (sonst invalides PHP)
+  for (const ac of acs) {                          // deduplicate method names per class (otherwise invalid PHP)
     const arr = (byClass[ac.klasse] ??= []);
     let m = ac.methode, n = 1;
     while (arr.some((x) => x.methode === m)) m = `${ac.methode}_${++n}`;
@@ -68,10 +63,10 @@ function main(argv) {
   if (!a.konzept) { console.error('Usage: ac-to-test-scaffold.mjs --konzept=<konzept.md> [--lang=php|js]'); process.exit(2); }
   guardPaths([[a.konzept, 'file']]);
   const r = scaffold(readFileSync(a.konzept, 'utf8'), a.lang === 'js' ? 'js' : 'php');
-  if (!r.count) { console.error('Keine AC-Tabellen gefunden — erst `konzept-lint` (AC-Tabelle je UC Pflicht).'); process.exit(1); }
-  console.error(`// ${r.count} AC → ${Object.keys(r.byClass).length} Test-Klasse(n) · read-only (kopieren/anlegen):\n`);
+  if (!r.count) { console.error('No AC tables found — run `konzept-lint` first (an AC table per UC is mandatory).'); process.exit(2); }
+  console.error(`// ${r.count} AC → ${Object.keys(r.byClass).length} test class(es) · read-only (copy/create the files):\n`);
   console.log(r.code);
   process.exit(0);
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) main(process.argv);
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) main(process.argv);

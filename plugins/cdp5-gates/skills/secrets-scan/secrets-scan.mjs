@@ -1,16 +1,20 @@
 #!/usr/bin/env node
-// CDP5 §32.9 / §33.5 T1-Skill — Secrets-Scan (read-only, dependency-frei): findet Klartext-
-// Secrets im Repo (Keys, Tokens, Private Keys, .env-Leaks). Exit: 0 = sauber · 1 = Funde · 2 = Nutzungsfehler.
+// CDP5 §32.9 / §33.5 T1 skill — secrets-scan (read-only, dependency-free): finds cleartext
+// secrets in the repo (keys, tokens, private keys, .env leaks).
+// Exit: 0 = no 🔴 · 1 = ≥1 🔴 (every secret finding is 🔴) · 2 = usage error.
 
 import { readFileSync, readdirSync, lstatSync } from 'node:fs';
+import { pathToFileURL } from 'node:url';
 import { guardPaths } from '../../lib/args.mjs';
 
-const MAX_LINE = 4000;   // ReDoS-Schutz: überlange Einzelzeilen vor dem Regex-Matching kappen (s. scanText)
+const MAX_LINE = 4000;   // ReDoS protection: truncate overlong single lines before regex matching (see scanText)
 import { join, relative, extname, basename } from 'node:path';
 
 const SKIP_DIRS = new Set(['.git', 'node_modules', 'vendor', 'var', 'cache', '.idea', 'dist', 'build', '.tmp']);
 const SCAN_EXT = new Set(['.php', '.js', '.mjs', '.ts', '.py', '.rb', '.go', '.java', '.yaml', '.yml', '.json', '.sh', '.txt', '.md', '.ini', '.conf', '.properties', '.xml']);
-const PLACEHOLDER = /^(your|example|changeme|placeholder|xxx+|dummy|test|sample|\$\{|<)/i;
+// Word forms need a separator (`test_token`, `sample-key`) so that a real credential that merely
+// STARTS with `test…`/`sample…`/`dummy…` is not dropped. `xxx+`, `${` and `<` stay prefix-only.
+export const PLACEHOLDER = /^(?:(?:your|example|changeme|placeholder|dummy|test|sample)[_-]|xxx+|\$\{|<)/i;
 
 const PATTERNS = [
   { type: 'AWS-Access-Key', re: /\bAKIA[0-9A-Z]{16}\b/ },
@@ -32,7 +36,7 @@ function collect(root) {
     for (const n of e) {
       if (SKIP_DIRS.has(n)) continue;
       const f = join(d, n); let st; try { st = lstatSync(f); } catch { continue; }
-      if (st.isSymbolicLink()) continue;            // keine Symlinks verfolgen (Out-of-tree-Read / Loop)
+      if (st.isSymbolicLink()) continue;            // do not follow symlinks (out-of-tree read / loop)
       if (st.isDirectory()) walk(f);
       else if (st.size < 1_000_000 && (SCAN_EXT.has(extname(n)) || isEnvFile(n))) out.push(f);
     }
@@ -46,13 +50,13 @@ const redact = (s) => (s.length <= 8 ? s[0] + '…' : s.slice(0, 4) + '…' + s.
 export function scanText(text, file) {
   const findings = [];
   text.split('\n').forEach((line, i) => {
-    if (line.length > MAX_LINE) line = line.slice(0, MAX_LINE);   // ReDoS-Schutz: überlange Zeile kappen
+    if (line.length > MAX_LINE) line = line.slice(0, MAX_LINE);   // ReDoS protection: truncate overlong line
     for (const p of PATTERNS) {
       const m = line.match(p.re);
       if (!m) continue;
       const val = p.group ? m[p.group] : m[0];
       if (p.group && PLACEHOLDER.test(val)) continue;
-      findings.push({ file, line: i + 1, type: p.type, match: redact(val) });
+      findings.push({ sev: '🔴', file, line: i + 1, type: p.type, match: redact(val) });
     }
   });
   return findings;
@@ -61,8 +65,12 @@ export function scanText(text, file) {
 export function scanRepo(root) {
   const files = collect(root);
   const findings = [];
-  for (const f of files) findings.push(...scanText(readFileSync(f, 'utf8'), relative(root, f)));
-  return { findings, scanned: files.length, hasSecrets: findings.length > 0 };
+  const unreadable = [];
+  for (const f of files) {
+    let txt; try { txt = readFileSync(f, 'utf8'); } catch { unreadable.push(relative(root, f)); continue; }  // unreadable → skip, no crash
+    findings.push(...scanText(txt, relative(root, f)));
+  }
+  return { findings, scanned: files.length - unreadable.length, unreadable, hasSecrets: findings.some((f) => f.sev === '🔴') };
 }
 
 function main(argv) {
@@ -71,10 +79,11 @@ function main(argv) {
   guardPaths([[a.repo, 'dir']]);
   const r = scanRepo(a.repo);
   if (a.json) { console.log(JSON.stringify(r, null, 2)); process.exit(r.hasSecrets ? 1 : 0); }
-  console.log(`Secrets-Scan — ${r.scanned} Dateien, ${r.findings.length} Funde\n`);
-  for (const f of r.findings) console.log(`  ✗ ${f.type}  ${f.file}:${f.line}  (${f.match})`);
-  if (!r.hasSecrets) console.log('  keine Klartext-Secrets gefunden.');
+  console.log(`secrets-scan — ${r.scanned} files, ${r.findings.length} findings, ${r.unreadable.length} unreadable (skipped)\n`);
+  for (const f of r.findings) console.log(`  ${f.sev} ${f.type}  ${f.file}:${f.line}  (${f.match})`);
+  for (const u of r.unreadable) console.log(`  · skipped (unreadable): ${u}`);
+  if (!r.hasSecrets) console.log('  no cleartext secrets found.');
   process.exit(r.hasSecrets ? 1 : 0);
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) main(process.argv);
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) main(process.argv);

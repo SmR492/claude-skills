@@ -1,27 +1,28 @@
 #!/usr/bin/env node
-// CDP5 §15.6/§15.7/§2.7 T1-Skill — pii-scan (read-only): findet KLARTEXT-PII in Repo/Testdaten/
-// Traces (E-Mail, IBAN, Telefon, Kreditkarte). Dependency-frei, redacted Output.
-// HYBRID: der Regex-Teil ist deterministisch; die semantische Einstufung (echter Name vs.
-// Zufallsstring) gehört in ein review-verify-Overlay — kein finaler Wahrheits-Gate allein.
-// Exit: 0 = sauber · 1 = ≥1 Fund · 2 = Nutzungsfehler.
+// CDP5 §15.6/§15.7/§2.7 T1 skill — pii-scan (read-only): finds CLEARTEXT PII in repo/test data/
+// traces (email, IBAN, phone, credit card). Dependency-free, redacted output.
+// HYBRID: the regex part is deterministic; the semantic classification (real name vs.
+// random string) belongs in a review-verify overlay — not a final truth gate on its own.
+// Exit: 0 = no 🔴 · 1 = ≥1 🔴 (every PII finding is 🔴) · 2 = usage error.
 
 import { readFileSync, readdirSync, lstatSync } from 'node:fs';
+import { pathToFileURL } from 'node:url';
 import { guardPaths } from '../../lib/args.mjs';
 import { join, relative, extname, basename } from 'node:path';
 
 const SKIP = new Set(['.git', 'node_modules', 'vendor', 'var', 'cache', '.idea', 'dist', 'build', '.tmp']);
 const EXT = new Set(['.php', '.js', '.mjs', '.ts', '.py', '.rb', '.go', '.java', '.json', '.yaml', '.yml', '.xml', '.csv', '.sql', '.txt', '.md', '.env', '.ini', '.toml']);
-// PLACEHOLDER wird gegen den GEMATCHTEN Wert geprüft (nicht die ganze Zeile), damit echte PII
-// neben einem Platzhalter nicht verloren geht. 0{12,} = all-zero-Testkarten (engt IBANs mit Nullen NICHT aus).
-const PLACEHOLDER = /\byour[_-]|example\.(com|org)|@example\.|\bxxx+\b|0{12,}|changeme|<[^>]+>/i;
-const MAX_LINE = 4000;   // PII liegt nie in überlangen Einzeltoken — Cap gegen quadratisches Regex-Backtracking (ReDoS)
+// PLACEHOLDER is tested against the MATCHED value (not the whole line) so that real PII
+// next to a placeholder is not lost. 0{12,} = all-zero test cards (does NOT exclude IBANs containing zeros).
+export const PLACEHOLDER = /\byour[_-]|example\.(com|org)|@example\.|\bxxx+\b|0{12,}|changeme|\$\{|<[^>]+>/i;
+const MAX_LINE = 4000;   // PII never sits in overlong single tokens — cap against quadratic regex backtracking (ReDoS)
 
-// Quantoren bewusst beschränkt (RFC-nah) → kein O(n²)-Backtracking bei langen Nicht-Treffer-Zeilen.
+// Quantifiers deliberately bounded (close to RFC) → no O(n²) backtracking on long non-matching lines.
 const PATTERNS = [
-  { type: 'E-Mail', re: /[A-Za-z0-9._%+-]{1,64}@[A-Za-z0-9.-]{1,255}\.[A-Za-z]{2,24}/g },
-  { type: 'IBAN', re: /\b[A-Z]{2}\d{2}[A-Z0-9]{11,30}\b/g },
-  { type: 'Telefon', re: /\+\d{2,3}[\s\-/]?\d[\d\s\-/]{7,40}\d/g },
-  { type: 'Kreditkarte', re: /\b(?:\d[ -]?){13,16}\b/g, luhn: true },
+  { type: 'Email', re: /[A-Za-z0-9._%+-]{1,64}@[A-Za-z0-9.-]{1,255}\.[A-Za-z]{2,24}/g },
+  { type: 'IBAN', re: /\b[A-Z]{2}\d{2}[A-Z0-9]{11,30}\b/g, check: iban97 },
+  { type: 'Phone', re: /\+\d{2,3}[\s\-/]?\d[\d\s\-/]{7,40}\d/g },
+  { type: 'Credit card', re: /\b(?:\d[ -]?){13,16}\b/g, check: luhn },
 ];
 
 function luhn(s) {
@@ -32,17 +33,30 @@ function luhn(s) {
   return sum % 10 === 0;
 }
 
+// ISO 13616 mod-97: move the first four characters to the end, letters → 10..35, remainder must be 1.
+export function iban97(s) {
+  const iban = s.replace(/\s/g, '').toUpperCase();
+  if (iban.length < 15 || iban.length > 34) return false;
+  const rearranged = iban.slice(4) + iban.slice(0, 4);
+  let r = 0;
+  for (const ch of rearranged) {
+    const v = /[A-Z]/.test(ch) ? String(ch.charCodeAt(0) - 55) : ch;
+    for (const d of v) r = (r * 10 + Number(d)) % 97;
+  }
+  return r === 1;
+}
+
 const redact = (m) => m.length <= 4 ? '…' : m.slice(0, 2) + '…' + m.slice(-2);
 
 export function scanText(text, file) {
   const out = [];
   text.split('\n').forEach((line, i) => {
-    if (line.length > MAX_LINE) line = line.slice(0, MAX_LINE);   // ReDoS-Schutz: überlange Zeile kappen
+    if (line.length > MAX_LINE) line = line.slice(0, MAX_LINE);   // ReDoS protection: truncate overlong line
     for (const p of PATTERNS) {
       for (const m of line.matchAll(p.re)) {
-        if (PLACEHOLDER.test(m[0])) continue;        // pro Match, nicht pro Zeile
-        if (p.luhn && !luhn(m[0])) continue;
-        out.push({ file, line: i + 1, type: p.type, match: redact(m[0]) });
+        if (PLACEHOLDER.test(m[0])) continue;        // per match, not per line
+        if (p.check && !p.check(m[0])) continue;     // checksum (Luhn / IBAN mod-97) against false positives
+        out.push({ sev: '🔴', file, line: i + 1, type: p.type, match: redact(m[0]) });
       }
     }
   });
@@ -56,7 +70,7 @@ function collect(root) {
     for (const n of e) {
       if (SKIP.has(n)) continue;
       const f = join(d, n); let st; try { st = lstatSync(f); } catch { continue; }
-      if (st.isSymbolicLink()) continue;              // keine Symlink-Loops verfolgen
+      if (st.isSymbolicLink()) continue;              // do not follow symlink loops
       if (st.isDirectory()) walk(f);
       else if ((EXT.has(extname(n)) || /^\.env/.test(basename(n))) && st.size <= 1_000_000) out.push(f);
     }
@@ -68,7 +82,7 @@ function collect(root) {
 export function scanRepo(root) {
   const findings = [];
   for (const f of collect(root)) {
-    let txt; try { txt = readFileSync(f, 'utf8'); } catch { continue; }  // Binary/Invalid-UTF8 → skip, kein Crash
+    let txt; try { txt = readFileSync(f, 'utf8'); } catch { continue; }  // binary/invalid UTF-8 → skip, no crash
     for (const x of scanText(txt, relative(root, f))) findings.push(x);
   }
   return findings;
@@ -79,12 +93,13 @@ function main(argv) {
   if (!a.repo) { console.error('Usage: pii-scan.mjs --repo=<root> [--json]'); process.exit(2); }
   guardPaths([[a.repo, 'dir']]);
   const f = scanRepo(a.repo);
-  if (a.json) { console.log(JSON.stringify(f, null, 2)); process.exit(f.length ? 1 : 0); }
-  console.log(`pii-scan — ${f.length} mögliche PII-Funde (redacted)\n`);
-  for (const x of f) console.log(`  ✗ ${x.type}  ${x.file}:${x.line}  (${x.match})`);
-  if (!f.length) console.log('  keine Klartext-PII gefunden.');
-  else console.log('\nHybrid: semantisch verifizieren (review-verify) — Regex kann false-positive sein.');
-  process.exit(f.length ? 1 : 0);
+  const critical = f.some((x) => x.sev === '🔴');
+  if (a.json) { console.log(JSON.stringify(f, null, 2)); process.exit(critical ? 1 : 0); }
+  console.log(`pii-scan — ${f.length} possible PII findings (redacted)\n`);
+  for (const x of f) console.log(`  ${x.sev} ${x.type}  ${x.file}:${x.line}  (${x.match})`);
+  if (!f.length) console.log('  no cleartext PII found.');
+  else console.log('\nHybrid: verify semantically (review-verify) — regex can be a false positive.');
+  process.exit(critical ? 1 : 0);
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) main(process.argv);
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) main(process.argv);
