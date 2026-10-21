@@ -59,9 +59,12 @@ export function setup(opts, env = process.env, now = Date.now()) {
   const baseline = [];
   let green = true;
   for (const cmd of opts.baseline.filter(Boolean)) {
-    const r = spawnSync(cmd, { cwd: path, shell: true, encoding: 'utf8' });
+    const started = Date.now();
+    const shell = process.platform === 'win32' ? { shell: true } : { shell: 'bash', env: { ...process.env, SHELLOPTS: 'pipefail' } };
+    const r = spawnSync(cmd, { cwd: path, encoding: 'utf8', ...shell });
     const exit = r.status ?? 1;
-    baseline.push({ cmd, exit, tail: `${r.stdout ?? ''}${r.stderr ?? ''}`.trim().split('\n').slice(-5).join('\n') });
+    const seconds = Math.round((Date.now() - started) / 1000);
+    baseline.push({ cmd, exit, seconds, tail: `${r.stdout ?? ''}${r.stderr ?? ''}`.trim().split('\n').slice(-5).join('\n') });
     if (exit !== 0) { green = false; break; }
   }
   let grant = null;
@@ -73,7 +76,10 @@ export function setup(opts, env = process.env, now = Date.now()) {
 
 export function briefLines(r) {
   const lines = [`disposable environment: ${r.worktree}`, `base commit: ${r.base}`];
-  for (const b of r.baseline) lines.push(`baseline: ${b.cmd} → exit ${b.exit}`);
+  for (const b of r.baseline) {
+    lines.push(`baseline: ${b.cmd} → exit ${b.exit} (${b.seconds ?? 0} s)`);
+    lines.push(`  last output: ${b.tail.split('\n').pop() || '(none)'}`);
+  }
   if (r.baseline.length === 0) lines.push('baseline: none run (no --baseline given)');
   if (r.grant) lines.push(`run grant: ${r.grant.agent} until ${r.grant.expires} (${r.grant.uses} use${r.grant.uses === 1 ? '' : 's'}, project ${r.grant.project}, session ${r.grant.session})`);
   else if (r.requestedGrant) lines.push(`run grant: not issued for ${r.requestedGrant} (baseline red)`);

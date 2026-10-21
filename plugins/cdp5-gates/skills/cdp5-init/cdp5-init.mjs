@@ -18,6 +18,7 @@ const DEFAULT_BLOCK = join(dirname(fileURLToPath(import.meta.url)), 'cdp5-block.
 export function blockInvariantError(content) {
   if (!/CDP5/.test(content)) return 'Block invariant violated: CDP5 reference missing.';
   if (!/cdp5-reference/.test(content)) return 'Block invariant violated: cdp5-reference gate missing.';
+  if (/CLAUDE_PLUGIN_ROOT/.test(content)) return 'Block invariant violated: ${CLAUDE_PLUGIN_ROOT} does not resolve in a project CLAUDE.md; name the skill instead.';
   return null;
 }
 

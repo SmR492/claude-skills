@@ -23,6 +23,7 @@ Size floor (§32.10: a brief must not cost more than the work):
 1. Determinism gate: a decidable task goes to a script or a cdp5-gates skill, not to a model.
 2. Effort scaling: one agent with a few tool calls for a fact, two to four workers for a comparison, more only for independent research. Counter-roles and reviewers run at `effort: high`, implementation workers at `medium`; the agent files set this.
 3. Workers have no network. A URL a worker must judge (a claim about a web page, a specification revision) is fetched by you and placed in the brief with URL, fetch date and HTTP status. Knowledge-pack entries are given as absolute file paths (resolve `${CLAUDE_PLUGIN_ROOT}/skills/<pack>/entries/` of the owning plugin); a worker's cwd is the project, not the plugin.
+4. Spawn cdp5 and domain workers without `name` and without `team_name`. A named spawn becomes a teammate, the SubagentStart hook does not run for it, so it gets no contract; the `guard-spawn` hook denies such a spawn. Address the worker later by the agentId from the spawn result.
 
 ## The brief
 
@@ -38,7 +39,7 @@ Judgment agents are read-only by default; the plugin's shell guard denies test r
 node "<scripts path from the bootstrap block>/worktree-setup.mjs" --repo=. --base=<commit> --path=.worktrees/audit --baseline="vendor/bin/phpunit" --baseline="vendor/bin/phpstan analyse" --grant=adversarial-auditor --ttl=3h --session=<id from the bootstrap block>
 ```
 
-Its output lines (disposable environment, base commit, baseline results, run grant, session) go verbatim into the brief. A red baseline issues no grant: fix the baseline first or brief without runs. For an existing linked worktree, `grant-run.mjs grant|list|revoke` manages grants alone (`--root` must be a linked worktree of the project).
+Its output lines (disposable environment, base commit, baseline results, run grant, session) go verbatim into the brief. Each baseline runs in bash with `pipefail` and prints its real exit, its duration and its last output line, so the command needs no `| tail`. Worktrees on the same commit reuse one proven baseline; parallel baselines on one host multiply each other's time. A red baseline issues no grant: fix the baseline first or brief without runs. For an existing linked worktree, `grant-run.mjs grant|list|revoke` manages grants alone (`--root` must be a linked worktree of the project).
 
 Rules:
 - **Human confirmation.** Every grant command (`grant-run.mjs grant`, `worktree-setup.mjs --grant`) asks the human first: a grant moves a judgment agent to the worker tier (runs, writes, network) inside a host worktree, which is not a sandbox. Say in one line why the run is needed.
@@ -74,7 +75,7 @@ Conflict of interest (§32.24): every triad role states `conflict of interest: n
 - Every worker claim is a claim; review-verify checks it before it triggers a change. Spot-check one piece of evidence per batch yourself.
 - A delivered diff passes review in a fresh context: first conformance to the brief (review-verify with the brief as the source: every acceptance criterion covered, nothing outside scope, the gate commands really run), then quality (review-code) when the diff adds a class or a seam or changes more than about 150 lines; smaller diffs close with review-verify alone. A finding the reviewer cannot decide from the diff is yours to resolve; it is not closed by the worker's word.
 - A refuted result gets a sharpened re-brief, at most twice; the second re-brief goes to a fresh worker instance with the refuted attempt recorded as a known-issue line. Then a Stop-Retro to the user. A finding whose fix is one hunk without behaviour change you may apply yourself; it still passes review-verify. Anything larger is a re-brief, because fixing it yourself skips the review and fills your context.
-- A worker that answers `CONTRACT-MISSING` is not re-briefed: run `generate-contract.mjs --check` from the scripts path, fix, respawn.
+- A worker that answers `CONTRACT-MISSING` is not re-briefed: check that it was spawned without `name`, run `generate-contract.mjs --check` from the scripts path, fix, respawn.
 - Questions and Stop-Retros from workers go into the conversation at once.
 - Track tokens per wave. If the user set no budget: at most four workers per wave and two waves before you report the cost and ask.
 - Destructive or irreversible steps (schema drop, force push, migration cutoff, branch delete, integration approval, investor outreach, term-sheet commitment, signature) go to the human, every time.

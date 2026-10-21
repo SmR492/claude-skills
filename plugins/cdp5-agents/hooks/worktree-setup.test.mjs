@@ -67,7 +67,8 @@ test('creates a detached worktree on the exact base, runs the baseline, issues t
     assert.match(lines[0], /^disposable environment: /);
     assert.match(lines[1], new RegExp(`^base commit: ${first}`));
     assert.match(lines[2], /baseline: node -e .* → exit 0/);
-    assert.match(lines[3], /^run grant: adversarial-auditor until .* \(2 uses, project /);
+    assert.match(lines[3], /^  last output: \(none\)$/);
+    assert.match(lines[4], /^run grant: adversarial-auditor until .* \(2 uses, project /);
   } finally {
     spawnSync('git', ['worktree', 'prune'], { cwd: r });
     rmSync(root, { recursive: true, force: true });
@@ -98,7 +99,7 @@ test('a red baseline keeps the worktree, issues no grant and exits 1; usage erro
     const wt = join(root, 'wt-red');
     const run = spawnSync('node', [SCRIPT, `--repo=${r}`, `--base=${first}`, `--path=${wt}`, '--baseline=node -e "console.log(1)"', '--baseline=node -e "console.error(\'boom\'); process.exit(3)"', '--grant=review-verify', '--session=s1'], { env, encoding: 'utf8' });
     assert.equal(run.status, 1, run.stdout + run.stderr);
-    assert.match(run.stdout, /baseline: .*→ exit 0\nbaseline: .*→ exit 3/);
+    assert.match(run.stdout, /baseline: .*→ exit 0 \(\d+ s\)\n  last output: 1\nbaseline: .*→ exit 3 \(\d+ s\)\n  last output: boom/);
     assert.match(run.stdout, /run grant: not issued for review-verify \(baseline red\)/);
     assert.match(run.stdout, /boom/);
     assert.ok(existsSync(wt), 'the worktree stays for inspection');
@@ -132,6 +133,24 @@ test('a bad --grant, --ttl or --uses is rejected before the worktree is created'
     assert.match(noSession.stderr, /needs a session/);
     assert.ok(!existsSync(join(root, 'wt-nosession')), 'no stray worktree without a session');
     assert.equal(spawnSync('git', ['worktree', 'list'], { cwd: r, encoding: 'utf8' }).stdout.trim().split('\n').length, 1, 'only the main worktree exists');
+  } finally {
+    spawnSync('git', ['worktree', 'prune'], { cwd: r });
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('a pipeline that hides a failing command stays red, also inside a nested bash -c', { skip: process.platform === 'win32' }, () => {
+  const { root, r, first, env } = repo();
+  try {
+    const plain = setup({ repo: r, base: first, path: join(root, 'wt-pipe'), baseline: ['node -e "process.exit(4)" | tail -1'] }, env);
+    assert.equal(plain.green, false);
+    assert.equal(plain.baseline[0].exit, 4);
+    const nested = setup({ repo: r, base: first, path: join(root, 'wt-nested'), baseline: [`bash -c 'node -e "process.exit(5)" | tail -1'`] }, env);
+    assert.equal(nested.green, false);
+    assert.equal(nested.baseline[0].exit, 5);
+    const green = setup({ repo: r, base: first, path: join(root, 'wt-green'), baseline: ['node -e "console.log(\'904 passed\')" | tail -1'] }, env);
+    assert.equal(green.green, true);
+    assert.match(briefLines(green).join('\n'), /→ exit 0 \(\d+ s\)\n  last output: 904 passed/);
   } finally {
     spawnSync('git', ['worktree', 'prune'], { cwd: r });
     rmSync(root, { recursive: true, force: true });

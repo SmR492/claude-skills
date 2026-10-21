@@ -121,3 +121,10 @@ test('CLI --block with an invariant violation → exit 2 (AI reject, UC-03)', ()
   try { execFileSync('node', [script, `--target=${f}`, `--block=${bad}`], { stdio: 'pipe' }); } catch (e) { code = e.status; }
   assert.equal(code, 2);
 });
+
+test('a block that names ${CLAUDE_PLUGIN_ROOT} is rejected, because the variable never resolves in a project CLAUDE.md', () => {
+  assert.match(blockInvariantError('CDP5; cdp5-reference: node "${CLAUDE_PLUGIN_ROOT}/skills/cdp5-reference/cdp5.mjs"'), /CLAUDE_PLUGIN_ROOT/);
+  const def = readFileSync(join(dirname(fileURLToPath(import.meta.url)), 'cdp5-block.md'), 'utf8');
+  assert.doesNotMatch(def, /CLAUDE_PLUGIN_ROOT/);
+  assert.match(def, /\/cdp5-gates:cdp5-reference/);
+});

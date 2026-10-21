@@ -4,7 +4,7 @@
 Non-trivial tasks are orchestrated according to **CDP5** (concept → design → implementation → testing → review), not executed ad hoc.
 
 **cdp5-reference gate (mandatory pre-step):** Before every task, load the required CDP5 doctrine excerpt **just-in-time** instead of assuming it —
-`node "${CLAUDE_PLUGIN_ROOT}/skills/cdp5-reference/cdp5.mjs" --section=<§> | --keyword=<term> | --list`. When something is unclear or a decision is open, enter a dialogue with the user (clarify first).
+load it with the `cdp5-reference` skill (`/cdp5-gates:cdp5-reference <§ | keyword>`). When something is unclear or a decision is open, enter a dialogue with the user (clarify first).
 
 **Decidable + repeated → deterministic T1 skill (no LLM guesswork). Judgment work → judgment agent. Writing/merging/pushing → only with human confirmation.**
 
