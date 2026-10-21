@@ -91,3 +91,16 @@ test('every doctrine anchor cited by an agent or SKILL.md is defined in the bund
   const dangling = danglingAnchors(files, anchors);
   assert.deepEqual(dangling, [], `dangling doctrine anchors:\n${dangling.join('\n')}`);
 });
+
+test('D-19: a project decision procedure never answers a blocking devils-advocate verdict, and the ledger may live in the project record place', () => {
+  const md = readFileSync(DOCTRINE, 'utf8');
+  const gate = md.slice(md.indexOf('### 32.25'), md.indexOf('\n### ', md.indexOf('### 32.25') + 10));
+  assert.match(gate, /\*\*Project decision procedures:\*\*/);
+  assert.match(gate, /named human decider/);
+  assert.match(gate, /never the vote/);
+  assert.match(md, /^\*\*Version:\*\* 6\.2$/m);
+  const orchestrate = readFileSync(join(PLUGINS, 'cdp5-agents', 'skills', 'orchestrate', 'SKILL.md'), 'utf8');
+  assert.match(orchestrate, /own decision procedure/);
+  assert.match(orchestrate, /may keep the ledger there/);
+  assert.match(orchestrate, /company-repository rule wins/);
+});

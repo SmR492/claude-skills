@@ -39,7 +39,7 @@ Judgment agents are read-only by default; the plugin's shell guard denies test r
 node "<scripts path from the bootstrap block>/worktree-setup.mjs" --repo=. --base=<commit> --path=.worktrees/audit --baseline="vendor/bin/phpunit" --baseline="vendor/bin/phpstan analyse" --grant=adversarial-auditor --ttl=3h --session=<id from the bootstrap block>
 ```
 
-Its output lines (disposable environment, base commit, baseline results, run grant, session) go verbatim into the brief. Each baseline runs in bash with `pipefail` and prints its real exit, its duration and its last output line, so the command needs no `| tail`. Worktrees on the same commit reuse one proven baseline; parallel baselines on one host multiply each other's time. A red baseline issues no grant: fix the baseline first or brief without runs. For an existing linked worktree, `grant-run.mjs grant|list|revoke` manages grants alone (`--root` must be a linked worktree of the project).
+Its output lines (disposable environment, base commit, baseline results, run grant, session) go verbatim into the brief. Environment steps (a venv, a link to a shared read-only data directory) go into `--setup="<cmd>"`, which runs before the baselines and is reported as `setup:`, never as `baseline:`; each command runs in its own shell, so only filesystem effects carry over, not exports or an activated venv. Each step runs in bash with `pipefail` and prints its real exit, its duration and its last output line, so the command needs no `| tail`. The `tree:` line shows what setup and baselines left in the worktree; a project with a dirty-tree rule excludes those paths before a worker starts. Worktrees on the same commit reuse one proven baseline; parallel baselines on one host multiply each other's time. A red baseline issues no grant: fix the baseline first or brief without runs. For an existing linked worktree, `grant-run.mjs grant|list|revoke` manages grants alone (`--root` must be a linked worktree of the project).
 
 Rules:
 - **Human confirmation.** Every grant command (`grant-run.mjs grant`, `worktree-setup.mjs --grant`) asks the human first: a grant moves a judgment agent to the worker tier (runs, writes, network) inside a host worktree, which is not a sandbox. Say in one line why the run is needed.
@@ -57,7 +57,7 @@ Before a 🔴 or irreversible step, and before the final synthesis of every assi
 
 | Object | Counter-role |
 |---|---|
-| a choice (ADR, plan, new subsystem) | devils-advocate |
+| a choice (ADR, plan, new subsystem) | devils-advocate; a project's own decision procedure (a vote) runs after it with its objections as input, and under (b) or (c) a named human answers, never the vote (§32.25) |
 | a doctrine or policy change (new version of the doctrine copy, §7 gate items, maturity policy, worker contract) | devils-advocate, null option: keep the previous version |
 | a forecast (estimate, date, success rate) | pessimistic-realist |
 | an artefact (diff, implementation, decision text) | adversarial-auditor |
@@ -79,7 +79,7 @@ Conflict of interest (§32.24): every triad role states `conflict of interest: n
 - Questions and Stop-Retros from workers go into the conversation at once.
 - Track tokens per wave. If the user set no budget: at most four workers per wave and two waves before you report the cost and ask.
 - Destructive or irreversible steps (schema drop, force push, migration cutoff, branch delete, integration approval, investor outreach, term-sheet commitment, signature) go to the human, every time.
-- Progress lives in a ledger file, not in conversation memory: one line per task (task, state, commit range or diff path, review result, open findings). Own repositories: `docs/retro/<NNNN>-<slug>.ledger.md` next to the retro ADR it feeds; company repositories: `~/.claude/projects/<project>/memory/ledger-<slug>.md`. After a compaction you resume from the ledger, not from what you remember.
+- Progress lives in a ledger file, not in conversation memory: one line per task (task, state, commit range or diff path, review result, open findings). Own repositories: `docs/retro/<NNNN>-<slug>.ledger.md` next to the retro ADR it feeds; company repositories: `~/.claude/projects/<project>/memory/ledger-<slug>.md`. An own repository that names its own record place in its CLAUDE.md or README may keep the ledger there; the company-repository rule wins, so no AI-written ledger goes into a company repository. After a compaction you resume from the ledger, not from what you remember.
 
 ## Planning rules (from the former pm-planner role)
 

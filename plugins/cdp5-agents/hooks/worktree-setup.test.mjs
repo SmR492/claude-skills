@@ -30,8 +30,9 @@ function repo() {
 }
 
 test('parseArgs collects repeated --baseline and plain flags', () => {
-  const a = parseArgs(['--repo=.', '--baseline=npm test', '--baseline=npm run lint', '--grant=adversarial-auditor', '--uses=2', '--json']);
+  const a = parseArgs(['--repo=.', '--setup=uv sync', '--setup=mkdir .data', '--baseline=npm test', '--baseline=npm run lint', '--grant=adversarial-auditor', '--uses=2', '--json']);
   assert.deepEqual(a.baseline, ['npm test', 'npm run lint']);
+  assert.deepEqual(a.setup, ['uv sync', 'mkdir .data']);
   assert.equal(a.grant, 'adversarial-auditor');
   assert.equal(a.uses, '2');
   assert.equal(a.json, true);
@@ -68,7 +69,8 @@ test('creates a detached worktree on the exact base, runs the baseline, issues t
     assert.match(lines[1], new RegExp(`^base commit: ${first}`));
     assert.match(lines[2], /baseline: node -e .* → exit 0/);
     assert.match(lines[3], /^  last output: \(none\)$/);
-    assert.match(lines[4], /^run grant: adversarial-auditor until .* \(2 uses, project /);
+    assert.equal(lines[4], 'tree: clean');
+    assert.match(lines[5], /^run grant: adversarial-auditor until .* \(2 uses, project /);
   } finally {
     spawnSync('git', ['worktree', 'prune'], { cwd: r });
     rmSync(root, { recursive: true, force: true });
@@ -151,6 +153,37 @@ test('a pipeline that hides a failing command stays red, also inside a nested ba
     const green = setup({ repo: r, base: first, path: join(root, 'wt-green'), baseline: ['node -e "console.log(\'904 passed\')" | tail -1'] }, env);
     assert.equal(green.green, true);
     assert.match(briefLines(green).join('\n'), /→ exit 0 \(\d+ s\)\n  last output: 904 passed/);
+  } finally {
+    spawnSync('git', ['worktree', 'prune'], { cwd: r });
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('setup runs before the baselines under its own label, and the brief shows the tree status the setup left', { skip: process.platform === 'win32' }, () => {
+  const { root, r, first, env } = repo();
+  try {
+    const res = setup({ repo: r, base: first, path: join(root, 'wt-setup'), setup: ['mkdir -p .data && echo ready > .data/x && echo prepared'], baseline: ['test -f .data/x && echo seen'] }, env);
+    assert.equal(res.green, true);
+    const text = briefLines(res).join('\n');
+    assert.match(text, /^setup: mkdir .* → exit 0 \(\d+ s\)\n  last output: prepared\nbaseline: test -f .* → exit 0 \(\d+ s\)\n  last output: seen$/m);
+    assert.doesNotMatch(text, /baseline: mkdir/);
+    assert.match(text, /^tree: 1 changed path \(\.data\/\)$/m);
+  } finally {
+    spawnSync('git', ['worktree', 'prune'], { cwd: r });
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('a red setup runs no baseline, issues no grant and exits 1', { skip: process.platform === 'win32' }, () => {
+  const { root, r, first, env } = repo();
+  try {
+    const wt = join(root, 'wt-setup-red');
+    const run = spawnSync('node', [SCRIPT, `--repo=${r}`, `--base=${first}`, `--path=${wt}`, '--setup=echo nope >&2; exit 3', '--baseline=touch ran', '--grant=review-verify', '--session=s1'], { env, encoding: 'utf8' });
+    assert.equal(run.status, 1, run.stdout + run.stderr);
+    assert.match(run.stdout, /setup: .* → exit 3 \(\d+ s\)\n  last output: nope\nbaseline: none run \(setup red\)/);
+    assert.match(run.stdout, /run grant: not issued for review-verify \(setup red\)/);
+    assert.ok(!existsSync(join(wt, 'ran')), 'no baseline ran');
+    assert.equal(activeGrant('review-verify', env), null);
   } finally {
     spawnSync('git', ['worktree', 'prune'], { cwd: r });
     rmSync(root, { recursive: true, force: true });
