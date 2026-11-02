@@ -1,0 +1,17 @@
+{
+  "name": "cdp6-probe",
+  "owner": {
+    "name": "SmR492"
+  },
+  "metadata": {
+    "description": "Local marketplace for the CDP6 SL-0 probe A-6, outside the repository."
+  },
+  "plugins": [
+    {
+      "name": "cdp6-core",
+      "source": "./cdp6-core",
+      "description": "CDP6 SL-0 probe kit, local copy for probe A-6.",
+      "version": "0.0.1"
+    }
+  ]
+}

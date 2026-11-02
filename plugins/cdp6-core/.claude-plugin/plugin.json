@@ -1,0 +1,10 @@
+{
+  "name": "cdp6-core",
+  "version": "0.0.1",
+  "description": "CDP6 core, SL-0 probe kit only: probe logger, probe hooks, probe agent and run.mjs stub for the live probes A-1 to A-22.",
+  "author": {
+    "name": "SmR492",
+    "url": "https://github.com/SmR492"
+  },
+  "hooks": "./probes/probe-hooks.json"
+}
