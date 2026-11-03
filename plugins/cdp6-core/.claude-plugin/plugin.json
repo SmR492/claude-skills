@@ -1,0 +1,7 @@
+{
+  "name": "cdp6-core",
+  "version": "0.1.0",
+  "description": "CDP6 core: the phase-ordered working path with run state on disk, a single run.mjs writer for run.json, phase gates and checkers. Skeleton of the idea phase (P1).",
+  "author": { "name": "SmR492", "url": "https://github.com/SmR492" },
+  "keywords": ["cdp6", "workflow", "phases", "gates"]
+}

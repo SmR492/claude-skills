@@ -1,0 +1,38 @@
+{
+  "schema": 1,
+  "pins": {
+    "cdp5-gates": {
+      "version": "0.8.8",
+      "source": "marketplace.json at 74d17c8",
+      "files": {
+        "lib/args.mjs": "0e97b81b98678a4dbfb4b6885d4c7e1f6bda2d24eb9ea28e77704cc5ad778dec",
+        "lib/scan.mjs": "0a4fce1f9642441fd1c664a796a9c990906c23f3abf3f357169b47af26285571",
+        "policy/reife-rubrik.policy.json": "deee60aec5c18a8f48734415a7b21d91640645c8cc0698a265d16d463e396873",
+        "skills/ac-to-test-scaffold/ac-to-test-scaffold.mjs": "f7c2bdc7478974c31f6af6636c57150e3ed6a5584a7a837ee0dd69db09e1204b",
+        "skills/konzept-lint/konzept-lint.mjs": "576c95a0e0fc3ff121b5fe929a45ac6d514f1d430c5f56804fc0d89ac357c3c7",
+        "skills/konzept-mapper/konzept-mapper.mjs": "768e6a4e308f3353077e96eec9ad3af7a4e6d3519c8dab20fc6e2b7735bc9d68",
+        "skills/konzept-model-api/konzept-model-api.mjs": "35f078052ddea299e0b0821d6b232b0b60aaf73232d1eae92943fce047954928",
+        "skills/pii-scan/pii-scan.mjs": "8168248d14eb716ae8828c00ce895ececee0e9f69a22852d82a16c1d357f3011",
+        "skills/retro-memory-loop-check/retro-memory-loop-check.mjs": "bed93fc21faf9e8e79a7b0e8b35f1145e4a0f0ec852569c68e45ae974ce8da6a",
+        "skills/roadmap-drift/roadmap-drift.mjs": "7cd6682ca594b5f04b60acbfb681b6325fc1f3e17327d80731f79b6faeac95c2",
+        "skills/secrets-scan/secrets-scan.mjs": "76035d53a90cffc8463064902439baaab77120dfe36ca1744d4829ffca6b3b4b",
+        "skills/skill-lint/skill-lint.mjs": "1ea2b0398e2f0192e93eb1f020f83b2daa616590815bffadf713fc0a90bde306",
+        "skills/test-gap/test-gap.mjs": "50f26a3f378f8c4e979e8ece2cdf33c7cb2723be5052abe4f5a57f9816a97693"
+      }
+    }
+  },
+  "phases": {
+    "idea": {
+      "checkers": [
+        {
+          "name": "idea-check",
+          "path": "checks/idea-check.mjs"
+        },
+        {
+          "name": "decision-check",
+          "path": "checks/decision-check.mjs"
+        }
+      ]
+    }
+  }
+}

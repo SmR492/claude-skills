@@ -22,6 +22,12 @@
       "version": "0.6.6"
     },
     {
+      "name": "cdp6-core",
+      "source": "./plugins/cdp6-core",
+      "description": "CDP6 core, stage 1 skeleton: phase-ordered runs on disk with a single run.mjs writer, version floor, session and data-directory binding, path-argument checks, and the idea-phase gate checkers. Requires cdp5-gates as a sibling for referenced checkers.",
+      "version": "0.1.0"
+    },
+    {
       "name": "domain-agents",
       "source": "./plugins/domain-agents",
       "description": "Domain agents and session skills with shipped knowledge packs: marketing-strategist, psy-domaenen-rechercheur, psy-grenzwaechter; business-lingo (89 entries, frameworks, lenses), psy-knowledge, three psy session skills, marketing-knowledge, ux-knowledge (118 entries). Requires cdp5-agents; stops its agents with CONTRACT-MISSING when it is absent.",
