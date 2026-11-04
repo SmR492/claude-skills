@@ -17,7 +17,7 @@ function field(input, name) {
   return typeof value === 'string' ? value : null;
 }
 
-export function recordFired(dataDir, hook, input, decision) {
+export function recordFired(dataDir, hook, input, decision, extra = {}) {
   if (typeof dataDir !== 'string' || !isAbsolute(dataDir)) return false;
   const line = {
     hook,
@@ -27,6 +27,8 @@ export function recordFired(dataDir, hook, input, decision) {
     tool_use_id: field(input, 'tool_use_id'),
     permission_mode: field(input, 'permission_mode'),
     decision,
+    agent_id: field(input, 'agent_id'),
+    capture_sha256: field(extra, 'capture_sha256'),
   };
   try {
     mkdirSync(dataDir, { recursive: true, mode: 0o700 });

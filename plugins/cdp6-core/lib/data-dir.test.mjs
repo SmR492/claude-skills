@@ -1,12 +1,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, mkdirSync, writeFileSync, readFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { mkdirSync, writeFileSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { cacheDir, pointerPath, hostKeyDir, dataDir, writeDataDirPointer } from './data-dir.mjs';
+import { tempDir } from '../test-support/temp-dir.mjs';
 
 function home() {
-  return mkdtempSync(join(tmpdir(), 'cdp6-dd-'));
+  return tempDir('cdp6-dd-');
 }
 
 test('cache directory and host key directory use the cdp6-core names', () => {

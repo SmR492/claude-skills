@@ -153,6 +153,7 @@ export function ownerForm(call, mode) {
     case 'init':
       return (first('--start') !== undefined && first('--start') !== 'idea') || first('--mode') === 'team';
     case 'decision': {
+      if (call.positionals[1] === 'superseded') return true;
       if (call.positionals[1] !== 'decided') return false;
       const executor = Object.hasOwn(EXECUTOR, mode) ? EXECUTOR[mode] : undefined;
       if (executor === undefined) return true;

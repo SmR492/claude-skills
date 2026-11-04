@@ -1,12 +1,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdirSync, mkdtempSync, realpathSync, symlinkSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { mkdirSync, realpathSync, symlinkSync } from 'node:fs';
 import { join } from 'node:path';
 import { isMainModule, realOrResolved, within } from './paths.mjs';
+import { tempDir } from '../test-support/temp-dir.mjs';
 
 function tree() {
-  const base = realpathSync(mkdtempSync(join(tmpdir(), 'cdp6-paths-')));
+  const base = realpathSync(tempDir('cdp6-paths-'));
   mkdirSync(join(base, 'real', 'dir'), { recursive: true });
   symlinkSync(join(base, 'real'), join(base, 'link'));
   return base;

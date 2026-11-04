@@ -1,11 +1,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, mkdirSync, readFileSync, existsSync, writeFileSync, rmSync, symlinkSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { mkdirSync, readFileSync, existsSync, writeFileSync, rmSync, symlinkSync, linkSync, copyFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { spawnSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { PHASES } from '../lib/phases.mjs';
+import { tempDir } from '../test-support/temp-dir.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const GUARD = join(HERE, 'guard-phase.mjs');
@@ -19,7 +20,7 @@ function git(cwd, ...args) {
 }
 
 function world() {
-  const base = mkdtempSync(join(tmpdir(), 'cdp6-phase-'));
+  const base = tempDir('cdp6-phase-');
   const w = { base, repo: join(base, 'repo'), data: join(base, 'data'), home: join(base, 'home') };
   mkdirSync(w.repo, { recursive: true });
   mkdirSync(w.home);
@@ -88,6 +89,7 @@ test('silent without run', () => {
 test('silent for a tool call that touches no phase rule while a run is active', () => {
   const w = world();
   makeRun(w);
+  writeFileSync(join(stateOf(w), 'counters.json'), JSON.stringify({ version: 1, pending: {} }));
   silent(fire(w, { tool: 'Edit', input: { file_path: join(w.repo, 'README.md') } }));
   silent(fire(w, { input: { command: 'ls -la' } }));
   silent(fire(w, { input: enter('idea') }));
@@ -97,13 +99,14 @@ test('silent for a tool call that touches no phase rule while a run is active', 
 test('records hooks observed', () => {
   const w = world();
   makeRun(w);
+  writeFileSync(join(stateOf(w), 'counters.json'), JSON.stringify({ version: 1, pending: {} }));
   silent(fire(w, { input: { command: 'ls' }, toolUseId: 'toolu_a', mode: 'acceptEdits' }));
   denied(fire(w, { input: enter('exploration'), toolUseId: 'toolu_b' }));
   const lines = observed(w);
   assert.equal(lines.length, 2);
   assert.deepEqual(lines.map((l) => ({ ...l, at: typeof l.at })), [
-    { hook: 'guard-phase.mjs', version: VERSION, at: 'string', session_id: 'sess-1', tool_use_id: 'toolu_a', permission_mode: 'acceptEdits', decision: 'none' },
-    { hook: 'guard-phase.mjs', version: VERSION, at: 'string', session_id: 'sess-1', tool_use_id: 'toolu_b', permission_mode: 'default', decision: 'deny' },
+    { hook: 'guard-phase.mjs', version: VERSION, at: 'string', session_id: 'sess-1', tool_use_id: 'toolu_a', permission_mode: 'acceptEdits', decision: 'none', agent_id: null, capture_sha256: null },
+    { hook: 'guard-phase.mjs', version: VERSION, at: 'string', session_id: 'sess-1', tool_use_id: 'toolu_b', permission_mode: 'default', decision: 'deny', agent_id: null, capture_sha256: null },
   ]);
   const bare = JSON.stringify({ hook_event_name: 'PreToolUse', tool_name: 'Edit', tool_input: { file_path: join(w.repo, 'README.md') }, cwd: w.repo });
   silent(fire(w, { raw: bare }));
@@ -248,4 +251,89 @@ test('fires: hook input not readable', () => {
   makeRun(w);
   denied(fire(w, { raw: 'not json' }), /input/);
   denied(fire(w, { raw: '[]' }), /input/);
+});
+
+test('fires: a Write to idea/idea.md while a devils-advocate spawn naming it as target is open is denied', () => {
+  const w = world();
+  const R = makeRun(w, { states: { idea: 'entered' } });
+  const sha = createHash('sha256').update('A\n').digest('hex');
+  writeFileSync(join(stateOf(w), 'counters.json'), JSON.stringify({ version: 1, pending: { toolu_9: { tool_use_id: 'toolu_9', agent_type: 'cdp6-core:devils-advocate', task: 'D-1', role: 'devils-advocate', targets: [{ path: 'idea/idea.md', sha256: sha }], header: 'ok', at: new Date().toISOString(), agent_id: 'agent-9' } } }));
+  const res = fire(w, { tool: 'Write', input: { file_path: join(R, 'idea', 'idea.md'), content: 'B\n' } });
+  assert.equal(res.status, 2, `${res.stdout}${res.stderr}`);
+});
+
+function withSpawns(w, pending) {
+  const R = makeRun(w, { states: { idea: 'entered' } });
+  const sha = createHash('sha256').update('A\n').digest('hex');
+  const base = { agent_type: 'cdp6-core:devils-advocate', task: 'D-1', role: 'devils-advocate', targets: [{ path: 'idea/idea.md', sha256: sha }], header: 'ok', at: new Date().toISOString(), agent_id: null };
+  const doc = { version: 1, pending: Object.fromEntries(Object.entries(pending).map(([id, over]) => [id, { tool_use_id: id, ...base, ...over }])) };
+  writeFileSync(join(stateOf(w), 'counters.json'), JSON.stringify(doc));
+  return R;
+}
+
+test('fires: Edit, Write and NotebookEdit on the target of an open devils-advocate spawn are denied with the spawn task, bound or not, and other paths and closed spawns pass', () => {
+  for (const binding of [{}, { agent_id: 'agent-1' }]) {
+    const w = world();
+    const R = withSpawns(w, { toolu_a: { task: 'D-3', ...binding } });
+    const target = join(R, 'idea', 'idea.md');
+    for (const [tool, input] of [['Edit', { file_path: target, old_string: 'a', new_string: 'b' }], ['Write', { file_path: target, content: 'b' }], ['NotebookEdit', { notebook_path: target, new_source: 'b' }], ['Write', { file_path: join(R, 'idea', '..', 'idea', 'idea.md'), content: 'b' }]]) {
+      denied(fire(w, { tool, input }), /D-3/);
+    }
+    denied(fire(w, { tool: 'Write', input: { file_path: 'idea/idea.md', content: 'b' }, cwd: R }), /devils-advocate/);
+    for (const [tool, input] of [['Write', { file_path: join(R, 'idea', 'other.md'), content: 'b' }], ['Edit', { file_path: join(R, 'idea.md'), old_string: 'a', new_string: 'b' }], ['Read', { file_path: target }], ['Write', { file_path: join(w.repo, 'idea', 'idea.md'), content: 'b' }]]) {
+      silent(fire(w, { tool, input }));
+    }
+  }
+});
+
+test('fires: closed, void and foreign spawns do not block the target, a missing or malformed counters.json denies the write tools', () => {
+  for (const pending of [{ toolu_c: { closed_at: '2026-11-04T10:00:00.000Z', agent_id: 'agent-1' } }, { toolu_v: { void: true } }, { toolu_r: { agent_type: 'cdp6-core:review-verify', role: 'review-verify' } }, {}]) {
+    const w = world();
+    const R = withSpawns(w, pending);
+    silent(fire(w, { tool: 'Write', input: { file_path: join(R, 'idea', 'idea.md'), content: 'b' } }));
+  }
+  const none = world();
+  const R = makeRun(none, { states: { idea: 'entered' } });
+  for (const tool of ['Write', 'Edit', 'NotebookEdit']) denied(fire(none, { tool, input: { file_path: join(R, 'idea', 'idea.md'), content: 'b', old_string: 'a', new_string: 'b', notebook_path: join(R, 'idea', 'idea.md'), new_source: 'b' } }), /counters\.json/);
+  silent(fire(none, { tool: 'Read', input: { file_path: join(R, 'idea', 'idea.md') } }));
+  const broken = world();
+  const Rb = withSpawns(broken, { toolu_x: {} });
+  writeFileSync(join(stateOf(broken), 'counters.json'), '{ "pending": ');
+  denied(fire(broken, { tool: 'Write', input: { file_path: join(Rb, 'idea', 'idea.md'), content: 'b' } }), /counters\.json/);
+  silent(fire(broken, { tool: 'Read', input: { file_path: join(Rb, 'idea', 'idea.md') } }));
+});
+
+test('fires: a Write to the open target through a hard link or another letter case is denied', (t) => {
+  const w = world();
+  const R = withSpawns(w, { toolu_a: { task: 'D-3' } });
+  mkdirSync(join(R, 'idea'), { recursive: true });
+  writeFileSync(join(R, 'idea', 'idea.md'), 'A\n');
+  const alias = join(w.base, 'alias.md');
+  linkSync(join(R, 'idea', 'idea.md'), alias);
+  denied(fire(w, { tool: 'Write', input: { file_path: alias, content: 'B\n' } }), /D-3/);
+  if (existsSync(join(R, 'IDEA', 'IDEA.MD'))) denied(fire(w, { tool: 'Edit', input: { file_path: join(R, 'IDEA', 'IDEA.MD'), old_string: 'A', new_string: 'B' } }), /D-3/);
+  else t.diagnostic('case branch not reached: file system is case-sensitive');
+});
+
+test('fires: a trailing slash, dot and doubled separators and a symlinked directory still hit the open spawn target', () => {
+  const w = world();
+  const R = withSpawns(w, { toolu_t: { task: 'D-5' } });
+  mkdirSync(join(R, 'idea'), { recursive: true });
+  writeFileSync(join(R, 'idea', 'idea.md'), 'A\n');
+  symlinkSync(join(R, 'idea'), join(w.base, 'link'));
+  denied(fire(w, { tool: 'Write', input: { file_path: `${join(R, 'idea', 'idea.md')}/`, content: 'b' } }), /D-5/);
+  denied(fire(w, { tool: 'Edit', input: { file_path: `${R}/./idea//idea.md`, old_string: 'a', new_string: 'b' } }), /D-5/);
+  denied(fire(w, { tool: 'NotebookEdit', input: { notebook_path: join(w.base, 'link', 'idea.md'), new_source: 'b' } }), /D-5/);
+});
+
+test('fires: while the open target exists, a write to another existing file or to a copy of the target passes', () => {
+  const w = world();
+  const R = withSpawns(w, { toolu_a: { task: 'D-3' } });
+  mkdirSync(join(R, 'idea'), { recursive: true });
+  writeFileSync(join(R, 'idea', 'idea.md'), 'A\n');
+  writeFileSync(join(R, 'idea', 'other.md'), 'A\n');
+  copyFileSync(join(R, 'idea', 'idea.md'), join(w.base, 'copy.md'));
+  silent(fire(w, { tool: 'Write', input: { file_path: join(R, 'idea', 'other.md'), content: 'B\n' } }));
+  silent(fire(w, { tool: 'Edit', input: { file_path: join(w.base, 'copy.md'), old_string: 'A', new_string: 'B' } }));
+  denied(fire(w, { tool: 'Write', input: { file_path: join(R, 'idea', 'idea.md'), content: 'B\n' } }), /D-3/);
 });

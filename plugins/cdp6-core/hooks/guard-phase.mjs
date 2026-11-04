@@ -1,13 +1,16 @@
 #!/usr/bin/env node
-import { readFileSync } from 'node:fs';
-import { isAbsolute } from 'node:path';
+import { readFileSync, realpathSync, statSync } from 'node:fs';
+import { isAbsolute, resolve } from 'node:path';
 import { isMainModule } from '../lib/paths.mjs';
 import { recordFired } from '../lib/hooks-observed.mjs';
 import { PHASES, predecessorOpen } from '../lib/phases.mjs';
+import { CountersError, readCounters } from '../lib/counters.mjs';
 import { ArgvError, SHELL_TOOLS, readRunCall } from '../lib/run-argv.mjs';
 import { findRun } from '../lib/run-store.mjs';
+import { isDevilsAdvocate } from '../lib/verdict-index.mjs';
 
 const TARGET_FIELDS = ['file_path', 'notebook_path'];
+const WRITE_TOOLS = ['Edit', 'Write', 'NotebookEdit'];
 
 function deny(reason) {
   return { decision: 'deny', reason };
@@ -19,6 +22,52 @@ function targetOf(input) {
     if (typeof value === 'string' && isAbsolute(value)) return value;
   }
   return undefined;
+}
+
+function real(path) {
+  try {
+    return realpathSync(path);
+  } catch {
+    return resolve(path);
+  }
+}
+
+function identity(path) {
+  try {
+    const st = statSync(path, { bigint: true });
+    return `${st.dev}:${st.ino}`;
+  } catch {
+    return null;
+  }
+}
+
+function spellings(path) {
+  return [resolve(path), real(path)];
+}
+
+function openTargetTask(input, found) {
+  if (!WRITE_TOOLS.includes(input.tool_name)) return null;
+  const cwd = input.cwd ?? process.cwd();
+  const paths = TARGET_FIELDS.map((field) => input.tool_input?.[field]).filter((v) => typeof v === 'string' && v !== '').map((v) => resolve(cwd, v));
+  const written = paths.flatMap(spellings);
+  if (!written.length) return null;
+  const files = new Set(paths.map(identity).filter((id) => id !== null));
+  let pending;
+  try {
+    pending = Object.values(readCounters(found.S).pending);
+  } catch (e) {
+    if (!(e instanceof CountersError)) throw e;
+    return { unreadable: true };
+  }
+  for (const spawn of pending) {
+    if (!isDevilsAdvocate(spawn) || spawn.closed_at || spawn.void) continue;
+    for (const t of Array.isArray(spawn.targets) ? spawn.targets : []) {
+      if (typeof t?.path !== 'string') continue;
+      const at = resolve(found.R, t.path);
+      if (spellings(at).some((p) => written.includes(p)) || files.has(identity(at))) return { task: spawn.task, path: t.path };
+    }
+  }
+  return null;
 }
 
 function enterPhase(input, env) {
@@ -45,6 +94,9 @@ export function decide(input, env) {
   if (found.error === 'pointer-unreadable') return deny('the run pointer active-runs.json is not readable');
   if (found.error) return deny('run.json of the active run is not readable');
   if (found.none || !found.run) return { decision: 'none' };
+  const open = openTargetTask(input, found);
+  if (open?.unreadable) return deny('counters.json of the active run is missing or not readable');
+  if (open) return deny(`${open.path} is the target of the open devils-advocate spawn of ${open.task}: it is not edited until the capture is made`);
   const phase = enterPhase(input, env);
   if (phase) {
     const missing = predecessorOpen(found.run, phase);

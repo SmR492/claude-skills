@@ -66,20 +66,20 @@ export function withLock(lockFile, fn, { waitMs = DEFAULT_WAIT_MS, staleMs = DEF
       break;
     } catch (e) {
       if (e.code !== 'EEXIST') throw new StoreError('lock-error', 'lock file not usable');
-      let age = 0;
+      let stale = false;
       try {
-        age = Date.now() - statSync(lockFile).mtimeMs;
+        stale = Date.now() - statSync(lockFile).mtimeMs > staleMs;
       } catch {
-        continue;
+        stale = false;
       }
-      if (age > staleMs) {
+      if (stale) {
         try {
           unlinkSync(lockFile);
           broken = true;
-        } catch {
           continue;
+        } catch {
+          stale = false;
         }
-        continue;
       }
       if (Date.now() >= deadline) throw new StoreError('lock-busy', 'run record is locked by another writer');
       sleep(5);

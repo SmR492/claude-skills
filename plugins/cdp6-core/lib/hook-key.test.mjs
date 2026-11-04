@@ -1,12 +1,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, readFileSync, statSync, writeFileSync, mkdirSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { readFileSync, statSync, writeFileSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { ensureHostKey, hostKeyPath, mintToken, readHostKey, recordNonce, verifyToken } from './hook-key.mjs';
+import { tempDir } from '../test-support/temp-dir.mjs';
 
 function home() {
-  const base = mkdtempSync(join(tmpdir(), 'cdp6-key-'));
+  const base = tempDir('cdp6-key-');
   return { base, env: { HOME: join(base, 'home') } };
 }
 

@@ -1,10 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { existsSync, mkdtempSync, mkdirSync, chmodSync, readFileSync, statSync, symlinkSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { existsSync, mkdirSync, chmodSync, readFileSync, statSync, symlinkSync, writeFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
+import { tempDir } from '../test-support/temp-dir.mjs';
 
 const BOOTSTRAP = join(dirname(fileURLToPath(import.meta.url)), 'bootstrap.mjs');
 
@@ -17,7 +17,7 @@ function start(home) {
 }
 
 test('bootstrap creates a missing host key with mode 0600 in a 0700 directory and prints nothing of it', () => {
-  const home = mkdtempSync(join(tmpdir(), 'cdp6-boot-'));
+  const home = tempDir('cdp6-boot-');
   const r = start(home);
   assert.equal(r.status, 0, r.stderr);
   const file = join(home, '.config', 'cdp6-core', 'hook.key');
@@ -30,7 +30,7 @@ test('bootstrap creates a missing host key with mode 0600 in a 0700 directory an
 });
 
 test('fires: existing key overwritten', () => {
-  const home = mkdtempSync(join(tmpdir(), 'cdp6-boot-'));
+  const home = tempDir('cdp6-boot-');
   mkdirSync(join(home, '.config', 'cdp6-core'), { recursive: true });
   const file = join(home, '.config', 'cdp6-core', 'hook.key');
   const known = Buffer.alloc(32, 9);
@@ -44,7 +44,7 @@ test('fires: existing key overwritten', () => {
 });
 
 test('bootstrap leaves an existing key of another length untouched', () => {
-  const home = mkdtempSync(join(tmpdir(), 'cdp6-boot-'));
+  const home = tempDir('cdp6-boot-');
   mkdirSync(join(home, '.config', 'cdp6-core'), { recursive: true });
   const file = join(home, '.config', 'cdp6-core', 'hook.key');
   writeFileSync(file, 'short', { mode: 0o600 });
@@ -53,7 +53,7 @@ test('bootstrap leaves an existing key of another length untouched', () => {
 });
 
 function runWorld(over = {}) {
-  const base = mkdtempSync(join(tmpdir(), 'cdp6-boot-run-'));
+  const base = tempDir('cdp6-boot-run-');
   const w = { base, home: join(base, 'home'), data: join(base, 'data'), repo: join(base, 'repo') };
   mkdirSync(w.repo, { recursive: true });
   mkdirSync(w.data, { recursive: true });
@@ -122,7 +122,7 @@ test('stays silent without an active run and with an unknown data directory', ()
 });
 
 test('bootstrap started through a symlinked plugin root still creates the host key', () => {
-  const home = mkdtempSync(join(tmpdir(), 'cdp6-boot-'));
+  const home = tempDir('cdp6-boot-');
   const link = join(home, 'plugin-link');
   symlinkSync(dirname(dirname(BOOTSTRAP)), link);
   const r = spawnSync(process.execPath, [join(link, 'hooks', 'bootstrap.mjs')], {
@@ -141,13 +141,13 @@ test('every firing appends a hooks observed line, also for a source that prints 
   const lines = readFileSync(join(w.data, 'hooks-fired.jsonl'), 'utf8').trim().split('\n').map((l) => JSON.parse(l));
   const version = JSON.parse(readFileSync(join(dirname(BOOTSTRAP), '..', '.claude-plugin', 'plugin.json'), 'utf8')).version;
   assert.deepEqual(lines.map((l) => ({ ...l, at: typeof l.at })), [
-    { hook: 'bootstrap.mjs', version, at: 'string', session_id: 's-1', tool_use_id: null, permission_mode: null, decision: 'none' },
-    { hook: 'bootstrap.mjs', version, at: 'string', session_id: 's-1', tool_use_id: null, permission_mode: null, decision: 'none' },
+    { hook: 'bootstrap.mjs', version, at: 'string', session_id: 's-1', tool_use_id: null, permission_mode: null, decision: 'none', agent_id: null, capture_sha256: null },
+    { hook: 'bootstrap.mjs', version, at: 'string', session_id: 's-1', tool_use_id: null, permission_mode: null, decision: 'none', agent_id: null, capture_sha256: null },
   ]);
 });
 
 test('fires: bootstrap resets an existing key directory to mode 0700 and keeps the key', () => {
-  const home = mkdtempSync(join(tmpdir(), 'cdp6-boot-'));
+  const home = tempDir('cdp6-boot-');
   const dir = join(home, '.config', 'cdp6-core');
   mkdirSync(dir, { recursive: true });
   const file = join(dir, 'hook.key');

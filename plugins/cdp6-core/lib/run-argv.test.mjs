@@ -85,6 +85,7 @@ test('ownerForm marks owner commands by subcommand and flags', () => {
   assert.equal(owner(['approve', 'concept']), true);
   assert.equal(owner(['set-autonomy', 'A1', '--tokens', '1', '--loops', '1']), true);
   assert.equal(owner(['object', 'F-P1-1', 'accept', '--why', 'x']), true);
+  assert.equal(owner(['object', 'D-1-devils-advocate-agent-7:premise-1', 'accept', '--why', 'x']), true);
   assert.equal(owner(['veto', 'exit:concept', '--why', 'x']), true);
   assert.equal(owner(['rule', 'x', '--why', 'y', '--human']), true);
   assert.equal(owner(['rule', 'x', '--why', 'y']), false);
@@ -149,4 +150,8 @@ test('hooks and run.mjs keep no copy of the parser constants', () => {
     const copies = needles.filter((n) => text.includes(n)).length + (text.match(/A-Za-z0-9\._:\/@\+=-/g) ?? []).length;
     assert.equal(copies, file === 'lib/run-argv.mjs' ? 4 : 0, file);
   }
+});
+
+test('auditor F2: superseding a D-n is an owner command', () => {
+  assert.equal(ownerForm(parseCall(['decision', 'D-2', 'superseded']), 'single'), true);
 });

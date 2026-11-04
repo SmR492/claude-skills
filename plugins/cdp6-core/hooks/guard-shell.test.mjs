@@ -1,13 +1,13 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { chmodSync, mkdtempSync, mkdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { chmodSync, mkdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { ensureHostKey, hostKeyPath, readHostKey, verifyToken } from '../lib/hook-key.mjs';
 import { parseCall, stripAppended, tokenize } from '../lib/run-argv.mjs';
+import { tempDir } from '../test-support/temp-dir.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const GUARD = join(HERE, 'guard-shell.mjs');
@@ -15,7 +15,7 @@ const PLUGIN = dirname(HERE);
 const RUNJS = join(PLUGIN, 'scripts', 'run.mjs');
 
 function world() {
-  const base = mkdtempSync(join(tmpdir(), 'cdp6-guard-'));
+  const base = tempDir('cdp6-guard-');
   const w = { base, home: join(base, 'home'), data: join(base, 'data'), work: join(base, 'work'), bin: join(base, 'bin') };
   mkdirSync(w.work, { recursive: true });
   mkdirSync(w.bin);
@@ -246,6 +246,14 @@ test('fires: objection from agent', () => {
   denied(fire(w, cmd, { agent: 'agent-7' }));
 });
 
+test('fires: objection on a premise id from agent', () => {
+  const w = world();
+  const cmd = run('object D-1-devils-advocate-agent-7:premise-1 accept --why x');
+  assert.equal(fire(w, cmd).out.permissionDecision, 'ask');
+  assert.match(fire(w, cmd).out.permissionDecisionReason, /owner command: object D-1-devils-advocate-agent-7:premise-1/);
+  denied(fire(w, cmd, { agent: 'agent-7' }));
+});
+
 test('fires: --decider=owner gets allow', () => {
   const w = world();
   denied(fire(w, run('decision D-1 decided --decider=owner')));
@@ -410,9 +418,9 @@ test('records hooks observed', () => {
   fire(w, run('status --data-dir /elsewhere'), { toolUseId: 'toolu_3' });
   const lines = readFileSync(join(w.data, 'hooks-fired.jsonl'), 'utf8').trim().split('\n').map((l) => JSON.parse(l));
   assert.deepEqual(lines.map((l) => ({ ...l, at: typeof l.at })), [
-    { hook: 'guard-shell.mjs', version, at: 'string', session_id: 'sess-1', tool_use_id: 'toolu_1', permission_mode: 'default', decision: 'none' },
-    { hook: 'guard-shell.mjs', version, at: 'string', session_id: 'sess-1', tool_use_id: 'toolu_2', permission_mode: 'acceptEdits', decision: 'ask' },
-    { hook: 'guard-shell.mjs', version, at: 'string', session_id: 'sess-1', tool_use_id: 'toolu_3', permission_mode: 'default', decision: 'deny' },
+    { hook: 'guard-shell.mjs', version, at: 'string', session_id: 'sess-1', tool_use_id: 'toolu_1', permission_mode: 'default', decision: 'none', agent_id: null, capture_sha256: null },
+    { hook: 'guard-shell.mjs', version, at: 'string', session_id: 'sess-1', tool_use_id: 'toolu_2', permission_mode: 'acceptEdits', decision: 'ask', agent_id: null, capture_sha256: null },
+    { hook: 'guard-shell.mjs', version, at: 'string', session_id: 'sess-1', tool_use_id: 'toolu_3', permission_mode: 'default', decision: 'deny', agent_id: null, capture_sha256: null },
   ]);
 });
 

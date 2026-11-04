@@ -2,13 +2,13 @@ import test, { mock } from 'node:test';
 import fs from 'node:fs';
 import { syncBuiltinESMExports } from 'node:module';
 import assert from 'node:assert/strict';
-import { mkdtempSync, mkdirSync, writeFileSync, symlinkSync, rmSync, realpathSync, renameSync, linkSync, unlinkSync, truncateSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { mkdirSync, writeFileSync, symlinkSync, rmSync, realpathSync, renameSync, linkSync, unlinkSync, truncateSync } from 'node:fs';
 import { join } from 'node:path';
 import { closeInput, openInput, readInput, readProjectFile, stillSame } from './input-file.mjs';
+import { tempDir } from '../test-support/temp-dir.mjs';
 
 function tree() {
-  const base = realpathSync(mkdtempSync(join(tmpdir(), 'cdp6-infile-')));
+  const base = realpathSync(tempDir('cdp6-infile-'));
   mkdirSync(join(base, 'real'));
   mkdirSync(join(base, 'other'));
   writeFileSync(join(base, 'real', 'f.txt'), 'real\n');

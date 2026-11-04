@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, mkdirSync, readFileSync, writeFileSync, utimesSync, existsSync, realpathSync, renameSync, symlinkSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { tempDir } from '../test-support/temp-dir.mjs';
+import { mkdirSync, readFileSync, writeFileSync, utimesSync, existsSync, realpathSync, renameSync, symlinkSync } from 'node:fs';
 import { join } from 'node:path';
 import { spawn, spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
@@ -16,12 +16,13 @@ import {
   findRun,
   projectRootOf,
   TERMINAL_STATUSES,
+  withLock,
 } from './run-store.mjs';
 
 const STORE = fileURLToPath(new URL('./run-store.mjs', import.meta.url));
 
 function tmp(prefix) {
-  return mkdtempSync(join(tmpdir(), `cdp6-rs-${prefix}-`));
+  return tempDir(`cdp6-rs-${prefix}-`);
 }
 
 function newRun() {
@@ -345,4 +346,40 @@ test('fires: a .git file that is a symbolic link is not read, so the working tre
   renameSync(join(wt, '.git'), elsewhere);
   symlinkSync(elsewhere, join(wt, '.git'));
   assert.equal(projectRootOf(wt), wt);
+});
+
+test('fires: withLock ends the wait at its deadline with lock-busy on a dangling-link lock and on an old directory lock, for any lock path', () => {
+  const probe = (lock) => {
+    const script = [
+      `import { withLock } from ${JSON.stringify(new URL('./run-store.mjs', import.meta.url).href)};`,
+      'try {',
+      `  withLock(${JSON.stringify(lock)}, () => 'ran', { waitMs: 100 });`,
+      "  process.stdout.write('ran');",
+      '} catch (e) {',
+      '  process.stdout.write(e.code);',
+      '}',
+    ].join('\n');
+    return spawnSync(process.execPath, ['--input-type=module', '-e', script], { encoding: 'utf8', timeout: 3000 });
+  };
+  const dir = tempDir('cdp6-lock-');
+  const dangling = join(dir, 'run.lock');
+  symlinkSync(join(dir, 'no-such-target'), dangling);
+  const old = join(dir, 'counters.lock');
+  mkdirSync(old);
+  utimesSync(old, new Date(Date.now() - 60000), new Date(Date.now() - 60000));
+  for (const lock of [dangling, old]) {
+    const r = probe(lock);
+    assert.equal(r.signal, null, `${lock}: withLock did not end within 3 s`);
+    assert.equal(r.stdout, 'lock-busy', `${lock}: ${r.stdout}${r.stderr}`);
+  }
+});
+
+test('fires: withLock keeps waiting on a held, readable lock until its deadline and only then reports lock-busy', () => {
+  const lock = join(tempDir('cdp6-held-'), 'counters.lock');
+  writeFileSync(lock, JSON.stringify({ pid: process.pid, at: Date.now() }));
+  const started = Date.now();
+  assert.throws(() => withLock(lock, () => 'ran', { waitMs: 300 }), (e) => e.code === 'lock-busy');
+  const waited = Date.now() - started;
+  assert.ok(waited >= 300, `withLock gave up after ${waited} ms`);
+  assert.ok(existsSync(lock), 'the held lock was removed');
 });

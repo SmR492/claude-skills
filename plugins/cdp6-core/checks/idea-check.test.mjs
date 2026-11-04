@@ -1,11 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { initRun } from '../lib/run-store.mjs';
+import { tempDir } from '../test-support/temp-dir.mjs';
 
 const CHECK = join(dirname(fileURLToPath(import.meta.url)), 'idea-check.mjs');
 
@@ -16,7 +16,7 @@ function ideaMd(skip = []) {
 }
 
 function fixture({ skip = [], decision } = {}) {
-  const base = mkdtempSync(join(tmpdir(), 'cdp6-ic-'));
+  const base = tempDir('cdp6-ic-');
   const S = join(base, 'state', 'RUN-20260101-x');
   const snapshot = join(base, 'snapshot');
   const decisions = {};

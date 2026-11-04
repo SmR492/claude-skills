@@ -124,3 +124,36 @@ test('fires: the idea skill states that the state directory holds the run record
   assert.match(text, /Edit nothing under `S`/);
   assert.doesNotMatch(text, /Edit `run\.json` never/);
 });
+
+test('fires: idea.md holds no D-n status and no autonomy level or budgets, the run record does', () => {
+  const text = body();
+  const artefact = line(text, '- `R/idea/idea.md`:');
+  const [contents] = artefact.split('. The `D-n` status');
+  assert.doesNotMatch(contents, /autonomy|budget|status|decider/i);
+  assert.match(artefact, /Source column/);
+  assert.match(artefact, /status and decider/);
+  assert.match(artefact, /`run\.json` only/);
+  assert.match(artefact, /run\.mjs decision/);
+  assert.match(artefact, /run\.mjs set-autonomy/);
+});
+
+test('fires: the devils-advocate brief of step 3 carries task D-1 and the idea.md target, and idea.md is not edited after that spawn', () => {
+  const step = line(body(), 'approach options with their costs');
+  assert.match(step, /`task: D-1`/);
+  assert.match(step, /`target: idea\/idea\.md@<sha256>`/);
+  assert.match(step, /not edited after that spawn/);
+  assert.match(step, /`stale`/);
+});
+
+test('auditor fix4 A7: the object command of the idea skill names the scoped item form of §5.3', () => {
+  const t = body();
+  assert.doesNotMatch(t, /run\.mjs object <objection-id>/);
+  assert.match(t, /run\.mjs object <capture id>:F-P1-<n>/);
+});
+
+test('fires: the idea skill names the four owner record forms of concept §5.3', () => {
+  const t = body();
+  for (const form of ['<capture id>:F-P1-<n>', '<capture id>:premise-<n>', '<capture id>:conflict', '<capture id>:capture']) {
+    assert.ok(t.includes(`run.mjs object ${form}`), form);
+  }
+});

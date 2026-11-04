@@ -1,7 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, readdirSync, existsSync, chmodSync, cpSync, rmSync, symlinkSync, realpathSync, linkSync, copyFileSync, statSync, renameSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { mkdirSync, writeFileSync, readFileSync, readdirSync, existsSync, chmodSync, cpSync, rmSync, symlinkSync, realpathSync, linkSync, copyFileSync, statSync, renameSync } from 'node:fs';
 import { join, dirname, basename } from 'node:path';
 import { spawn, spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
@@ -9,6 +8,9 @@ import { fileURLToPath } from 'node:url';
 import { ensureHostKey, mintToken, readHostKey } from '../lib/hook-key.mjs';
 import { parseCall, stripAppended } from '../lib/run-argv.mjs';
 import { expectHashes } from '../hooks/guard-shell.mjs';
+import { readCounters } from '../lib/counters.mjs';
+import { backCaptures, captureText } from '../lib/capture-fixture.mjs';
+import { tempDir } from '../test-support/temp-dir.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const RUN = join(HERE, 'run.mjs');
@@ -25,7 +27,7 @@ function setVersion(w, version) {
 }
 
 function world({ version = '2.1.314', claudeMd } = {}) {
-  const base = mkdtempSync(join(tmpdir(), 'cdp6-run-'));
+  const base = tempDir('cdp6-run-');
   const w = {
     base,
     home: join(base, 'home'),
@@ -534,16 +536,110 @@ test('set-autonomy records level and budgets as an owner record and validates it
 test('records owner objection', () => {
   const w = world();
   const S = started(w);
-  const r = call(w, ['object', 'F-P3-2', 'accept', '--why', 'the risk is acceptable']);
+  indexWith(S, [{ id: 'D-3-devils-advocate-a1', objections: ['F-P3-2'], premises: [] }]);
+  const id = 'D-3-devils-advocate-a1:F-P3-2';
+  const r = call(w, ['object', id, 'accept', '--why', 'the risk is acceptable']);
   assert.equal(r.status, 0, r.stderr);
   const rec = readRunJson(S).owner_records.find((o) => o.kind === 'object');
-  assert.deepEqual({ id: rec.id, verdict: rec.verdict, why: rec.why, decider: rec.decider }, { id: 'F-P3-2', verdict: 'accept', why: 'the risk is acceptable', decider: 'owner' });
+  assert.deepEqual({ id: rec.id, verdict: rec.verdict, why: rec.why, decider: rec.decider }, { id, verdict: 'accept', why: 'the risk is acceptable', decider: 'owner' });
   assert.match(rec.at, /^\d{4}-\d\d-\d\dT/);
-  assert.equal(failure(call(w, ['object', 'F-P3-2', 'reject', '--why', 'again'])).error, 'objection-recorded');
+  assert.equal(failure(call(w, ['object', id, 'reject', '--why', 'again'])).error, 'objection-recorded');
   assert.equal(failure(call(w, ['object', 'X-1', 'accept', '--why', 'x'])).error, 'bad-objection-id');
-  assert.equal(failure(call(w, ['object', 'F-P1-1', 'maybe', '--why', 'x'])).error, 'bad-verdict');
-  assert.equal(failure(call(w, ['object', 'F-P1-1', 'accept'])).error, 'missing-flag');
-  assert.equal(failure(call(w, ['object', 'F-P1-1', 'accept', '--why', '  '])).error, 'missing-flag');
+  assert.equal(failure(call(w, ['object', id, 'maybe', '--why', 'x'])).error, 'bad-verdict');
+  assert.equal(failure(call(w, ['object', id, 'accept'])).error, 'missing-flag');
+  assert.equal(failure(call(w, ['object', id, 'accept', '--why', '  '])).error, 'missing-flag');
+});
+
+test('fires: a bare objection id is refused and an objection id names an item on an index line of the run', () => {
+  const w = world();
+  const S = started(w);
+  indexWith(S, [{ id: 'D-1-devils-advocate-a1', objections: ['F-P1-1'], premises: [] }, { id: 'D-2-devils-advocate-a2', objections: ['F-P1-1', 'F-P2-1'], premises: [] }]);
+  assert.equal(failure(call(w, ['object', 'F-P1-1', 'accept', '--why', 'x'])).error, 'bad-objection-id');
+  assert.equal(failure(call(w, ['object', 'D-1-devils-advocate-a1:F-P2-1', 'accept', '--why', 'x'])).error, 'unknown-objection');
+  assert.equal(failure(call(w, ['object', 'D-9-devils-advocate-a9:F-P1-1', 'accept', '--why', 'x'])).error, 'unknown-objection');
+  assert.deepEqual(readRunJson(S).owner_records.filter((o) => o.kind === 'object'), []);
+  assert.equal(call(w, ['object', 'D-1-devils-advocate-a1:F-P1-1', 'accept', '--why', 'x']).status, 0);
+  assert.equal(call(w, ['object', 'D-2-devils-advocate-a2:F-P1-1', 'reject', '--why', 'y']).status, 0);
+  assert.deepEqual(readRunJson(S).owner_records.filter((o) => o.kind === 'object').map((o) => [o.id, o.verdict]), [['D-1-devils-advocate-a1:F-P1-1', 'accept'], ['D-2-devils-advocate-a2:F-P1-1', 'reject']]);
+  const none = world();
+  started(none);
+  assert.equal(failure(call(none, ['object', 'D-1-devils-advocate-a1:F-P1-1', 'accept', '--why', 'x'])).error, 'unknown-objection');
+});
+
+function indexWith(S, lines) {
+  mkdirSync(join(S, 'verdicts'), { recursive: true });
+  writeFileSync(join(S, 'verdicts', 'index.jsonl'), lines.map((l) => JSON.stringify(l)).join('\n') + '\n');
+}
+
+test('object records a premise id that names a premise on an index line of the run, once', () => {
+  const w = world();
+  const S = started(w);
+  indexWith(S, [{ id: 'D-1-devils-advocate-agent-7', premises: ['D-1-devils-advocate-agent-7:premise-1', 'D-1-devils-advocate-agent-7:premise-2'], objections: ['F-P1-1'] }, { id: 'D-2-devils-advocate-agent-8', premises: [], objections: [] }]);
+  const r = call(w, ['object', 'D-1-devils-advocate-agent-7:premise-2', 'accept', '--why', 'the premise holds']);
+  assert.equal(r.status, 0, r.stderr);
+  assert.deepEqual(JSON.parse(r.stdout), { id: 'D-1-devils-advocate-agent-7:premise-2', verdict: 'accept' });
+  const rec = readRunJson(S).owner_records.find((o) => o.kind === 'object');
+  assert.deepEqual({ id: rec.id, verdict: rec.verdict, why: rec.why, decider: rec.decider }, { id: 'D-1-devils-advocate-agent-7:premise-2', verdict: 'accept', why: 'the premise holds', decider: 'owner' });
+  assert.equal(failure(call(w, ['object', 'D-1-devils-advocate-agent-7:premise-2', 'reject', '--why', 'again'])).error, 'objection-recorded');
+  assert.equal(readRunJson(S).owner_records.filter((o) => o.kind === 'object').length, 1);
+  assert.equal(call(w, ['object', 'D-1-devils-advocate-agent-7:F-P1-1', 'accept', '--why', 'ok']).status, 0);
+});
+
+test('fires: a premise id that names no index line, or a capture id with characters outside the set, is refused and nothing is recorded', () => {
+  const w = world();
+  const S = started(w);
+  indexWith(S, [{ id: 'D-1-devils-advocate-agent-7', premises: ['D-1-devils-advocate-agent-7:premise-1'], objections: [] }]);
+  const refused = [
+    ['D-1-devils-advocate-agent-7:premise-2', 'unknown-premise'],
+    ['D-9-devils-advocate-agent-7:premise-1', 'unknown-premise'],
+    ['D-1-devils-advocate-agent-7:premise-0', 'unknown-premise'],
+    ['D-1-devils-advocate-agent-7:premise-', 'bad-objection-id'],
+    ['D-1-devils-advocate-agent-7:premise-x', 'bad-objection-id'],
+    [':premise-1', 'bad-objection-id'],
+    ['a/b:premise-1', 'bad-objection-id'],
+    ['../x:premise-1', 'bad-objection-id'],
+    ['a b:premise-1', 'bad-objection-id'],
+    ['a$b:premise-1', 'bad-objection-id'],
+    ['a:b:premise-1', 'bad-objection-id'],
+    ['X-1', 'bad-objection-id'],
+    ['F-P1-1', 'bad-objection-id'],
+    ['D-1-devils-advocate-agent-7:F-P2-1', 'unknown-objection'],
+  ];
+  for (const [id, error] of refused) {
+    const r = call(w, ['object', id, 'accept', '--why', 'x']);
+    assert.notEqual(r.status, 0, id);
+    assert.equal(failure(r).error, error, id);
+  }
+  assert.deepEqual(readRunJson(S).owner_records.filter((o) => o.kind === 'object'), []);
+  const none = world();
+  const S2 = started(none);
+  assert.equal(failure(call(none, ['object', 'D-1-devils-advocate-agent-7:premise-1', 'accept', '--why', 'x'])).error, 'unknown-premise');
+  mkdirSync(join(S2, 'verdicts'), { recursive: true });
+  writeFileSync(join(S2, 'verdicts', 'index.jsonl'), 'not json\n');
+  assert.equal(failure(call(none, ['object', 'D-1-devils-advocate-agent-7:premise-1', 'accept', '--why', 'x'])).error, 'index-unreadable');
+  assert.deepEqual(readRunJson(S2).owner_records.filter((o) => o.kind === 'object'), []);
+});
+
+test('fires: object accepts <capture id>:conflict only for a conflicted capture on an index line that lists no item, and refuses it otherwise with its own code', () => {
+  const w = world();
+  const S = started(w);
+  indexWith(S, [
+    { id: 'D-1-devils-advocate-a1', conflicted: true, objections: [], premises: [] },
+    { id: 'D-2-devils-advocate-a2', conflicted: false, objections: [], premises: [] },
+    { id: 'D-3-devils-advocate-a3', conflicted: true, objections: ['F-P1-1'], premises: [] },
+    { id: 'D-4-devils-advocate-a4', conflicted: true, objections: [], premises: ['D-4-devils-advocate-a4:premise-1'] },
+  ]);
+  for (const id of ['D-2-devils-advocate-a2:conflict', 'D-3-devils-advocate-a3:conflict', 'D-4-devils-advocate-a4:conflict', 'D-9-devils-advocate-a9:conflict']) {
+    const r = call(w, ['object', id, 'accept', '--why', 'x']);
+    assert.notEqual(r.status, 0, id);
+    assert.equal(failure(r).error, 'unknown-conflict', id);
+  }
+  assert.equal(failure(call(w, ['object', ':conflict', 'accept', '--why', 'x'])).error, 'bad-objection-id');
+  assert.deepEqual(readRunJson(S).owner_records.filter((o) => o.kind === 'object'), []);
+  const r = call(w, ['object', 'D-1-devils-advocate-a1:conflict', 'reject', '--why', 'the stake is not acceptable']);
+  assert.equal(r.status, 0, r.stderr);
+  assert.deepEqual(JSON.parse(r.stdout), { id: 'D-1-devils-advocate-a1:conflict', verdict: 'reject' });
+  assert.equal(failure(call(w, ['object', 'D-1-devils-advocate-a1:conflict', 'accept', '--why', 'again'])).error, 'objection-recorded');
 });
 
 test('id allocates ascending ids per kind and refuses an unknown kind', () => {
@@ -592,6 +688,17 @@ test('approve of a slice id is refused before slices exist', () => {
   assert.equal(failure(call(w, ['approve', 'idea'])).error, 'phase-not-pending-approval');
 });
 
+test('init leaves a counters.json that lib/counters.mjs reads, and run.mjs does not write that file itself', () => {
+  const w = world();
+  const r = call(w, ['init', ...initArgs(w)]);
+  assert.equal(r.status, 0, r.stderr);
+  const S = stateDir(w);
+  assert.equal(readCounters(S).version, 1);
+  assert.deepEqual(readCounters(S).pending, {});
+  assert.equal(statSync(join(S, 'counters.json')).mode & 0o777, 0o600);
+  assert.ok(!/counters\.json/.test(readFileSync(RUN, 'utf8')), 'run.mjs names counters.json');
+});
+
 const IDEA_SECTIONS = ['Assignment', 'Problem', 'Goals', 'Non-goals', 'Constraints', 'Success measures', 'Decisions', 'Approach options'];
 
 function writeIdea(R, skip = []) {
@@ -600,18 +707,18 @@ function writeIdea(R, skip = []) {
   writeFileSync(join(R, 'idea', 'idea.md'), `# Idea\n\n${body}`);
 }
 
-function readyToExit(w, { level = 'A1', skip = [], captureLate = false } = {}) {
+function readyToExit(w, { level = 'A1', skip = [], captureLate = false, captureOver = null, decide = true } = {}) {
   const S = started(w);
   guardLine(w);
   assert.equal(call(w, ['enter', 'idea']).status, 0);
   if (level) assert.equal(call(w, ['set-autonomy', level, '--tokens', '1000', '--loops', '0']).status, 0);
   call(w, ['id', 'D']);
   call(w, ['decision', 'D-1', 'proposed']);
-  const capture = { id: 'V-1', agent_type: 'cdp6-core:devils-advocate', task: 'gate', decision: 'D-1', verdict: 'a', objections: [], stamp: new Date(Date.now() + (captureLate ? 600000 : -2000)).toISOString() };
-  mkdirSync(join(S, 'verdicts'), { recursive: true });
-  writeFileSync(join(S, 'verdicts', 'index.jsonl'), `${JSON.stringify(capture)}\n`);
-  assert.equal(call(w, ['decision', 'D-1', 'decided', '--decider', 'owner']).status, 0);
   writeIdea(readRunJson(S).run_dir, skip);
+  const target = { path: 'idea/idea.md', sha256: sha(readFileSync(join(readRunJson(S).run_dir, 'idea', 'idea.md'), 'utf8')) };
+  const capture = { id: 'D-1-devils-advocate-agent-7', agent_type: 'cdp6-core:devils-advocate', task: 'D-1', decision: 'D-1', verdict: 'a', objections: [], targets: [target], stamp: new Date(Date.now() + (captureLate ? 600000 : -2000)).toISOString(), ...captureOver };
+  if (captureOver !== false) backCaptures(S, [capture]);
+  if (decide) assert.equal(call(w, ['decision', 'D-1', 'decided', '--decider', 'owner']).status, 0);
   return S;
 }
 
@@ -633,6 +740,7 @@ test('fires: checker missing', () => {
   assert.equal(idea.state, 'gate-pending');
   assert.equal(idea.gate.result, 'checker-missing');
   assert.equal(idea.gate.passed, false);
+  assert.equal(idea.gate.reconciliation, 'not built');
   assert.ok(readFileSync(join(S, 'run.journal.jsonl'), 'utf8').includes('exit:idea:checker-missing'));
   assert.ok(existsSync(join(PLUGIN, 'checks', 'idea-check.mjs')));
 });
@@ -683,8 +791,25 @@ test('fires: exit idea without non-goals', () => {
   const phase = readRunJson(S).phases.idea;
   assert.equal(phase.state, 'entered');
   assert.equal(phase.gate.passed, false);
+  assert.equal(phase.gate.reconciliation, 'not built');
   assert.equal(phase.gate.checkers[0].name, 'idea-check');
   assert.equal(phase.gate.checkers[0].exit, 1);
+});
+
+test('fires: a devils-advocate capture whose target changed since the brief makes exit idea fail as stale, one with the current hash passes', () => {
+  const w = world();
+  const S = readyToExit(w, { captureOver: false });
+  const R = readRunJson(S).run_dir;
+  const current = sha(readFileSync(join(R, 'idea', 'idea.md'), 'utf8'));
+  const line = (hash) => ({ id: 'D-1-devils-advocate-agent-7', agent_type: 'cdp6-core:devils-advocate', task: 'D-1', decision: 'D-1', verdict: 'a', objections: [], premises: [], conflicted: false, validator: 'valid', stamp: new Date(Date.now() - 2000).toISOString(), targets: [{ path: 'idea/idea.md', sha256: hash }] });
+  backCaptures(S, [line('0'.repeat(64))]);
+  const stale = call(w, ['exit', 'idea']);
+  assert.equal(stale.status, 1, stale.stdout + stale.stderr);
+  assert.match(stale.stdout, /decision-check FAIL D-1: every devils-advocate capture is stale/);
+  assert.equal(readRunJson(S).phases.idea.state, 'entered');
+  backCaptures(S, [line(current)]);
+  const fresh = call(w, ['exit', 'idea']);
+  assert.equal(fresh.status, 0, fresh.stdout + fresh.stderr);
 });
 
 test('fires: exit idea through a plugin copy under a path with a space gets the checkers real result', () => {
@@ -716,6 +841,38 @@ test('fires: the checkers started through a symlink and through a space path rep
   }
 });
 
+test('fires: verdict missing', () => {
+  const w = world();
+  const S = readyToExit(w, { captureOver: false });
+  const r = call(w, ['exit', 'idea']);
+  assert.equal(r.status, 1, r.stdout + r.stderr);
+  assert.match(r.stdout, /decision-check FAIL D-1: no devils-advocate capture/);
+  const idea = readRunJson(S).phases.idea;
+  assert.equal(idea.state, 'entered');
+  assert.equal(idea.gate.passed, false);
+});
+
+test('fires: verdict missing when the capture is of another role, of another decision, decides none or is not a pass', () => {
+  for (const captureOver of [{ agent_type: 'cdp6-core:review-verify' }, { decision: 'D-2' }, { decision: null }, { verdict: null, validator: 'not-built' }, { verdict: 'not-decidable' }]) {
+    const w = world();
+    const S = readyToExit(w, { captureOver });
+    const r = call(w, ['exit', 'idea']);
+    assert.equal(r.status, 1, JSON.stringify(captureOver) + r.stdout + r.stderr);
+    assert.match(r.stdout, /decision-check FAIL D-1/, JSON.stringify(captureOver));
+    assert.equal(readRunJson(S).phases.idea.state, 'entered');
+  }
+});
+
+test('fires: verdict missing when the verdict index is not readable', () => {
+  const w = world();
+  const S = readyToExit(w);
+  writeFileSync(join(S, 'verdicts', 'index.jsonl'), 'not json\n');
+  const r = call(w, ['exit', 'idea']);
+  assert.equal(r.status, 2, r.stdout + r.stderr);
+  assert.equal(failure(r).error, 'checker-error');
+  assert.equal(readRunJson(S).phases.idea.state, 'gate-pending');
+});
+
 test('fires: exit idea with a decision before its counter-role', () => {
   const w = world();
   readyToExit(w, { captureLate: true });
@@ -742,6 +899,7 @@ test('exit idea at A1 records the exit, the gate result and the artefact hashes'
   assert.equal(phase.state, 'exited');
   assert.match(phase.exited_at, /^\d{4}-\d\d-\d\dT/);
   assert.equal(phase.gate.passed, true);
+  assert.equal(phase.gate.reconciliation, 'not built');
   assert.deepEqual(phase.gate.checkers.map((c) => [c.name, c.exit]), [['idea-check', 0], ['decision-check', 0]]);
   assert.ok(phase.gate.checkers.every((c) => /^[0-9a-f]{64}$/.test(c.output_sha256) && c.version === '0.1.0'));
   const idea = phase.artefacts.find((a) => a.path === 'idea/idea.md');
@@ -927,7 +1085,8 @@ async function parallel(w, S, argvList) {
 test('A4 parallel object calls record one owner record', async () => {
   const w = world();
   const S = started(w);
-  const results = await parallel(w, S, Array.from({ length: 8 }, () => ['object', 'F-P1-1', 'accept', '--why', 'ok']));
+  indexWith(S, [{ id: 'D-1-devils-advocate-a1', objections: ['F-P1-1'], premises: [] }]);
+  const results = await parallel(w, S, Array.from({ length: 8 }, () => ['object', 'D-1-devils-advocate-a1:F-P1-1', 'accept', '--why', 'ok']));
   assert.equal(results.filter((r) => r.code === 0).length, 1, JSON.stringify(results));
   assert.equal(readRunJson(S).owner_records.filter((o) => o.kind === 'object').length, 1);
 });
@@ -1594,4 +1753,99 @@ test('exit idea gates a missing idea.md through the checker and records no artef
   assert.equal(r.status, 1);
   assert.match(r.stdout, /idea\/idea\.md is missing/);
   assert.deepEqual(readRunJson(S).phases.idea.gate.artefacts, []);
+});
+
+test('fires: a conflicted capture without items stops exit idea, naming <capture id>:conflict, until the owner records it', () => {
+  const w = world();
+  readyToExit(w, { captureOver: { conflicted: true, text: captureText({ verdict: 'a', conflicted: true }) } });
+  const blocked = call(w, ['exit', 'idea']);
+  assert.equal(blocked.status, 1, blocked.stdout + blocked.stderr);
+  assert.match(blocked.stdout, /D-1-devils-advocate-agent-7:conflict/);
+  assert.equal(call(w, ['object', 'D-1-devils-advocate-agent-7:conflict', 'accept', '--why', 'the stake is declared and harmless']).status, 0);
+  const passed = call(w, ['exit', 'idea']);
+  assert.equal(passed.status, 0, passed.stdout + passed.stderr);
+});
+
+test('fires: object <capture id>:conflict reject is refused once the D-n of the capture is decided, accepted before it, and accept after decided lets the gate pass', () => {
+  const id = 'D-1-devils-advocate-agent-7:conflict';
+  const over = { captureOver: { conflicted: true, text: captureText({ verdict: 'a', conflicted: true }) } };
+  const early = world();
+  const earlyS = readyToExit(early, { ...over, decide: false });
+  const accepted = call(early, ['object', id, 'reject', '--why', 'the stake is not acceptable']);
+  assert.equal(accepted.status, 0, accepted.stdout + accepted.stderr);
+  assert.deepEqual(JSON.parse(accepted.stdout), { id, verdict: 'reject' });
+  assert.equal(readRunJson(earlyS).owner_records.filter((o) => o.kind === 'object').length, 1);
+  const late = world();
+  const lateS = readyToExit(late, over);
+  const refused = call(late, ['object', id, 'reject', '--why', 'too late']);
+  assert.notEqual(refused.status, 0, refused.stdout);
+  assert.equal(failure(refused).error, 'conflict-reject-after-decision');
+  assert.deepEqual(readRunJson(lateS).owner_records.filter((o) => o.kind === 'object'), []);
+  assert.equal(call(late, ['object', id, 'accept', '--why', 'the stake is declared and harmless']).status, 0);
+  const passed = call(late, ['exit', 'idea']);
+  assert.equal(passed.status, 0, passed.stdout + passed.stderr);
+});
+
+test('fires: a D-n still proposed stops exit idea with a finding naming it, and a superseded one does not', () => {
+  const w = world();
+  readyToExit(w);
+  call(w, ['id', 'D']);
+  assert.equal(call(w, ['decision', 'D-2', 'proposed']).status, 0);
+  const blocked = call(w, ['exit', 'idea']);
+  assert.equal(blocked.status, 1, blocked.stdout + blocked.stderr);
+  assert.match(blocked.stdout, /decision-check FAIL D-2: still proposed/);
+  assert.equal(call(w, ['decision', 'D-2', 'superseded']).status, 0);
+  const passed = call(w, ['exit', 'idea']);
+  assert.equal(passed.status, 0, passed.stdout + passed.stderr);
+});
+
+function rejectedBlockText(verdictLine = 'verdict: b', conflicted = false) {
+  return captureText({ task: 'D-1', verdict: 'b', objections: ['F-P1-1'], conflicted }).replace('verdict: b\n', `${verdictLine}\nThe owner has to record F-P1-1 before the pick.\n`);
+}
+
+function rejectedLine(id, over = {}) {
+  return { id, agent_type: 'cdp6-core:devils-advocate', task: 'D-1', decision: 'D-1', verdict: null, objections: [], premises: [], conflicted: false, validator: 'rejected', targets: [], stamp: new Date(Date.now() - 3000).toISOString(), text: rejectedBlockText(), ...over };
+}
+
+test('fires: object <capture id>:capture is accepted only for a rejected, not conflicted devils-advocate capture of the run with a verdict (b) or (c), and is refused otherwise with its own code', () => {
+  const w = world();
+  const S = started(w);
+  backCaptures(S, [
+    rejectedLine('D-1-devils-advocate-agent-1'),
+    rejectedLine('D-1-devils-advocate-agent-2', { text: rejectedBlockText('VERDICT: C because of F-P1-1') }),
+    rejectedLine('D-1-devils-advocate-agent-3', { conflicted: true, text: rejectedBlockText('verdict: b', true) }),
+    rejectedLine('D-1-devils-advocate-agent-4', { text: rejectedBlockText('verdict: a') }),
+    rejectedLine('D-1-devils-advocate-agent-5', { text: rejectedBlockText('verdict: b-ish') }),
+    rejectedLine('D-1-devils-advocate-agent-6', { validator: 'valid', verdict: 'b', objections: ['F-P1-1'], text: captureText({ task: 'D-1', verdict: 'b', objections: ['F-P1-1'] }) }),
+    rejectedLine('D-1-pessimistic-realist-agent-7', { agent_type: 'cdp6-core:pessimistic-realist' }),
+  ]);
+  const object = (id, verdict = 'accept') => call(w, ['object', id, verdict, '--why', 'the owner read the capture file']);
+  for (const id of ['D-1-devils-advocate-agent-3', 'D-1-devils-advocate-agent-4', 'D-1-devils-advocate-agent-5', 'D-1-devils-advocate-agent-6', 'D-1-pessimistic-realist-agent-7', 'D-9-devils-advocate-agent-9']) {
+    const refused = object(`${id}:capture`);
+    assert.notEqual(refused.status, 0, id);
+    assert.equal(failure(refused).error, 'unknown-capture', id);
+  }
+  assert.deepEqual(readRunJson(S).owner_records.filter((o) => o.kind === 'object'), []);
+  const first = object('D-1-devils-advocate-agent-1:capture');
+  assert.equal(first.status, 0, first.stdout + first.stderr);
+  assert.deepEqual(JSON.parse(first.stdout), { id: 'D-1-devils-advocate-agent-1:capture', verdict: 'accept' });
+  assert.equal(object('D-1-devils-advocate-agent-2:capture', 'reject').status, 0);
+  assert.equal(failure(object('D-1-devils-advocate-agent-1:capture', 'reject')).error, 'objection-recorded');
+  assert.deepEqual(readRunJson(S).owner_records.filter((o) => o.kind === 'object').map((o) => [o.id, o.verdict]), [['D-1-devils-advocate-agent-1:capture', 'accept'], ['D-1-devils-advocate-agent-2:capture', 'reject']]);
+});
+
+test('fires: object <capture id>:capture clears the block of a rejected capture in the gate of exit idea, and either verdict clears it', () => {
+  for (const verdict of ['accept', 'reject']) {
+    const w = world();
+    const S = readyToExit(w, { captureOver: false, decide: false });
+    const target = { path: 'idea/idea.md', sha256: sha(readFileSync(join(readRunJson(S).run_dir, 'idea', 'idea.md'), 'utf8')) };
+    backCaptures(S, [rejectedLine('D-1-devils-advocate-agent-1'), { id: 'D-1-devils-advocate-agent-2', agent_type: 'cdp6-core:devils-advocate', task: 'D-1', decision: 'D-1', verdict: 'a', objections: [], targets: [target], stamp: new Date(Date.now() - 2000).toISOString() }]);
+    assert.equal(call(w, ['decision', 'D-1', 'decided', '--decider', 'owner']).status, 0);
+    const blocked = call(w, ['exit', 'idea']);
+    assert.equal(blocked.status, 1, blocked.stdout + blocked.stderr);
+    assert.match(blocked.stdout, /decision-check FAIL D-1: capture D-1-devils-advocate-agent-1 is rejected by the validator and has a verdict b or c, no run\.mjs object D-1-devils-advocate-agent-1:capture record/);
+    assert.equal(call(w, ['object', 'D-1-devils-advocate-agent-1:capture', verdict, '--why', 'the owner read the capture file']).status, 0);
+    const passed = call(w, ['exit', 'idea']);
+    assert.equal(passed.status, 0, `${verdict}: ${passed.stdout}${passed.stderr}`);
+  }
 });

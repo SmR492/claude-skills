@@ -25,12 +25,15 @@ function guardsWithoutBlock(config) {
   return entries(config).filter((e) => isGuard(e) && e.hook.onFailure !== 'block');
 }
 
-test('registers bootstrap on SessionStart and the two guards on PreToolUse with the named matchers', () => {
+test('registers bootstrap, the contract injection on every SubagentStart, the three guards and the handback check on PreToolUse with the named matchers', () => {
   const found = entries(load()).map((e) => ({ event: e.event, matcher: e.matcher, script: /hooks\/([a-z-]+\.mjs)/.exec(e.hook.command)?.[1] }));
   assert.deepEqual(found, [
     { event: 'SessionStart', matcher: 'startup|resume|clear|compact', script: 'bootstrap.mjs' },
     { event: 'PreToolUse', matcher: 'Bash|PowerShell|Monitor', script: 'guard-shell.mjs' },
     { event: 'PreToolUse', matcher: 'Agent|Task|Bash|PowerShell|Monitor|Edit|Write|NotebookEdit', script: 'guard-phase.mjs' },
+    { event: 'PreToolUse', matcher: 'Agent|Task', script: 'guard-spawn.mjs' },
+    { event: 'PreToolUse', matcher: 'SubagentHandback', script: 'check-handback.mjs' },
+    { event: 'SubagentStart', matcher: '*', script: 'inject-contract.mjs' },
   ]);
 });
 
@@ -46,9 +49,9 @@ test('every command goes through the plugin root and names a script that exists'
 
 test('fires: guard without onFailure block', () => {
   const config = load();
-  assert.equal(entries(config).filter(isGuard).length, 2);
+  assert.equal(entries(config).filter(isGuard).length, 3);
   assert.deepEqual(guardsWithoutBlock(config), []);
-  for (const target of ['guard-shell.mjs', 'guard-phase.mjs']) {
+  for (const target of ['guard-shell.mjs', 'guard-phase.mjs', 'guard-spawn.mjs']) {
     const broken = structuredClone(config);
     for (const e of entries(broken)) if (e.hook.command.includes(target)) delete e.hook.onFailure;
     assert.equal(guardsWithoutBlock(broken).length, 1, target);
@@ -56,4 +59,18 @@ test('fires: guard without onFailure block', () => {
     for (const e of entries(wrong)) if (e.hook.command.includes(target)) e.hook.onFailure = 'continue';
     assert.equal(guardsWithoutBlock(wrong).length, 1, target);
   }
+});
+
+test('fires: handback check without onFailure block', () => {
+  const config = load();
+  const isCheck = (e) => e.hook.command.includes('check-handback.mjs');
+  const checksWithoutBlock = (c) => entries(c).filter((e) => isCheck(e) && e.hook.onFailure !== 'block');
+  assert.equal(entries(config).filter(isCheck).length, 1);
+  assert.deepEqual(checksWithoutBlock(config), []);
+  const broken = structuredClone(config);
+  for (const e of entries(broken)) if (isCheck(e)) delete e.hook.onFailure;
+  assert.equal(checksWithoutBlock(broken).length, 1);
+  const wrong = structuredClone(config);
+  for (const e of entries(wrong)) if (isCheck(e)) e.hook.onFailure = 'continue';
+  assert.equal(checksWithoutBlock(wrong).length, 1);
 });

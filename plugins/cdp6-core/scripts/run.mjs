@@ -12,7 +12,9 @@ import { InputError, closeInput, openInput, readInput, readProjectFile, stillSam
 import { recordNonce, readHostKey, verifyToken } from '../lib/hook-key.mjs';
 import { PHASES, currentPhase, predecessorOpen, statusText } from '../lib/phases.mjs';
 import { ArgvError, EXECUTOR, SESSION_ID, parseCall, stripAppended } from '../lib/run-argv.mjs';
+import { initCounters } from '../lib/counters.mjs';
 import { credentialCovers, missingRules, readUserSettings } from '../lib/user-settings.mjs';
+import { hasItem, parseItem, readIndex } from '../lib/verdict-index.mjs';
 import { StoreError, allocId, bindSession, findRun, initRun, projectName, projectRootOf, updateRun, ID_KINDS } from '../lib/run-store.mjs';
 
 export const VERSION_FLOOR = [2, 1, 295];
@@ -20,6 +22,7 @@ export const KINDS = ['idea', 'feature-request', 'issue', 'bug-report'];
 export const LEVELS = ['A0', 'A1', 'A2', 'A3'];
 const PLUGIN_ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
 const PHASE_ARTEFACTS = { idea: ['idea/idea.md'] };
+const RECONCILIATION = 'not built';
 const MAX_ARTEFACT_BYTES = 16 * 1024 * 1024;
 const HUMAN_GATE = { A0: PHASES, A1: ['concept', 'refinement'], A2: ['refinement'], A3: [] };
 
@@ -287,7 +290,7 @@ function initRunFrom(call, ctx, handles) {
   writeFileSync(join(S, 'idea', 'intake.md'), intakeText, { mode: 0o600 });
   writeFileSync(join(S, 'idea', 'assignment.md'), assignmentBuf, { mode: 0o600 });
   writeFileSync(join(S, 'ledger.md'), `# Ledger ${id}\n`, { mode: 0o600 });
-  writeFileSync(join(S, 'counters.json'), `${JSON.stringify({ version: 1 }, null, 2)}\n`, { mode: 0o600 });
+  initCounters(S);
 
   const phases = {};
   for (const p of PHASES) phases[p] = { state: 'pending', cycle: 1 };
@@ -406,14 +409,26 @@ function cmdSetAutonomy(call, ctx) {
 
 function cmdObject(call, ctx) {
   const [id, verdict] = call.positionals;
-  if (!/^F-P[1-8]-\d+$/.test(id)) refuse('bad-objection-id', 'objection id must look like F-P1-1');
+  const item = parseItem(id);
+  if (!item) refuse('bad-objection-id', 'objection id must look like <capture id>:F-P1-1, <capture id>:premise-1, <capture id>:conflict or <capture id>:capture');
   if (!['accept', 'reject'].includes(verdict)) refuse('bad-verdict', 'verdict must be accept or reject');
   const why = one(call, '--why');
   if (why === undefined || why.trim() === '') refuse('missing-flag', '--why is required');
   const { S, run } = lookup(ctx);
+  let index;
+  try {
+    index = readIndex(S);
+  } catch {
+    refuse('index-unreadable', 'the verdict index is not readable');
+  }
+  if (!hasItem(index, id, S)) refuse(`unknown-${item.kind}`, `${id} names no ${item.kind} on an index line of this run`);
+  const decides = index.find((c) => c.id === item.captureId)?.decision;
   const verify = (r) => {
     assertActive(r);
     if (r.owner_records.some((o) => o.kind === 'object' && o.id === id)) refuse('objection-recorded', `${id} already has an owner record`);
+    if (item.kind === 'conflict' && verdict === 'reject' && typeof decides === 'string' && r.decisions?.[decides]?.status === 'decided') {
+      refuse('conflict-reject-after-decision', `${decides} is decided: ${id} can only be accepted`);
+    }
   };
   verify(run);
   updateRun(S, `object:${id}`, (r) => {
@@ -533,7 +548,7 @@ function cmdExit(call, ctx) {
     updateRun(S, `exit:${phase}:checker-missing`, (r) => {
       verify(r);
       r.phases[phase].state = 'gate-pending';
-      r.phases[phase].gate = { passed: false, result: 'checker-missing', checkers: [] };
+      r.phases[phase].gate = { passed: false, result: 'checker-missing', checkers: [], reconciliation: RECONCILIATION };
     });
     if (absent) refuse('checker-missing', `checker ${absent.name} is missing`, { checker: absent.name });
     refuse('checker-missing', `no checker is registered for ${phase}`);
@@ -564,12 +579,12 @@ function cmdExit(call, ctx) {
     const p = r.phases[phase];
     if (failed.length) {
       p.state = 'entered';
-      p.gate = { passed: false, checkers: results, artefacts };
+      p.gate = { passed: false, checkers: results, artefacts, reconciliation: RECONCILIATION };
       outcome = { exitCode: 1, text: failed.join('\n') };
       return;
     }
     const needsApproval = HUMAN_GATE[r.autonomy.level].includes(phase);
-    p.gate = { passed: true, checkers: results, artefacts };
+    p.gate = { passed: true, checkers: results, artefacts, reconciliation: RECONCILIATION };
     if (!needsApproval) {
       p.state = 'exited';
       p.exited_at = at;
