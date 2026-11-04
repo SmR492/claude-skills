@@ -1,0 +1,167 @@
+{
+ "missing": [
+  {
+   "requirement": "The A0 human gate on P1 needs the owner's `run.mjs approve idea` after a passing `exit idea`. At A0 the gate leaves the phase `gate-pending` with `awaiting: approve` (run.mjs:27 HUMAN_GATE.A0 = all phases; run.mjs:586-593). `approve` is one of the stage-1 owner-gate forms named in the §11.3 consumer test.",
+   "source": "UC-01 Exit and Human gate; §11.3 consumer test (approve, set-autonomy, object, decision … decided are the stage-1 owner-gate forms); run.mjs:27, :586-593, :598-624",
+   "where_missing": "Runbook steps 7 and 9 (live-p1-runbook.md:28, :30) never name `approve idea`, and neither does the skill the main session follows (skills/idea/SKILL.md:27-41). The brief has no claim that the phase exited.",
+   "proposal": "Runbook: add a step 9a. The owner confirms `run.mjs approve idea` (an owner command) after `exit idea` prints `{\"phase\":\"idea\",\"state\":\"gate-pending\",\"awaiting\":\"approve\"}`. If the main session does not offer it, the owner asks for it. Brief: add a claim that `S/run.json` `phases.idea.state` is `exited`, with an `owner_records` entry `kind: approve`, or state explicitly that stage 1 does not need it.",
+   "severity": "yellow"
+  },
+  {
+   "requirement": "The P1 gate actually passed: idea-check and decision-check exit 0, `gate.passed` is true, every D-n is decided or superseded, the approach choice was decided by the owner, and autonomy and budgets were set by the owner.",
+   "source": "UC-01 Exit and Gate; §11.3 consumer test (\"the P1 exit of the live run\")",
+   "where_missing": "live-p1-record-rv.md claims 1-11. Claim 6 checks only the `reconciliation` field. No claim checks `phases.idea.gate.passed` or the checker exits in `S/run.json`, `decisions.D-1.decider` = owner, or `autonomy.set` true with level A0.",
+   "proposal": "Add a claim: `S/run.json` `phases.idea.gate.passed` is true, every `checkers[].exit` is 0, `decisions.D-1` is `decided` with decider `owner`, and `autonomy` is `{level: A0, set: true}` with its `owner_records` line.",
+   "severity": "yellow"
+  },
+  {
+   "requirement": "review-verify checks the §5.6 sandbox settings (items 1-6, 9, 10, admin-required form through a --settings file outside every sandbox-writable path) against the settings files.",
+   "source": "§11.3 item 3 (\"review-verify checks them against the settings files\"); §5.6 scope rule (a), items 1-6, 9, 10",
+   "where_missing": "live-p1-record-rv.md:18 (claim 1) checks only the sha256. Claim 9 (:26) names items 5 and 10 only. Run 65 checked the keys of the earlier file version a9ee5e34. The final file 780df1b9… (defaultMode, enabledPlugins and the scratch path changed) was checked only by the orchestrator (ledger line 275).",
+   "proposal": "Add a claim listing the required keys and where they live. In settings-live.json: sandbox.enabled and failIfUnavailable true, allowUnsandboxedCommands false, network.strictAllowlist true with no `*` and no broad domain, excludedCommands holding only `node ~/cdp6-live/cdp6-core/scripts/run.mjs *`, the item-5 denyWrite and denyRead entries, the item-9 and item-10 entries, and a real path outside the project, cwd and tmp. In the user settings: the item-9 and item-10 rules.",
+   "severity": "yellow"
+  },
+  {
+   "requirement": "The stage-1 host check holds for the live run: no local MCP server and no repository hook on the host can read or write files; PATH is clean; `<data>/probes/` is empty; the host-check line names the data-deleting events.",
+   "source": "§11.3 item 3 (host check before the start stamp, PATH, probes empty, deletion events); ledger lines 140 and 276-277",
+   "where_missing": "The brief only lists the ledger amendment under target state (live-p1-record-rv.md:14). No claim checks that the confirmed host state held during the run, in particular the playwright plugin that is enabled at user level again (ledger 277).",
+   "proposal": "Add a claim: the ledger has the 2026-11-02 host-check line and the 2026-11-04 amendment. For the live window, the ledger records which Claude Code sessions ran and that none of them ran a local MCP server: the live session's `/mcp` result and the orchestrator session's `/mcp` result. `<data>/probes/` is absent.",
+   "severity": "yellow"
+  },
+  {
+   "requirement": "The record review has evidence that the session ran with `--plugin-dir` and `--settings` and in mode `default`. The step-5 observations (/status, /mcp, /hooks) are only made by the owner on screen.",
+   "source": "§11.3 item 3; §1.4 items 5 and 8",
+   "where_missing": "The runbook asks for the step-5 checks (live-p1-runbook.md:21-26) but never records their results. Brief claim 2 (live-p1-record-rv.md:19) has no evidence source for the `--settings` part: the transcript, run.json and hooks-fired.jsonl do not hold the command line. The user settings have no sandbox and no excludedCommands, so a run without `--settings` would look the same in S.",
+   "proposal": "Runbook step 5: the owner (or the orchestrator from the owner's words) writes a ledger 0021 line with the date-time and the /status, /mcp and /hooks results. Brief claim 2 cites that line, together with the `~/cdp6-live/cdp6-core/scripts/run.mjs` paths in the transcript and the data directory `cdp6-core-inline`.",
+   "severity": "yellow"
+  },
+  {
+   "requirement": "The way out for a bound devils-advocate spawn that never got a capture, and for an unbound pending spawn that blocks its role: the owner ends the session and marks the entry `void` in `S/counters.json` by hand, with a ledger 0021 line.",
+   "source": "§11.3 item 3 (SL-2 fix-3 audit F5, outside review gaps 6 and 11)",
+   "where_missing": "The runbook Stops (live-p1-runbook.md:36) name only the step-5 failure, a guard that blocks every call, and a missing run.json.",
+   "proposal": "Add a stop row: \"devils-advocate target stays write-locked or a second spawn is refused (unbound pending spawn): end the session; owner marks the stale spawn `void` in `S/counters.json` outside Claude Code; ledger line\".",
+   "severity": "yellow"
+  },
+  {
+   "requirement": "The live run's worker runs are counted by the counting rule: source (b), the `agent-<agentId>.jsonl` files under `~/.claude/projects/<project>/<sessionId>/subagents/`. Every SendMessage to a subagent is a breach and goes into the ledger. Stage-1 end stamp. Then the owner's cap review after the live P1 run (stop row \"above 60\", §0 item 33 (2)).",
+   "source": "§11.3 counting rule; §11.3 stop table row \"stage-1 worker runs above 60 … the review follows the live P1 run\"",
+   "where_missing": "Neither document. The runbook ends at step 12 (live-p1-runbook.md:33). The brief has no claim on the spawn count or on SendMessage use.",
+   "proposal": "Brief: add a claim that counts `subagents/agent-*.jsonl` files of the live session and the SendMessage calls in its main transcript. Runbook: add a step 13. The orchestrator writes the live run's worker-run count and the stage-1 end stamp into ledger 0021, and the owner's cap review (§0 item 33 (2)) follows.",
+   "severity": "yellow"
+  },
+  {
+   "requirement": "The transcript entries are removed only when every token in the transcript is past the ten-minute bound, and the review can check that.",
+   "source": "§5.6 item 9 (transcript directory); UC-11 step 1.3 (ten-minute bound; tokens are issued for every `run.mjs` call decided `ask` or `allow`, also when the call never reaches run.mjs)",
+   "where_missing": "The brief has no claim comparing the removal time with the last token issue time. The runbook does not record the removal time or the session end time; step 12 (:33) omits the `<end>` fill-in that the brief (:7) needs.",
+   "proposal": "Runbook step 10: record the end time with `date -Is` in ledger 0021. Step 11: record the removal time. Step 12: fill in `<end>` as well. Brief: add a claim that the removal time is at least ten minutes after the last guard-shell.mjs line of the session in `<data>/hooks-fired.jsonl` (its `at` field).",
+   "severity": "yellow"
+  },
+  {
+   "requirement": "Under verdict (b) or a `conflicted` capture, the owner records `object <capture id>:F-P1-n|premise-n|conflict accept|reject --why`, reading the capture file before each record. These records come before `decision D-1 decided`, because `conflict reject` is refused once D-1 is decided.",
+   "source": "UC-01 steps 3 and 5.2; SKILL.md:40; run.mjs:429-431",
+   "where_missing": "Runbook step 8 (live-p1-runbook.md:29) covers only verdict (c).",
+   "proposal": "Extend step 8: for (b) or conflicted, one owner record per listed item, each after reading `S/verdicts/D-1-devils-advocate-<agentId>.md`, all before the `decided` prompt.",
+   "severity": "green"
+  },
+  {
+   "requirement": "Every run.mjs call prompts in stage 1, the routine ones too (init, enter, id, decision proposed, status, exit; guard-shell.mjs:84 returns `ask` for every call). A prompt answered after more than ten minutes makes run.mjs exit 2 (token age), and the call is repeated.",
+   "source": "UC-11 steps 1.2 and 1.3; §11.3 consumer test (routine `ask` until SL-8)",
+   "where_missing": "Runbook step 7 (live-p1-runbook.md:28) speaks only of owner commands.",
+   "proposal": "Add to step 7: routine prompts carry the reason `run.mjs <call>`, owner prompts carry `owner command: …`. Answer each within ten minutes. An exit 2 naming the token age means the main session repeats the call. Never choose \"always allow\". Do not change the permission mode during the run.",
+   "severity": "green"
+  },
+  {
+   "requirement": "A refusal by `run.mjs init` (exit 2, for example `user-settings-rule-missing` when the data directory name differs from `cdp6-core-inline`) is a stop for the owner. Only the owner writes settings (STOP-2).",
+   "source": "§5.6 items 9 and 10 (init refuses without the entries); run.mjs:282-285",
+   "where_missing": "Runbook Stops (live-p1-runbook.md:35-37)",
+   "proposal": "Add a stop row: init exit 2 → bring its stderr JSON to the orchestrator session; no model edits the settings.",
+   "severity": "green"
+  }
+ ],
+ "wrong": [
+  {
+   "statement": "Step order: step 7 has the owner confirm `decision D-1 decided --decider owner` (with `set-autonomy`, `object`, `exit idea`), and only step 8 then has the devils-advocate spawn on D-1 run.",
+   "file_line": "docs/retro/0021-cdp6-framework/briefs/live-p1-runbook.md:28-29",
+   "evidence": "UC-01 step 3 and SKILL.md:35 give the order: `decision D-1 proposed` → devils-advocate spawn and capture → owner's `decision D-1 decided`. UC-01 Exit and AC-01.11 need the capture stamped before `decided`. run.mjs:448 allows `decided` to go only to `superseded`. An owner who confirms `decided` before the capture therefore makes D-1 permanently unable to meet brief claim 4 and §11.3 item 3 (\"captured … verdict on D-1\"), so stage 1 is not passed.",
+   "proposal": "Reorder: step 7 = interview and `decision D-1 proposed`; step 8 = devils-advocate spawn and capture (the owner refuses any `decided` prompt before a `S/verdicts/D-1-devils-advocate-<agentId>.md` exists); then the `object` records, if any; then `decision D-1 decided --decider owner`; then `set-autonomy A0 --tokens <n> --loops <n>`; then `exit idea`; then `approve idea`.",
+   "severity": "red"
+  },
+  {
+   "statement": "Step 2 restarts the orchestrator session to stop MCP servers started earlier, and step 3 closes every other session that uses playwright. The restarted orchestrator session is itself such a session.",
+   "file_line": "docs/retro/0021-cdp6-framework/briefs/live-p1-runbook.md:17-18",
+   "evidence": "Ledger line 277 (2026-11-04T20:53:23): playwright stays enabled at user level, and the orchestrator's proposed condition is that no other session with playwright runs during the live run. Ledger line 275: the playwright plugin starts a local stdio MCP server (`npx @playwright/mcp@latest`), which has file-writing tools (ledger line 116). ~/.claude/settings.json `enabledPlugins` has `playwright@anthropic-plugin-directory: true` (read 2026-11-04). The orchestrator session (steps 1, 12) starts with the user settings, so it starts that server and runs during the live run. That breaks the host-check premise of §11.3 item 3 (\"no local MCP server … can read or write files\"; 2026-11-02 line 140), on which stage 1 rests (UC-11 step 1.3 residual: such processes can read the key and write the run files).",
+   "proposal": "Step 2: the owner disables playwright at user level until the live session ends, or starts the orchestrator session with a `--settings` file that sets `enabledPlugins` playwright false plus `--strict-mcp-config`. Add an orchestrator-session `/mcp` check that shows no local server, and write it to ledger 0021 with the live-run window.",
+   "severity": "red"
+  },
+  {
+   "statement": "Step 5 check: \"the session start shows the cdp6-core bootstrap text\", with \"If one check fails, stop\".",
+   "file_line": "docs/retro/0021-cdp6-framework/briefs/live-p1-runbook.md:25-26",
+   "evidence": "hooks/bootstrap.mjs:21-25: `runStatus` returns null unless a run is found. bootstrap.mjs:37 writes stdout only `if (text)`. With the empty data directory (verified empty 2026-11-04) no run exists at session start, so no text is printed. The build has no role text and no disable-command text (§1.4 items 5 and 8 are not built). Followed literally, the check fails every time and the runbook's stop rule ends the run at step 5.",
+   "proposal": "Replace the check with: after the session start, `<data>/hooks-fired.jsonl` holds a `bootstrap.mjs` line with this session's `session_id`, checked by the orchestrator outside the live session, and no stderr \"cdp6-core: host key not created\" was shown.",
+   "severity": "yellow"
+  },
+  {
+   "statement": "\"The gate result must name `reconciliation: not built`\" is presented as something the owner sees at the `exit idea` prompt.",
+   "file_line": "docs/retro/0021-cdp6-framework/briefs/live-p1-runbook.md:30",
+   "evidence": "run.mjs:582 and :587 write `reconciliation: \"not built\"` only into `S/run.json` `phases.idea.gate`. The command output (run.mjs:648) is the outcome object `{phase, state: gate-pending, awaiting: approve}` on a pass, or the failure lines on a fail; neither names reconciliation.",
+   "proposal": "Say: `S/run.json` `.phases.idea.gate.reconciliation` equals \"not built\" (read outside the live session or by the record review). The prompt output on a pass is `{\"phase\":\"idea\",\"state\":\"gate-pending\",\"awaiting\":\"approve\"}` at A0.",
+   "severity": "yellow"
+  },
+  {
+   "statement": "\"wait ten minutes after the last owner command (the token bound of UC-11 step 1.3)\"",
+   "file_line": "docs/retro/0021-cdp6-framework/briefs/live-p1-runbook.md:31",
+   "evidence": "UC-11 step 1.3: guard-shell issues a token for every run.mjs call it decides with ask or allow. In this build that is every call (guard-shell.mjs:84), declined ones included. §5.6 item 9 allows the removal only \"when every token in a transcript is past the ten-minute bound\". A routine call such as `status` after the last owner command would still hold a live token.",
+   "proposal": "\"wait ten minutes after the live session ended (no run.mjs prompt can follow it)\", and record the end time with `date -Is`.",
+   "severity": "yellow"
+  },
+  {
+   "statement": "Claim 2: \"every `hooks-fired.jsonl` line of the session shows `permission_mode` `default`\".",
+   "file_line": "docs/retro/0021-cdp6-framework/briefs/live-p1-record-rv.md:19",
+   "evidence": "lib/hooks-observed.mjs:28 copies `permission_mode` from the hook input or writes null. bootstrap.mjs:36 (SessionStart) and inject-contract.mjs:59 (SubagentStart) also write lines. Per the hooks reference, `permission_mode` is not carried by every event; from memory, the SessionStart and SubagentStart examples lack it (the docs copy is not on this host, so this is plausible, not verified). Those lines would show null, and the reviewer would mark the claim widerlegt although no other mode occurred.",
+   "proposal": "Restate: every line of the live session_id from guard-shell.mjs, guard-phase.mjs, guard-spawn.mjs and check-handback.mjs shows `default`. No line shows any other non-null value. Lines from bootstrap.mjs and inject-contract.mjs are reported with their value (null expected).",
+   "severity": "yellow"
+  },
+  {
+   "statement": "Claim 1 and target state: \"`diff -r ~/cdp6-live/cdp6-core` against `plugins/cdp6-core` at 1d04d1a\", with `<repo>` = the main checkout.",
+   "file_line": "docs/retro/0021-cdp6-framework/briefs/live-p1-record-rv.md:10, :15, :18",
+   "evidence": "`<repo>/plugins/` holds only cdp5-agents, cdp5-gates, domain-agents and orbit-workflow. `plugins/cdp6-core` does not exist on feat/cdp6-concept (HEAD 3c57688). The tree at 1d04d1a is the worktree `<repo>/.worktrees/sl2` (`git worktree list`: 1d04d1a [feat/cdp6-sl2]). The brief allows no `git archive` and names no worktree path.",
+   "proposal": "Name the comparison tree `<repo>/.worktrees/sl2/plugins/cdp6-core`, preceded by `git -C <repo>/.worktrees/sl2 log -1 --format=%H` (= 1d04d1a14b…) and `git -C <repo>/.worktrees/sl2 status --porcelain --ignored plugins/cdp6-core` (empty).",
+   "severity": "yellow"
+  },
+  {
+   "statement": "Claim 9: `S/run.json` was written \"under the §5.6 items 5 and 10 entries of the settings file and the user settings\".",
+   "file_line": "docs/retro/0021-cdp6-framework/briefs/live-p1-record-rv.md:26",
+   "evidence": "The user settings hold no item-5 entries (no denyWrite on `<data>/`, `~/.cache/cdp6-core`, `~/.claude/teams`, probes or the cdp5-gates root; no credentials or .env denyRead). Their sandbox.filesystem has only `~/.config/cdp6-core` and `~/.claude/projects`. Item 5 stands only in settings-live.json:16-32. Read strictly, the claim is refuted for the user settings.",
+   "proposal": "\"item 5 entries in settings-live.json; item 10 entries in both files\". Name the journal: `S/run.journal.jsonl` line `seq 1, op init` (lib/run-store.mjs:48, :153-160).",
+   "severity": "green"
+  },
+  {
+   "statement": "Claims 3 and 4 do not say what the record review compares: the acknowledgement line form, the capture file name and the stamp fields.",
+   "file_line": "docs/retro/0021-cdp6-framework/briefs/live-p1-record-rv.md:20-21",
+   "evidence": "check-handback.mjs:55-58 requires line 1 `cdp6-contract: v<version> <hash>` and :15 line 2 `run: <run-id> task: D-1`. capture.mjs:85 names the file `D-1-devils-advocate-<agentId>.md`. The index line carries `id`, `sha256`, `agent_id`, `decision`, `verdict`, `validator` and `stamp` (capture.mjs:60-77). The decided stamp is `S/run.json` `decisions[\"D-1\"].stamps[].at` with status decided (run.mjs:469-472). A second handback without the acknowledgement passes without any capture (check-handback.mjs:49-53, 109-110).",
+   "proposal": "Name these fields in claims 3 and 4. Add that the capture's `validator` value and verdict are reported, and that a check-handback line with decision `deny` followed by one without `capture_sha256` means a handback that was not captured.",
+   "severity": "green"
+  },
+  {
+   "statement": "Stops: \"A failed check in step 5, a guard that blocks every call, or a missing run.json: … the way out is the owner's hand restore outside Claude Code\".",
+   "file_line": "docs/retro/0021-cdp6-framework/briefs/live-p1-runbook.md:36",
+   "evidence": "§11.3 item 3 limits the hand restore to a missing or unreadable `active-runs.json` or `run.json` (restore from the journal). A step-5 failure or a broken guard script needs no restore: the session is restarted without `--plugin-dir` (§1.4 items 5 and 8).",
+   "proposal": "Split the row: step-5 failure or broken guard → end the session, start without `--plugin-dir`, ledger line. Missing pointer or run.json → hand restore of `<data>/active-runs.json` or `S/run.json` from `S/run.journal.jsonl`, ledger line.",
+   "severity": "green"
+  }
+ ],
+ "covered": [
+  "Runbook prepared state checked against the files: settings-live.json sha256 = 780df1b922568aa38f5ed00e04d3215f2da5b6e253cc745129769c5e505b8699 (sha256sum 2026-11-04); scratch repo ~/cdp6-p1-scratch on branch main at 2fe8814, clean, README.md only; data directory ~/.claude/plugins/data/cdp6-core-inline/ exists and is empty; user-settings rules match ledger line 278 (8 permissions.deny rules, denyRead ~/.config/cdp6-core and ~/.claude/projects, denyWrite ~/.config/cdp6-core); backup settings.json.bak-stage1-live-20261104T205439 exists.",
+  "§1.4 items 5 and 8 / §11.3 item 3: plugin enabled per session only through --plugin-dir ~/cdp6-live/cdp6-core, never by an install (runbook step 4); the excludedCommands entry and the item-10 deny rules name that directory (settings-live.json:7, :43-44; user settings Edit/Write ~/cdp6-live/**).",
+  "§11.3 item 3: copy of the reviewed build with diff -r exit 0 recorded in ledger 0021 (line 272), re-checked in runbook step 1; brief claim 1 re-checks it (path issue listed separately).",
+  "§11.3 item 3 / §5.6: sandbox settings in admin-required form through a --settings file outside sandbox-writable paths (~/cdp6-live is denyWrite and outside the project and tmp); permissions.defaultMode default overrides the user-level auto (ledger 275); cdp5 plugins and playwright disabled for the live session (settings-live.json:48-54).",
+  "§5.6 items 9 and 10: owner rules in user settings, which `run.mjs init` checks; the code's missingRules (lib/user-settings.mjs:74-99) matches the entries present; the owner decision to let the orchestrator write them is recorded with decider and date (ledger 278); runbook step 11 removes only the two transcript entries.",
+  "§11.3 item 3 hand checks in the brief: intake origin `conversation` in S/idea/intake.md (code writes `origin:` at run.mjs:289); no WebFetch and no secret-path Read (claim 7); both directions verdicts↔hooks-fired with agent_id and capture_sha256 (claim 5; field names match lib/hooks-observed.mjs:24-32); no Bash write or link to the target: file (claim 8); reconciliation `not built` in the gate result (claim 6; run.mjs:25, :551, :582, :587); permission_mode check (claim 2); S/run.json written by init (claim 9); verdict (c) handled by object reject or left halted, no abandon (runbook step 8, claim 10; abandon is not in COMMANDS, run.mjs:627-637).",
+  "§11.3 stop table row \"live P1 run without contract acknowledgement or without captured devils-advocate verdict\" → stage 1 not passed and a retro: runbook Stops (:37); the brief reports the stage-1 verdict separately (:5).",
+  "§11.3 stop table row \"more than 48 runs after SL-2\": already crossed and decided by the owner (concept §0 items 28 and 29, ledger), so no document needs it.",
+  "§11.3 item 3 host-check facts (PATH, `<data>/probes/` absent, deletion events under --plugin-dir) are in the ledger amendment (line 276) and in runbook step 1 (empty data directory).",
+  "UC-01: mode single, class own, A0, origin conversation, one question at a time, owner-decided approach choice, set-autonomy with --tokens and --loops (command forms match run.mjs cmdDecision, cmdSetAutonomy, cmdObject and cmdExit); S and R paths match run.mjs:210-212 and :273-274 (class own, no --root); the skill is invoked as /cdp6-core:idea.",
+  "UC-11 step 1.3: removal of the transcript entries only after the ten-minute bound is addressed (runbook steps 10-11; wording issue listed separately); `never always allow` (step 7).",
+  "Ledger quotes in the brief verified: \"go always with your recommendation…\", \"do not fake it…\" and \"Yes so it\" are present."
+ ]
+}

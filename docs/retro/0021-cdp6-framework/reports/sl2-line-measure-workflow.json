@@ -1,0 +1,446 @@
+{
+ "mA_totals": {
+  "sl1": {
+   "tree": "plugins/cdp6-core@960146b",
+   "files": 39,
+   "lines": 6014,
+   "copied": 85,
+   "new_or_changed": 5929,
+   "test": {
+    "files": 17,
+    "lines": 3820,
+    "copied": 0,
+    "new_or_changed": 3820
+   },
+   "non_test": {
+    "files": 22,
+    "lines": 2194,
+    "copied": 85,
+    "new_or_changed": 2109
+   },
+   "estimate_upper": 1850,
+   "command": "node count.mjs <scratch> a map.txt (per file: git diff --no-index --numstat <c5 source> <file>, or /dev/null <file> when no source)"
+  },
+  "sl1_sl2": {
+   "tree": "plugins/cdp6-core@1d04d1a",
+   "files": 67,
+   "lines": 11606,
+   "copied": 287,
+   "new_or_changed": 11319,
+   "test": {
+    "files": 32,
+    "lines": 7956,
+    "copied": 0,
+    "new_or_changed": 7956
+   },
+   "non_test": {
+    "files": 35,
+    "lines": 3650,
+    "copied": 287,
+    "new_or_changed": 3363
+   },
+   "threshold": 3200,
+   "above_threshold_all": true,
+   "above_threshold_non_test": true,
+   "ratio_to_upper_sum_2650": {
+    "all": 4.2713,
+    "non_test": 1.2691
+   },
+   "command": "node count.mjs <scratch> b map.txt"
+  },
+  "sl2_by_difference": {
+   "new_or_changed": 5390,
+   "test": 4136,
+   "non_test": 1254,
+   "copied_added": 202,
+   "estimate_upper": 800,
+   "arithmetic": "11319-5929; 7956-3820; 3363-2109; 287-85"
+  },
+  "sl2_by_git_numstat": {
+   "command": "git diff --numstat 960146b 1d04d1a -- plugins/cdp6-core",
+   "files_changed": 51,
+   "insertions": 5735,
+   "deletions": 143,
+   "test": {
+    "insertions": 4212,
+    "deletions": 76
+   },
+   "non_test": {
+    "insertions": 1523,
+    "deletions": 67
+   },
+   "reconciliation": "5735 - 143 deletions - 202 copied lines in SL-2's new copied files = 5390 (test 4212-76=4136; non-test 1523-67-202=1254)"
+  }
+ },
+ "mB_totals": {
+  "sl1": {
+   "commit": "960146b",
+   "files": 39,
+   "lines": 6014,
+   "copied": 85,
+   "new_or_changed": 5929,
+   "test": {
+    "files": 17,
+    "lines": 3820,
+    "copied": 0,
+    "new_or_changed": 3820
+   },
+   "non_test": {
+    "files": 22,
+    "lines": 2194,
+    "copied": 85,
+    "new_or_changed": 2109
+   },
+   "command": "node scratchpad/linecount/scripts/count.mjs scratchpad/linecount/x named rows (per file: git diff --no-index --numstat <74d17c8 source> <cdp6 file>; files without source: git diff --no-index --numstat /dev/null <file>)",
+   "vs_estimate": "SL-1 upper estimate 1850; measured 5929 all, 2109 non-test"
+  },
+  "sl1_sl2": {
+   "commit": "1d04d1a",
+   "files": 67,
+   "lines": 11606,
+   "copied": 287,
+   "new_or_changed": 11319,
+   "test": {
+    "files": 32,
+    "lines": 7956,
+    "copied": 0,
+    "new_or_changed": 7956
+   },
+   "non_test": {
+    "files": 35,
+    "lines": 3650,
+    "copied": 287,
+    "new_or_changed": 3363
+   },
+   "command": "same script",
+   "vs_threshold_3200": "fires on all (11319) and on non-test alone (3363)",
+   "sensitivity_evident_sources": "also mapping plugin.json, hooks.json and 5 same-name CDP5 test files (node count.mjs x evident): all nc 11181, test nc 7874, non-test nc 3307 (copied 425); still above 3200 either way"
+  },
+  "sl2_by_difference": {
+   "new_or_changed": 5390,
+   "copied": 202,
+   "lines": 5592,
+   "test": {
+    "new_or_changed": 4136
+   },
+   "non_test": {
+    "new_or_changed": 1254,
+    "copied": 202
+   },
+   "computation": "1d04d1a minus 960146b totals from the same script (11319-5929; test 7956-3820; non-test 3363-2109)",
+   "vs_estimate": "SL-2 upper estimate 800; measured 5390 all, 1254 non-test",
+   "sensitivity_evident_sources": "all 5313, test 4080, non-test 1233"
+  },
+  "sl2_by_git_numstat": {
+   "insertions": 5735,
+   "deletions": 143,
+   "files": 51,
+   "test": {
+    "insertions": 4212,
+    "deletions": 76,
+    "files": 30
+   },
+   "non_test": {
+    "insertions": 1523,
+    "deletions": 67,
+    "files": 21
+   },
+   "command": "git diff --numstat 960146b 1d04d1a -- plugins/cdp6-core | node (sum, split by *.test.mjs, /test-support/, *-fixture.mjs); cross-check git diff --shortstat 960146b 1d04d1a -- plugins/cdp6-core: 51 files changed, 5735 insertions(+), 143 deletions(-)",
+   "note": "exceeds the by-difference figure by 345 because numstat against 960146b counts lines of the SL-2 copies (devils-advocate.md, check-handback.mjs, guard-spawn.mjs, inject-contract.mjs, contract.mjs, generate-contract.mjs, worker-contract SKILL.md/core.md) that are identical to their 74d17c8 sources as inserted"
+  }
+ },
+ "mA_tests": {
+  "decided": false,
+  "answer": "The concept text does not decide it. The counting rule and the §11.2/§11.3 rows speak of 'lines' of a 'CDP6 file' without including or excluding tests. §1.2 lists the hooks 'with one *.test.mjs each' among the files to be built, and the AC tables name test files. That suggests tests are part of the build, but no sentence ties them to the 'New or changed lines' column or to the 3200 threshold. Under either reading the row fires: all files 11319 > 3200, non-test files 3363 > 3200.",
+  "quote": "§11.2 line 1648: \"Counting rule for lines: a copied line is a line of a CDP6 file that is identical to a line of its named CDP5 source at 74d17c8, measured per copied file with `git diff --no-index --numstat <cdp5 file> <cdp6 file>` (copied = source lines minus deleted; new or changed = inserted); a file without a CDP5 source counts all its lines as new.\" Table cells: SL-1 \"1250–1850\", SL-2 \"450–800\" (lines 1655, 1656). §11.3 line 1705: \"new or changed lines of SL-1 and SL-2 above 3200 (1.2 × the upper estimates of the table, 1850 + 800; ...), or inserted per final lines above 1.5\". §1.2 hooks row: \"... `trajectory.mjs` with one `*.test.mjs` each\"."
+ },
+ "mB_tests": {
+  "decided": false,
+  "answer": "The concept text does not decide whether the §11.2 estimates (SL-1 1250–1850, SL-2 450–800) or the 3200 threshold (1.2 × (1850 + 800)) include test files. The counting rule itself has no test exclusion: it applies to every CDP6 file, so a literal measurement includes tests; §1.2 lists the hook files to be built 'with one `*.test.mjs` each'. The v0.4.6 note prices '+250–350 lines with 18 new fire-test titles' without saying whether those lines are tests. Outside the concept, r1-pessimistic-realist (~/cdp6-scratch-backup-2026-10-28/d21/cdp6/r1-pessimistic-realist.md lines 3 and 5) built its reference class with tests included: 12982 final CDP5 lines, and 'copied CDP5 files ≈4433 lines (incl. tests, agents, contract) ... = 54 % of the 8200 lower bound'. It also notes '\"Changed lines\" undefined for copies'. That reads the plan's line figures as comparable to counts that include tests, but it is not concept text. Either way the stop row fires: all files 11319, non-test only 3363, both above 3200.",
+  "quote": "Counting rule for lines: a copied line is a line of a CDP6 file that is identical to a line of its named CDP5 source at 74d17c8, measured per copied file with `git diff --no-index --numstat <cdp5 file> <cdp6 file>` (copied = source lines minus deleted; new or changed = inserted); a file without a CDP5 source counts all its lines as new. (§11.2, concept line 1648) | new or changed lines of SL-1 and SL-2 above 3200 (1.2 × the upper estimates of the table, 1850 + 800; 2750 before v0.4.6, as the v0.3 figure 2300 was for the smaller scope), or inserted per final lines above 1.5 (§11.3, line 1705)"
+ },
+ "mA_churn": {
+  "measurable": false,
+  "reason": "Git cannot measure the churn exactly. SL-1 and SL-2 each landed as a single commit (960146b^..960146b adds 6014 lines, 39 files, with no earlier cdp6-core history; 960146b..1d04d1a is 1 commit). The sl2-pre-* snapshots cover only the stretch from the end of the first fix (run 41, plus the orchestrator's C9 contract change) to the final tree. Missing: the trees after T1 (run 32), T2 (run 34), T3 (run 36) and before the first fix. Ledger line 210 says the T3 copy in .worktrees/sl1-audit was replaced by the fixed tree at 01:30. Edits a worker made and then undid inside one run are also invisible. A lower bound can be measured.",
+  "method": "Lower bound. Run git diff --no-index --no-renames --numstat over consecutive trees in ledger order and sum the inserted lines: 960146b-tree -> sl2-pre-fix2 (ledger 217/220) -> sl2-pre-tmp (before run 45, ledger 223) -> sl2-pre-fix3 (229) -> sl2-pre-fix4 (236) -> sl2-pre-build (245) -> sl2-pre-fix5 (250) -> sl2-pre-fix6 (255) -> sl2-pre-fix7 (260) -> sl2-pre-fix8 (265) -> 1d04d1a-tree. Inserted per step: 4023, 543, 113, 255, 229, 581, 120, 28, 35, 17; sum 5944 (deleted 352). The 960146b->1d04d1a direct numstat is 5735/143, so the chain endpoints are consistent. Stage 1 (SL-1 + SL-2): inserted = 6014 (SL-1 commit, no churn visible) + 5944 = 11958; final lines = 11606; ratio 1.0303 (lower bound). SL-2 alone: 5944 / 5735 lines SL-2 inserted into the final tree = 1.0364, or 5944 / 5592 net growth = 1.0629. Both bounds are below the 1.5 stop value, but because they are lower bounds they cannot clear the condition.",
+  "inserted": 11958,
+  "final": 11606,
+  "ratio": 1.0303
+ },
+ "mB_churn": {
+  "measurable": true,
+  "method": "Partly measurable, and only as a lower bound. Ran git diff --no-index --numstat on consecutive full trees in ledger order and summed the insertions: 960146b extract -> .worktrees/sl2-pre-fix2 (01:56:54, rebuilt 09:28:29) -> sl2-pre-tmp (between run 44 and run 45; the ledger gives no copy time, only the diff baseline of the 09:44:42 check) -> sl2-pre-fix3 (09:58:12) -> sl2-pre-fix4 (10:27:26) -> sl2-pre-build (12:54:00) -> sl2-pre-fix5 (13:32:54) -> sl2-pre-fix6 (16:03:10) -> sl2-pre-fix7 (18:01:53) -> sl2-pre-fix8 (19:42:29) -> 1d04d1a extract. Command: node scratchpad/linecount/scripts/churn.mjs <dirs in that order>. Per step: 4023, 543, 113, 255, 229, 581, 120, 28, 35, 17 (deletions 92, 58, 84, 18, 34, 51, 7, 5, 2, 1). Why it is a lower bound: (a) no snapshot exists between 960146b and pre-fix2, so the first SL-2 build and the first fix fall into one step of 4023; (b) edits inside a single worker run are invisible; (c) SL-1 is one commit (960146b) with no snapshots, so its churn cannot be measured from git; (d) pre-fix2 was rebuilt after the /tmp loss from sl1-audit plus the C9 contract files, and that provenance can no longer be checked: diff -rq sl1-audit/plugins/cdp6-core sl2-pre-fix2 exits 1 today because sl1-audit has changed since. Denominator: following the r1-pessimistic-realist reference class (CDP5 history insertions / final tree lines, 16818/12982 = 1.30), final lines for SL-2 = the net SL-2 insertions 960146b..1d04d1a (5735). Splits: non-test 1647/1523 = 1.0814, test 4297/4212 = 1.0202. SL-1+SL-2, counting SL-1 at its single commit: (6014 + 5944) / 11606 = 11958/11606 = 1.0303. Every measured ratio is below 1.5.",
+  "inserted": 5944,
+  "final": 5735,
+  "ratio": 1.0364
+ },
+ "mA_notes": [
+  "Source mapping follows the §1.3 rows strictly: 12 CDP6 files have a named CDP5 source (4 at 960146b: bootstrap, guard-shell<-guard-bash, data-dir, agent-name; plus 8 more at 1d04d1a: guard-spawn, check-handback, inject-contract, lib/contract, generate-contract, worker-contract SKILL.md and core.md, agents/devils-advocate.md). Every other file counts in full as new.",
+  "No test file has a named source: §1.3 names no CDP5 *.test.mjs. A best-match scan of every CDP6 file against every same-extension CDP5 file at 74d17c8 (best.mjs) gave only background overlap for tests, for example 5 to 69 'identical' lines of brackets and imports out of hundreds. Pairing tests with their CDP5 namesakes would move little: check-handback.test 35 copied, guard-shell.test vs guard-bash.test 17, guard-spawn.test 11, contract.test 11, data-dir.test 8.",
+  "Sensitivity for the §1.2 own files that §1.3 does not name. If hooks.json and plugin.json counted cdp5-agents' versions as their source, non-test new-or-changed would drop by 35 at 960146b (hooks.json 32 copied, plugin.json 3), giving SL-1 non-test 2074, and by 56 at 1d04d1a (53+3), giving SL-1+SL-2 non-test 3307. That is still above 3200.",
+  "check-handback.mjs: §1.3 lists four CDP5 parts (check-ack, check-handback, claims, handback) for check-stop.mjs and check-handback.mjs together. The same-name file was used, giving 21 copied and 136 new. Measured against lib/handback.mjs instead, numstat is 140/40, i.e. 17 copied.",
+  "guard-shell.mjs has its named source guard-bash.mjs (690 lines) but shares only 29 lines with it, because SL-1 builds only the run.mjs rules.",
+  "Measured against the estimates: SL-1 non-test 2109 vs upper 1850 (1.14x), all files 5929. SL-2 non-test 1254 vs upper 800 (1.57x), all files 5390. SL-1+SL-2 non-test 3363 and all 11319, both above 3200. The §11.3 stop row fires under either reading of test inclusion.",
+  "Cross-check with the ledger: the row at 20:41:59 gives '3718 without *.test.mjs files'. That equals the non-test lines 3650 plus capture-fixture.mjs 38 plus test-support/temp-dir.mjs 30, i.e. copied lines not subtracted and only *.test.mjs excluded.",
+  "The churn chain endpoints were checked: the 960146b->1d04d1a numstat of the extracted trees equals git's (5735/143), and no snapshot holds a file name outside the final 67-file set. The ledger records no copy event for sl2-pre-tmp. Its place (after run 44, before run 45) comes from ledger line 223, 'diff -r against .worktrees/sl2-pre-tmp: only *.test.mjs files differ plus the new test-support/'. The pre-fix2 snapshot was rebuilt after the host outage (ledger 220) from sl1-audit plus the two C9 contract files.",
+  "Scratch files: <scratchpad>/linecount/ (a/, b/, c5/, map.txt, count.mjs, chain.mjs, best.mjs, a.tsv, b.tsv, sl2.numstat). Nothing in the repository was written.",
+  "The ledger file was read from the working tree, which has uncommitted changes against 3c57688."
+ ],
+ "mB_notes": [
+  "Scratch root: <scratchpad>/linecount (extracts in x/, scripts in scripts/count.mjs and scripts/churn.mjs, per-file rows in files.json). Nothing in the repo was written.",
+  "Named sources (§1.3) applied to 12 CDP6 files: worker-contract SKILL.md and core.md, lib/contract.mjs, scripts/generate-contract.mjs and hooks/inject-contract.mjs (Worker contract row); hooks/check-handback.mjs (check-ack/check-handback/claims/handback row, same-name file chosen); hooks/guard-shell.mjs <- guard-bash.mjs; hooks/guard-spawn.mjs; lib/data-dir.mjs; lib/agent-name.mjs; hooks/bootstrap.mjs; agents/devils-advocate.md. All sources are under plugins/cdp5-agents at 74d17c8; none is in cdp5-gates.",
+  "No source for: test files (§1.3 names none), plugin.json and hooks.json (not in §1.3), checks/registry.json (the cdp5-gates row is 'reference', not copy), skills/idea/SKILL.md (orchestrate is 'replace').",
+  "Copied lines measured are small: SL-1 85, SL-1+SL-2 287. The concept's planning figure is 'SL-2 copies 1296' (r1-PR, incl. tests). The builders rewrote most of the copied files: guard-shell keeps 29 of 690 guard-bash lines, and check-handback keeps 21 of 75.",
+  "Ledger row 2026-11-04T20:41:59 (11606 insertions, 3718 without *.test.mjs, via git diff --shortstat 960146b^ 1d04d1a) is consistent with this extract: 11606 total lines; 3650 non-test + 38 capture-fixture.mjs + 30 test-support/temp-dir.mjs = 3718. The counting rule lowers it to 11319 (all) and 3363 (non-test, which also excludes the fixture and test-support).",
+  "Stop row §11.3: new or changed lines of SL-1+SL-2 is 11319 (all) or 3363 (non-test). Both are above 3200, so the row fires whichever reading of the estimates is taken. The churn limb (1.5) does not fire on the measurable lower bound of 1.036 (SL-2) or 1.030 (SL-1+SL-2).",
+  "The ledger working copy is modified (9 lines uncommitted vs HEAD 3c57688). The snapshot rows used (217-266) are in the committed version: HEAD has 14 'sl2-pre-' mentions.",
+  "Line counts are git numstat counts, which also count a final line without a newline. The sum over all files at 1d04d1a equals the shortstat insertions of 960146b^..1d04d1a (11606)."
+ ],
+ "est": {
+  "reconciliation": "A and B agree on every per-file figure, every CDP5 source assignment, every test classification and every total. My recount agrees with both. Script: <scratchpad>/reconcile/count.mjs. It works on `git archive` extracts of 960146b, 1d04d1a and 74d17c8 plugins/cdp5-agents, runs `git diff --no-index --numstat <src> <file>` per file and `/dev/null` for files with no source, and asserts copied + new = file lines. It returned 960146b {all 39/6014/85/5929, test 17/3820/0/3820, non-test 22/2194/85/2109} and 1d04d1a {all 67/11606/287/11319, test 32/7956/0/7956, non-test 35/3650/287/3363}, as [files, lines, copied, new].\n\nSource mapping: 12 files have a source named in §1.3, all under cdp5-agents. At 960146b these are bootstrap, guard-shell<-guard-bash, data-dir and agent-name. At 1d04d1a eight more join: guard-spawn, check-handback, inject-contract, lib/contract, generate-contract, worker-contract SKILL.md, core.md and agents/devils-advocate.md. The per-pair numstat is identical to both A and B (for example guard-bash->guard-shell 80/661 on 690 source lines, so 29 copied; check-handback 136/54 on 75, so 21 copied). Every other file has no named source. That is right: §1.3 names no test file, plugin.json or hooks.json, the cdp5-gates row says 'reference', and orchestrate says 'replace'.\n\nTest classification: A and B both treat lib/capture-fixture.mjs (38 lines) and test-support/temp-dir.mjs (30 lines) as test files. Confirmed: a grep over the 1d04d1a tree finds only *.test.mjs files importing them, and hooks.json and plugin.json do not name them.\n\nThe only differences are in how the churn is described and in the sensitivity variants:\n(1) Churn. A says 'not measurable', B says 'partly measurable'. Both have the same numbers, and my rerun of the snapshot chain gives 4023, 543, 113, 255, 229, 581, 120, 28, 35, 17 = 5944. Agreed reading: only a lower bound can be measured.\n(2) SL-2 churn denominator. A gives 5735 and 5592, B gives 5735. The stop row is about SL-1 plus SL-2 together, so the deciding figure is (6014 + 5944) / 11606 = 1.0303.\n(3) Sensitivity variants. A maps only plugin.json and hooks.json; B also maps 5 same-name test files. Neither variant is adopted, because §1.3 names none of those files. Both give 3307 non-test lines at 1d04d1a, still above 3200.\n\nCross-checks:\n- `git diff --shortstat 960146b 1d04d1a -- plugins/cdp6-core` gives 51 files, 5735 insertions, 143 deletions.\n- `git diff --shortstat 960146b^ 1d04d1a -- plugins/cdp6-core` gives 67 files, 11606 insertions; 3718 of those are outside *.test.mjs, and 3718 = 3650 + 38 + 30.",
+  "agreed_totals": {
+   "basis": "concept §11.2 counting rule; sources named in §1.3 at 74d17c8; test = *.test.mjs, test-support/, lib/capture-fixture.mjs",
+   "SL-1 (960146b)": {
+    "files": 39,
+    "lines": 6014,
+    "copied": 85,
+    "new_or_changed_all": 5929,
+    "new_or_changed_non_test": 2109,
+    "new_or_changed_test": 3820,
+    "non_test_files": 22,
+    "test_files": 17
+   },
+   "SL-2 (960146b..1d04d1a, by difference)": {
+    "copied_added": 202,
+    "new_or_changed_all": 5390,
+    "new_or_changed_non_test": 1254,
+    "new_or_changed_test": 4136,
+    "arithmetic": "11319-5929; 3363-2109; 7956-3820; 287-85"
+   },
+   "SL-1+SL-2 (1d04d1a)": {
+    "files": 67,
+    "lines": 11606,
+    "copied": 287,
+    "new_or_changed_all": 11319,
+    "new_or_changed_non_test": 3363,
+    "new_or_changed_test": 7956,
+    "non_test_files": 35,
+    "test_files": 32
+   },
+   "estimates_§11.2": {
+    "SL-1": "1250–1850",
+    "SL-2": "450–800",
+    "SL-1+SL-2": "1700–2650, midpoint 2175"
+   },
+   "raw_git_for_reference": {
+    "960146b^..1d04d1a insertions": 11606,
+    "of which outside *.test.mjs": 3718,
+    "960146b..1d04d1a": "5735 insertions, 143 deletions"
+   }
+  },
+  "stop_row": {
+   "fires_by_lines": "Yes. With test files counted, SL-1+SL-2 has 11319 new or changed lines; without them it has 3363. Both are above 3200, so the row fires under either reading. The text supports counting test files. The counting rule excludes no file: 'a copied line is a line of a CDP6 file that is identical to a line of its named CDP5 source at 74d17c8 ... a file without a CDP5 source counts all its lines as new' (§11.2, line 1648). The one place where the concept prices lines and names the test scope includes tests: 'no route: 0 lines against about 60 in `run.mjs` and its tests' (§17 table, line 1816). §1.2 also lists the test files among the 'files to be built': 'with one `*.test.mjs` each' (line 64). The concept does not say whether the author meant the §11.2 estimates to include tests.",
+   "fires_by_churn": "Not established either way. The measurable lower bound is (6014 + 5944) / 11606 = 1.0303 for SL-1+SL-2, and 5944 / 5735 = 1.0364 for SL-2 alone. Both are below 1.5, but a lower bound cannot rule out a value above 1.5. SL-1 is a single commit with no snapshots, no snapshot exists between 960146b and sl2-pre-fix2, and edits made within one run are not visible.",
+   "evidence": "Stop row, §11.3 line 1705: 'new or changed lines of SL-1 and SL-2 above 3200 (1.2 × the upper estimates of the table, 1850 + 800; ...), or inserted per final lines above 1.5 | re-estimate the line figures of stage 2 with the measured ratio'. Counts come from count.mjs in <scratchpad>/reconcile/. The churn chain was run with `git diff --no-index --no-renames --numstat` over 960146b -> .worktrees/sl2-pre-{fix2,tmp,fix3,fix4,build,fix5,fix6,fix7,fix8} -> 1d04d1a and sums to 5944 inserted lines. The row fires on lines; its action is the stage-2 re-estimate."
+  },
+  "ratio": {
+   "definition": "Measured ratio = new or changed lines of SL-1+SL-2 by the counting rule, test files included, divided by the upper sum of the §11.2 estimates for SL-1 and SL-2: 11319 / (1850 + 800) = 11319 / 2650. The estimate range for SL-1+SL-2 is 1700–2650 (SL-1 1250–1850, SL-2 450–800), with midpoint 2175. I divide by the upper bound because the stop row builds its threshold on that bound ('1.2 × the upper estimates of the table, 1850 + 800'). Measurement and stop row therefore share one base, and the upper bound gives the smaller, conservative factor. Test files are included because the counting rule excludes no file. The factor is applied to both bounds of each stage-2 range.",
+   "value": 4.2713,
+   "alternatives": [
+    "Midpoint, test files included: 11319 / 2175 = 5.2041. Stage 2 becomes 42154–67914.",
+    "Upper bound, test files excluded: 3363 / 2650 = 1.2691. Stage 2 becomes 10279–16561.",
+    "Midpoint, test files excluded: 3363 / 2175 = 1.5462. Stage 2 becomes 12524–20178."
+   ]
+  },
+  "stage2": [
+   {
+    "slice": "SL-2b handback checks",
+    "estimate_now": "200–400",
+    "reestimate": "854–1709",
+    "arithmetic": "200 × 4.2713 = 854; 400 × 4.2713 = 1709 (non-test alternative × 1.2691: 254–508)"
+   },
+   {
+    "slice": "SL-3 spawn, brief, messages",
+    "estimate_now": "750–1150",
+    "reestimate": "3203–4912",
+    "arithmetic": "750 × 4.2713 = 3203; 1150 × 4.2713 = 4912 (non-test: 952–1459)"
+   },
+   {
+    "slice": "SL-4 files, shell, network, sandbox",
+    "estimate_now": "1100–1800",
+    "reestimate": "4698–7688",
+    "arithmetic": "1100 × 4.2713 = 4698; 1800 × 4.2713 = 7688 (non-test: 1396–2284)"
+   },
+   {
+    "slice": "SL-5 exploration and concept gates",
+    "estimate_now": "1000–1600",
+    "reestimate": "4271–6834",
+    "arithmetic": "1000 × 4.2713 = 4271; 1600 × 4.2713 = 6834 (non-test: 1269–2030)"
+   },
+   {
+    "slice": "SL-6 refinement and implementation",
+    "estimate_now": "1200–1900",
+    "reestimate": "5126–8116",
+    "arithmetic": "1200 × 4.2713 = 5126; 1900 × 4.2713 = 8116 (non-test: 1523–2411)"
+   },
+   {
+    "slice": "SL-7 verification, retro, loop back",
+    "estimate_now": "900–1400",
+    "reestimate": "3844–5980",
+    "arithmetic": "900 × 4.2713 = 3844; 1400 × 4.2713 = 5980 (non-test: 1142–1777)"
+   },
+   {
+    "slice": "SL-8 autonomy and owner gate",
+    "estimate_now": "650–1100",
+    "reestimate": "2776–4698",
+    "arithmetic": "650 × 4.2713 = 2776; 1100 × 4.2713 = 4698 (non-test: 825–1396)"
+   },
+   {
+    "slice": "SL-9 host check",
+    "estimate_now": "450–750",
+    "reestimate": "1922–3203",
+    "arithmetic": "450 × 4.2713 = 1922; 750 × 4.2713 = 3203 (non-test: 571–952)"
+   },
+   {
+    "slice": "SL-10 self-test and release",
+    "estimate_now": "850–1350",
+    "reestimate": "3631–5766",
+    "arithmetic": "850 × 4.2713 = 3631; 1350 × 4.2713 = 5766 (non-test: 1079–1713)"
+   },
+   {
+    "slice": "SL-11 team mode (only under rule A)",
+    "estimate_now": "1000–1600",
+    "reestimate": "4271–6834",
+    "arithmetic": "1000 × 4.2713 = 4271; 1600 × 4.2713 = 6834 (non-test: 1269–2030)"
+   }
+  ],
+  "stage2_total": {
+   "now": "8100–13050 (lower bounds 200+750+1100+1000+1200+900+650+450+850+1000; upper bounds 400+1150+1800+1600+1900+1400+1100+750+1350+1600); 7100–11450 without SL-11",
+   "reestimate": "34598–55741 (8100 × 4.2713 and 13050 × 4.2713, unrounded factor 11319/2650; the per-slice rounded figures sum to 34596–55740); 30326–48907 without SL-11. Non-test alternative: 10279–16561"
+  },
+  "concept_text": "Measured stage-1 lines (ledger 0021, 2026-11-04). The lines were counted with the counting rule above, using the sources named in §1.3 at 74d17c8; twelve CDP6 files have such a source, and every other file, tests included, counts in full. The SL-1 build (`plugins/cdp6-core` at 960146b, 39 files, 6014 lines) has 85 copied and 5929 new or changed lines, 2109 of them outside test files. The SL-1 plus SL-2 build (1d04d1a, 67 files, 11606 lines) has 287 copied and 11319 new or changed lines, 3363 outside test files; test files are `*.test.mjs`, `test-support/` and `lib/capture-fixture.mjs`. SL-2 alone, by difference, has 202 copied and 5390 new or changed lines, 1254 outside test files. Commands: `git archive <commit> plugins/cdp6-core` and `git archive 74d17c8 plugins/cdp5-agents`, then `git diff --no-index --numstat <cdp5 file> <cdp6 file>` for each copied file and `git diff --no-index --numstat /dev/null <cdp6 file>` for every other file. Cross-checks: `git diff --shortstat 960146b^ 1d04d1a -- plugins/cdp6-core` gives 11606 insertions, and `git diff --shortstat 960146b 1d04d1a -- plugins/cdp6-core` gives 5735 insertions and 143 deletions. Both counts are above the threshold of the §11.3 stop row \"new or changed lines of SL-1 and SL-2 above 3200 (1.2 × the upper estimates of the table, 1850 + 800 ...), or inserted per final lines above 1.5\", so the row fires and its action applies: \"re-estimate the line figures of stage 2 with the measured ratio\". The counting rule excludes no file, so the ratio counts test files. It uses the base of the stop row's threshold: measured ratio = 11319 / (1850 + 800) = 4.27. Each stage-2 range is re-estimated by multiplying both bounds by 4.2713 and rounding: SL-2b 854–1709, SL-3 3203–4912, SL-4 4698–7688, SL-5 4271–6834, SL-6 5126–8116, SL-7 3844–5980, SL-8 2776–4698, SL-9 1922–3203, SL-10 3631–5766, SL-11 4271–6834. Stage 2 thus goes from 8100–13050 to 34598–55741 lines, or 30326–48907 without SL-11. Outside test files the ratio is 3363 / 2650 = 1.27, and stage 2 becomes 10279–16561. Against the midpoint 2175 of the SL-1 and SL-2 estimates, the ratios are 5.20 with tests and 1.55 without. The measured copied lines are much lower than planned: 202 in SL-2 against the planned 1296. Inserted lines, summed over the SL-2 snapshots `.worktrees/sl2-pre-*` in ledger order with `git diff --no-index --no-renames --numstat` per step, are 5944. SL-1 plus SL-2 therefore inserted at least 6014 + 5944 = 11958 lines for 11606 final lines, a ratio of 1.03. This is only a lower bound, because SL-1 has a single commit and no snapshots and edits within a run are not visible, so the churn limb of the stop row neither fires nor is cleared.",
+  "ledger_correction": "Correction by the orchestrator to the row of 2026-11-04T20:41:59+01:00 on the stop row \"new or changed lines of SL-1 and SL-2 above 3200\". That row measured with `git diff --shortstat 960146b^ 1d04d1a -- plugins/cdp6-core`. That command counts every line of the final tree as inserted (11606 in 67 files), and its figure without `*.test.mjs` (3718) still includes the test helpers `lib/capture-fixture.mjs` (38 lines) and `test-support/temp-dir.mjs` (30 lines). The row did not apply the counting rule of concept §11.2, which counts lines identical to the named CDP5 source at 74d17c8 as copied. Measured by the counting rule, per file with `git diff --no-index --numstat` against the sources named in §1.3 (two independent measurements and a reconciling recount agree): SL-1 plus SL-2 has 287 copied and 11319 new or changed lines, of which 3363 are outside test files (3718 − 287 copied − 68 test-helper lines). SL-1 has 85 copied and 5929 new or changed lines (2109 outside test files); SL-2 has 202 copied and 5390 new or changed lines (1254 outside test files). The finding stands: the row fires on lines under either reading (11319 and 3363 are both above 3200). Its action is the stage-2 re-estimate with the measured ratio 11319 / 2650 = 4.27 (3363 / 2650 = 1.27 outside test files). The churn limb has a measured lower bound of 11958 / 11606 = 1.03 and remains undecided.",
+  "open": [
+   "Whether the §11.2 estimates and the 3200 threshold were meant to include test files. The concept text supports including them (the counting rule excludes no file; line 1816 says 'about 60 in `run.mjs` and its tests'), but it never says so for the line column. The answer moves the ratio between 4.27 and 1.27 and stage 2 between 34598–55741 and 10279–16561. The decider is open (owner or concept author).",
+   "Which divisor to use: upper bound 2650 (proposed, because it is the stop row's base) or midpoint 2175 (ratio 5.20, or 1.55 without tests). The decider is open.",
+   "Churn above 1.5 cannot be ruled out. Only a lower bound of 1.03 is measurable: SL-1 has no snapshots, no tree exists between 960146b and sl2-pre-fix2, and the provenance of sl2-pre-fix2 cannot be re-checked, because `.worktrees/sl1-audit` has changed since it was rebuilt (B: diff -rq exits 1).",
+   "Whether the stop row's re-estimate also reaches the run column, the whole-plan forecast and the budget. The row names only 'the line figures of stage 2'.",
+   "The planned copied-line figure is far from the measurement. The concept says 'Copied lines: about 4433' and 'SL-2 1296'; SL-2 measured 202 copied lines. The sentence 'Copied lines stay about 4433' needs revisiting, and the SL-4 figure of 1677 is untested.",
+   "Source choices that move the result only a little: check-handback.mjs uses the same-name CDP5 file (21 copied lines; 17 if lib/handback.mjs is used instead). If plugin.json and hooks.json were mapped to their cdp5-agents counterparts, non-test new or changed lines at 1d04d1a would drop by 56 to 3307. §1.3 names none of these files.",
+   "In the concept, 3200 is presented as 1.2 × (1850 + 800), which is 3180. The difference is only rounding and does not change the outcome.",
+   "Ledger row 271 (20:41:59) exists only in the uncommitted working copy of docs/retro/0021-cdp6-framework.ledger.md, which has 9 lines not in HEAD 3c57688. The correction should land in the same or the next ledger commit.",
+   "Nothing in the repository was written. The concept and ledger edits are left to the orchestrator."
+  ]
+ },
+ "ver": {
+  "verdict": "holds-with-corrections",
+  "checks": [
+   {
+    "claim": "Totals at 960146b: all 39/6014/85/5929, test 17/3820/0/3820, non-test 22/2194/85/2109",
+    "result": "confirmed",
+    "evidence": "Independent script <scratchpad>/verify/count.mjs on git archive extracts: 960146b {all:[39,6014,85,5929], test:[17,3820,0,3820], non:[22,2194,85,2109]}; copied+new = file lines for every mapped file, /dev/null numstat = wc lines for every other file."
+   },
+   {
+    "claim": "Totals at 1d04d1a: all 67/11606/287/11319, test 32/7956/0/7956, non-test 35/3650/287/3363",
+    "result": "confirmed",
+    "evidence": "Same script: 1d04d1a {all:[67,11606,287,11319], test:[32,7956,0,7956], non:[35,3650,287,3363]}."
+   },
+   {
+    "claim": "Per-file figures, three files with a CDP5 source",
+    "result": "confirmed",
+    "evidence": "Manual wc + git diff --no-index --numstat: check-handback.mjs src 75, dst 157, 136/54 -> 21 copied, 136 new; guard-spawn.mjs src 23, dst 79, 70/14 -> 9 copied, 70 new; lib/contract.mjs src 142, dst 60, 9/91 -> 51 copied, 9 new. All three are non-test, so they count in both the with-test and without-test totals. guard-bash->guard-shell is 80/661 on 690 -> 29 copied, as claimed."
+   },
+   {
+    "claim": "Per-file figures, three files without a source",
+    "result": "confirmed",
+    "evidence": "scripts/run.mjs 672 = numstat 672/0 (non-test); scripts/run.test.mjs 1851 = 1851/0 (test); lib/capture.mjs 126 = 126/0 (non-test). Test helpers lib/capture-fixture.mjs 38 and test-support/temp-dir.mjs 30 are also confirmed."
+   },
+   {
+    "claim": "Test classification of lib/capture-fixture.mjs and test-support/temp-dir.mjs",
+    "result": "confirmed",
+    "evidence": "grep -rl 'capture-fixture|temp-dir' over the 1d04d1a tree lists only *.test.mjs files (23 of them). No .json or .md file names either helper."
+   },
+   {
+    "claim": "git diff --numstat 960146b 1d04d1a insertion sum 5735, deletions 143, 51 files",
+    "result": "confirmed",
+    "evidence": "awk sum over git diff --numstat 960146b 1d04d1a gives 51 5735 143, both for the whole repo and limited to plugins/cdp6-core. No file outside cdp6-core changed."
+   },
+   {
+    "claim": "960146b^..1d04d1a gives 67 files / 11606 insertions, 3718 outside *.test.mjs, 3718 = 3650+38+30",
+    "result": "confirmed",
+    "evidence": "git diff --shortstat gives 67 files changed, 11606 insertions(+). numstat excluding .test.mjs sums to 3718. 3650+68 = 3718, and 3718-287-68 = 3363."
+   },
+   {
+    "claim": "§11.2 table figures SL-1 1250–1850, SL-2 450–800, SL-2b 200–400, SL-3 750–1150, SL-4 1100–1800, SL-5 1000–1600, SL-6 1200–1900, SL-7 900–1400, SL-8 650–1100, SL-9 450–750, SL-10 850–1350, SL-11 1000–1600",
+    "result": "confirmed",
+    "evidence": "Lines 1654–1665 of konzept-cdp6.md, 'New or changed lines' column, match exactly. Line 1627 confirms that stage 2 = 'SL-2b to SL-11'."
+   },
+   {
+    "claim": "Stop row text and counting-rule quotes (lines 1648, 1705, 1816, 64)",
+    "result": "confirmed",
+    "evidence": "Line 1705: 'new or changed lines of SL-1 and SL-2 above 3200 (1.2 × the upper estimates of the table, 1850 + 800; ...), or inserted per final lines above 1.5 | re-estimate the line figures of stage 2 with the measured ratio'. Line 1648 is the counting rule as quoted, and it also says 'Copied lines: about 4433 (round-1 measurement: SL-2 1296, SL-4 1677 ...)'. Line 1816 ends 'no route: 0 lines against about 60 in `run.mjs` and its tests'. Line 64 contains 'with one `*.test.mjs` each'."
+   },
+   {
+    "claim": "SL-2 by difference: 5390 / 1254 / 4136 / 202",
+    "result": "confirmed",
+    "evidence": "node: 11319-5929=5390, 3363-2109=1254, 7956-3820=4136, 287-85=202."
+   },
+   {
+    "claim": "Ratios 4.2713, 1.2691, 5.2041, 1.5462; 1.2×2650=3180",
+    "result": "confirmed",
+    "evidence": "node: 11319/2650=4.2713, 3363/2650=1.2691, 11319/2175=5.2041, 3363/2175=1.5462, 1.2*2650=3180."
+   },
+   {
+    "claim": "Per-slice stage-2 figures 'multiplying both bounds by 4.2713 and rounding'",
+    "result": "refuted",
+    "evidence": "With 4.2713, SL-6 upper is 1900 × 4.2713 = 8115.47 -> 8115, not the 8116 in the draft. 8116 comes only from the unrounded factor 11319/2650 (8115.51). The other 19 bounds come out the same either way."
+   },
+   {
+    "claim": "Stage-2 total 34598–55741 '(8100 × 4.2713 and 13050 × 4.2713)', and 30326–48907 without SL-11",
+    "result": "refuted",
+    "evidence": "8100 × 4.2713 = 34597.53 -> 34598, but 13050 × 4.2713 = 55740.47 -> 55740, not 55741. 11450 × 4.2713 = 48906.39 -> 48906, not 48907. 55741 and 48907 come only from the unrounded 11319/2650 (55740.74, 48906.62). The per-slice rounded sum 34596–55740 is confirmed."
+   },
+   {
+    "claim": "Non-test stage 2 10279–16561; midpoint alternatives 42154–67914 and 12524–20178",
+    "result": "confirmed",
+    "evidence": "node: 8100*3363/2650=10279.36, 13050*3363/2650=16561.19, 8100*11319/2175=42153.5, 13050*11319/2175=67914, 8100*3363/2175=12524.3, 13050*3363/2175=20178."
+   },
+   {
+    "claim": "Churn chain 4023,543,113,255,229,581,120,28,35,17 = 5944; 11958/11606 = 1.0303; 5944/5735 = 1.0364",
+    "result": "confirmed",
+    "evidence": "Re-ran git diff --no-index --no-renames --numstat 960146b extract -> .worktrees/sl2-pre-{fix2,tmp,fix3,fix4,build,fix5,fix6,fix7,fix8} -> 1d04d1a extract. Got exactly those 10 values and no binary rows. The ledger order of the snapshots was taken as given, not re-derived."
+   },
+   {
+    "claim": "SL-1 is a single commit",
+    "result": "confirmed",
+    "evidence": "git log 960146b -- plugins/cdp6-core shows only 960146b on that path; e5f3cf4 (SL-0 kit) is on another branch. The shortstat 960146b^..1d04d1a has 0 deletions, so cdp6-core is absent at 960146b^."
+   },
+   {
+    "claim": "Sensitivity variants: plugin.json + hooks.json mapped gives 3307; check-handback against lib/handback.mjs gives 17",
+    "result": "confirmed",
+    "evidence": "plugin.json src 7, 4/4 -> 3 copied; hooks.json src 72, 21/19 -> 53 copied; 3363-56=3307. lib/handback.mjs src 57, 140/40 -> 17 copied."
+   },
+   {
+    "claim": "Ledger row 271 (20:41:59) exists only uncommitted; 9 lines not in HEAD 3c57688",
+    "result": "confirmed",
+    "evidence": "HEAD = 3c57688. git diff --numstat HEAD on the ledger gives 9 0. Line 271 is the 3718/11606 row and matches the description in ledger_correction. A second 20:41:59 row (line 273, the spawn of review-verify run 65) exists, but the correction identifies the right row by its stop-row text."
+   },
+   {
+    "claim": "Drafted concept text fixes 'the measured ratio' as estimate-relative (measured / upper estimate)",
+    "result": "unclear",
+    "evidence": "The only ratio the stop row names is 'inserted per final lines'. 'the measured ratio' in the action column is undefined in the row. Reading it as measured/estimated is reasonable, because the churn ratio cannot rescale final-line estimates that the line limb has just shown to be exceeded. The concept never defines it, though, and the draft states the reading as settled. The open list covers the divisor and test inclusion but not this reading."
+   },
+   {
+    "claim": "Drafted text contradicts no unchanged concept line",
+    "result": "unclear",
+    "evidence": "No direct contradiction was found. Line 1670 'Copied lines stay about 4433' and line 1648 'Copied lines: about 4433 ... SL-2 1296' are left standing next to the measured 202. The draft acknowledges this, but only in the open list."
+   }
+  ],
+  "corrections": [
+   "The concept text says 'multiplying both bounds by 4.2713 and rounding', but SL-6 upper is then 8115, not 8116. Either change the wording to 'multiplying both bounds by 11319/2650 (4.2713 rounded) and rounding' or change SL-6 to 1200–1900 -> 5126–8115.",
+   "The stage-2 total 34598–55741 and 30326–48907 without SL-11 come from the unrounded factor 11319/2650. The stage2_total arithmetic note '8100 × 4.2713 and 13050 × 4.2713' gives 34598–55740 and 30326–48906. Name the unrounded factor as the basis of the totals, or use 55740 and 48906. Also state that the total is computed from the summed bounds, which is not the sum of the rounded per-slice figures (34596–55740).",
+   "Add an open item, or mark it in the concept text: 'the measured ratio' in the §11.3 stop-row action is not defined in the concept. Reading it as measured new-or-changed lines / §11.2 upper estimate is the orchestrator's reading, not concept text; the only ratio the row names is 'inserted per final lines'. The decider is open, like the test-inclusion and divisor items.",
+   "Optionally record in the open list: §1.3 names four joint sources (check-ack, check-handback, claims, handback) for check-stop.mjs and check-handback.mjs. Measuring check-handback.mjs only against hooks/check-handback.mjs follows the 'its named CDP5 source' (singular) wording but is a choice. A multi-source measurement was not run."
+  ]
+ }
+}
