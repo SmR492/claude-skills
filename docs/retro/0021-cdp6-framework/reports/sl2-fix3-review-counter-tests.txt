@@ -1,0 +1,171 @@
+# Counter-tests of review-verify run 49 and adversarial-auditor run 50, executed unchanged by the orchestrator on an exact copy of the sl2 plugin after the third fix in .worktrees/sl1-audit (rsync, diff -r exit 0 before; TMPDIR an empty scratchpad directory). Paths normalised.
+2026-11-04T10:23:35+01:00
+✖ auditor F2: a D-n with a live verdict c capture and no owner record does not leave the gate by being superseded (49.80141ms)
+✖ auditor F3: a live block capture is not answered away by a later pass of a fresh devils-advocate on the same target hash (37.103808ms)
+✖ fires: the role file states every capture-form reject cause of concept §5.3 v0.5.9 (1.651419ms)
+✖ fires: a premise mark in the tail of a well-formed objection line outside the premises block rejects the capture (4.552621ms)
+✖ fires: an invisible character inside a premise mark or inside the objection word does not let the line slip past the capture form (0.72546ms)
+✖ auditor F1: an objection marker with markup between the word and the colon rejects the capture (0.645662ms)
+✔ auditor F4: a verbatim assignment quote that contains "objections:" rejects an otherwise valid pass (0.816368ms)
+✔ fires: while the open target exists, a write to another existing file or to a copy of the target passes (121.420906ms)
+✔ auditor F5: a bound devils-advocate spawn without capture keeps its target write-locked with no voiding path (46.23258ms)
+✖ auditor F2: superseding a D-n is an owner command (2.100228ms)
+✔ fires: withLock keeps waiting on a held, readable lock until its deadline and only then reports lock-busy (306.602272ms)
+✖ auditor F6: a waiter that judged a lock stale does not delete the lock another breaker took after its stat (2.229399ms)
+ℹ tests 12
+ℹ suites 0
+ℹ pass 4
+ℹ fail 8
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 387.608912
+
+✖ failing tests:
+
+test at plugins/cdp6-core/checks/decision-check.test.mjs:361:1
+✖ auditor F2: a D-n with a live verdict c capture and no owner record does not leave the gate by being superseded (49.80141ms)
+  AssertionError [ERR_ASSERTION]: decision-check OK
+  
+  
+  0 !== 1
+  
+      at TestContext.<anonymous> (file://<repo>/.worktrees/sl1-audit/plugins/cdp6-core/checks/decision-check.test.mjs:376:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1382:25)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 0,
+    expected: 1,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/cdp6-core/checks/decision-check.test.mjs:379:1
+✖ auditor F3: a live block capture is not answered away by a later pass of a fresh devils-advocate on the same target hash (37.103808ms)
+  AssertionError [ERR_ASSERTION]: decision-check OK
+  
+  
+  0 !== 1
+  
+      at TestContext.<anonymous> (file://<repo>/.worktrees/sl1-audit/plugins/cdp6-core/checks/decision-check.test.mjs:383:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1382:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 0,
+    expected: 1,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/cdp6-core/checks/devils-advocate-agent.test.mjs:82:1
+✖ fires: the role file states every capture-form reject cause of concept §5.3 v0.5.9 (1.651419ms)
+  AssertionError [ERR_ASSERTION]: the objection-marker rule is not stated
+      at TestContext.<anonymous> (file://<repo>/.worktrees/sl1-audit/plugins/cdp6-core/checks/devils-advocate-agent.test.mjs:84:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1382:25)
+      at Test.start (node:internal/test_runner/test:1242:17)
+      at startSubtestAfterBootstrap (node:internal/test_runner/harness:387:17) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: '## Output\n\nThe checker `verdict-check.mjs` parses your final answer at capture time. Every key below is a line of its own that starts at the first character, without list marks or emphasis. A key that appears twice with different values, a verdict outside the five classes, an objection id that is not `F-P<k>-<n>` (`k` the phase number 1 to 8 of the decision, `n` counting your objections from 1) or a premise row that is neither `checked` with a file:line or a command nor `unchecked` rejects the capture; a rejected capture counts as no verdict and the orchestrator runs the role again.\n\n1. Acknowledgement line, the `run:` line and the header lines `fresh context:`, `rejected alternative provided:`, `conflict of interest:`.\n2. The severity scale line and the verdict mapping line (contract rule C4), worded as in the form below.\n3. Reconstruction: chosen option, rejected alternatives, null option, each with its cost.\n4. Existence question with the four answers, when applicable.\n5. The `premises:` section, always present: `premises: none, no existing code or data touched`, or `premises:` followed by one row per premise, each `- <premise> -- checked: <file:line>`, `- <premise> -- checked: command: <command>` or `- <premise> -- unchecked`.\n6. Objections, one line each, with the artefact they attack and the place of evidence; for `b` and `c` at least one objection is mandatory, each with `artefact:` and `evidence:` (`<file:line>` or `command: <command>`), otherwise the capture is rejected.\n7. Anti-fig-leaf statement.\n8. One `verdict:` line with one of `a`, `a-with-conditions`, `b`, `c`, `not-decidable`, with its reason below it; for `b` or `c` the block line and what the owner has to record per objection.\n\n```text\ncdp6-contract: v1 <hash>\nrun: <run-id> task: <task>\nfresh context: yes\nrejected alternative provided: yes\nconflict of interest: none\nseverity scale: 🔴 blocks the task, risks data loss or a security boundary, or excludes a user group; 🟡 is a defect with a workaround; 🟢 is polish\nverdict mapping: a = pass, a-with-conditions = pass-with-conditions, b = block, c = block, not-decidable = no pass\npremises: none, no existing code or data touched\nobjection: F-P<k>-<n> | artefact: <artefact id> | evidence: <file:line> | refuted when: <condition>\nverdict: a\n```\n',
+    expected: /anywhere/i,
+    operator: 'match',
+    diff: 'simple'
+  }
+
+test at plugins/cdp6-core/checks/verdict-check.test.mjs:617:1
+✖ fires: a premise mark in the tail of a well-formed objection line outside the premises block rejects the capture (4.552621ms)
+  AssertionError [ERR_ASSERTION]:  -- unchecked: {"validator":"valid","reasons":[],"verdict":"a","objections":["F-P1-1"],"premises":[],"conflicted":false}
+  + actual - expected
+  
+  + 'valid'
+  - 'rejected'
+  
+      at TestContext.<anonymous> (file://<repo>/.worktrees/sl1-audit/plugins/cdp6-core/checks/verdict-check.test.mjs:620:12)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1382:25)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 'valid',
+    expected: 'rejected',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/cdp6-core/checks/verdict-check.test.mjs:625:1
+✖ fires: an invisible character inside a premise mark or inside the objection word does not let the line slip past the capture form (0.72546ms)
+  AssertionError [ERR_ASSERTION]: {"validator":"valid","reasons":[],"verdict":"a","objections":[],"premises":["D-1-devils-advocate-agent-7:premise-1"],"conflicted":false}
+      at TestContext.<anonymous> (file://<repo>/.worktrees/sl1-audit/plugins/cdp6-core/checks/verdict-check.test.mjs:627:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1382:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at plugins/cdp6-core/checks/verdict-check.test.mjs:633:1
+✖ auditor F1: an objection marker with markup between the word and the colon rejects the capture (0.645662ms)
+  AssertionError [ERR_ASSERTION]: A further `objection`: idea/idea.md:20 drops the null option: {"validator":"valid","reasons":[],"verdict":"b","objections":["F-P1-1"],"premises":[],"conflicted":false}
+  + actual - expected
+  
+  + 'valid'
+  - 'rejected'
+  
+      at TestContext.<anonymous> (file://<repo>/.worktrees/sl1-audit/plugins/cdp6-core/checks/verdict-check.test.mjs:640:12)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1382:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 'valid',
+    expected: 'rejected',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/cdp6-core/lib/run-argv.test.mjs:155:1
+✖ auditor F2: superseding a D-n is an owner command (2.100228ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  false !== true
+  
+      at TestContext.<anonymous> (file://<repo>/.worktrees/sl1-audit/plugins/cdp6-core/lib/run-argv.test.mjs:156:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1382:25)
+      at Test.start (node:internal/test_runner/test:1242:17)
+      at startSubtestAfterBootstrap (node:internal/test_runner/harness:387:17) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/cdp6-core/lib/run-store.test.mjs:390:1
+✖ auditor F6: a waiter that judged a lock stale does not delete the lock another breaker took after its stat (2.229399ms)
+  AssertionError [ERR_ASSERTION]: withLock ran its body while the lock of holder A existed
+  
+  true !== false
+  
+      at TestContext.<anonymous> (file://<repo>/.worktrees/sl1-audit/plugins/cdp6-core/lib/run-store.test.mjs:416:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1382:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: true,
+    expected: false,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+exit 1

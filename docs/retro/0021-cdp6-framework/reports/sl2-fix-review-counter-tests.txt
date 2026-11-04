@@ -1,0 +1,298 @@
+# Counter-tests of review-verify run 42 and adversarial-auditor run 43, executed unchanged by the orchestrator on an exact copy of the fixed sl2 plugin in .worktrees/sl1-audit (diff -r exit 0 before and after), 2026-11-04T01:47:13+01:00; plus the three mutations of the fix report. Paths normalised to <repo>.
+
+## review-verify run 42: node --test checks/decision-check.rv42.test.mjs checks/verdict-check.rv42.test.mjs (exit 1)
+✖ rv42: object records for the items of a rejected conflicted capture clear it, as UC-12 step 5 counts them whatever its validator result (43.252865ms)
+✖ rv42: a conflicted capture whose target changed before the exit still keeps its decision open, since C13 lists no stale path among the ways it clears (40.126302ms)
+✖ rv42: an index line whose id is not its file name without .md is a finding (39.25703ms)
+✖ rv42: a counter-role other than the devils-advocate with verdict b and no objection fails the capture form of §5.3 (2.505674ms)
+✖ rv42: a capture with two verdict lines fails the "exactly one verdict: line" rule of §5.3 (0.409464ms)
+ℹ tests 5
+ℹ suites 0
+ℹ pass 0
+ℹ fail 5
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 179.967676
+
+✖ failing tests:
+
+test at plugins/cdp6-core/checks/decision-check.rv42.test.mjs:50:1
+✖ rv42: object records for the items of a rejected conflicted capture clear it, as UC-12 step 5 counts them whatever its validator result (43.252865ms)
+  AssertionError [ERR_ASSERTION]: a rejected conflicted capture cannot be cleared by its object records: decision-check FAIL D-1: conflicted capture V-cap-1 lists no objection or premise to record
+  
+  
+  1 !== 0
+  
+      at TestContext.<anonymous> (file://<repo>/.worktrees/sl1-audit/plugins/cdp6-core/checks/decision-check.rv42.test.mjs:54:10)
+      at Test.runInAsyncScope (node:async_hooks:228:14)
+      at Test.run (node:internal/test_runner/test:1118:25)
+      at Test.start (node:internal/test_runner/test:1015:17)
+      at startSubtestAfterBootstrap (node:internal/test_runner/harness:358:17) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 1,
+    expected: 0,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/cdp6-core/checks/decision-check.rv42.test.mjs:57:1
+✖ rv42: a conflicted capture whose target changed before the exit still keeps its decision open, since C13 lists no stale path among the ways it clears (40.126302ms)
+  AssertionError [ERR_ASSERTION]: editing the target cured the conflict: decision-check OK
+  
+  
+  0 !== 1
+  
+      at TestContext.<anonymous> (file://<repo>/.worktrees/sl1-audit/plugins/cdp6-core/checks/decision-check.rv42.test.mjs:60:10)
+      at Test.runInAsyncScope (node:async_hooks:228:14)
+      at Test.run (node:internal/test_runner/test:1118:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:787:18)
+      at Test.postRun (node:internal/test_runner/test:1247:19)
+      at Test.run (node:internal/test_runner/test:1175:12)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:358:3) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 0,
+    expected: 1,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/cdp6-core/checks/decision-check.rv42.test.mjs:64:1
+✖ rv42: an index line whose id is not its file name without .md is a finding (39.25703ms)
+  AssertionError [ERR_ASSERTION]: an index id that is not the capture file name was counted: decision-check OK
+  
+  
+  0 !== 1
+  
+      at TestContext.<anonymous> (file://<repo>/.worktrees/sl1-audit/plugins/cdp6-core/checks/decision-check.rv42.test.mjs:70:10)
+      at Test.runInAsyncScope (node:async_hooks:228:14)
+      at Test.run (node:internal/test_runner/test:1118:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:787:18)
+      at Test.postRun (node:internal/test_runner/test:1247:19)
+      at Test.run (node:internal/test_runner/test:1175:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:787:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 0,
+    expected: 1,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/cdp6-core/checks/verdict-check.rv42.test.mjs:6:1
+✖ rv42: a counter-role other than the devils-advocate with verdict b and no objection fails the capture form of §5.3 (2.505674ms)
+  AssertionError [ERR_ASSERTION]: {"validator":"valid","reasons":[],"verdict":null,"objections":[],"premises":[],"conflicted":false}
+  + actual - expected
+  
+  + 'valid'
+  - 'rejected'
+  
+      at TestContext.<anonymous> (file://<repo>/.worktrees/sl1-audit/plugins/cdp6-core/checks/verdict-check.rv42.test.mjs:8:10)
+      at Test.runInAsyncScope (node:async_hooks:228:14)
+      at Test.run (node:internal/test_runner/test:1118:25)
+      at Test.start (node:internal/test_runner/test:1015:17)
+      at startSubtestAfterBootstrap (node:internal/test_runner/harness:358:17) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 'valid',
+    expected: 'rejected',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/cdp6-core/checks/verdict-check.rv42.test.mjs:11:1
+✖ rv42: a capture with two verdict lines fails the "exactly one verdict: line" rule of §5.3 (0.409464ms)
+  AssertionError [ERR_ASSERTION]: {"validator":"valid","reasons":[],"verdict":"a","objections":[],"premises":[],"conflicted":false}
+  + actual - expected
+  
+  + 'valid'
+  - 'rejected'
+  
+      at TestContext.<anonymous> (file://<repo>/.worktrees/sl1-audit/plugins/cdp6-core/checks/verdict-check.rv42.test.mjs:13:10)
+      at Test.runInAsyncScope (node:async_hooks:228:14)
+      at Test.run (node:internal/test_runner/test:1118:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:787:18)
+      at Test.postRun (node:internal/test_runner/test:1247:19)
+      at Test.run (node:internal/test_runner/test:1175:12)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:358:3) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 'valid',
+    expected: 'rejected',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+## adversarial-auditor run 43: node --test --test-name-pattern=<the seven titles> (exit 1)
+✖ fires: a conflicted capture without objections or premises can still be cleared once its D-n is decided (56.284843ms)
+✖ fires: a conflicted capture is not dropped by an edit of its target followed by a fresh devils-advocate capture (43.581464ms)
+✖ fires: a premise row after a break in the premises section is not dropped (2.101167ms)
+✖ fires: an objection line with a list mark under verdict b is not dropped (0.543488ms)
+✖ fires: a form failure after an acknowledgement failure is still denied once, so the role can restate (95.149233ms)
+✖ fires: a Write to idea/idea.md while a devils-advocate spawn naming it as target is open is denied (56.647315ms)
+✖ fires: a gate that reads the index between the append and a failing counters write counts a capture that the rollback then removes (13.201197ms)
+ℹ tests 7
+ℹ suites 0
+ℹ pass 0
+ℹ fail 7
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 170.781394
+
+✖ failing tests:
+
+test at plugins/cdp6-core/checks/decision-check.test.mjs:310:1
+✖ fires: a conflicted capture without objections or premises can still be cleared once its D-n is decided (56.284843ms)
+  AssertionError [ERR_ASSERTION]: decision-check FAIL D-1: conflicted capture V-cap-1 lists no objection or premise to record
+  
+  
+  1 !== 0
+  
+      at TestContext.<anonymous> (file://<repo>/.worktrees/sl1-audit/plugins/cdp6-core/checks/decision-check.test.mjs:313:10)
+      at Test.runInAsyncScope (node:async_hooks:228:14)
+      at Test.run (node:internal/test_runner/test:1118:25)
+      at Test.start (node:internal/test_runner/test:1015:17)
+      at startSubtestAfterBootstrap (node:internal/test_runner/harness:358:17) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 1,
+    expected: 0,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/cdp6-core/checks/decision-check.test.mjs:316:1
+✖ fires: a conflicted capture is not dropped by an edit of its target followed by a fresh devils-advocate capture (43.581464ms)
+  AssertionError [ERR_ASSERTION]: decision-check OK
+  
+  
+  0 !== 1
+  
+      at TestContext.<anonymous> (file://<repo>/.worktrees/sl1-audit/plugins/cdp6-core/checks/decision-check.test.mjs:319:10)
+      at Test.runInAsyncScope (node:async_hooks:228:14)
+      at Test.run (node:internal/test_runner/test:1118:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:787:18)
+      at Test.postRun (node:internal/test_runner/test:1247:19)
+      at Test.run (node:internal/test_runner/test:1175:12)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:358:3) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 0,
+    expected: 1,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/cdp6-core/checks/verdict-check.test.mjs:422:1
+✖ fires: a premise row after a break in the premises section is not dropped (2.101167ms)
+  AssertionError [ERR_ASSERTION]: {"validator":"valid","reasons":[],"verdict":"a","objections":[],"premises":["D-1-devils-advocate-agent-7:premise-1"],"conflicted":false}
+      at TestContext.<anonymous> (file://<repo>/.worktrees/sl1-audit/plugins/cdp6-core/checks/verdict-check.test.mjs:424:10)
+      at Test.runInAsyncScope (node:async_hooks:228:14)
+      at Test.run (node:internal/test_runner/test:1118:25)
+      at Test.start (node:internal/test_runner/test:1015:17)
+      at startSubtestAfterBootstrap (node:internal/test_runner/harness:358:17) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 'a',
+    expected: 'a',
+    operator: 'notStrictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/cdp6-core/checks/verdict-check.test.mjs:427:1
+✖ fires: an objection line with a list mark under verdict b is not dropped (0.543488ms)
+  AssertionError [ERR_ASSERTION]: {"validator":"valid","reasons":[],"verdict":"b","objections":["F-P1-1"],"premises":[],"conflicted":false}
+      at TestContext.<anonymous> (file://<repo>/.worktrees/sl1-audit/plugins/cdp6-core/checks/verdict-check.test.mjs:430:10)
+      at Test.runInAsyncScope (node:async_hooks:228:14)
+      at Test.run (node:internal/test_runner/test:1118:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:787:18)
+      at Test.postRun (node:internal/test_runner/test:1247:19)
+      at Test.run (node:internal/test_runner/test:1175:12)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:358:3) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at plugins/cdp6-core/hooks/check-handback.test.mjs:500:1
+✖ fires: a form failure after an acknowledgement failure is still denied once, so the role can restate (95.149233ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  0 !== 2
+  
+      at denied (file://<repo>/.worktrees/sl1-audit/plugins/cdp6-core/hooks/check-handback.test.mjs:83:10)
+      at TestContext.<anonymous> (file://<repo>/.worktrees/sl1-audit/plugins/cdp6-core/hooks/check-handback.test.mjs:504:3)
+      at Test.runInAsyncScope (node:async_hooks:228:14)
+      at Test.run (node:internal/test_runner/test:1118:25)
+      at Test.start (node:internal/test_runner/test:1015:17)
+      at startSubtestAfterBootstrap (node:internal/test_runner/harness:358:17) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 0,
+    expected: 2,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/cdp6-core/hooks/guard-phase.test.mjs:254:1
+✖ fires: a Write to idea/idea.md while a devils-advocate spawn naming it as target is open is denied (56.647315ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  0 !== 2
+  
+      at TestContext.<anonymous> (file://<repo>/.worktrees/sl1-audit/plugins/cdp6-core/hooks/guard-phase.test.mjs:260:10)
+      at Test.runInAsyncScope (node:async_hooks:228:14)
+      at Test.run (node:internal/test_runner/test:1118:25)
+      at Test.start (node:internal/test_runner/test:1015:17)
+      at startSubtestAfterBootstrap (node:internal/test_runner/harness:358:17) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 0,
+    expected: 2,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/cdp6-core/lib/capture.test.mjs:298:1
+✖ fires: a gate that reads the index between the append and a failing counters write counts a capture that the rollback then removes (13.201197ms)
+  AssertionError [ERR_ASSERTION]: the gate passed D-1 on a capture that the rollback removed
+      at TestContext.<anonymous> (file://<repo>/.worktrees/sl1-audit/plugins/cdp6-core/lib/capture.test.mjs:317:10)
+      at Test.runInAsyncScope (node:async_hooks:228:14)
+      at Test.run (node:internal/test_runner/test:1118:25)
+      at Test.start (node:internal/test_runner/test:1015:17)
+      at startSubtestAfterBootstrap (node:internal/test_runner/harness:358:17) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: [],
+    expected: [],
+    operator: 'notDeepStrictEqual',
+    diff: 'simple'
+  }
+
+## mutations (full cdp6-core suite each)
+M1 verdict-check.mjs:139 isStale returns false for no targets: exit 1
+ℹ pass 441
+ℹ fail 4
+✖ failing tests:
+✖ fires: a devils-advocate capture of a decision with no target is stale, with or without a snapshot argument (60.080963ms)
+✖ fires: target-less devils-advocate capture counts against any artefact (49.042771ms)
+✖ the checker reports rejected and stale captures and exits 1, and exits 0 on a clean index (207.768353ms)
+✖ fires: a devils-advocate capture of a decision with no target is stale, one without a decision or of another role is not (65.982919ms)
+M2 rereadCaptures orphan loop removed: exit 1
+ℹ pass 443
+ℹ fail 2
+✖ failing tests:
+✖ fires: an index line without its capture file and a capture file without its index line are findings (169.77685ms)
+✖ the checker reports an index line without its capture file, a changed capture file and a capture file without an index line (259.388597ms)
+M3 rereadCaptures sha compare made vacuous (line 181): exit 1
+ℹ pass 443
+ℹ fail 2
+✖ failing tests:
+✖ fires: the gate re-reads the capture file, it must match the index line by sha256 and the verdict fields come from the file (173.020492ms)
+✖ the checker reports an index line without its capture file, a changed capture file and a capture file without an index line (170.495219ms)

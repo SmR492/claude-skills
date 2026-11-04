@@ -1,0 +1,35 @@
+# Counter-test C2 and demonstration D5 of review-verify run 60, executed unchanged by the orchestrator on an exact copy of the sl2 plugin after run 59 in .worktrees/sl1-audit (rsync, diff -r exit 0 before). Paths normalised.
+2026-11-04T16:17:47+01:00
+✔ rv60 claim 5: an objection id in the prose of a rejected, not conflicted capture without a verdict b or c leaves the gate without an owner record, as concept table row 1256 states (85.036664ms)
+✖ rv60 C2: an objection id after the item of a well-formed disposition line rejects the capture and is an item of a rejected conflicted capture (6.85596ms)
+ℹ tests 2
+ℹ suites 0
+ℹ pass 1
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 203.2068
+
+✖ failing tests:
+
+test at plugins/cdp6-core/checks/verdict-check.test.mjs:859:1
+✖ rv60 C2: an objection id after the item of a well-formed disposition line rejects the capture and is an item of a rejected conflicted capture (6.85596ms)
+  AssertionError [ERR_ASSERTION]: {"validator":"valid","reasons":[],"verdict":"a","objections":[],"premises":[],"conflicted":false}
+  + actual - expected
+  
+  + 'valid'
+  - 'rejected'
+  
+      at TestContext.<anonymous> (file://<repo>/.worktrees/sl1-audit/plugins/cdp6-core/checks/verdict-check.test.mjs:862:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1382:25)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 'valid',
+    expected: 'rejected',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+exit 1

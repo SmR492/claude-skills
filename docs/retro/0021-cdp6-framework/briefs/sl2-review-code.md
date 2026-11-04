@@ -1,0 +1,17 @@
+# Brief: review-code of SL-2 (stage-1 worker run 38 of cap 52)
+
+Objective (owner, verbatim): "go always with your recommendation if they are reviewed" (2026-11-02) and "du hast mein ok für die Nacht" (2026-11-03; ledger 0021). §11.3 item 4: `review-verify` on every task, `review-code` for a new seam, `adversarial-auditor` on SL-2 as a security-boundary slice, and the SL-2 outside reviewer named in ledger 0021 at the SL-2 start; the slice-end reviews run before one combined fix run.
+
+Output format (final answer, handback only, no file): Schema C.1 deepening candidates and anti-pattern findings, each with file:line evidence, severity (🔴 🟡 🟢) and one concrete change; then status. At most 1200 words.
+
+Target state: worktree `<repo>/.worktrees/sl2`, base 960146b3f8e5884a4a9f93f1077e793cedd6e14a, uncommitted SL-2 diff under `plugins/cdp6-core/` (T1, T2, T3 by three `impl-uc` runs; plan `<repo>/docs/retro/0021-cdp6-framework/briefs/sl2-plan.md`; briefs `sl2-t1.md`, `sl2-t2.md`, `sl2-t3.md`; reports `<repo>/docs/retro/0021-cdp6-framework/reports/sl2-t1.md`, `sl2-t2.md`, `sl2-t3.md`; the T1 and T2 reviews are the ledger rows "SL-2 T1 review-verify (run 33)" and "SL-2 T2 review-verify (run 35)" of `<repo>/docs/retro/0021-cdp6-framework.ledger.md`). Concept v0.5.6 `<repo>/docs/cdp6/konzept-cdp6.md` (uncommitted, sha256 4db4936a3ed357c9efafb5529bb754e49adbf34c34ed873ec35622df9b10090c). You wrote no part of it. The orchestrator ran on the final state: cdp6-core suite 417 of 417 exit 0, `generate-contract.mjs --check` exit 0. `<repo>` = the repository root (main checkout); `<scratchpad>` = the orchestrator session's scratchpad directory.
+
+Seams to review: `lib/contract.mjs` with `scripts/generate-contract.mjs` and `hooks/inject-contract.mjs`; `lib/brief.mjs` (the one header parser, later also for `guard-message.mjs` and `brief-lint.mjs`, concept §12.1 row `lib/brief.mjs`); `lib/counters.mjs` (the one writer of `counters.json`, extended by SL-3 for counters, rounds and void spawns); `lib/capture.mjs` with its two locks and the rollback; `hooks/check-handback.mjs` and its second-attempt marker; `checks/verdict-check.mjs` used both as a module by the capture and as a checker, and its coupling with `checks/decision-check.mjs`; `lib/hooks-observed.mjs` after the new fields. Ask per seam: is it a deep module with a small interface; does a later slice (SL-2b `check-stop.mjs`, SL-3 `guard-spawn.mjs` complete and `brief-lint.mjs`, SL-5 clearing capture, `guard-message.mjs`) have to reopen it; is logic duplicated between hooks, checkers and `run.mjs`; is an error path silently swallowed; is the lock order between `verdicts.lock` and the counters lock one global order.
+
+Already known (do not report again): the refactor task before SL-3 (split of `scripts/run.mjs`, one lock library, nonce pruning, a bound on `hooks-fired.jsonl`; concept §11.3); `hooks-json.test.mjs` pins the full hook list.
+
+Tools: Read, Grep, Glob, Bash for read-only commands (grep, sed -n, cat -n, wc, git status, git diff). No test runs, no writes, no network. The CDP5 shell guard refuses shell `for` loops, variable assignments, process substitution and some heredocs; use one command per call.
+
+Stop rule: one pass over the seams; at most 60 tool calls; a finding you cannot back with a file:line is not reported.
+
+The worker contract injected at your start applies; open your final answer with its acknowledgement line.

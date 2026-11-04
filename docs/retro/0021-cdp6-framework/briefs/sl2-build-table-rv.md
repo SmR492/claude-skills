@@ -1,0 +1,22 @@
+# Brief: review-verify of the SL-2 gate-table build and concept v0.5.11 to v0.5.12 (stage-1 worker run 56 of cap 58)
+
+Objective (owner, verbatim): "go always with your recommendation if they are reviewed" (2026-11-02), the goal "do not fake it, do not cut it, do not remove it, acceptance tools (all must pass before you say "done")" and "Design table first (Recommended)", "Both block (Recommended)" (2026-11-04, concept §0 item 29; ledger 0021). §11.3 item 4 (line 1675 in v0.5.12, search "4. Reviews per the owner's staging rule"): every worker result gets its `review-verify`; §0 item 27: concept edits go into the slice's review-verify. This is the last review run before the live P1 run (cap 58).
+
+Output format (final answer, handback only, no file): after the acknowledgement line, the line `conflict of interest: none | <stake>`; part A: one verdict per claim below (bestätigt, widerlegt, unklar, nicht entscheidbar) with file:line or command evidence; part B: per hunk of `<repo>/docs/retro/0021-cdp6-framework/reports/concept-v0511-v0512.diff`, whether the outside review `<repo>/docs/retro/0021-cdp6-framework/reports/sl2-gate-table-review.md` (its gap list) supports it, whether it closes that gap, and whether it contradicts an unchanged concept line; then the findings that should change code or concept, ranked 🔴 🟡 🟢, each with one closing proposal and, for a code claim, a counter-test as complete `node:test` code (file name and title, any extra import named; temporary directories only through `plugins/cdp6-core/test-support/temp-dir.mjs`) marked "not executed" with the result you expect; then status. At most 2000 words plus test code.
+
+Target state: worktree `<repo>/.worktrees/sl2`, base 960146b3f8e5884a4a9f93f1077e793cedd6e14a, uncommitted SL-2 diff under `plugins/cdp6-core/`. The tree before the build is `<repo>/.worktrees/sl2-pre-build/` (copied 2026-11-04T12:54:00+01:00, `diff -r` exit 0 at that time), so `diff -r <repo>/.worktrees/sl2-pre-build <repo>/.worktrees/sl2/plugins/cdp6-core` is exactly the build. Build brief `<repo>/docs/retro/0021-cdp6-framework/briefs/sl2-build-table.md`, its report `<repo>/docs/retro/0021-cdp6-framework/reports/sl2-build-table.md`. Concept v0.5.12 `<repo>/docs/cdp6/konzept-cdp6.md` (uncommitted, sha256 398acae53b38b7ef91bdadfcb8ed2d96799aad4304ee5271609c6405e7564fe4): §5.3 "Line grammar of a capture" and "Gate decision table of `decision-check.mjs`", AC-12.29 to AC-12.32. You wrote no part of it. `<repo>` = the repository root (main checkout).
+
+Claims:
+1. Items 1 to 5 of the build brief are built as stated, each with the test the report names, and each test asserts what its AC row, grammar rule or table row says.
+2. Every row of the gate decision table (capture rows and status rows) and every grammar rule g1 to g6 has at least one test that would fail if the code gave another outcome for it; name any row or rule without one.
+3. The counter-tests the brief lists as unchanged are in the tree verbatim (imports merged only where the report says so); the replacement for run 52 🟡-2 asserts what the brief says.
+4. Each mutation the report names would turn the named test red (read code and test; a mutation whose test cannot fail as reported is widerlegt; say where only a run decides).
+5. No test was weakened, removed or skipped to reach green: name every hunk of the `diff -r` above that removes, replaces or loosens an assertion and whether the item, grammar rule or table row it cites requires it.
+6. The worker's choices stay inside the brief and the concept lines they cite; the role file and the idea skill state what item 5 lists.
+7. No legitimate capture the devils-advocate role file asks for is rejected by the grammar (a false reject the role cannot avoid is a finding), and no objection id reaches the gate without a well-formed objection line or a record.
+
+Tools: Read, Grep, Glob, Bash for read-only commands (`diff -r`, `git -C <worktree> diff`, `git -C <worktree> status`, grep, sed -n, cat -n, wc). No test runs, no writes, no network. The orchestrator executes every counter-test you deliver in a disposable copy and puts the raw output into the ledger. The CDP5 shell guard refuses shell `for` loops, variable assignments, process substitution, backticks, redirections and some heredocs; use one command per call.
+
+Stop rule: one pass; at most 80 tool calls; a verdict without file:line or command evidence is reported as `unklar`.
+
+The worker contract injected at your start applies; open your final answer with its acknowledgement line.

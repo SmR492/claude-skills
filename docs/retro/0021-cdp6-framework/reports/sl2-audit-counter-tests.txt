@@ -1,0 +1,119 @@
+✖ fires: target-less devils-advocate capture counts against any artefact (41.626999ms)
+✖ fires: objection id of another decision cleared by its owner record (41.507751ms)
+✖ fires: index line not backed by its capture file (43.400857ms)
+✖ fires: target hash not on disk at spawn (54.667405ms)
+✖ fires: devils-advocate spawn without target line (54.591521ms)
+ℹ tests 5
+ℹ suites 0
+ℹ pass 0
+ℹ fail 5
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 188.125834
+
+✖ failing tests:
+
+test at checks/decision-check.test.mjs:189:1
+✖ fires: target-less devils-advocate capture counts against any artefact (41.626999ms)
+  AssertionError [ERR_ASSERTION]: a capture bound to no artefact passed: decision-check OK
+  
+  
+  0 !== 1
+  
+      at TestContext.<anonymous> (file://<repo>/.worktrees/sl1-audit/plugins/cdp6-core/checks/decision-check.test.mjs:192:10)
+      at Test.runInAsyncScope (node:async_hooks:228:14)
+      at Test.run (node:internal/test_runner/test:1118:25)
+      at Test.start (node:internal/test_runner/test:1015:17)
+      at startSubtestAfterBootstrap (node:internal/test_runner/harness:358:17) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 0,
+    expected: 1,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at checks/decision-check.test.mjs:195:1
+✖ fires: objection id of another decision cleared by its owner record (41.507751ms)
+  AssertionError [ERR_ASSERTION]: D-2's F-P1-1 passed on D-1's record: decision-check OK
+  
+  
+  0 !== 1
+  
+      at TestContext.<anonymous> (file://<repo>/.worktrees/sl1-audit/plugins/cdp6-core/checks/decision-check.test.mjs:211:10)
+      at Test.runInAsyncScope (node:async_hooks:228:14)
+      at Test.run (node:internal/test_runner/test:1118:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:787:18)
+      at Test.postRun (node:internal/test_runner/test:1247:19)
+      at Test.run (node:internal/test_runner/test:1175:12)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:358:3) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 0,
+    expected: 1,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at checks/decision-check.test.mjs:215:1
+✖ fires: index line not backed by its capture file (43.400857ms)
+  AssertionError [ERR_ASSERTION]: index verdict a counted while the capture file says b: decision-check OK
+  
+  
+  0 !== 1
+  
+      at TestContext.<anonymous> (file://<repo>/.worktrees/sl1-audit/plugins/cdp6-core/checks/decision-check.test.mjs:219:10)
+      at Test.runInAsyncScope (node:async_hooks:228:14)
+      at Test.run (node:internal/test_runner/test:1118:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:787:18)
+      at Test.postRun (node:internal/test_runner/test:1247:19)
+      at Test.run (node:internal/test_runner/test:1175:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:787:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 0,
+    expected: 1,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at hooks/guard-spawn.test.mjs:233:1
+✖ fires: target hash not on disk at spawn (54.667405ms)
+  AssertionError [ERR_ASSERTION]: allowed; pending targets [{"path":"idea/idea.md","sha256":"305c6685c4ddab60fe8bda650c46635fd5b4c66b5a416f56adfdfc010fc0be14"}]
+  
+  0 !== 2
+  
+      at TestContext.<anonymous> (file://<repo>/.worktrees/sl1-audit/plugins/cdp6-core/hooks/guard-spawn.test.mjs:241:10)
+      at Test.runInAsyncScope (node:async_hooks:228:14)
+      at Test.run (node:internal/test_runner/test:1118:25)
+      at Test.start (node:internal/test_runner/test:1015:17)
+      at startSubtestAfterBootstrap (node:internal/test_runner/harness:358:17) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 0,
+    expected: 2,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at hooks/guard-spawn.test.mjs:244:1
+✖ fires: devils-advocate spawn without target line (54.591521ms)
+  AssertionError [ERR_ASSERTION]: allowed with targets []
+  
+  0 !== 2
+  
+      at TestContext.<anonymous> (file://<repo>/.worktrees/sl1-audit/plugins/cdp6-core/hooks/guard-spawn.test.mjs:248:10)
+      at Test.runInAsyncScope (node:async_hooks:228:14)
+      at Test.run (node:internal/test_runner/test:1118:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:787:18)
+      at Test.postRun (node:internal/test_runner/test:1247:19)
+      at Test.run (node:internal/test_runner/test:1175:12)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:358:3) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 0,
+    expected: 2,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

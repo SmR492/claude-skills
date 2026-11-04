@@ -1,0 +1,45 @@
+# Counter-test G1 of review-verify run 62, executed unchanged by the orchestrator on exact copies of the final sl2 plugin and of the tree before run 61 (.worktrees/sl2-pre-fix7) in .worktrees/sl1-audit. Paths normalised.
+2026-11-04T18:11:49+01:00
+== tree sl2/plugins/cdp6-core (copy diff 0)
+✔ rv62 G1: a rejected conflicted capture with an objection id after the item of a disposition line does not leave the gate on the record of its objection line alone (78.042907ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 1
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 139.960364
+exit 0
+== tree sl2-pre-fix7 (copy diff 0)
+✖ rv62 G1: a rejected conflicted capture with an objection id after the item of a disposition line does not leave the gate on the record of its objection line alone (48.526769ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 0
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 107.724278
+
+✖ failing tests:
+
+test at plugins/cdp6-core/checks/verdict-check.test.mjs:859:1
+✖ rv62 G1: a rejected conflicted capture with an objection id after the item of a disposition line does not leave the gate on the record of its objection line alone (48.526769ms)
+  AssertionError [ERR_ASSERTION]: decision-check OK
+  
+  
+  0 !== 1
+  
+      at TestContext.<anonymous> (file://<repo>/.worktrees/sl1-audit/plugins/cdp6-core/checks/verdict-check.test.mjs:864:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1382:25)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 0,
+    expected: 1,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+exit 1

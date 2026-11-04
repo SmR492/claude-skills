@@ -1,0 +1,275 @@
+# Counter-tests of review-verify run 52 and adversarial-auditor run 53, executed unchanged by the orchestrator on an exact copy of the sl2 plugin after the fourth fix in .worktrees/sl1-audit (rsync, diff -r exit 0 before; TMPDIR an empty scratchpad directory). Paths normalised.
+2026-11-04T10:47:37+01:00
+✖ review fix-4: a stale conflicted capture on a superseded D-n still needs its owner record, as on a decided one (41.653383ms)
+✖ auditor fix4 A1: a live block capture is not answered away by a one-byte edit of its target followed by a fresh devils-advocate pass (77.324205ms)
+✖ auditor fix4 A2: a block verdict whose capture the validator rejected for a stray objection id is not answered away by a later pass (35.678552ms)
+✖ auditor fix4 A6: a D-n with a status outside proposed, decided and superseded fails the gate instead of passing silently (38.584028ms)
+✖ auditor fix4 A7: the object command of the idea skill names the scoped item form of §5.3 (1.877725ms)
+✖ review fix-4: an objection id in the tail of an objection line counts only when that id has its own objection line (3.482471ms)
+✖ review fix-4: an objection id in a compatibility or dash-variant form outside an objection line rejects the capture (0.794193ms)
+✖ auditor fix4 A3: an objection id in the tail of a well-formed objection line rejects the capture, as the id rule of §5.3 says (0.578809ms)
+✖ auditor fix4 A4: a disposition line that §5.3 and C13 require for a clearing capture is not rejected by the id rule (0.615361ms)
+✖ auditor fix4 A5: a verbatim assignment quote that contains an objection id does not reject an otherwise valid capture (0.368578ms)
+ℹ tests 10
+ℹ suites 0
+ℹ pass 0
+ℹ fail 10
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 261.424586
+
+✖ failing tests:
+
+test at plugins/cdp6-core/checks/decision-check.test.mjs:442:1
+✖ review fix-4: a stale conflicted capture on a superseded D-n still needs its owner record, as on a decided one (41.653383ms)
+  AssertionError [ERR_ASSERTION]: decision-check OK
+  
+  
+  0 !== 1
+  
+      at TestContext.<anonymous> (file://<repo>/.worktrees/sl1-audit/plugins/cdp6-core/checks/decision-check.test.mjs:445:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1382:25)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 0,
+    expected: 1,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/cdp6-core/checks/decision-check.test.mjs:451:1
+✖ auditor fix4 A1: a live block capture is not answered away by a one-byte edit of its target followed by a fresh devils-advocate pass (77.324205ms)
+  AssertionError [ERR_ASSERTION]: a one-byte edit answered the block away: decision-check OK
+  
+  
+  0 !== 1
+  
+      at TestContext.<anonymous> (file://<repo>/.worktrees/sl1-audit/plugins/cdp6-core/checks/decision-check.test.mjs:458:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1382:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 0,
+    expected: 1,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/cdp6-core/checks/decision-check.test.mjs:462:1
+✖ auditor fix4 A2: a block verdict whose capture the validator rejected for a stray objection id is not answered away by a later pass (35.678552ms)
+  AssertionError [ERR_ASSERTION]: a validator-rejected block verdict was answered away by a later pass: decision-check OK
+  
+  
+  0 !== 1
+  
+      at TestContext.<anonymous> (file://<repo>/.worktrees/sl1-audit/plugins/cdp6-core/checks/decision-check.test.mjs:467:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1382:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 0,
+    expected: 1,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/cdp6-core/checks/decision-check.test.mjs:470:1
+✖ auditor fix4 A6: a D-n with a status outside proposed, decided and superseded fails the gate instead of passing silently (38.584028ms)
+  AssertionError [ERR_ASSERTION]: decision-check OK
+  
+  
+  0 !== 1
+  
+      at TestContext.<anonymous> (file://<repo>/.worktrees/sl1-audit/plugins/cdp6-core/checks/decision-check.test.mjs:472:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1382:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 0,
+    expected: 1,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/cdp6-core/checks/idea-skill.test.mjs:148:1
+✖ auditor fix4 A7: the object command of the idea skill names the scoped item form of §5.3 (1.877725ms)
+  AssertionError [ERR_ASSERTION]: The input was expected to not match the regular expression /run\.mjs object <objection-id>/. Input:
+  
+  '---\n' +
+    'name: idea\n' +
+    'description: Runs the CDP6 idea phase (P1) in the main session. It takes in an idea, feature request, issue or bug report, interviews the owner, keeps the decision register, gets the approach choice and the autonomy level and budgets from the owner, and runs the gate. Use when a cdp6 run is initialised and the idea phase starts, on "start the idea phase", "cdp6 idea", "enter idea".\n' +
+    '---\n' +
+    '\n' +
+    '# cdp6-core:idea\n' +
+    '\n' +
+    'The idea phase turns an assignment into `R/idea/idea.md` that passes the gate. `R` is the run directory, which holds the readable artefacts. `S` is the state directory, which holds the run record. Every change to run state goes through `run.mjs`. Edit nothing under `S`.\n' +
+    '\n' +
+    'Call `run.mjs` with the script path `${CLAUDE_PLUGIN_ROOT}/scripts/run.mjs` after `node`, then the subcommand and its flags. Write flags as `--flag value`, never `--flag=value`. Do not add `--session-id`, `--data-dir` or `--hook-token`; the shell guard appends them. Commands marked (owner) wait behind a permission prompt for the owner.\n' +
+    '\n' +
+    '## Who does what\n' +
+    '\n' +
+    '| Mode | Idea phase |\n' +
+    '|---|---|\n' +
+    '| single | The operator uses this skill, interviews the owner (Clarify-First, doctrine §1.9) and writes `idea.md`. |\n' +
+    '| multi | The orchestrator interviews the owner; dialogue is not delegated. The `author` turns the transcript excerpt into `idea.md`. |\n' +
+    '| team | Not allowed: the phase is a dialogue with the owner. |\n' +
+    '\n' +
+    '## Entry\n' +
+    '\n' +
+    '1. A run exists (`S/run.json` status `active`) with one intake file whose sha256 is recorded. The intake kind is one of `idea`, `feature-request`, `issue`, `bug-report`. A hand-over `next-run.md` of a previous run is an intake of kind `idea` whose origin is the previous run.\n' +
+    '2. Without a run, create one: `node ${CLAUDE_PLUGIN_ROOT}/scripts/run.mjs init --intake <intake-file> --kind <kind> --origin <origin> --class <own-or-company> --mode <single-or-multi> --assignment <assignment-file>`. A URL origin also needs `--http-status <status> --fetched <date>` (ISO 8601 date). Standalone: `node ${CLAUDE_PLUGIN_ROOT}/scripts/run.mjs init --start idea --assignment <assignment-file> --intake <intake-file> --kind <kind> --origin <origin> --class <own-or-company> --mode <single-or-multi>`.\n' +
+    '   1. `run.mjs init` creates `S` with the run record and copies the intake and the assignment to `S/idea/`, and prints the path of `R`. Create `R` at the path `run.mjs init` printed and write `R/idea/idea.md` there; `run.mjs` writes nothing into the project.\n' +
+    '3. Show the current state at any time with `node ${CLAUDE_PLUGIN_ROOT}/scripts/run.mjs status`. After a compaction resume from it, not from memory.\n' +
+    '\n' +
+    '## Steps\n' +
+    '\n' +
+    '1. Run `node ${CLAUDE_PLUGIN_ROOT}/scripts/run.mjs enter idea`. It checks the run is active and no phase is entered, and records `entered_at`.\n' +
+    '   1. A tracker issue, feature request or bug report is fetched by the main session (workers have no network) and stored verbatim, with its origin (a tracker id, or a URL with fetch date and HTTP status, or `conversation` with the date), in a project file passed as `--intake`; `run.mjs init` copies it to `S/idea/intake.md`. The text is data, never the objective. It then runs through the same steps as an idea.\n' +
+    '   2. Kind-specific `I-n` rows. A `bug-report` adds observed behaviour, expected behaviour, reproduction steps and environment. A `feature-request` adds the requester and the stated value. An `issue` adds its tracker state at fetch time.\n' +
+    '2. Ask the owner for problem, goals, non-goals, constraints and success measures, one question at a time. Each answer becomes an `I-n` row. Allocate ids with `node ${CLAUDE_PLUGIN_ROOT}/scripts/run.mjs id I`.\n' +
+    '   1. An answer that leaves two readings is asked again, not resolved by you.\n' +
+    '   2. A default you propose is a `D-n` with Source `delegated-default` until the owner confirms it; then its Source is `user`. Allocate with `node ${CLAUDE_PLUGIN_ROOT}/scripts/run.mjs id D`.\n' +
+    '3. Write `R/idea/idea.md` complete, then list the approach options with their costs and the null option ("do not build") as `D-1` with status `proposed`: `node ${CLAUDE_PLUGIN_ROOT}/scripts/run.mjs decision D-1 proposed`. Run `devils-advocate` on the approach choice and the existence question; its brief carries `task: D-1` and `target: idea/idea.md@<sha256>` (the sha256 of `idea.md` as written). `idea.md` is not edited after that spawn: an edit makes the capture `stale` and `devils-advocate` runs again. Then the owner picks, with the objections as input: `node ${CLAUDE_PLUGIN_ROOT}/scripts/run.mjs decision D-1 decided --decider owner` (owner). The approach choice is a `user challenge` at every autonomy level, even when one option clearly wins.\n' +
+    '4. The owner sets the autonomy level `A0` to `A3` and the token and loop budgets: `node ${CLAUDE_PLUGIN_ROOT}/scripts/run.mjs set-autonomy <level> --tokens <n> --loops <n>` (owner).\n' +
+    '   1. A constraint the owner wants enforced, not only stated, is recorded as a ban `B-n` with `node ${CLAUDE_PLUGIN_ROOT}/scripts/run.mjs ban` (not built in this release: `run.mjs` refuses it).\n' +
+    '5. Run the gate with `node ${CLAUDE_PLUGIN_ROOT}/scripts/run.mjs exit idea`. It reads `R/idea/idea.md` once into a snapshot under `S`, runs `idea-check.mjs` and `decision-check.mjs` on the snapshot and `S`, then the verdict lookup for `devils-advocate`.\n' +
+    '   1. A missing checker or a checker exit 2 leaves the phase `gate-pending` (fail closed).\n' +
+    '   2. Verdict (b), (c) or a `conflicted` capture not cleared by the clearing capture blocks until the owner records a decision per objection: `node ${CLAUDE_PLUGIN_ROOT}/scripts/run.mjs object <objection-id> accept --why "<why>"` or `... reject --why "<why>"` (owner). Under verdict (c) only `reject` clears an objection; acceptance is `run.mjs abandon` (not built in this release).\n' +
+    '6. On pass `run.mjs` records the exit, the artefact hashes and the ledger line.\n' +
+    '\n' +
+    '## Artefacts\n' +
+    '\n' +
+    '- `S/idea/intake.md`: kind, origin, text verbatim.\n' +
+    '- `S/idea/assignment.md`: the objective the owner confirmed. It equals the intake text only for kind `idea` with origin `conversation`; otherwise it is written separately and confirmed behind a permission prompt.\n' +
+    '- `R/idea/idea.md`: the assignment verbatim; the `I-n` rows (problem, goals, non-goals, constraints, success measures); the decision register `D-n` with the Source column `user`, `codebase`, `prior-artifact` or `delegated-default`; the approach options with the null option. The `D-n` status and decider, the autonomy level and the token and loop budgets live in `run.json` only, written by `run.mjs decision` and `run.mjs set-autonomy`, so `idea.md` holds none of them and need not change after the devils-advocate run.\n' +
+    '\n' +
+    '## Gate\n' +
+    '\n' +
+    '- `idea-check.mjs`: sections present, every `I-n` and `D-n` well-formed, Source values from the enum, no `TBD` or `NEEDS CLARIFICATION`, assignment hash equals `run.json`; the approach choice is decided with decider `owner`.\n' +
+    '- `decision-check.mjs`: every `D-n` has a captured `devils-advocate` verdict stamped before its `decided` stamp, or an owner record per objection.\n' +
+    '- A `D-n` with Source `delegated-default` at exit fails the gate with the row id; the owner confirms it or you reopen the question.\n' +
+    '- Autonomy level and budgets are set by the owner.\n' +
+    '\n' +
+    '## Error cases\n' +
+    '\n' +
+    '- Assignment file missing or empty, kind outside the four, or origin missing: `run.mjs init` exits 2 and no run is created.\n' +
+    '- A bug report without reproduction steps fails `idea-check.mjs` with the missing row; the owner supplies them or the reporter is asked.\n' +
+    '- Owner unreachable in an unattended run: terminal status `HALT-STOP`.\n' +
+    '- `idea-check.mjs` missing from the plugin: gate result `checker-missing`, the phase stays `gate-pending`.\n' +
+    '- Devils-advocate verdict (c) "do not build": the phase is `blocked`. The owner accepts with `node ${CLAUDE_PLUGIN_ROOT}/scripts/run.mjs abandon --why "<why>"` (not built in this release; the run would end `ABANDONED`) or rejects per objection with `run.mjs object ... reject`.\n' +
+    '- A subcommand this release does not have is refused by `run.mjs` with exit 2.\n'
+  
+      at TestContext.<anonymous> (file://<repo>/.worktrees/sl1-audit/plugins/cdp6-core/checks/idea-skill.test.mjs:150:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1382:25)
+      at Test.start (node:internal/test_runner/test:1242:17)
+      at startSubtestAfterBootstrap (node:internal/test_runner/harness:387:17) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: '---\nname: idea\ndescription: Runs the CDP6 idea phase (P1) in the main session. It takes in an idea, feature request, issue or bug report, interviews the owner, keeps the decision register, gets the approach choice and the autonomy level and budgets from the owner, and runs the gate. Use when a cdp6 run is initialised and the idea phase starts, on "start the idea phase", "cdp6 idea", "enter idea".\n---\n\n# cdp6-core:idea\n\nThe idea phase turns an assignment into `R/idea/idea.md` that passes the gate. `R` is the run directory, which holds the readable artefacts. `S` is the state directory, which holds the run record. Every change to run state goes through `run.mjs`. Edit nothing under `S`.\n\nCall `run.mjs` with the script path `${CLAUDE_PLUGIN_ROOT}/scripts/run.mjs` after `node`, then the subcommand and its flags. Write flags as `--flag value`, never `--flag=value`. Do not add `--session-id`, `--data-dir` or `--hook-token`; the shell guard appends them. Commands marked (owner) wait behind a permission prompt for the owner.\n\n## Who does what\n\n| Mode | Idea phase |\n|---|---|\n| single | The operator uses this skill, interviews the owner (Clarify-First, doctrine §1.9) and writes `idea.md`. |\n| multi | The orchestrator interviews the owner; dialogue is not delegated. The `author` turns the transcript excerpt into `idea.md`. |\n| team | Not allowed: the phase is a dialogue with the owner. |\n\n## Entry\n\n1. A run exists (`S/run.json` status `active`) with one intake file whose sha256 is recorded. The intake kind is one of `idea`, `feature-request`, `issue`, `bug-report`. A hand-over `next-run.md` of a previous run is an intake of kind `idea` whose origin is the previous run.\n2. Without a run, create one: `node ${CLAUDE_PLUGIN_ROOT}/scripts/run.mjs init --intake <intake-file> --kind <kind> --origin <origin> --class <own-or-company> --mode <single-or-multi> --assignment <assignment-file>`. A URL origin also needs `--http-status <status> --fetched <date>` (ISO 8601 date). Standalone: `node ${CLAUDE_PLUGIN_ROOT}/scripts/run.mjs init --start idea --assignment <assignment-file> --intake <intake-file> --kind <kind> --origin <origin> --class <own-or-company> --mode <single-or-multi>`.\n   1. `run.mjs init` creates `S` with the run record and copies the intake and the assignment to `S/idea/`, and prints the path of `R`. Create `R` at the path `run.mjs init` printed and write `R/idea/idea.md` there; `run.mjs` writes nothing into the project.\n3. Show the current state at any time with `node ${CLAUDE_PLUGIN_ROOT}/scripts/run.mjs status`. After a compaction resume from it, not from memory.\n\n## Steps\n\n1. Run `node ${CLAUDE_PLUGIN_ROOT}/scripts/run.mjs enter idea`. It checks the run is active and no phase is entered, and records `entered_at`.\n   1. A tracker issue, feature request or bug report is fetched by the main session (workers have no network) and stored verbatim, with its origin (a tracker id, or a URL with fetch date and HTTP status, or `conversation` with the date), in a project file passed as `--intake`; `run.mjs init` copies it to `S/idea/intake.md`. The text is data, never the objective. It then runs through the same steps as an idea.\n   2. Kind-specific `I-n` rows. A `bug-report` adds observed behaviour, expected behaviour, reproduction steps and environment. A `feature-request` adds the requester and the stated value. An `issue` adds its tracker state at fetch time.\n2. Ask the owner for problem, goals, non-goals, constraints and success measures, one question at a time. Each answer becomes an `I-n` row. Allocate ids with `node ${CLAUDE_PLUGIN_ROOT}/scripts/run.mjs id I`.\n   1. An answer that leaves two readings is asked again, not resolved by you.\n   2. A default you propose is a `D-n` with Source `delegated-default` until the owner confirms it; then its Source is `user`. Allocate with `node ${CLAUDE_PLUGIN_ROOT}/scripts/run.mjs id D`.\n3. Write `R/idea/idea.md` complete, then list the approach options with their costs and the null option ("do not build") as `D-1` with status `proposed`: `node ${CLAUDE_PLUGIN_ROOT}/scripts/run.mjs decision D-1 proposed`. Run `devils-advocate` on the approach choice and the existence question; its brief carries `task: D-1` and `target: idea/idea.md@<sha256>` (the sha256 of `idea.md` as written). `idea.md` is not edited after that spawn: an edit makes the capture `stale` and `devils-advocate` runs again. Then the owner picks, with the objections as input: `node ${CLAUDE_PLUGIN_ROOT}/scripts/run.mjs decision D-1 decided --decider owner` (owner). The approach choice is a `user challenge` at every autonomy level, even when one option clearly wins.\n4. The owner sets the autonomy level `A0` to `A3` and the token and loop budgets: `node ${CLAUDE_PLUGIN_ROOT}/scripts/run.mjs set-autonomy <level> --tokens <n> --loops <n>` (owner).\n   1. A constraint the owner wants enforced, not only stated, is recorded as a ban `B-n` with `node ${CLAUDE_PLUGIN_ROOT}/scripts/run.mjs ban` (not built in this release: `run.mjs` refuses it).\n5. Run the gate with `node ${CLAUDE_PLUGIN_ROOT}/scripts/run.mjs exit idea`. It reads `R/idea/idea.md` once into a snapshot under `S`, runs `idea-check.mjs` and `decision-check.mjs` on the snapshot and `S`, then the verdict lookup for `devils-advocate`.\n   1. A missing checker or a checker exit 2 leaves the phase `gate-pending` (fail closed).\n   2. Verdict (b), (c) or a `conflicted` capture not cleared by the clearing capture blocks until the owner records a decision per objection: `node ${CLAUDE_PLUGIN_ROOT}/scripts/run.mjs object <objection-id> accept --why "<why>"` or `... reject --why "<why>"` (owner). Under verdict (c) only `reject` clears an objection; acceptance is `run.mjs abandon` (not built in this release).\n6. On pass `run.mjs` records the exit, the artefact hashes and the ledger line.\n\n## Artefacts\n\n- `S/idea/intake.md`: kind, origin, text verbatim.\n- `S/idea/assignment.md`: the objective the owner confirmed. It equals the intake text only for kind `idea` with origin `conversation`; otherwise it is written separately and confirmed behind a permission prompt.\n- `R/idea/idea.md`: the assignment verbatim; the `I-n` rows (problem, goals, non-goals, constraints, success measures); the decision register `D-n` with the Source column `user`, `codebase`, `prior-artifact` or `delegated-default`; the approach options with the null option. The `D-n` status and decider, the autonomy level and the token and loop budgets live in `run.json` only, written by `run.mjs decision` and `run.mjs set-autonomy`, so `idea.md` holds none of them and need not change after the devils-advocate run.\n\n## Gate\n\n- `idea-check.mjs`: sections present, every `I-n` and `D-n` well-formed, Source values from the enum, no `TBD` or `NEEDS CLARIFICATION`, assignment hash equals `run.json`; the approach choice is decided with decider `owner`.\n- `decision-check.mjs`: every `D-n` has a captured `devils-advocate` verdict stamped before its `decided` stamp, or an owner record per objection.\n- A `D-n` with Source `delegated-default` at exit fails the gate with the row id; the owner confirms it or you reopen the question.\n- Autonomy level and budgets are set by the owner.\n\n## Error cases\n\n- Assignment file missing or empty, kind outside the four, or origin missing: `run.mjs init` exits 2 and no run is created.\n- A bug report without reproduction steps fails `idea-check.mjs` with the missing row; the owner supplies them or the reporter is asked.\n- Owner unreachable in an unattended run: terminal status `HALT-STOP`.\n- `idea-check.mjs` missing from the plugin: gate result `checker-missing`, the phase stays `gate-pending`.\n- Devils-advocate verdict (c) "do not build": the phase is `blocked`. The owner accepts with `node ${CLAUDE_PLUGIN_ROOT}/scripts/run.mjs abandon --why "<why>"` (not built in this release; the run would end `ABANDONED`) or rejects per objection with `run.mjs object ... reject`.\n- A subcommand this release does not have is refused by `run.mjs` with exit 2.\n',
+    expected: /run\.mjs object <objection-id>/,
+    operator: 'doesNotMatch',
+    diff: 'simple'
+  }
+
+test at plugins/cdp6-core/checks/verdict-check.test.mjs:662:1
+✖ review fix-4: an objection id in the tail of an objection line counts only when that id has its own objection line (3.482471ms)
+  AssertionError [ERR_ASSERTION]: {"validator":"valid","reasons":[],"verdict":"b","objections":["F-P1-1"],"premises":[],"conflicted":false}
+      at TestContext.<anonymous> (file://<repo>/.worktrees/sl1-audit/plugins/cdp6-core/checks/verdict-check.test.mjs:665:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1382:25)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at plugins/cdp6-core/checks/verdict-check.test.mjs:671:1
+✖ review fix-4: an objection id in a compatibility or dash-variant form outside an objection line rejects the capture (0.794193ms)
+  AssertionError [ERR_ASSERTION]: "Ｆ-P1-2": {"validator":"valid","reasons":[],"verdict":"b","objections":["F-P1-1"],"premises":[],"conflicted":false}
+  + actual - expected
+  
+  + 'valid'
+  - 'rejected'
+  
+      at TestContext.<anonymous> (file://<repo>/.worktrees/sl1-audit/plugins/cdp6-core/checks/verdict-check.test.mjs:674:12)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1382:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 'valid',
+    expected: 'rejected',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/cdp6-core/checks/verdict-check.test.mjs:678:1
+✖ auditor fix4 A3: an objection id in the tail of a well-formed objection line rejects the capture, as the id rule of §5.3 says (0.578809ms)
+  AssertionError [ERR_ASSERTION]:  | objection: F-P1-2 | artefact: idea/idea.md | evidence: idea/idea.md:3 | refuted when: the null option is costed: {"validator":"valid","reasons":[],"verdict":"b","objections":["F-P1-1"],"premises":[],"conflicted":false}
+  + actual - expected
+  
+  + 'valid'
+  - 'rejected'
+  
+      at TestContext.<anonymous> (file://<repo>/.worktrees/sl1-audit/plugins/cdp6-core/checks/verdict-check.test.mjs:682:12)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1382:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 'valid',
+    expected: 'rejected',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/cdp6-core/checks/verdict-check.test.mjs:689:1
+✖ auditor fix4 A4: a disposition line that §5.3 and C13 require for a clearing capture is not rejected by the id rule (0.615361ms)
+  AssertionError [ERR_ASSERTION]: cdp6-core:pessimistic-realist: line 10 carries the objection id F-P1-1 outside an objection line
+  + actual - expected
+  
+  + 'rejected'
+  - 'valid'
+  
+      at TestContext.<anonymous> (file://<repo>/.worktrees/sl1-audit/plugins/cdp6-core/checks/verdict-check.test.mjs:692:12)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1382:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 'rejected',
+    expected: 'valid',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/cdp6-core/checks/verdict-check.test.mjs:696:1
+✖ auditor fix4 A5: a verbatim assignment quote that contains an objection id does not reject an otherwise valid capture (0.368578ms)
+  AssertionError [ERR_ASSERTION]: {"validator":"rejected","reasons":["line 10 carries the objection id F-P3-2 outside an objection line"],"verdict":null,"objections":[],"premises":[],"conflicted":false}
+  + actual - expected
+  
+  + 'rejected'
+  - 'valid'
+  
+      at TestContext.<anonymous> (file://<repo>/.worktrees/sl1-audit/plugins/cdp6-core/checks/verdict-check.test.mjs:698:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1382:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 'rejected',
+    expected: 'valid',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+exit 1

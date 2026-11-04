@@ -1,0 +1,135 @@
+# Counter-tests of review-verify run 56, executed unchanged by the orchestrator on an exact copy of the sl2 plugin after the build in .worktrees/sl1-audit (rsync, diff -r exit 0 before; TMPDIR an empty scratchpad directory). Paths normalised.
+2026-11-04T13:22:57+01:00
+✖ rv56 F1: a rejected conflicted capture does not leave the gate on the record of its first objection while a second objection id stands in its prose or in the tail of its objection line (45.161692ms)
+✖ rv56 F4: a later record on the same item does not change the first one, so accept then reject leaves a (c) objection uncleared (33.929009ms)
+✖ rv56 F5: a run.json whose ids.next.D is not an integer does not pass the gate with the D-n set skipped (33.351759ms)
+✖ rv56 F2: the role file says that " | " separates the objection fields and appears inside no field (1.837089ms)
+✖ rv56 F3: step 8 of the role file asks for the owner records without an objection id in prose (0.284118ms)
+✔ rv56 F2: an objection line whose evidence command contains " | " is read as five fields and rejects the capture (2.821596ms)
+✔ rv56 F6: an objection line that names another objection id rejects the capture even when that id has its own objection line (0.86591ms)
+ℹ tests 7
+ℹ suites 0
+ℹ pass 2
+ℹ fail 5
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 175.575717
+
+✖ failing tests:
+
+test at plugins/cdp6-core/checks/decision-check.test.mjs:685:1
+✖ rv56 F1: a rejected conflicted capture does not leave the gate on the record of its first objection while a second objection id stands in its prose or in the tail of its objection line (45.161692ms)
+  AssertionError [ERR_ASSERTION]: prose: F-P1-2 left the gate without an owner record: decision-check OK
+  
+  
+  0 !== 1
+  
+      at TestContext.<anonymous> (file://<repo>/.worktrees/sl1-audit/plugins/cdp6-core/checks/decision-check.test.mjs:695:12)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1382:25)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 0,
+    expected: 1,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/cdp6-core/checks/decision-check.test.mjs:699:1
+✖ rv56 F4: a later record on the same item does not change the first one, so accept then reject leaves a (c) objection uncleared (33.929009ms)
+  AssertionError [ERR_ASSERTION]: decision-check OK
+  
+  
+  0 !== 1
+  
+      at TestContext.<anonymous> (file://<repo>/.worktrees/sl1-audit/plugins/cdp6-core/checks/decision-check.test.mjs:702:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1382:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 0,
+    expected: 1,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/cdp6-core/checks/decision-check.test.mjs:706:1
+✖ rv56 F5: a run.json whose ids.next.D is not an integer does not pass the gate with the D-n set skipped (33.351759ms)
+  AssertionError [ERR_ASSERTION]: decision-check OK
+  
+      at TestContext.<anonymous> (file://<repo>/.worktrees/sl1-audit/plugins/cdp6-core/checks/decision-check.test.mjs:708:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1382:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 0,
+    expected: 0,
+    operator: 'notStrictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/cdp6-core/checks/devils-advocate-agent.test.mjs:110:1
+✖ rv56 F2: the role file says that " | " separates the objection fields and appears inside no field (1.837089ms)
+  AssertionError [ERR_ASSERTION]: The input did not match the regular expression /` \| `[^.]*(?:inside|within|in) (?:a|any|no) field/i. Input:
+  
+  '## Output\n' +
+    '\n' +
+    'The checker `verdict-check.mjs` parses your final answer at capture time. Every key below is a line of its own that starts at the first character, without list marks or emphasis. A key that appears twice with different values, a verdict outside the five classes, an objection id that is not `F-P<k>-<n>` (`k` the phase number 1 to 8 of the decision, `n` counting your objections from 1) or a premise row that is neither `checked` with a file:line or a command nor `unchecked` rejects the capture. Each of these also rejects it: an objection id `F-P<k>-<n>` anywhere except on a well-formed `objection:` line (name an objection only there, and cite no id in other prose); a premise mark (`-- checked` or `-- unchecked`, any letter case) outside the `premises:` section or inside an objection line; a second `verdict:` line. The checker reads the capture line by line after it removes format characters, normalises to NFKC and maps every dash variant to `-`, so a look-alike id counts as the id. The line forms are these. An objection line has exactly four fields in this order, `objection: F-P<k>-<n> | artefact: <artefact id> | evidence: <file:line or command> | refuted when: <condition>`, with no second objection id and no premise mark in it; give a second objection its own line. Put premise rows only in the `premises:` section, which is the `premises:` line and the lines directly after it that start with `- `; it ends at the first line that does not start with `- `, a blank line included. Quote the verbatim assignment, and any other quoted text, as `> ` quote lines (the `> ` starts the line); a `> ` quote line carries no objection and no premise whatever ids or marks it contains. A disposition line reads `disposition: <item> resolved <id or file:line> | upheld | withdrawn <id or file:line> — <why>`, with `<item>` a returned `F-Pk-n` or a `<capture id>:<item>` of a conflicted capture; it answers an item and is no objection, and an `upheld` disposition rejects the capture. Every other line is prose: an objection id or a premise mark in prose rejects the capture, and other prose carries no objection, so write it without an objection id. `fresh context: no` invalidates the pass. A rejected capture counts as no verdict and the orchestrator runs the role again.\n' +
+    '\n' +
+    '1. Acknowledgement line, the `run:` line and the header lines `fresh context:`, `rejected alternative provided:`, `conflict of interest:`.\n' +
+    '2. The severity scale line and the verdict mapping line (contract rule C4), worded as in the form below.\n' +
+    '3. Reconstruction: chosen option, rejected alternatives, null option, each with its cost.\n' +
+    '4. Existence question with the four answers, when applicable.\n' +
+    '5. The `premises:` section, always present: `premises: none, no existing code or data touched`, or `premises:` followed by one row per premise, each `- <premise> -- checked: <file:line>`, `- <premise> -- checked: command: <command>` or `- <premise> -- unchecked`.\n' +
+    '6. Objections, one line each, with the artefact they attack and the place of evidence; for `b` and `c` at least one objection is mandatory, each with `artefact:` and `evidence:` (`<file:line>` or `command: <command>`), otherwise the capture is rejected.\n' +
+    '7. Anti-fig-leaf statement.\n' +
+    '8. One `verdict:` line with one of `a`, `a-with-conditions`, `b`, `c`, `not-decidable`, with its reason below it; for `b` or `c` the block line and what the owner has to record per objection.\n' +
+    '\n' +
+    '```text\n' +
+    'cdp6-contract: v1 <hash>\n' +
+    'run: <run-id> task: <task>\n' +
+    'fresh context: yes\n' +
+    'rejected alternative provided: yes\n' +
+    'conflict of interest: none\n' +
+    'severity scale: 🔴 blocks the task, risks data loss or a security boundary, or excludes a user group; 🟡 is a defect with a workaround; 🟢 is polish\n' +
+    'verdict mapping: a = pass, a-with-conditions = pass-with-conditions, b = block, c = block, not-decidable = no pass\n' +
+    'premises: none, no existing code or data touched\n' +
+    'objection: F-P<k>-<n> | artefact: <artefact id> | evidence: <file:line> | refuted when: <condition>\n' +
+    'verdict: a\n' +
+    '```\n'
+  
+      at TestContext.<anonymous> (file://<repo>/.worktrees/sl1-audit/plugins/cdp6-core/checks/devils-advocate-agent.test.mjs:112:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1382:25)
+      at Test.start (node:internal/test_runner/test:1242:17)
+      at startSubtestAfterBootstrap (node:internal/test_runner/harness:387:17) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: '## Output\n\nThe checker `verdict-check.mjs` parses your final answer at capture time. Every key below is a line of its own that starts at the first character, without list marks or emphasis. A key that appears twice with different values, a verdict outside the five classes, an objection id that is not `F-P<k>-<n>` (`k` the phase number 1 to 8 of the decision, `n` counting your objections from 1) or a premise row that is neither `checked` with a file:line or a command nor `unchecked` rejects the capture. Each of these also rejects it: an objection id `F-P<k>-<n>` anywhere except on a well-formed `objection:` line (name an objection only there, and cite no id in other prose); a premise mark (`-- checked` or `-- unchecked`, any letter case) outside the `premises:` section or inside an objection line; a second `verdict:` line. The checker reads the capture line by line after it removes format characters, normalises to NFKC and maps every dash variant to `-`, so a look-alike id counts as the id. The line forms are these. An objection line has exactly four fields in this order, `objection: F-P<k>-<n> | artefact: <artefact id> | evidence: <file:line or command> | refuted when: <condition>`, with no second objection id and no premise mark in it; give a second objection its own line. Put premise rows only in the `premises:` section, which is the `premises:` line and the lines directly after it that start with `- `; it ends at the first line that does not start with `- `, a blank line included. Quote the verbatim assignment, and any other quoted text, as `> ` quote lines (the `> ` starts the line); a `> ` quote line carries no objection and no premise whatever ids or marks it contains. A disposition line reads `disposition: <item> resolved <id or file:line> | upheld | withdrawn <id or file:line> — <why>`, with `<item>` a returned `F-Pk-n` or a `<capture id>:<item>` of a conflicted capture; it answers an item and is no objection, and an `upheld` disposition rejects the capture. Every other line is prose: an objection id or a premise mark in prose rejects the capture, and other prose carries no objection, so write it without an objection id. `fresh context: no` invalidates the pass. A rejected capture counts as no verdict and the orchestrator runs the role again.\n\n1. Acknowledgement line, the `run:` line and the header lines `fresh context:`, `rejected alternative provided:`, `conflict of interest:`.\n2. The severity scale line and the verdict mapping line (contract rule C4), worded as in the form below.\n3. Reconstruction: chosen option, rejected alternatives, null option, each with its cost.\n4. Existence question with the four answers, when applicable.\n5. The `premises:` section, always present: `premises: none, no existing code or data touched`, or `premises:` followed by one row per premise, each `- <premise> -- checked: <file:line>`, `- <premise> -- checked: command: <command>` or `- <premise> -- unchecked`.\n6. Objections, one line each, with the artefact they attack and the place of evidence; for `b` and `c` at least one objection is mandatory, each with `artefact:` and `evidence:` (`<file:line>` or `command: <command>`), otherwise the capture is rejected.\n7. Anti-fig-leaf statement.\n8. One `verdict:` line with one of `a`, `a-with-conditions`, `b`, `c`, `not-decidable`, with its reason below it; for `b` or `c` the block line and what the owner has to record per objection.\n\n```text\ncdp6-contract: v1 <hash>\nrun: <run-id> task: <task>\nfresh context: yes\nrejected alternative provided: yes\nconflict of interest: none\nseverity scale: 🔴 blocks the task, risks data loss or a security boundary, or excludes a user group; 🟡 is a defect with a workaround; 🟢 is polish\nverdict mapping: a = pass, a-with-conditions = pass-with-conditions, b = block, c = block, not-decidable = no pass\npremises: none, no existing code or data touched\nobjection: F-P<k>-<n> | artefact: <artefact id> | evidence: <file:line> | refuted when: <condition>\nverdict: a\n```\n',
+    expected: /` \| `[^.]*(?:inside|within|in) (?:a|any|no) field/i,
+    operator: 'match',
+    diff: 'simple'
+  }
+
+test at plugins/cdp6-core/checks/devils-advocate-agent.test.mjs:115:1
+✖ rv56 F3: step 8 of the role file asks for the owner records without an objection id in prose (0.284118ms)
+  AssertionError [ERR_ASSERTION]: 8. Consequence of `b` or `c`: execution stays blocked until the owner records acceptance or reasoned rejection per objection with `run.mjs object`. You report the block; the orchestrator enforces it.
+      at TestContext.<anonymous> (file://<repo>/.worktrees/sl1-audit/plugins/cdp6-core/checks/devils-advocate-agent.test.mjs:118:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1382:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:960:18)
+      at Test.postRun (node:internal/test_runner/test:1522:19)
+      at Test.run (node:internal/test_runner/test:1447:12)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: '8. Consequence of `b` or `c`: execution stays blocked until the owner records acceptance or reasoned rejection per objection with `run.mjs object`. You report the block; the orchestrator enforces it.',
+    expected: /without (?:an|any) objection id/i,
+    operator: 'match',
+    diff: 'simple'
+  }
+exit 1

@@ -1,0 +1,21 @@
+# Brief: review-verify of the SL-2 fourth fix and concept v0.5.10 (stage-1 worker run 52 of cap 56)
+
+Objective (owner, verbatim): "go always with your recommendation if they are reviewed" (2026-11-02) and the goal "do not fake it, do not cut it, do not remove it, acceptance tools (all must pass before you say "done")" (2026-11-04; ledger 0021). §11.3 item 4 (line 1646): every worker result gets its `review-verify`, a fix run included; §0 item 27: concept edits go into the slice's review-verify.
+
+Output format (final answer, handback only, no file): after the acknowledgement line, the line `conflict of interest: none | <stake>`; part A: one verdict per claim below (bestätigt, widerlegt, unklar, nicht entscheidbar) with file:line or command evidence; part B: per hunk of `<repo>/docs/retro/0021-cdp6-framework/reports/concept-v059-v0510.diff`, whether its source (the ledger 0021 rows "SL-2 review-verify of the third fix (run 49)", "SL-2 fresh adversarial-auditor after the third fix (run 50)", the synthesis row of 2026-11-04T10:24:27+01:00 and the owner decision row of 2026-11-04T10:27:26+01:00) supports it, and whether it contradicts an unchanged concept line; then the findings that should change code or concept, ranked 🔴 🟡 🟢, each with one closing proposal and, for a code claim, a counter-test as complete `node:test` code (file name and title, any extra import named; temporary directories only through `plugins/cdp6-core/test-support/temp-dir.mjs`) marked "not executed" with the result you expect; then status. At most 1800 words plus test code.
+
+Target state: worktree `<repo>/.worktrees/sl2`, base 960146b3f8e5884a4a9f93f1077e793cedd6e14a, uncommitted SL-2 diff under `plugins/cdp6-core/`. The tree before the third fix is `<repo>/.worktrees/sl2-pre-fix4/` (copied 2026-11-04T10:27:26+01:00, `diff -r` exit 0 at that time), so `diff -r <repo>/.worktrees/sl2-pre-fix4 <repo>/.worktrees/sl2/plugins/cdp6-core` is exactly the fourth fix. Fix brief `<repo>/docs/retro/0021-cdp6-framework/briefs/sl2-fix4.md`, its report `<repo>/docs/retro/0021-cdp6-framework/reports/sl2-fix4.md`. Concept v0.5.10 `<repo>/docs/cdp6/konzept-cdp6.md` (uncommitted, sha256 da61f9cbe270b00db79953beac77459719ce28ef5eaccfd5d4a68979b100f55f). You wrote no part of it. `<repo>` = the repository root (main checkout).
+
+Claims:
+1. Items 1 to 5 of the fix brief are built as stated, each with the test the report names, and each test asserts what its item and concept line say.
+2. The counter-tests the brief lists as unchanged are in the tree verbatim (imports merged only where the report says so); audit F5 and F6 are absent; the replacements for audit F1 and F4 assert what the brief says.
+3. Each mutation the report names would turn the named test red (read code and test; a mutation whose test cannot fail as reported is widerlegt; say where only a run decides).
+4. No test was weakened, removed or skipped to reach green: name every hunk of the `diff -r` above that removes, replaces or loosens an assertion and whether the item it cites requires it (item 1 changes `checks/verdict-check.test.mjs:391` and `:570`, item 5 changes `hooks/guard-phase.test.mjs:287` of the pre-fix-4 tree).
+5. The worker's choices stay inside the brief and the concept lines they cite.
+6. Item 1 rejects every objection id outside a well-formed objection line whatever its markup, Unicode form or position, and rejects no capture that carries no objection id outside such lines and no premise mark outside the premises block (a false reject the devils-advocate cannot avoid is a finding); item 3 cannot be passed by any route that leaves a superseded `D-n` with a live unrecorded block.
+
+Tools: Read, Grep, Glob, Bash for read-only commands (`diff -r`, `git -C <worktree> diff`, `git -C <worktree> status`, grep, sed -n, cat -n, wc). No test runs, no writes, no network. The orchestrator executes every counter-test you deliver in a disposable copy and puts the raw output into the ledger. The CDP5 shell guard refuses shell `for` loops, variable assignments, process substitution, backticks, redirections and some heredocs; use one command per call.
+
+Stop rule: one pass; at most 80 tool calls; a verdict without file:line or command evidence is reported as `unklar`.
+
+The worker contract injected at your start applies; open your final answer with its acknowledgement line.

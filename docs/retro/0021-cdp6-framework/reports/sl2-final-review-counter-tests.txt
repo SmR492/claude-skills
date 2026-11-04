@@ -1,0 +1,149 @@
+# Counter-tests of review-verify run 46 (T1-T7) and adversarial-auditor run 47 (F-1 to F-3), executed unchanged by the orchestrator on an exact copy of the final sl2 plugin in .worktrees/sl1-audit (rsync, diff -r exit 0 before). Paths normalised.
+2026-11-04T09:55:04+01:00
+✖ fires: after the owner rejects a conflicted capture without items once D-1 is decided, another devils-advocate pass can still let D-1 pass (53.117692ms)
+✖ fires: a plural objections line with an objection id under verdict b is not dropped (2.905783ms)
+✖ fires: a capture with fresh context no is rejected for every counter-role (C9) (0.820572ms)
+✔ fires: the gate default wait for verdicts.lock is bounded (1008.737704ms)
+✖ fires: a dangling-symlink or old-directory verdicts.lock fails the gate closed within its wait instead of hanging (5018.297951ms)
+✖ fires: an unchecked premise in a numbered row or after a break with a longer tail, and an objection in a table row, code span or after a zero-width space, are not dropped (0.888343ms)
+✖ fires: a malformed counters.json does not deny a Write outside every spawn target (58.024915ms)
+✔ fires: a trailing slash, dot and doubled separators and a symlinked directory still hit the open spawn target (145.813367ms)
+✖ fires: a Write to the open target through a hard link or another letter case is denied (55.24871ms)
+✔ the temp-dir helper removes the directories of a failing test, a passing test and the module level (100.847336ms)
+ℹ tests 10
+ℹ suites 0
+ℹ pass 3
+ℹ fail 7
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 6101.213302
+
+✖ failing tests:
+
+test at plugins/cdp6-core/checks/decision-check.test.mjs:335:1
+✖ fires: after the owner rejects a conflicted capture without items once D-1 is decided, another devils-advocate pass can still let D-1 pass (53.117692ms)
+  AssertionError [ERR_ASSERTION]: decision-check FAIL D-1: decided at 2026-01-01T11:00:00.000Z before its devils-advocate capture at 2026-01-01T12:30:00.000Z
+  
+  
+  1 !== 0
+  
+      at TestContext.<anonymous> (file://<repo>/.worktrees/sl1-audit/plugins/cdp6-core/checks/decision-check.test.mjs:340:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1382:25)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 1,
+    expected: 0,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/cdp6-core/checks/verdict-check.test.mjs:541:1
+✖ fires: a plural objections line with an objection id under verdict b is not dropped (2.905783ms)
+  AssertionError [ERR_ASSERTION]: {"validator":"valid","reasons":[],"verdict":"b","objections":["F-P1-1"],"premises":[],"conflicted":false}
+      at TestContext.<anonymous> (file://<repo>/.worktrees/sl1-audit/plugins/cdp6-core/checks/verdict-check.test.mjs:544:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1382:25)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at plugins/cdp6-core/checks/verdict-check.test.mjs:547:1
+✖ fires: a capture with fresh context no is rejected for every counter-role (C9) (0.820572ms)
+  AssertionError [ERR_ASSERTION]: cdp6-core:pessimistic-realist
+  + actual - expected
+  
+  + 'valid'
+  - 'rejected'
+  
+      at TestContext.<anonymous> (file://<repo>/.worktrees/sl1-audit/plugins/cdp6-core/checks/verdict-check.test.mjs:550:12)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1382:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 'valid',
+    expected: 'rejected',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/cdp6-core/checks/verdict-check.test.mjs:567:1
+✖ fires: a dangling-symlink or old-directory verdicts.lock fails the gate closed within its wait instead of hanging (5018.297951ms)
+  AssertionError [ERR_ASSERTION]: verdict-check did not end within 5 s
+  
+  'SIGTERM' !== null
+  
+      at TestContext.<anonymous> (file://<repo>/.worktrees/sl1-audit/plugins/cdp6-core/checks/verdict-check.test.mjs:576:12)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1382:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 'SIGTERM',
+    expected: null,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/cdp6-core/checks/verdict-check.test.mjs:582:1
+✖ fires: an unchecked premise in a numbered row or after a break with a longer tail, and an objection in a table row, code span or after a zero-width space, are not dropped (0.888343ms)
+  AssertionError [ERR_ASSERTION]: numbered row after the section: {"validator":"valid","reasons":[],"verdict":"a","objections":[],"premises":["D-1-devils-advocate-agent-7:premise-1"],"conflicted":false}
+      at TestContext.<anonymous> (file://<repo>/.worktrees/sl1-audit/plugins/cdp6-core/checks/verdict-check.test.mjs:590:12)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1382:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at plugins/cdp6-core/hooks/guard-phase.test.mjs:304:1
+✖ fires: a malformed counters.json does not deny a Write outside every spawn target (58.024915ms)
+  AssertionError [ERR_ASSERTION]: guard-phase.mjs: counters.json of the active run is not readable
+  
+  
+  2 !== 0
+  
+      at silent (file://<repo>/.worktrees/sl1-audit/plugins/cdp6-core/hooks/guard-phase.test.mjs:75:10)
+      at TestContext.<anonymous> (file://<repo>/.worktrees/sl1-audit/plugins/cdp6-core/hooks/guard-phase.test.mjs:308:3)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1382:25)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 2,
+    expected: 0,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/cdp6-core/hooks/guard-phase.test.mjs:322:1
+✖ fires: a Write to the open target through a hard link or another letter case is denied (55.24871ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  0 !== 2
+  
+      at denied (file://<repo>/.worktrees/sl1-audit/plugins/cdp6-core/hooks/guard-phase.test.mjs:69:10)
+      at TestContext.<anonymous> (file://<repo>/.worktrees/sl1-audit/plugins/cdp6-core/hooks/guard-phase.test.mjs:329:3)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1382:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 0,
+    expected: 2,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+exit 1
