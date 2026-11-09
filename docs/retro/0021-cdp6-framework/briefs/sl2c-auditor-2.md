@@ -1,0 +1,20 @@
+# Brief: fresh adversarial audit of slice SL-2c after the fixes F1 and F2 (stage-1 worker run 93)
+
+Objective (owner, verbatim): "yes pls go with auto and the preflight." (2026-11-05, concept §0 item 34); "do not fake it, do not cut it, do not remove it, acceptance tools (all must pass before you say "done")" (2026-11-04). Run 84 (verdict SPERRE) asked for a fresh audit after the fix; the SL-2c row names `adversarial-auditor` for this security-boundary slice.
+
+Object: the whole SL-2c diff after the fixes, `diff -r <repo>/.worktrees/sl2c-pre-build <repo>/.worktrees/sl2c/plugins/cdp6-core`, on top of the committed SL-1 plus SL-2 build 1d04d1a; concept v0.5.29 `<repo>/docs/cdp6/konzept-cdp6.md` (sha256 2bd3645795b1c954cd8563e3ce8aaf44aa8995645f752ff050909b00fc110a79): §3.4 item 14, §5.6, UC-11, UC-12 steps 2, 3 and 7, UC-14 step 5, AC-11.20 to AC-11.26, AC-12.33 to AC-12.37, AC-14.9 to AC-14.19, AC-16.15; the earlier findings and what closed them: `reports/sl2c-slice-reviews.md`, `reports/concept-v0527-rv.md`, `reports/sl2c-f1.md`, `reports/sl2c-f1-rv.md`, `reports/sl2c-f2.md` (the review of F2, run 92, runs in parallel and is withheld so that both judge independently); frozen copy of the audited tree `<repo>/.worktrees/sl2c-final2/`; the threat model `reports/concept-v0522-tm.md`; docs `<repo>/.worktrees/sl2-review-inputs/docs-2026-11-05/` and `docs-2026-11-06/`. `<repo>` = the repository root. You took part in none of these runs.
+
+Assume the fixed slice still contains a defect that the green tests and every earlier review share as a blind spot; three review rounds each found a new allowlist bypass. Attack in particular:
+1. The stop allowlist: any input it admits that writes, runs a program, reads a secret path or changes `counters.json`, in bash, PowerShell (Windows PowerShell 5.1 and pwsh; their quoting, escape, comment, call and stop-parsing syntax) and Monitor; how `guard-shell.mjs` decides which shell a call goes to.
+2. The owner-command path of `guard-shell.mjs`: the hook tail appended after the command (`guard-shell.mjs` near line 106 in the F1 tree; a trailing `#` or newline in the model's command), the `--expect-sha256` binding, and the running-version admission.
+3. The stop guard: any tool call, hook order or race by which a finished capture-bound agent without a capture leaves a path for a spawn, gate run, owner command, file write or shell write, or by which the model clears the stop entry or the `finished_at` mark.
+4. The probe record: any caller other than the owner's `run.mjs probe --accept` that creates or changes a record `readProbeRecord` accepts; the calibration values; the running version found by the ancestor walk.
+5. The preflight: any repository, settings scope, symlink or process that makes it pass while a check of UC-14 step 5 should fail.
+
+Output format (final answer, handback only, no file): after the acknowledgement line, the line `conflict of interest: none | <stake>`; the audit protocol: per attack, what you tried and the evidence (file:line); every defect with severity (🔴 🟡 🟢) and an executable counter-test as complete `node:test` code (file name, title, imports; temporary directories only through `plugins/cdp6-core/test-support/temp-dir.mjs`; a positive control where the defect depends on shell behaviour), marked "not executed" with the result you expect; the verdict FREIGABE, FREIGABE-MIT-AUFLAGEN or SPERRE. At most 1500 words plus test code.
+
+Tools: Read, Grep, Glob, Bash for read-only commands. No test runs, no writes, no network. The orchestrator executes every counter-test you deliver in a disposable copy, PowerShell cases with Windows PowerShell 5.1 on this host. The CDP5 shell guard refuses shell `for` loops, variable assignments, process substitution, backticks, redirections and some heredocs; use one command per call.
+
+Stop rule: one pass; at most 60 tool calls; a claim without evidence is marked as unverified.
+
+The worker contract injected at your start applies; open your final answer with its acknowledgement line.

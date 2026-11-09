@@ -1,0 +1,27 @@
+# SL-2c slice-end reviews (stage-1 runs 83, 84, 85): final answers as handed back (summary; findings and counter-test results)
+
+Frozen tree: `.worktrees/sl2c-final/` (= `.worktrees/sl2c/plugins/cdp6-core`, diff -r exit 0); auditor's snapshot hash ab9084ec…2965 at start and end.
+
+## review-verify T3 (run 83, briefs/sl2c-t3-rv.md): pass-with-conditions, block if CT-1 red (it was)
+Claims 1, 3, 4, 6 bestätigt; claim 2 not confirmed (unquoted `$IFS` word splitting hands `date` a forbidden flag); claim 5 two 🟡 concept gaps. Findings: 🟡-1 unquoted parameter expansion (`shell-allowlist.mjs:30, :36, :4`); 🟡-2 no accepted record carries the A-12 calibration (`probe-check.mjs` writes none; `preflight.mjs:48` reads `rows['A-12'].calibration`), proposal `per_path` = Δargs/Δpaths over the two A-12 auto files, `base` = args_live − per_path·paths_live, stored at `rows['A-12'].modes.auto.calibration`; 🟡-3 `--settings` file location unchecked (§5.6 "Protection"); 🟡-4 PATH binary against the running version (proposal: read `/proc/<orchestrator-pid>/exe`); 🟢-1 `.env*` coverage probes only `.env` and `a/.env`; 🟢-2 static I/O test covers 3 of 6 files; 🟢-3 the A6 test never shown red; 🟢-4 `-c` over-denies `wc -c`, `head -c`, `grep -c`; 🟢-5 Claude Code recognised from the PATH directory, not the A-20 path; 🟢-6 wording in v0.5.26 hunks 2 and 4. Read: `claude-version.mjs:4` spawns `claude --version` from PATH; secret paths pass the allowlist (`cat ~/.ssh/id_rsa`), the guard rests on sandbox denyRead.
+
+## adversarial-auditor (run 84, briefs/sl2c-auditor.md): SPERRE
+- F1 🔴 arithmetic expansion: `cat 'a[$(touch p)]' ; cat $[_]` passes (`shell-allowlist.mjs:25-28, :30, :36`; `guard-shell.mjs:73, :84`; guard-phase does not deny Bash during a stop) and bash runs the hidden substitution; fix: refuse every `$` outside single quotes; fresh audit after the fix.
+- F2 🟡 the probe record is bound to the `claude` on PATH, not the running process (`claude-version.mjs`; `guard-shell.mjs:51-52`, `probe-check.mjs:90-93`, `preflight.mjs:95`); concept gap (§3.4 item 14, AC-11.21 equate `claude --version` with the running version).
+- F3 🟡 check (c) recognises only processes of the PATH install (`preflight-proc.mjs:39-55`); IDE-bundled and npm installs and their MCP children are missed.
+- F4 🟡 a repository `disableAllHooks: true` turns every cdp6 hook off and the preflight passes (`preflight-env.mjs:41-43`; hooks.md:712, settings-reference.md:3629).
+- F5 🟡 nothing writes `void`; with `exclusiveRole` (`counters.mjs:61-64`) a devils-advocate spawn that never launched blocks every later one, and the deny reason does not name the way out.
+- F6 🟢 `EnterWorktree`, `Skill` and MCP tools are outside the stop matchers. F7 🟢 secret paths readable through the allowlist (first layer: sandbox denyRead). F8 🟢 missing counters.json means no stop; a busy lock at SubagentStop only writes stderr.
+- NV-1 managed settings not counted; the docs name `/etc/claude-code` and on WSL the Windows policy chain (settings-reference.md:5787-5792); orchestrator check 2026-11-06: `/etc/claude-code` absent; `wslInheritsWindowsSettings` default false. NV-2 ugrep abbreviated long options (`--filt…`) past the Claude Code grep wrapper. NV-3 skill `!` command injection and the Bash hooks.
+- Rejected: record forgery, `Edit(...)` rule form loss, matcher syntax, model-set `void` during a stop, `&&`/`||`, Monitor without command, handback/`finished_at` race, T2 test changes.
+
+## review-code (run 85, briefs/sl2c-review-code.md): block
+🔴-1 calibration has no writer (same as run 83 🟡-2); 🟡-1 run lookup and fail-closed policy copied into each guard (`guard-shell.mjs:62-67` fails open on `found.error`, `guard-phase.mjs:95-97` denies, `observe-stop.mjs:11-15` skips), proposal `stopFor(input, env)`; 🟡-2 record row-shape knowledge in four modules, `writeProbeRecord` exported from the reader library and used by the fixture; 🟡-3 missing counters.json counts as no stop; 🟡-4 `probe --accept` not atomic (record written before the owner record; skipped silently on `found.error`); 🟢-1 the §5.6 key list inside the preflight (doctor reuse); 🟢-2 no shared readers for the hook log and run pointer; 🟢-3 capture-bound role set defined twice (`agent-name.mjs:10`, `verdict-index.mjs:89`); 🟢-4 concept wording of the observed agents; 🟢-5 observe-stop records `none` for every outcome; 🟢-6 leftover git-era flags; 🟢-7 settings file hashed from a second read; 🟢-8 `load()` outside the per-check try; 🟢-9 hook-log line not filtered by decision or session. Single-writer rules hold; no duplicated settings logic.
+
+## Counter-tests, executed by the orchestrator in `.worktrees/sl2c-audit3` (copy of the frozen tree, diff -r exit 0), 2026-11-06T13:44 to 13:47
+- run 83 CT-1 `lib/shell-allowlist-ifs.test.mjs`: fail 2 ("date -u +%s$IFS-d$IFS@0 passes and bash ran date -d"; `date +$IFS-s$IFS@0` read-only true).
+- run 83 CT-2 `checks/probe-check-calibration.test.mjs`: fail 1 ("the accepted record holds no calibration").
+- run 83 CT-3, CT-4 appended to `scripts/preflight.test.mjs`: fail 2 (settings file inside a writable root passes; a `.env`-only entry passes).
+- run 84 CT-1 `lib/shell-allowlist-arith.test.mjs`: positive control passes (bash ran the hidden `touch`), the fires test fails; CT-1b (guard-shell, Bash and Monitor) fails.
+- run 84 CT-2 (guard-shell): fails with `ask` where `deny` is expected.
+- run 84 CT-3 `lib/preflight-proc-install.test.mjs`, CT-4 `lib/preflight-hooks-off.test.mjs`, CT-5 `lib/counters-void-writer.test.mjs`: each fails.

@@ -1,0 +1,21 @@
+# Brief: review-verify of concept v0.5.27, the fold-in of the SL-2c slice-end reviews (stage-1 worker run 87)
+
+Objective (owner, verbatim): "yes pls go with auto and the preflight." (2026-11-05, §0 item 34); "go always with your recommendation if they are reviewed" (2026-11-02); "do not fake it, do not cut it, do not remove it, acceptance tools (all must pass before you say "done")" (2026-11-04). §0 item 27: concept edits go into `review-verify`.
+
+Output format (final answer, handback only, no file): after the acknowledgement line, the line `conflict of interest: none | <stake>`; part A: one verdict per claim (bestätigt, widerlegt, unklar, nicht entscheidbar) with file:line or command evidence; part B: per hunk of `<repo>/docs/retro/0021-cdp6-framework/reports/concept-v0526-v0527.diff` (24 hunks), which finding it carries and whether it contradicts an unchanged line; then findings ranked 🔴 🟡 🟢 with one closing proposal each; then status. At most 1300 words.
+
+Target state: concept v0.5.27 `<repo>/docs/cdp6/konzept-cdp6.md` (uncommitted, sha256 c028a14f61a1fd4d68dd2069a86a339817d22c437420eb78cfb4a4be375ed8c9); v0.5.26 at `<repo>/.worktrees/sl2-review-inputs/konzept-v0526.md`; author brief `<repo>/docs/retro/0021-cdp6-framework/briefs/concept-v0527-author.md` (items 1 to 16); the findings and executed counter-tests `<repo>/docs/retro/0021-cdp6-framework/reports/sl2c-slice-reviews.md`; the counter-test files `<repo>/.worktrees/sl2c-audit3/plugins/cdp6-core/`; the build `<repo>/.worktrees/sl2c-final/`; docs `<repo>/.worktrees/sl2-review-inputs/docs-2026-11-05/` and `docs-2026-11-06/` (`skills.md`, `managed-settings.md`). You wrote no part of it. `<repo>` = the repository root.
+
+Claims (author run 86):
+1. Items 1 to 16 of the author brief are carried at the draft lines the author names (allowlist 900, 913, 954; calibration 1650, 1020, 883, 1773, 2267; running version 228, 833, 851, 880, 1020, 1046, 1138; recognition 1320, 1020, 1045; hooks off 1020, 1052, 1938; bound spawns 895, 953, 1020, 1715; missing counters 900, 951, 1715; `stopFor` 67, 900, 913, 955; atomic accept 833, 884; single writer 67, 228, 885; preflight additions 1020, 1322, 1328, 1320, 1046, 1051, 1053; stop matchers 64, 900, 952; probe case A-24 1648, 1913, 1650, 1720, 1773, 1886; SL-2c row 1691; version 3, 4, 2424), and every executed counter-test is absorbed by a named AC with a test title, except CT-5 of run 84, which the author moved to AC-12.20 (SL-3).
+2. The inverted allowlist of UC-12 step 7 admits none of the inputs the executed counter-tests used (`$'…'`, `$"…"`, `{…}`, `$IFS`, `$[…]`, `--output`), and the author's additions (combined short flags, `;`, `&&`, `||`, newline as separators; no backslash; a single `&` denied) open no write, program run or secret read; name any input of the stated grammar that does.
+3. The calibration formula, the running-version rule (ancestor walk of §5.6, cross-check with `claude --version`, deny of owner commands outside `default` when the version cannot be established) and the recognition rule are testable and consistent with §5.6, §3.4 item 14 and the probe-session paragraph.
+4. Q-25 states a real conflict of item 6 with the build's binding (`lib/counters.mjs:76`, `hooks/inject-contract.mjs:44`, `hooks/check-handback.mjs:91` in the frozen build) and does not leave the stage-1 live run with a path where a capture-bound agent finishes uncaptured and no stop fires; if it does, say which closing rule the concept needs now rather than as an open question.
+5. Q-26 (`disableSkillShellExecution`) and the managed-settings handling (check (a) counts them, check (j) does not) are consistent with the docs fetched 2026-11-06 and with §5.6; no owner decision is made in the text beyond the standing-rule fold-ins.
+6. The SL-2c line and run figures follow §11.2 and say which reading they use.
+
+Tools: Read, Grep, Glob, Bash for read-only commands. No test runs, no writes, no network. The CDP5 shell guard refuses shell `for` loops, variable assignments, process substitution, backticks, redirections and some heredocs; use one command per call.
+
+Stop rule: one pass; at most 50 tool calls; a verdict without evidence is `unklar`.
+
+The worker contract injected at your start applies; open your final answer with its acknowledgement line.
