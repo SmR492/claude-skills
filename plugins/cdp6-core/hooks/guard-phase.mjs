@@ -6,14 +6,20 @@ import { recordFired } from '../lib/hooks-observed.mjs';
 import { PHASES, predecessorOpen } from '../lib/phases.mjs';
 import { CountersError, readCounters } from '../lib/counters.mjs';
 import { ArgvError, SHELL_TOOLS, readRunCall } from '../lib/run-argv.mjs';
-import { findRun } from '../lib/run-store.mjs';
+import { openCaptureBound, runFor, stopFor } from '../lib/stop-guard.mjs';
 import { isDevilsAdvocate } from '../lib/verdict-index.mjs';
 
 const TARGET_FIELDS = ['file_path', 'notebook_path'];
 const WRITE_TOOLS = ['Edit', 'Write', 'NotebookEdit'];
+const STOP_TOOLS = ['Agent', 'Task', 'SendMessage', 'EnterWorktree', 'Skill', ...WRITE_TOOLS];
+const stopTool = (name) => STOP_TOOLS.includes(name) || (typeof name === 'string' && name.startsWith('mcp__'));
 
 function deny(reason) {
   return { decision: 'deny', reason };
+}
+
+function ask(reason) {
+  return { decision: 'ask', reason };
 }
 
 function targetOf(input) {
@@ -87,13 +93,18 @@ function enterPhase(input, env) {
 }
 
 export function decide(input, env) {
-  const dataDir = env.CLAUDE_PLUGIN_DATA;
-  if (typeof dataDir !== 'string' || !isAbsolute(dataDir)) return { decision: 'none' };
-  const found = findRun({ dataDir, sessionId: input.session_id, cwd: input.cwd ?? process.cwd(), targetPath: targetOf(input) });
-  if (found.error === 'pointer-missing') return deny('the run pointer active-runs.json is missing while an active run.json exists in a state directory');
-  if (found.error === 'pointer-unreadable') return deny('the run pointer active-runs.json is not readable');
-  if (found.error) return deny('run.json of the active run is not readable');
-  if (found.none || !found.run) return { decision: 'none' };
+  const run = runFor(input, env, targetOf(input));
+  if (run.deny) return deny(run.deny);
+  if (!run.found) return { decision: 'none' };
+  const found = run.found;
+  const stop = stopTool(input.tool_name) ? stopFor(input, env, targetOf(input)) : null;
+  if (stop) return deny(stop);
+  if (input.tool_name === 'TaskStop') {
+    const open = openCaptureBound(found.S);
+    if (open.deny) return deny(open.deny);
+    if (open.spawns.length) return ask(`TaskStop would end a capture-bound agent before its verdict is captured: ${open.spawns.join('; ')}; the owner decides, a stopped agent leaves no capture`);
+    return { decision: 'none' };
+  }
   const open = openTargetTask(input, found);
   if (open?.unreadable) return deny('counters.json of the active run is missing or not readable');
   if (open) return deny(`${open.path} is the target of the open devils-advocate spawn of ${open.task}: it is not edited until the capture is made`);
@@ -120,6 +131,10 @@ export function main(env = process.env) {
     result = deny('guard-phase.mjs could not decide');
   }
   recordFired(env.CLAUDE_PLUGIN_DATA, 'guard-phase.mjs', valid ? input : null, result.decision);
+  if (result.decision === 'ask') {
+    process.stdout.write(JSON.stringify({ hookSpecificOutput: { hookEventName: 'PreToolUse', permissionDecision: 'ask', permissionDecisionReason: `guard-phase.mjs: ${result.reason}` } }));
+    return 0;
+  }
   if (result.decision === 'deny') {
     process.stderr.write(`guard-phase.mjs: ${result.reason}\n`);
     return 2;

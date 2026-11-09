@@ -10,6 +10,8 @@ import { parseCall, stripAppended } from '../lib/run-argv.mjs';
 import { expectHashes } from '../hooks/guard-shell.mjs';
 import { readCounters } from '../lib/counters.mjs';
 import { backCaptures, captureText } from '../lib/capture-fixture.mjs';
+import { firedLine, goodRows, markdown, signedRecord } from '../test-support/probe-fixture.mjs';
+import { npmHost } from '../test-support/claude-host.mjs';
 import { tempDir } from '../test-support/temp-dir.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -35,6 +37,7 @@ function world({ version = '2.1.314', claudeMd } = {}) {
     bin: join(base, 'bin'),
     data: join(base, 'data'),
     session: 'sess-1',
+    version,
   };
   mkdirSync(w.home);
   mkdirSync(w.repo);
@@ -56,12 +59,9 @@ function settingsRules(w) {
   const rules = [];
   const add = (id, tool, spec) => rules.push({ id, tool, spec });
   add('edit:data', 'Edit', `${abs(w.data)}/**`);
-  add('write:data', 'Write', `${abs(w.data)}/**`);
   add('edit:plugin', 'Edit', `${abs(PLUGIN)}/**`);
-  add('write:plugin', 'Write', `${abs(PLUGIN)}/**`);
   add('key:read', 'Read', '~/.config/cdp6-core/**');
   add('key:edit', 'Edit', '~/.config/cdp6-core/**');
-  add('key:write', 'Write', '~/.config/cdp6-core/**');
   add('transcript:read', 'Read', '~/.claude/projects/**');
   return rules;
 }
@@ -81,7 +81,7 @@ function argvFor(w, args, { session = w.session, data = w.data, extra = [], cwd 
   if (!extra.includes('--expect-sha256')) {
     try {
       const parsed = parseCall(bare);
-      expect = parsed.sub === 'init' ? expectHashes(parsed, cwd).map((h) => h.sha256) : [];
+      expect = parsed.sub === 'init' || parsed.sub === 'probe' ? expectHashes(parsed, cwd).map((h) => h.sha256) : [];
     } catch {
       expect = [];
     }
@@ -93,8 +93,9 @@ function argvFor(w, args, { session = w.session, data = w.data, extra = [], cwd 
   return [...base, ...expectArgs, '--hook-token', minted];
 }
 
-function call(w, args, { env = {}, cwd = w.repo, script = RUN, node = [], timeout, ...rest } = {}) {
-  return spawnSync(process.execPath, [...node, script, ...argvFor(w, args, { cwd, ...rest })], {
+function call(w, args, { env = {}, cwd = w.repo, script = RUN, node = [], timeout, host = w.version, ...rest } = {}) {
+  const lead = host === null || node.length > 0 ? [...node, script] : [npmHost(w.base, host).cli, script];
+  return spawnSync(process.execPath, [...lead, ...argvFor(w, args, { cwd, ...rest })], {
     cwd,
     timeout,
     encoding: 'utf8',
@@ -239,9 +240,8 @@ test('fires: team without probes', () => {
 
 test('fires: team refused in stage 1 even with an accepted record', () => {
   const w = world();
-  mkdirSync(join(w.data, 'probes'), { recursive: true });
-  const rows = { 'A-11': { passed: true }, 'A-16': { passed: true }, 'A-14': { passed: true }, 'A-5': { passed: true } };
-  writeFileSync(join(w.data, 'probes', '2.1.314.json'), JSON.stringify({ claude_version: '2.1.314', accepted: { sha256: 'a'.repeat(64) }, rows }));
+  const rows = { 'A-11': { passed: true }, 'A-16': { passed: true }, 'A-14': { passed: true } };
+  signedRecord({ env: { HOME: w.home }, data: w.data, version: '2.1.314', rows });
   const r = call(w, ['init', ...initArgs(w, { '--mode': 'team' })]);
   assert.equal(r.status, 2);
   assert.equal(failure(r).error, 'team-not-built');
@@ -428,6 +428,26 @@ function guardLine(w, session = w.session) {
   writeFileSync(join(w.data, 'hooks-fired.jsonl'), `${JSON.stringify(line)}\n`, { flag: 'a' });
 }
 
+function probeFile(w, rows, name = 'docs/cdp6/probes/rec.md') {
+  const file = join(w.repo, name);
+  mkdirSync(dirname(file), { recursive: true });
+  const text = markdown(rows ?? goodRows('2.1.314'));
+  writeFileSync(file, text);
+  return { file, text, name };
+}
+
+function acceptProbe(w, { rows, line = true, over = {} } = {}) {
+  if (line) firedLine(w.data);
+  const rec = probeFile(w, rows);
+  return { ...rec, r: call(w, ['probe', '--accept', rec.name], over) };
+}
+
+function acceptedOk(w, opts) {
+  const res = acceptProbe(w, opts);
+  assert.equal(res.r.status, 0, res.r.stdout + res.r.stderr);
+  return res;
+}
+
 function started(w, over) {
   const r = call(w, ['init', ...initArgs(w, over)]);
   assert.equal(r.status, 0, r.stderr);
@@ -504,17 +524,125 @@ test('status prints run id, phase state, next action and the ledger path', () =>
 test('fires: A3 before probe', () => {
   const w = world();
   const S = started(w);
+  const a3 = () => call(w, ['set-autonomy', 'A3', '--tokens', '1', '--loops', '0']);
   const r = call(w, ['set-autonomy', 'A3', '--tokens', '100000', '--loops', '1']);
   assert.equal(r.status, 2);
   assert.equal(failure(r).error, 'a3-before-probe');
   assert.equal(readRunJson(S).autonomy.set, false);
+  const red = goodRows('2.1.314').map((row) => (row.row === 'A-5' && row.mode === 'auto' ? { ...row, verdict: 'no-prompt' } : row));
+  acceptedOk(w, { rows: red });
+  assert.equal(failure(a3()).error, 'a3-before-probe');
+  acceptedOk(w, { line: false });
+  assert.equal(a3().status, 0);
+});
+
+test('fires: probe record not accepted', () => {
+  const w = world();
+  started(w);
+  const a3 = () => call(w, ['set-autonomy', 'A3', '--tokens', '1', '--loops', '0']);
+  probeFile(w, undefined, 'docs/cdp6/probes/2.1.314.md');
+  assert.equal(failure(a3()).error, 'a3-before-probe');
   mkdirSync(join(w.data, 'probes'), { recursive: true });
-  writeFileSync(join(w.data, 'probes', '2.1.314.json'), JSON.stringify({ claude_version: '2.1.314', rows: { 'A-5': { passed: true } } }));
+  const hand = { claude_version: '2.1.314', rows: { 'A-5': { passed: true, modes: { default: { prompt: true }, auto: { prompt: true } } } } };
+  writeFileSync(join(w.data, 'probes', '2.1.314.json'), JSON.stringify({ ...hand, accepted: { sha256: 'b'.repeat(64) } }));
+  assert.equal(failure(a3()).error, 'a3-before-probe');
+  writeFileSync(join(w.data, 'probes', '2.1.314.json'), JSON.stringify({ ...hand, accepted: { sha256: 'b'.repeat(64), mac: 'c'.repeat(64) } }));
+  assert.equal(failure(a3()).error, 'a3-before-probe');
+  assert.equal(readRunJson(stateDir(w)).autonomy.set, false);
+});
+
+test('fires: probe record not accepted when written before run.mjs init', () => {
+  const w = world();
+  probeFile(w, undefined, 'docs/cdp6/probes/2.1.314.md');
+  mkdirSync(join(w.data, 'probes'), { recursive: true });
+  const hand = { claude_version: '2.1.314', rows: { 'A-5': { passed: true, modes: { default: { prompt: true }, auto: { prompt: true } } } }, accepted: { sha256: 'b'.repeat(64), mac: 'c'.repeat(64) } };
+  writeFileSync(join(w.data, 'probes', '2.1.314.json'), JSON.stringify(hand));
+  const S = started(w);
   assert.equal(failure(call(w, ['set-autonomy', 'A3', '--tokens', '1', '--loops', '0'])).error, 'a3-before-probe');
-  writeFileSync(join(w.data, 'probes', '2.1.314.json'), JSON.stringify({ claude_version: '2.1.314', accepted: { sha256: 'b'.repeat(64) }, rows: { 'A-5': { passed: false } } }));
-  assert.equal(failure(call(w, ['set-autonomy', 'A3', '--tokens', '1', '--loops', '0'])).error, 'a3-before-probe');
-  writeFileSync(join(w.data, 'probes', '2.1.314.json'), JSON.stringify({ claude_version: '2.1.314', accepted: { sha256: 'b'.repeat(64) }, rows: { 'A-5': { passed: true } } }));
+  assert.equal(readRunJson(S).autonomy.set, false);
+});
+
+test('probe --accept writes the record under the running version with a mac and the sha256 of the file, and opens A3', () => {
+  const w = world();
+  started(w);
+  const res = acceptedOk(w);
+  const out = JSON.parse(res.r.stdout);
+  assert.equal(out.ok, true);
+  assert.equal(out.file, join(w.data, 'probes', '2.1.314.json'));
+  const rec = JSON.parse(readFileSync(out.file, 'utf8'));
+  assert.equal(rec.accepted.sha256, sha(res.text));
+  assert.match(rec.accepted.mac, /^[0-9a-f]{64}$/);
+  assert.deepEqual(Object.keys(rec.rows).sort(), ['A-12', 'A-23', 'A-5']);
   assert.equal(call(w, ['set-autonomy', 'A3', '--tokens', '1', '--loops', '0']).status, 0);
+});
+
+test('probe --accept with an active run writes the stamped owner record into run.json, and without a run only the record is written', () => {
+  const w = world();
+  const S = started(w);
+  const before = Date.now();
+  const res = acceptedOk(w);
+  const rec = JSON.parse(readFileSync(join(w.data, 'probes', '2.1.314.json'), 'utf8'));
+  assert.equal(rec.accepted.by, 'owner');
+  const owned = readRunJson(S).owner_records.filter((o) => o.kind === 'probe-accept');
+  assert.equal(owned.length, 1);
+  assert.equal(owned[0].decider, 'owner');
+  assert.equal(owned[0].sha256, sha(res.text));
+  assert.equal(owned[0].version, '2.1.314');
+  assert.ok(Date.parse(owned[0].at) >= before - 1000);
+  const bare = world();
+  acceptedOk(bare);
+  assert.equal(JSON.parse(readFileSync(join(bare.data, 'probes', '2.1.314.json'), 'utf8')).accepted.by, 'owner');
+  assert.ok(!existsSync(join(bare.data, 'runs')));
+});
+
+test('fires: probe record changed after ask', () => {
+  const w = world();
+  firedLine(w.data);
+  const first = probeFile(w);
+  writeFileSync(first.file, `${first.text}\nchanged after the ask\n`);
+  const r = call(w, ['probe', '--accept', first.name], { extra: ['--expect-sha256', sha(first.text)] });
+  assert.equal(r.status, 2, r.stdout);
+  assert.equal(failure(r).error, 'expect-sha256-mismatch');
+  assert.ok(!existsSync(join(w.data, 'probes')));
+});
+
+test('fires: probe accept refusals of the checker reach run.mjs with their own code and write nothing', () => {
+  const cases = [
+    ['record-version', { rows: goodRows('2.1.318') }],
+    ['a23-hook-line-missing', { line: false }],
+    ['a23-auto-missing', { rows: goodRows('2.1.314').filter((row) => !(row.row === 'A-23' && row.mode === 'auto')) }],
+    ['row-settings-sha256', { rows: goodRows('2.1.314').map((row) => (row.row === 'A-12' ? { ...row, settings_sha256: '' } : row)) }],
+  ];
+  for (const [code, opts] of cases) {
+    const w = world();
+    const res = acceptProbe(w, opts);
+    assert.equal(res.r.status, 2, res.r.stdout);
+    assert.equal(failure(res.r).error, code);
+    assert.ok(!existsSync(join(w.data, 'probes')), code);
+  }
+});
+
+test('fires: probe accept without --accept, with a file outside the project root, or with a missing file', () => {
+  const w = world();
+  firedLine(w.data);
+  assert.equal(failure(call(w, ['probe'])).error, 'missing-flag');
+  const outside = join(w.base, 'outside.md');
+  writeFileSync(outside, markdown(goodRows('2.1.314')));
+  assert.equal(failure(call(w, ['probe', '--accept', outside])).error, 'path-rule');
+  assert.equal(failure(call(w, ['probe', '--accept', 'docs/cdp6/probes/none.md'], { extra: ['--expect-sha256', 'a'.repeat(64)] })).error, 'file-missing');
+  assert.ok(!existsSync(join(w.data, 'probes')));
+});
+
+test('fires: probe accept without the hook token or with a token for other tokens', () => {
+  const w = world();
+  firedLine(w.data);
+  const rec = probeFile(w);
+  const none = call(w, ['probe', '--accept', rec.name], { token: null });
+  assert.equal(none.status, 2);
+  assert.equal(failure(none).error, 'hook-token-count');
+  const other = call(w, ['probe', '--accept', rec.name], { tokenFor: { tokens: ['probe', '--accept', 'docs/cdp6/probes/other.md'] } });
+  assert.equal(failure(other).error, 'hook-token-mac');
+  assert.ok(!existsSync(join(w.data, 'probes')));
 });
 
 test('set-autonomy records level and budgets as an owner record and validates its arguments', () => {
@@ -1094,8 +1222,7 @@ test('A4 parallel object calls record one owner record', async () => {
 test('A8 set-autonomy repeats the active-run check inside the locked update', () => {
   const w = world();
   const S = started(w);
-  mkdirSync(join(w.data, 'probes'), { recursive: true });
-  writeFileSync(join(w.data, 'probes', '2.1.314.json'), JSON.stringify({ claude_version: '2.1.314', accepted: { sha256: 'a'.repeat(64) }, rows: { 'A-5': { passed: true } } }));
+  acceptedOk(w);
   const store = join(PLUGIN, 'lib', 'run-store.mjs');
   const park = `import('${store}').then((m) => m.updateRun('${S}', 'test-park', (r) => { r.status = 'PARKED'; }))`;
   const fake = join(w.bin, 'claude');
@@ -1107,7 +1234,7 @@ test('A8 set-autonomy repeats the active-run check inside the locked update', ()
   const run = readRunJson(S);
   assert.equal(run.status, 'PARKED');
   assert.equal(run.autonomy.set, false);
-  assert.equal(run.owner_records.length, 0);
+  assert.deepEqual(run.owner_records.map((o) => o.kind), ['probe-accept']);
 });
 
 test('A8 the command string of the guard runs through sh and is accepted, one changed token character is refused', () => {
@@ -1399,6 +1526,7 @@ function settingsRefusal(w, over, needle) {
   const f = failure(r);
   assert.equal(f.error, 'user-settings-rule-missing');
   assert.ok(f.message.includes(needle), f.message);
+  assert.ok(!f.message.includes('Write deny rule'), f.message);
   assert.ok(!existsSync(join(w.repo, 'docs')), 'a run directory was created');
 }
 
@@ -1410,9 +1538,9 @@ test('fires: key file readable by Read tool', () => {
   assert.equal(call(w, ['init', ...initArgs(w)]).status, 0);
 });
 
-test('fires: key file writable by Write tool', () => {
+test('fires: key file editable with only a Write rule', () => {
   const w = world();
-  settingsRefusal(w, { drop: ['key:write'] }, 'Write deny rule on ~/.config/cdp6-core/');
+  settingsRefusal(w, { drop: ['key:edit'], rules: ['Write(~/.config/cdp6-core/**)'] }, 'Edit deny rule on ~/.config/cdp6-core/');
   settingsRefusal(w, { drop: ['key:edit'] }, 'Edit deny rule on ~/.config/cdp6-core/');
   settingsRefusal(w, { dropSandbox: [{ list: 'denyWrite', entry: '~/.config/cdp6-core/' }] }, 'sandbox.filesystem.denyWrite entry on ~/.config/cdp6-core/');
 });
@@ -1425,14 +1553,14 @@ test('fires: transcript dir readable', () => {
 
 test('fires: state directory editable by Edit tool', () => {
   const w = world();
-  const withoutStates = ['Edit', 'Write'].flatMap((tool) => ['hook-nonces.jsonl', 'active-runs.json', 'probes/**', 'grants.json'].map((file) => `${tool}(//${w.data.slice(1)}/${file})`));
-  narrowRefusal(w, ['edit:data', 'write:data'], withoutStates, 'the data directory', 'the plugin root');
+  const withoutStates = ['Edit'].flatMap((tool) => ['hook-nonces.jsonl', 'active-runs.json', 'probes/**', 'grants.json'].map((file) => `${tool}(//${w.data.slice(1)}/${file})`));
+  narrowRefusal(w, ['edit:data'], withoutStates, 'the data directory', 'the plugin root');
 });
 
 test('fires: deny rules that cover only the four earlier samples of the data directory', () => {
   const w = world();
-  const four = ['Edit', 'Write'].flatMap((tool) => ['hook-nonces.jsonl', 'active-runs.json', 'probes/**', 'runs/**'].map((file) => `${tool}(//${w.data.slice(1)}/${file})`));
-  narrowRefusal(w, ['edit:data', 'write:data'], four, 'the data directory', 'the plugin root');
+  const four = ['Edit'].flatMap((tool) => ['hook-nonces.jsonl', 'active-runs.json', 'probes/**', 'runs/**'].map((file) => `${tool}(//${w.data.slice(1)}/${file})`));
+  narrowRefusal(w, ['edit:data'], four, 'the data directory', 'the plugin root');
 });
 
 test('the init check asks for no deny rule on the run files of the project or of the memory directory', () => {
@@ -1450,10 +1578,9 @@ function narrowRefusal(w, drop, narrow, wanted, unwanted) {
   assert.equal(r.status, 2, r.stderr);
   const f = failure(r);
   assert.equal(f.error, 'user-settings-rule-missing');
-  for (const tool of ['Edit', 'Write']) {
-    assert.ok(f.message.includes(`${tool} deny rule on ${wanted}`), f.message);
-    assert.ok(!f.message.includes(`${tool} deny rule on ${unwanted}`), f.message);
-  }
+  assert.ok(f.message.includes(`Edit deny rule on ${wanted}`), f.message);
+  assert.ok(!f.message.includes(`Edit deny rule on ${unwanted}`), f.message);
+  assert.ok(!f.message.includes('Write deny rule'), f.message);
   assert.ok(!existsSync(join(w.repo, 'docs')), 'a run directory was created');
   writeSettings(w);
   assert.equal(call(w, ['init', ...initArgs(w)]).status, 0);
@@ -1461,26 +1588,45 @@ function narrowRefusal(w, drop, narrow, wanted, unwanted) {
 
 test('fires: narrow deny rules for the data directory', () => {
   const w = world();
-  const narrow = ['Edit', 'Write'].map((tool) => `${tool}(//${w.data.slice(1)}/hook-nonces.jsonl)`);
-  narrowRefusal(w, ['edit:data', 'write:data'], narrow, 'the data directory', 'the plugin root');
+  const narrow = ['Edit'].map((tool) => `${tool}(//${w.data.slice(1)}/hook-nonces.jsonl)`);
+  narrowRefusal(w, ['edit:data'], narrow, 'the data directory', 'the plugin root');
 });
 
 test('fires: narrow deny rules for the plugin root', () => {
   const w = world();
-  const narrow = ['Edit', 'Write'].map((tool) => `${tool}(//${PLUGIN.slice(1)}/lib/hook-key.mjs)`);
-  narrowRefusal(w, ['edit:plugin', 'write:plugin'], narrow, 'the plugin root', 'the data directory');
+  const narrow = ['Edit'].map((tool) => `${tool}(//${PLUGIN.slice(1)}/lib/hook-key.mjs)`);
+  narrowRefusal(w, ['edit:plugin'], narrow, 'the plugin root', 'the data directory');
 });
 
-test('fires: nonce record writable by Write tool', () => {
+test('fires: nonce record editable by Edit tool', () => {
   const w = world();
-  settingsRefusal(w, { drop: ['write:data'] }, 'Write deny rule on the data directory');
   settingsRefusal(w, { drop: ['edit:data'] }, 'Edit deny rule on the data directory');
+});
+
+test('fires: Write rule counted as file deny rule', () => {
+  const w = world();
+  const writeRules = [`Write(//${w.data.slice(1)}/**)`, `Write(//${PLUGIN.slice(1)}/**)`];
+  writeSettings(w, { drop: ['edit:data', 'edit:plugin'], rules: writeRules });
+  const r = call(w, ['init', ...initArgs(w)]);
+  assert.equal(r.status, 2, r.stderr);
+  const f = failure(r);
+  assert.equal(f.error, 'user-settings-rule-missing');
+  assert.ok(f.message.includes('Edit deny rule on the data directory'), f.message);
+  assert.ok(f.message.includes('Edit deny rule on the plugin root'), f.message);
+  assert.ok(!existsSync(join(w.repo, 'docs')), 'a run directory was created');
+  writeSettings(w, { rules: writeRules });
+  assert.equal(call(w, ['init', ...initArgs(w)]).status, 0);
+});
+
+test('a Write rule is not required and its absence is not reported', () => {
+  const w = world();
+  assert.ok(!JSON.stringify(JSON.parse(readFileSync(join(w.home, '.claude', 'settings.json'), 'utf8')).permissions.deny).includes('Write('));
+  assert.equal(call(w, ['init', ...initArgs(w)]).status, 0);
 });
 
 test('fires: plugin lib editable by Edit tool', () => {
   const w = world();
   settingsRefusal(w, { drop: ['edit:plugin'] }, 'Edit deny rule on the plugin root');
-  settingsRefusal(w, { drop: ['write:plugin'] }, 'Write deny rule on the plugin root');
   writeSettings(w);
   assert.equal(call(w, ['init', ...initArgs(w)]).status, 0);
 });
@@ -1848,4 +1994,98 @@ test('fires: object <capture id>:capture clears the block of a rejected capture 
     const passed = call(w, ['exit', 'idea']);
     assert.equal(passed.status, 0, `${verdict}: ${passed.stdout}${passed.stderr}`);
   }
+});
+
+test('fires: signed team record without A-5 does not open A3', () => {
+  const w = world();
+  started(w);
+  signedRecord({ env: { HOME: w.home }, data: w.data, version: '2.1.314', rows: { 'A-11': { passed: true }, 'A-16': { passed: true }, 'A-14': { passed: true } } });
+  const r = call(w, ['set-autonomy', 'A3', '--tokens', '1', '--loops', '0']);
+  assert.notEqual(r.status, 0);
+  assert.equal(failure(r).error, 'a3-before-probe');
+});
+
+test('fires: probe accept under a running version that differs from the PATH binary', () => {
+  const w = world();
+  started(w);
+  firedLine(w.data);
+  const rec = probeFile(w);
+  const r = call(w, ['probe', '--accept', rec.name], { host: '2.1.999' });
+  assert.equal(r.status, 2, r.stdout);
+  assert.equal(failure(r).error, 'path-version-differs');
+  assert.ok(!existsSync(join(w.data, 'probes')));
+});
+
+test('fires: A3 and team read the record of the running version, not of the PATH binary', () => {
+  const w = world();
+  started(w);
+  acceptedOk(w);
+  assert.equal(call(w, ['set-autonomy', 'A3', '--tokens', '1', '--loops', '0']).status, 0);
+  const a3 = call(w, ['set-autonomy', 'A3', '--tokens', '1', '--loops', '0'], { host: '2.1.999' });
+  assert.equal(failure(a3).error, 'path-version-differs');
+  const w2 = world();
+  const team = call(w2, ['init', ...initArgs(w2, { '--mode': 'team' })], { host: '2.1.999' });
+  assert.equal(failure(team).error, 'path-version-differs');
+});
+
+test('fires: probe accept signs with an unwritable run.json', () => {
+  const w = world();
+  const S = started(w);
+  chmodSync(join(S, 'run.json'), 0o000);
+  try {
+    firedLine(w.data);
+    const r = call(w, ['probe', '--accept', probeFile(w).name]);
+    assert.equal(r.status, 2, r.stdout);
+    assert.ok(!existsSync(join(w.data, 'probes')), 'a record was signed and written');
+  } finally {
+    chmodSync(join(S, 'run.json'), 0o600);
+  }
+});
+
+test('fires: probe accept signs while the run lock is held past the wait', () => {
+  const w = world();
+  const S = started(w);
+  writeFileSync(join(S, 'run.lock'), JSON.stringify({ pid: process.pid, at: Date.now() }));
+  firedLine(w.data);
+  const r = call(w, ['probe', '--accept', probeFile(w).name]);
+  assert.equal(r.status, 2, r.stdout);
+  assert.equal(failure(r).error, 'lock-busy');
+  assert.ok(!existsSync(join(w.data, 'probes')));
+});
+
+test('fires: accepted record left after failed owner record', () => {
+  const w = world();
+  const S = started(w);
+  acceptedOk(w);
+  const before = readFileSync(join(w.data, 'probes', '2.1.314.json'), 'utf8');
+  chmodSync(join(S, 'run.journal.jsonl'), 0o400);
+  try {
+    const rows = goodRows('2.1.314').map((r) => (r.row === 'A-5' && r.mode === 'auto' ? { ...r, verdict: 'no-prompt' } : r));
+    const r = acceptProbe(w, { rows, line: false }).r;
+    assert.equal(r.status, 2, r.stdout);
+    assert.equal(failure(r).error, 'owner-record-failed');
+    assert.equal(readFileSync(join(w.data, 'probes', '2.1.314.json'), 'utf8'), before);
+  } finally {
+    chmodSync(join(S, 'run.journal.jsonl'), 0o600);
+  }
+  const fresh = world();
+  const S2 = started(fresh);
+  chmodSync(join(S2, 'run.journal.jsonl'), 0o400);
+  try {
+    const r = acceptProbe(fresh).r;
+    assert.equal(r.status, 2, r.stdout);
+    assert.ok(!existsSync(join(fresh.data, 'probes', '2.1.314.json')), 'the new record stayed');
+  } finally {
+    chmodSync(join(S2, 'run.journal.jsonl'), 0o600);
+  }
+});
+
+test('fires: owner record skipped on lookup error', () => {
+  const w = world();
+  started(w);
+  writeFileSync(join(w.data, 'active-runs.json'), '{ not json');
+  const r = acceptProbe(w).r;
+  assert.equal(r.status, 2, r.stdout);
+  assert.equal(failure(r).error, 'run-lookup-failed');
+  assert.ok(!existsSync(join(w.data, 'probes')));
 });

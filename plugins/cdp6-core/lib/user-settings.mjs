@@ -15,7 +15,7 @@ export function readUserSettings(env) {
   }
 }
 
-function expand(spec, home, { rule }) {
+export function expand(spec, home, { rule }) {
   if (spec === '~') return home;
   if (spec.startsWith('~/')) return join(home, spec.slice(2));
   if (spec.startsWith('//')) return spec.slice(1);
@@ -23,7 +23,7 @@ function expand(spec, home, { rule }) {
   return null;
 }
 
-function toRegex(abs) {
+export function toRegex(abs) {
   let out = '';
   for (let i = 0; i < abs.length; i += 1) {
     const c = abs[i];
@@ -86,13 +86,13 @@ export function missingRules(settings, env, { dataDir, pluginRoot }) {
     if (!samples.some((p) => sandboxCovers(settings, key, p, env))) missing.push(`sandbox.filesystem.${key} entry on ${what}`);
   };
   const key = [join(keyDir, 'hook.key')];
-  for (const tool of ['Read', 'Edit', 'Write']) rule(tool, key, '~/.config/cdp6-core/');
+  for (const tool of ['Read', 'Edit']) rule(tool, key, '~/.config/cdp6-core/');
   entry('denyRead', key, '~/.config/cdp6-core/');
   entry('denyWrite', key, '~/.config/cdp6-core/');
   const transcript = [join(transcripts, 'x', 't.jsonl')];
   rule('Read', transcript, '~/.claude/projects/');
   entry('denyRead', transcript, '~/.claude/projects/');
-  for (const tool of ['Edit', 'Write']) {
+  for (const tool of ['Edit']) {
     ruleAll(tool, ['hook-nonces.jsonl', 'active-runs.json', join('probes', 'x.json'), join('runs', 'RUN-x', 'run.json'), 'hooks-fired.jsonl', 'grants.json', join('x', 'y', 'z.txt')].map((f) => join(dataDir, f)), 'the data directory');
     ruleAll(tool, ['scripts/run.mjs', 'hooks/guard-shell.mjs', 'lib/hook-key.mjs', 'a/b/c.txt'].map((f) => join(pluginRoot, f)), 'the plugin root');
   }

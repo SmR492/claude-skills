@@ -25,7 +25,18 @@
         ]
       },
       {
-        "matcher": "Agent|Task|Bash|PowerShell|Monitor|Edit|Write|NotebookEdit",
+        "matcher": "Agent|Task|Bash|PowerShell|Monitor|Edit|Write|NotebookEdit|SendMessage|EnterWorktree|Skill|TaskStop",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/guard-phase.mjs\"",
+            "timeout": 10,
+            "onFailure": "block"
+          }
+        ]
+      },
+      {
+        "matcher": "^mcp__.*",
         "hooks": [
           {
             "type": "command",
@@ -65,6 +76,18 @@
           {
             "type": "command",
             "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/inject-contract.mjs\"",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "SubagentStop": [
+      {
+        "matcher": "^cdp6-core:",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/observe-stop.mjs\"",
             "timeout": 10
           }
         ]

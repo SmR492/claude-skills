@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { CountersError, addPending, bindPending, boundSpawn, closePending, countersPath, initCounters, readCounters } from './counters.mjs';
+import { CountersError, addPending, bindPending, boundSpawn, closePending, countersPath, initCounters, markFinished, readCounters, uncapturedFinished, uncapturedStop, unboundPending } from './counters.mjs';
 import { tempDir } from '../test-support/temp-dir.mjs';
 
 const H = 'c'.repeat(64);
@@ -194,4 +194,112 @@ test('initCounters creates counters.json with mode 0600 that readCounters reads,
   assert.equal(codeOf(() => initCounters(S)), 'counters-exists');
   assert.equal(Object.keys(raw(S).pending).length, 1);
   assert.deepEqual(readdirSync(S), ['counters.json']);
+});
+
+test('markFinished writes finished_at onto the spawn bound to the agent id once, under the lock, and keeps the other keys', () => {
+  const S = state();
+  addPending(S, spawn());
+  bindPending(S, 'cdp6-core:devils-advocate', 'agent-1');
+  const before = raw(S).pending.toolu_1;
+  const r = markFinished(S, 'agent-1');
+  assert.equal(r.status, 'marked');
+  assert.equal(r.tool_use_id, 'toolu_1');
+  const after = raw(S).pending.toolu_1;
+  assert.match(after.finished_at, /^\d{4}-\d\d-\d\dT/);
+  assert.deepEqual({ ...after, finished_at: undefined }, { ...before, finished_at: undefined });
+  const again = markFinished(S, 'agent-1');
+  assert.equal(again.status, 'already');
+  assert.equal(raw(S).pending.toolu_1.finished_at, after.finished_at);
+});
+
+test('fires: markFinished marks nothing for an unknown agent id, a closed spawn, a void spawn or an empty id', () => {
+  const S = state();
+  addPending(S, spawn());
+  bindPending(S, 'cdp6-core:devils-advocate', 'agent-1');
+  assert.equal(markFinished(S, 'agent-9').status, 'none');
+  assert.equal(markFinished(S, '').status, 'none');
+  closePending(S, 'toolu_1', () => 0, { captureSha256: H });
+  assert.equal(markFinished(S, 'agent-1').status, 'closed');
+  assert.equal(raw(S).pending.toolu_1.finished_at, undefined);
+  const V = state();
+  addPending(V, spawn());
+  bindPending(V, 'cdp6-core:devils-advocate', 'agent-1');
+  const doc = raw(V);
+  doc.pending.toolu_1.void = true;
+  writeFileSync(countersPath(V), JSON.stringify(doc));
+  assert.equal(markFinished(V, 'agent-1').status, 'none');
+});
+
+test('fires: markFinished reports a busy lock and a malformed file as a CountersError and writes nothing', () => {
+  const S = state();
+  addPending(S, spawn());
+  bindPending(S, 'cdp6-core:devils-advocate', 'agent-1');
+  writeFileSync(join(S, 'counters.lock'), '{}');
+  assert.equal(codeOf(() => markFinished(S, 'agent-1', { waitMs: 0 })), 'lock-busy');
+  assert.equal(raw(S).pending.toolu_1.finished_at, undefined);
+  assert.equal(codeOf(() => markFinished(state(null), 'agent-1')), 'counters-missing');
+});
+
+test('uncapturedFinished names the spawn with finished_at that is neither closed nor void', () => {
+  const pending = {
+    a: { agent_id: 'x', finished_at: 't', closed_at: 't2' },
+    b: { agent_id: 'y', finished_at: 't', void: true },
+    c: { agent_id: 'z' },
+    d: { agent_id: 'w', finished_at: 't', task: 'D-1', agent_type: 'cdp6-core:devils-advocate' },
+  };
+  assert.deepEqual(uncapturedFinished({ pending }), { tool_use_id: 'd', spawn: pending.d });
+  delete pending.d;
+  assert.equal(uncapturedFinished({ pending }), null);
+  assert.equal(uncapturedFinished({ pending: {} }), null);
+});
+
+test('addPending refuses a second spawn of a capture-bound role while another of the role is neither closed nor void, and records it once that one is', () => {
+  const S = state();
+  addPending(S, spawn());
+  const err = (fn) => { try { fn(); } catch (e) { return e; } return null; };
+  assert.equal(err(() => addPending(S, spawn({ tool_use_id: 'toolu_2', task: 'D-2' }), { exclusiveRole: true })), null);
+  const bound = raw(S);
+  delete bound.pending.toolu_2;
+  bound.pending.toolu_1.agent_id = 'agent-1';
+  writeFileSync(countersPath(S), JSON.stringify(bound));
+  const e = err(() => addPending(S, spawn({ tool_use_id: 'toolu_2', task: 'D-2' }), { exclusiveRole: true }));
+  assert.ok(e instanceof CountersError);
+  assert.equal(e.code, 'role-pending');
+  assert.match(e.message, /toolu_1/);
+  assert.equal(raw(S).pending.toolu_2, undefined);
+  assert.equal(addPending(S, spawn(), { exclusiveRole: true }).tool_use_id, 'toolu_1');
+  addPending(S, spawn({ tool_use_id: 'toolu_3', agent_type: 'cdp6-core:impl-uc', role: 'impl-uc' }), { exclusiveRole: false });
+  const doc = raw(S);
+  doc.pending.toolu_1.void = true;
+  writeFileSync(countersPath(S), JSON.stringify(doc));
+  assert.equal(addPending(S, spawn({ tool_use_id: 'toolu_2', task: 'D-2' }), { exclusiveRole: true }).tool_use_id, 'toolu_2');
+});
+
+test('markFinished with an agent type records one stop entry for an agent no spawn is bound to and keeps the first time', () => {
+  const S = state({ version: 1, pending: { toolu_1: spawn() } });
+  const r = markFinished(S, 'agent-9', { agentType: 'cdp6-core:devils-advocate' });
+  assert.equal(r.status, 'unbound');
+  const first = raw(S).stops['agent-9'];
+  assert.equal(first.agent_type, 'cdp6-core:devils-advocate');
+  assert.equal(raw(S).pending.toolu_1.finished_at, undefined);
+  markFinished(S, 'agent-9', { agentType: 'cdp6-core:devils-advocate' });
+  assert.deepEqual(raw(S).stops['agent-9'], first);
+  assert.equal(uncapturedStop(readCounters(S)).agent_id, 'agent-9');
+  const doc = raw(S);
+  doc.stops['agent-9'].void = true;
+  writeFileSync(countersPath(S), JSON.stringify(doc));
+  assert.equal(uncapturedStop(readCounters(S)), null);
+  const V = state({ version: 1, pending: { toolu_1: spawn({ agent_id: 'agent-1', void: true }) } });
+  assert.equal(markFinished(V, 'agent-1', { agentType: 'cdp6-core:devils-advocate' }).status, 'none');
+  assert.equal(raw(V).stops, undefined);
+});
+
+test('fires: a malformed stops key is a malformed counters.json', () => {
+  assert.equal(codeOf(() => readCounters(state({ version: 1, stops: [] }))), 'counters-malformed');
+  assert.equal(codeOf(() => readCounters(state({ version: 1, stops: { a: 1 } }))), 'counters-malformed');
+});
+
+test('unboundPending lists the open spawns of the type that have no agent id', () => {
+  const doc = { pending: { a: spawn({ tool_use_id: 'a', task: 'D-1', agent_id: null }), b: spawn({ tool_use_id: 'b', agent_id: 'x' }), c: spawn({ tool_use_id: 'c', void: true, agent_id: null }), d: spawn({ tool_use_id: 'd', agent_type: 'cdp6-core:impl-uc', agent_id: null }) } };
+  assert.deepEqual(unboundPending(doc, 'cdp6-core:devils-advocate'), [{ tool_use_id: 'a', task: 'D-1' }]);
 });

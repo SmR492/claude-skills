@@ -1,19 +1,20 @@
 #!/usr/bin/env node
 import { readFileSync } from 'node:fs';
-import { isAbsolute } from 'node:path';
+import { join } from 'node:path';
 import { isMainModule } from '../lib/paths.mjs';
-import { agentName } from '../lib/agent-name.mjs';
+import { agentName, captureBound } from '../lib/agent-name.mjs';
 import { parseBrief } from '../lib/brief.mjs';
 import { CountersError, addPending } from '../lib/counters.mjs';
 import { recordFired } from '../lib/hooks-observed.mjs';
-import { findRun } from '../lib/run-store.mjs';
+import { runFor, stopFor } from '../lib/stop-guard.mjs';
 
 const SPAWN_TOOLS = ['Agent', 'Task'];
 
-const RUN_DENIES = {
-  'pointer-missing': 'the run pointer active-runs.json is missing while an active run.json exists in a state directory',
-  'pointer-unreadable': 'the run pointer active-runs.json is not readable',
-};
+function unboundNote(S, unbound) {
+  if (!unbound?.length) return '';
+  const list = unbound.map((u) => `${u.tool_use_id} (task ${u.task ?? 'unknown'})`).join(', ');
+  return `; unbound pending spawns of the role, never launched or not yet bound: ${list}; outside Claude Code mark each one void in ${join(S, 'counters.json')} by hand`;
+}
 
 function deny(reason) {
   return { decision: 'deny', reason };
@@ -36,19 +37,21 @@ function pendingOf(input, now) {
 
 export function decide(input, env, now = new Date()) {
   if (!SPAWN_TOOLS.includes(input.tool_name)) return { decision: 'none' };
-  const dataDir = env.CLAUDE_PLUGIN_DATA;
-  if (typeof dataDir !== 'string' || !isAbsolute(dataDir)) return { decision: 'none' };
-  const found = findRun({ dataDir, sessionId: input.session_id, cwd: input.cwd ?? process.cwd() });
-  if (found.error) return deny(RUN_DENIES[found.error] ?? 'run.json of the active run is not readable');
-  if (found.none || !found.run) return { decision: 'none' };
+  const run = runFor(input, env);
+  if (run.deny) return deny(run.deny);
+  if (!run.found) return { decision: 'none' };
+  const found = run.found;
+  const stop = stopFor(input, env);
+  if (stop) return deny(stop);
   const type = input.tool_input?.subagent_type;
   if (!agentName(type)) return deny('in an active run only agents of the cdp6-core: namespace may be spawned');
   if (typeof input.tool_use_id !== 'string' || input.tool_use_id === '') return deny('the Agent call carries no tool_use_id');
   try {
-    addPending(found.S, pendingOf(input, now));
+    addPending(found.S, pendingOf(input, now), { exclusiveRole: captureBound(type) });
   } catch (e) {
     if (!(e instanceof CountersError)) throw e;
     if (e.code === 'lock-busy') return deny('counters.json is locked by another writer');
+    if (e.code === 'role-pending') return deny(`a second spawn of ${type} is denied: ${e.message}${unboundNote(found.S, e.unbound)}`);
     return deny(`counters.json cannot be used: ${e.message}`);
   }
   return { decision: 'none' };

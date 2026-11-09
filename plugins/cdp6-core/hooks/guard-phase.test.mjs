@@ -337,3 +337,201 @@ test('fires: while the open target exists, a write to another existing file or t
   silent(fire(w, { tool: 'Edit', input: { file_path: join(w.base, 'copy.md'), old_string: 'A', new_string: 'B' } }));
   denied(fire(w, { tool: 'Write', input: { file_path: join(R, 'idea', 'idea.md'), content: 'B\n' } }), /D-3/);
 });
+
+const MODES = ['default', 'acceptEdits', 'auto', 'bypassPermissions', 'plan'];
+
+function stopped(w, over = {}) {
+  return withSpawns(w, { toolu_s: { task: 'D-1', agent_id: 'agent-7', bound_at: new Date().toISOString(), finished_at: new Date().toISOString(), ...over } });
+}
+
+function stopReason(res) {
+  denied(res, /agent-7/);
+  assert.match(res.stderr, /devils-advocate/);
+  assert.match(res.stderr, /D-1/);
+  assert.match(res.stderr, /finished without a captured verdict/);
+  assert.match(res.stderr, /end the session/);
+  assert.match(res.stderr, /void/);
+}
+
+const SPAWN_INPUT = { subagent_type: 'cdp6-core:devils-advocate', prompt: 'x', description: 'd' };
+
+test('fires: spawn after uncaptured finished agent', () => {
+  for (const tool of ['Agent', 'Task']) {
+    for (const mode of MODES) {
+      const w = world();
+      stopped(w);
+      stopReason(fire(w, { tool, input: SPAWN_INPUT, mode }));
+    }
+  }
+});
+
+test('fires: resume of uncaptured finished agent', () => {
+  for (const mode of MODES) {
+    const w = world();
+    stopped(w);
+    stopReason(fire(w, { tool: 'SendMessage', input: { to: 'agent-7', message: 'continue' }, mode }));
+  }
+});
+
+test('fires: phase-directory edit after uncaptured finished agent', () => {
+  for (const mode of MODES) {
+    for (const [tool, key] of [['Edit', 'file_path'], ['Write', 'file_path'], ['NotebookEdit', 'notebook_path']]) {
+      const w = world();
+      const R = stopped(w);
+      mkdirSync(join(R, 'idea'), { recursive: true });
+      stopReason(fire(w, { tool, input: { [key]: join(R, 'idea', 'notes.md'), old_string: 'a', new_string: 'b', content: 'b', new_source: 'b' }, mode }));
+    }
+  }
+});
+
+test('fires: edit outside phase directory after uncaptured finished agent', () => {
+  for (const mode of MODES) {
+    for (const [tool, key] of [['Edit', 'file_path'], ['Write', 'file_path'], ['NotebookEdit', 'notebook_path']]) {
+      const w = world();
+      stopped(w);
+      stopReason(fire(w, { tool, input: { [key]: join(w.repo, 'README.md'), old_string: 'a', new_string: 'b', content: 'b', new_source: 'b' }, mode }));
+      stopReason(fire(w, { tool, input: { [key]: join(w.base, 'outside.txt'), old_string: 'a', new_string: 'b', content: 'b', new_source: 'b' }, mode }));
+    }
+  }
+});
+
+test('fires: EnterWorktree after uncaptured finished agent', () => {
+  for (const mode of MODES) {
+    const w = world();
+    stopped(w);
+    stopReason(fire(w, { tool: 'EnterWorktree', input: { name: 'wt' }, mode }));
+  }
+  silent(fire(world(), { tool: 'EnterWorktree', input: { name: 'wt' } }));
+});
+
+test('fires: MCP tool after uncaptured finished agent', () => {
+  for (const mode of MODES) {
+    for (const tool of ['mcp__fixture__write', 'mcp__claude_ai_Orbit__insert']) {
+      const w = world();
+      stopped(w);
+      stopReason(fire(w, { tool, input: { path: 'x' }, mode }));
+    }
+  }
+  silent(fire(world(), { tool: 'mcp__fixture__write', input: { path: 'x' } }));
+});
+
+test('fires: skill call after uncaptured finished agent', () => {
+  for (const mode of MODES) {
+    const w = world();
+    stopped(w);
+    stopReason(fire(w, { tool: 'Skill', input: { skill: 'x' }, mode }));
+  }
+  silent(fire(world(), { tool: 'Skill', input: { skill: 'x' } }));
+});
+
+function asked(res, ...needles) {
+  assert.equal(res.status, 0, res.stderr);
+  const out = JSON.parse(res.stdout).hookSpecificOutput;
+  assert.equal(out.hookEventName, 'PreToolUse');
+  assert.equal(out.permissionDecision, 'ask');
+  for (const needle of needles) assert.match(out.permissionDecisionReason, needle);
+}
+
+const TASK_STOP = { task_id: 'agent-7' };
+
+test('fires: TaskStop without ask after uncaptured finished agent', () => {
+  for (const mode of MODES) {
+    const w = world();
+    stopped(w);
+    asked(fire(w, { tool: 'TaskStop', input: TASK_STOP, mode }), /agent-7/, /devils-advocate/, /D-1/);
+  }
+});
+
+test('fires: TaskStop without ask while a capture-bound spawn has no capture', () => {
+  for (const mode of MODES) {
+    const bound = world();
+    stopped(bound, { finished_at: undefined });
+    asked(fire(bound, { tool: 'TaskStop', input: TASK_STOP, mode }), /agent-7/, /devils-advocate/, /D-1/);
+    const unbound = world();
+    stopped(unbound, { finished_at: undefined, agent_id: null, bound_at: undefined, agent_type: 'cdp6-core:devils-advocate' });
+    asked(fire(unbound, { tool: 'TaskStop', input: TASK_STOP, mode }), /devils-advocate/, /D-1/);
+  }
+  const other = world();
+  stopped(other, { finished_at: undefined, agent_type: 'cdp6-core:review-verify' });
+  silent(fire(other, { tool: 'TaskStop', input: TASK_STOP }));
+  const broken = world();
+  withSpawns(broken, { toolu_x: {} });
+  writeFileSync(join(stateOf(broken), 'counters.json'), '{ "pending": ');
+  denied(fire(broken, { tool: 'TaskStop', input: TASK_STOP }), /stop guard/);
+});
+
+test('fires: TaskStop passes with unreadable counters', () => {
+  const broken = world();
+  withSpawns(broken, { toolu_x: {} });
+  writeFileSync(join(stateOf(broken), 'counters.json'), '{ "pending": ');
+  denied(fire(broken, { tool: 'TaskStop', input: TASK_STOP }), /counters\.json|stop guard/);
+  const missing = world();
+  withSpawns(missing, { toolu_x: {} });
+  rmSync(join(stateOf(missing), 'counters.json'));
+  denied(fire(missing, { tool: 'TaskStop', input: TASK_STOP }), /counters\.json|stop guard/);
+});
+
+test('TaskStop gets its normal decision after the capture', () => {
+  const closed = world();
+  stopped(closed, { closed_at: new Date().toISOString(), capture_sha256: 'a'.repeat(64) });
+  silent(fire(closed, { tool: 'TaskStop', input: TASK_STOP }));
+  const voided = world();
+  stopped(voided, { void: true });
+  silent(fire(voided, { tool: 'TaskStop', input: TASK_STOP }));
+  silent(fire(world(), { tool: 'TaskStop', input: TASK_STOP }));
+});
+
+test('fires: a malformed counters.json of the active run stops spawn, resume and edit', () => {
+  const w = world();
+  withSpawns(w, { toolu_x: {} });
+  writeFileSync(join(stateOf(w), 'counters.json'), '{ "pending": ');
+  for (const mode of MODES) {
+    denied(fire(w, { tool: 'Agent', input: SPAWN_INPUT, mode }), /stop guard: counters\.json of the active run is not readable/);
+    denied(fire(w, { tool: 'Task', input: SPAWN_INPUT, mode }), /stop guard/);
+    denied(fire(w, { tool: 'SendMessage', input: { to: 'agent-7', message: 'm' }, mode }), /stop guard/);
+    denied(fire(w, { tool: 'Edit', input: { file_path: join(w.repo, 'README.md'), old_string: 'a', new_string: 'b' }, mode }), /stop guard/);
+  }
+  silent(fire(w, { tool: 'Read', input: { file_path: join(w.repo, 'README.md') } }));
+});
+
+test('read passes after uncaptured finished agent', () => {
+  const w = world();
+  stopped(w);
+  silent(fire(w, { tool: 'Read', input: { file_path: join(w.repo, 'README.md') } }));
+  silent(fire(w, { tool: 'Grep', input: { pattern: 'x' } }));
+  silent(fire(w, { tool: 'Glob', input: { pattern: '*' } }));
+  silent(fire(w, { input: { command: 'ls' } }));
+  silent(fire(w, { input: { command: `node ${RUNJS} status` } }));
+});
+
+test('spawn gets its normal decision after the finished agent is captured', () => {
+  const w = world();
+  stopped(w, { closed_at: new Date().toISOString(), capture_sha256: 'a'.repeat(64) });
+  silent(fire(w, { tool: 'Agent', input: SPAWN_INPUT }));
+  silent(fire(w, { tool: 'SendMessage', input: { to: 'agent-7', message: 'm' } }));
+  silent(fire(w, { tool: 'Edit', input: { file_path: join(w.repo, 'README.md'), old_string: 'a', new_string: 'b' } }));
+});
+
+test('spawn gets its normal decision after the finished agent is marked void', () => {
+  const w = world();
+  stopped(w, { void: true });
+  silent(fire(w, { tool: 'Agent', input: SPAWN_INPUT }));
+  silent(fire(w, { tool: 'SendMessage', input: { to: 'agent-7', message: 'm' } }));
+  silent(fire(w, { tool: 'Write', input: { file_path: join(w.repo, 'README.md'), content: 'b' } }));
+});
+
+test('a spawn that is bound and not finished does not start the stop guard, and without an active run nothing is denied', () => {
+  const w = world();
+  stopped(w, { finished_at: undefined });
+  silent(fire(w, { tool: 'Agent', input: SPAWN_INPUT }));
+  silent(fire(w, { tool: 'Edit', input: { file_path: join(w.repo, 'README.md'), old_string: 'a', new_string: 'b' } }));
+  const none = world();
+  silent(fire(none, { tool: 'SendMessage', input: { to: 'agent-7', message: 'm' } }));
+});
+
+test('the stop guard is recorded as a deny in hooks-fired.jsonl', () => {
+  const w = world();
+  stopped(w);
+  denied(fire(w, { tool: 'SendMessage', input: { to: 'agent-7', message: 'm' }, toolUseId: 'toolu_x' }));
+  assert.deepEqual(observed(w).map((l) => [l.tool_use_id, l.decision]), [['toolu_x', 'deny']]);
+});

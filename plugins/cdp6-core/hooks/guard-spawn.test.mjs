@@ -13,6 +13,7 @@ const PLUGIN = dirname(HERE);
 const H1 = 'a'.repeat(64);
 const H2 = 'b'.repeat(64);
 const RUN = 'RUN-20261103-1';
+const RV = 'cdp6-core:review-verify';
 
 function git(cwd, ...args) {
   const r = spawnSync('git', ['-C', cwd, '-c', 'user.name=t', '-c', 'user.email=t@t', ...args], { encoding: 'utf8' });
@@ -56,8 +57,8 @@ const HEADER = [
 const PROMPT = `${HEADER}\n\nRead your brief at /r/briefs/da.md.\n`;
 
 function fire(w, over = {}) {
-  const { type = 'cdp6-core:devils-advocate', prompt = PROMPT, toolUseId = 'toolu_1', data = w.data, raw, tool = 'Agent', omitId = false } = over;
-  const doc = { session_id: 'sess-1', cwd: w.repo, hook_event_name: 'PreToolUse', tool_name: tool, tool_input: { subagent_type: type, prompt, description: 'd' }, permission_mode: 'default' };
+  const { type = 'cdp6-core:devils-advocate', prompt = PROMPT, toolUseId = 'toolu_1', data = w.data, raw, tool = 'Agent', omitId = false, mode = 'default' } = over;
+  const doc = { session_id: 'sess-1', cwd: w.repo, hook_event_name: 'PreToolUse', tool_name: tool, tool_input: { subagent_type: type, prompt, description: 'd' }, permission_mode: mode };
   if (!omitId) doc.tool_use_id = toolUseId;
   if (type === null) delete doc.tool_input.subagent_type;
   const env = { PATH: process.env.PATH, HOME: w.home, CLAUDE_PLUGIN_ROOT: PLUGIN };
@@ -121,22 +122,22 @@ test('an allowed cdp6-core spawn records a pending spawn with the header fields 
 
 test('a missing or malformed header allows the spawn and records header invalid with no targets', () => {
   const w = world();
-  allowed(fire(w, { prompt: 'Read your brief at x.', toolUseId: 'toolu_a' }));
-  allowed(fire(w, { prompt: `${HEADER}\ntarget: docs/c.md@short`, toolUseId: 'toolu_b' }));
-  allowed(fire(w, { prompt: HEADER.replace(`@${H2}`, '@xyz'), toolUseId: 'toolu_c' }));
-  allowed(fire(w, { prompt: null, toolUseId: 'toolu_d' }));
+  allowed(fire(w, { prompt: 'Read your brief at x.', toolUseId: 'toolu_a', type: RV }));
+  allowed(fire(w, { prompt: `${HEADER}\ntarget: docs/c.md@short`, toolUseId: 'toolu_b', type: RV }));
+  allowed(fire(w, { prompt: HEADER.replace(`@${H2}`, '@xyz'), toolUseId: 'toolu_c', type: RV }));
+  allowed(fire(w, { prompt: null, toolUseId: 'toolu_d', type: RV }));
   const p = counters(w).pending;
   for (const id of ['toolu_a', 'toolu_b', 'toolu_c', 'toolu_d']) {
     assert.equal(p[id].header, 'invalid', id);
     assert.deepEqual(p[id].targets, [], id);
-    assert.equal(p[id].agent_type, 'cdp6-core:devils-advocate', id);
+    assert.equal(p[id].agent_type, RV, id);
   }
 });
 
 test('fires: a task outside [A-Za-z0-9._-] records header invalid at the spawn', () => {
   const w = world();
   const tasks = ['../evil', 'a b', 'x/y'];
-  tasks.forEach((task, n) => allowed(fire(w, { prompt: PROMPT.replace('task: P3-gate', `task: ${task}`), toolUseId: `toolu_t${n}` })));
+  tasks.forEach((task, n) => allowed(fire(w, { prompt: PROMPT.replace('task: P3-gate', `task: ${task}`), toolUseId: `toolu_t${n}`, type: RV })));
   const p = counters(w).pending;
   tasks.forEach((task, n) => {
     assert.equal(p[`toolu_t${n}`].header, 'invalid', task);
@@ -184,9 +185,9 @@ test('counters.json of the SL-1 shape reads as no pending spawns and the record 
 
 test('several unbound pending spawns of the role: the new spawn is allowed and recorded', () => {
   const w = world();
-  allowed(fire(w, { toolUseId: 'toolu_1' }));
-  allowed(fire(w, { toolUseId: 'toolu_2' }));
-  allowed(fire(w, { toolUseId: 'toolu_3' }));
+  allowed(fire(w, { toolUseId: 'toolu_1', type: RV }));
+  allowed(fire(w, { toolUseId: 'toolu_2', type: RV }));
+  allowed(fire(w, { toolUseId: 'toolu_3', type: RV }));
   assert.deepEqual(Object.keys(counters(w).pending), ['toolu_1', 'toolu_2', 'toolu_3']);
 });
 
@@ -238,4 +239,91 @@ test('fires: a foreign subagent_type through the Task tool name is denied in an 
   assert.deepEqual(counters(w), { version: 1 });
   allowed(fire(w, { tool: 'Task', toolUseId: 'toolu_3' }));
   assert.equal(counters(w).pending.toolu_3.agent_type, 'cdp6-core:devils-advocate');
+});
+
+function task(n) {
+  return PROMPT.replace('task: P3-gate', `task: ${n}`);
+}
+
+function setPending(w, id, over) {
+  const doc = counters(w);
+  doc.pending[id] = { ...doc.pending[id], ...over };
+  writeFileSync(join(w.S, 'counters.json'), JSON.stringify(doc));
+}
+
+const BOUND = { agent_id: 'agent-1', bound_at: '2026-11-06T09:00:00.000Z' };
+
+test('fires: second capture-bound spawn on another task', () => {
+  const w = world();
+  allowed(fire(w, { prompt: task('D-1'), toolUseId: 'toolu_d1' }));
+  setPending(w, 'toolu_d1', BOUND);
+  const res = fire(w, { prompt: task('D-2'), toolUseId: 'toolu_d2' });
+  denied(res, /toolu_d1/);
+  assert.match(res.stderr, /D-1/);
+  assert.match(res.stderr, /agent-1/);
+  assert.deepEqual(Object.keys(counters(w).pending), ['toolu_d1']);
+  assert.equal(observed(w).at(-1).decision, 'deny');
+  setPending(w, 'toolu_d1', { finished_at: '2026-11-06T09:01:00.000Z' });
+  denied(fire(w, { prompt: task('D-2'), toolUseId: 'toolu_d2' }), /toolu_d1/);
+  denied(fire(w, { prompt: task('D-1'), toolUseId: 'toolu_d3', tool: 'Task' }), /toolu_d1/);
+  assert.deepEqual(Object.keys(counters(w).pending), ['toolu_d1']);
+});
+
+test('fires: never-launched spawn blocks its role', () => {
+  const w = world();
+  allowed(fire(w, { prompt: task('D-1'), toolUseId: 'toolu_d1' }));
+  allowed(fire(w, { prompt: task('D-2'), toolUseId: 'toolu_d2' }));
+  allowed(fire(w, { prompt: task('D-1'), toolUseId: 'toolu_d3' }));
+  assert.deepEqual(Object.keys(counters(w).pending), ['toolu_d1', 'toolu_d2', 'toolu_d3']);
+  for (const id of ['toolu_d1', 'toolu_d2', 'toolu_d3']) assert.equal(counters(w).pending[id].agent_id, null);
+});
+
+test('fires: deny reason without unbound pending spawns', () => {
+  const w = world();
+  allowed(fire(w, { prompt: task('D-1'), toolUseId: 'toolu_d1' }));
+  allowed(fire(w, { prompt: task('D-3'), toolUseId: 'toolu_d3' }));
+  allowed(fire(w, { type: RV, toolUseId: 'toolu_r1' }));
+  setPending(w, 'toolu_d1', BOUND);
+  const res = fire(w, { prompt: task('D-2'), toolUseId: 'toolu_d2' });
+  denied(res, /toolu_d1/);
+  assert.match(res.stderr, /unbound pending/);
+  assert.match(res.stderr, /toolu_d3/);
+  assert.match(res.stderr, /D-3/);
+  assert.match(res.stderr, /void in .*counters\.json by hand/);
+  assert.doesNotMatch(res.stderr, /toolu_r1/);
+  const plain = world();
+  allowed(fire(plain, { prompt: task('D-1'), toolUseId: 'toolu_d1' }));
+  setPending(plain, 'toolu_d1', BOUND);
+  assert.doesNotMatch(fire(plain, { prompt: task('D-2'), toolUseId: 'toolu_d2' }).stderr, /unbound pending/);
+});
+
+test('the second capture-bound spawn is allowed after the first is closed by its capture or marked void', () => {
+  const closed = world();
+  allowed(fire(closed, { prompt: task('D-1'), toolUseId: 'toolu_d1' }));
+  setPending(closed, 'toolu_d1', { ...BOUND, closed_at: '2026-11-06T09:05:00.000Z', capture_sha256: H1 });
+  allowed(fire(closed, { prompt: task('D-2'), toolUseId: 'toolu_d2' }));
+  assert.equal(counters(closed).pending.toolu_d2.task, 'D-2');
+  const voided = world();
+  allowed(fire(voided, { prompt: task('D-1'), toolUseId: 'toolu_d1' }));
+  setPending(voided, 'toolu_d1', { ...BOUND, void: true });
+  allowed(fire(voided, { prompt: task('D-2'), toolUseId: 'toolu_d2' }));
+  assert.equal(counters(voided).pending.toolu_d2.task, 'D-2');
+});
+
+test('a retry of the same tool_use_id is not denied by its own record, and a role that is not capture-bound may have several pending spawns', () => {
+  const w = world();
+  allowed(fire(w, { prompt: task('D-1'), toolUseId: 'toolu_d1' }));
+  allowed(fire(w, { prompt: task('D-1'), toolUseId: 'toolu_d1' }));
+  allowed(fire(w, { type: 'cdp6-core:review-verify', toolUseId: 'toolu_r1' }));
+  allowed(fire(w, { type: 'cdp6-core:review-verify', toolUseId: 'toolu_r2' }));
+  assert.deepEqual(Object.keys(counters(w).pending), ['toolu_d1', 'toolu_r1', 'toolu_r2']);
+});
+
+test('fires: the capture-bound deny holds in every permission mode and for a spawn without a valid header', () => {
+  for (const mode of ['default', 'acceptEdits', 'auto', 'bypassPermissions', 'plan']) {
+    const w = world();
+    allowed(fire(w, { prompt: task('D-1'), toolUseId: 'toolu_d1', mode }));
+    setPending(w, 'toolu_d1', BOUND);
+    denied(fire(w, { prompt: 'Read your brief at x.', toolUseId: 'toolu_d2', mode }), /toolu_d1/);
+  }
 });

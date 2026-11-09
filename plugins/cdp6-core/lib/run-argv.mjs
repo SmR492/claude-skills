@@ -40,6 +40,7 @@ export const FORMS = {
   decision: { values: ['--decider'], repeat: [], bools: [], positionals: 2 },
   exit: { values: [], repeat: [], bools: [], positionals: 1 },
   approve: { values: [], repeat: [], bools: [], positionals: 1 },
+  probe: { values: ['--accept'], repeat: [], bools: [], positionals: 0 },
   rule: { values: ['--why'], repeat: [], bools: ['--human'], positionals: 1, unbuilt: true },
   veto: { values: ['--why'], repeat: [], bools: ['--lift'], positionals: 1, unbuilt: true },
 };
@@ -147,6 +148,7 @@ export function ownerForm(call, mode) {
     case 'set-autonomy':
     case 'object':
     case 'veto':
+    case 'probe':
       return true;
     case 'rule':
       return call.values.has('--human');

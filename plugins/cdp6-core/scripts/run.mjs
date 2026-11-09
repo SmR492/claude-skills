@@ -6,7 +6,9 @@ import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'nod
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { readClaudeVersion } from '../lib/claude-version.mjs';
-import { probePassed, readProbeRecord } from '../lib/probe-record.mjs';
+import { checkRecord, undoAccept, writeChecked } from '../checks/probe-check.mjs';
+import { readProbeRecord, rowHolds } from '../lib/probe-record.mjs';
+import { establishedVersion } from '../lib/running-version.mjs';
 import { isMainModule, realOrResolved, within } from '../lib/paths.mjs';
 import { InputError, closeInput, openInput, readInput, readProjectFile, stillSame } from '../lib/input-file.mjs';
 import { recordNonce, readHostKey, verifyToken } from '../lib/hook-key.mjs';
@@ -100,6 +102,12 @@ function claudeVersion(env) {
   const version = readClaudeVersion(env);
   if (!version) refuse('claude-version-unreadable', 'claude --version could not be read');
   return version;
+}
+
+function runningVersion(env) {
+  const running = establishedVersion(env);
+  if (!running.ok) refuse(running.error, running.message);
+  return running.version;
 }
 
 function belowFloor(parts) {
@@ -244,11 +252,11 @@ function initRunFrom(call, ctx, handles) {
   if (belowFloor(version.parts)) refuse('below-version-floor', `Claude Code ${version.text} is below the floor ${VERSION_FLOOR.join('.')}`);
 
   if (mode === 'team') {
-    const rec = readProbeRecord(dataDir, version.text);
+    const rec = readProbeRecord(dataDir, runningVersion(env).text, env);
     const failed = [];
-    if (!probePassed(rec, 'A-11')) failed.push('A-11');
-    if (!probePassed(rec, 'A-16')) failed.push('A-16');
-    if (!probePassed(rec, 'A-14') && !probePassed(rec, 'A-17')) failed.push('A-14 or A-17');
+    if (!rowHolds(rec, 'A-11')) failed.push('A-11');
+    if (!rowHolds(rec, 'A-16')) failed.push('A-16');
+    if (!rowHolds(rec, 'A-14') && !rowHolds(rec, 'A-17')) failed.push('A-14 or A-17');
     if (failed.length) refuse('team-without-probes', `--mode team needs an accepted probe record with A-11, A-16 and A-14 or A-17 passed; not passed: ${failed.join(', ')}; use --mode multi`);
     refuse('team-not-built', 'team mode is not built in this release; use --mode multi');
   }
@@ -339,6 +347,44 @@ function stamp() {
   return new Date().toISOString();
 }
 
+function cmdProbe(call, ctx) {
+  const handles = [];
+  try {
+    const value = one(call, '--accept');
+    if (!value) refuse('missing-flag', '--accept is required');
+    if (ctx.expect.length !== 1) refuse('expect-sha256-mismatch', 'the file argument needs exactly one approved hash');
+    const pathCtx = { projectRoot: ctx.projectRoot, env: ctx.env, roots: [ctx.projectRoot], allowExact: [], settings: readUserSettings(ctx.env) };
+    const opened = openChecked('--accept', value, pathCtx, handles, MAX_INPUT_BYTES);
+    const buf = nonEmpty(readInput(opened.handle), '--accept');
+    const accept = () => {
+      const checked = checkRecord(buf, { dataDir: ctx.dataDir, env: ctx.env, expect: ctx.expect[0] });
+      if (!checked.ok) refuse(checked.error, checked.message);
+      return writeChecked(ctx.dataDir, checked);
+    };
+    const found = findRun({ dataDir: ctx.dataDir, sessionId: ctx.sessionId, cwd: ctx.cwd });
+    if (found.error) refuse('run-lookup-failed', 'the active run could not be looked up, so no owner record can be written; no probe record was signed');
+    if (!(found.S && found.run?.status === 'active')) return accept();
+    let result = null;
+    try {
+      updateRun(found.S, 'probe-accept', (r) => {
+        assertActive(r);
+        result = accept();
+        const record = JSON.parse(readFileSync(result.file, 'utf8'));
+        r.owner_records.push({ kind: 'probe-accept', version: result.version, sha256: record.accepted.sha256, decider: record.accepted.by, at: record.accepted.at });
+      });
+    } catch (e) {
+      if (result !== null) {
+        undoAccept(result);
+        if (!(e instanceof StoreError) && !(e instanceof Refusal)) refuse('owner-record-failed', 'the owner record could not be written; the accepted record was removed');
+      }
+      throw e;
+    }
+    return result;
+  } finally {
+    for (const h of handles) closeInput(h);
+  }
+}
+
 function cmdStatus(call, ctx) {
   const { S, run } = lookup(ctx, { requireActive: false });
   return { text: statusText(S, run) };
@@ -393,8 +439,8 @@ function cmdSetAutonomy(call, ctx) {
   if (!/^\d+$/.test(tokens) || !/^\d+$/.test(loops)) refuse('bad-budget', 'budgets are non-negative integers');
   const { S } = lookup(ctx);
   if (level === 'A3') {
-    const version = claudeVersion(ctx.env);
-    if (!probePassed(readProbeRecord(ctx.dataDir, version.text), 'A-5')) {
+    const version = runningVersion(ctx.env);
+    if (!rowHolds(readProbeRecord(ctx.dataDir, version.text, ctx.env), 'A-5')) {
       refuse('a3-before-probe', 'A3 needs an accepted probe record with A-5 passed');
     }
   }
@@ -628,6 +674,7 @@ const COMMANDS = {
   exit: cmdExit,
   approve: cmdApprove,
   init: cmdInit,
+  probe: cmdProbe,
   status: cmdStatus,
   enter: cmdEnter,
   'set-autonomy': cmdSetAutonomy,

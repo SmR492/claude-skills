@@ -155,3 +155,14 @@ test('hooks and run.mjs keep no copy of the parser constants', () => {
 test('auditor F2: superseding a D-n is an owner command', () => {
   assert.equal(ownerForm(parseCall(['decision', 'D-2', 'superseded']), 'single'), true);
 });
+
+test('probe --accept is an owner form with one file value and no positional', () => {
+  const call = parseCall(['probe', '--accept', 'docs/cdp6/probes/2.1.318.md']);
+  assert.equal(ownerForm(call, 'single'), true);
+  assert.deepEqual(call.values.get('--accept'), ['docs/cdp6/probes/2.1.318.md']);
+  assert.equal(describeCall(call), 'probe --accept docs/cdp6/probes/2.1.318.md');
+  assert.equal(code(() => parseCall(['probe', '--accept', 'a.md', '--accept', 'b.md'])), 'duplicate-flag');
+  assert.equal(code(() => parseCall(['probe', '--accept=a.md'])), 'flag-form');
+  assert.equal(code(() => parseCall(['probe', 'a.md'])), 'positionals');
+  assert.equal(code(() => parseCall(['probe', '--team'])), 'unknown-flag');
+});

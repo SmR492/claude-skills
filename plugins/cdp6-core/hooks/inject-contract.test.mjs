@@ -189,16 +189,30 @@ test('counters.json of the SL-1 shape or without a pending spawn of the type: co
 
 test('fires: more than one unbound pending spawn of the type binds none and names the count', () => {
   const w = world();
-  spawnIt(w, { toolUseId: 'toolu_1' });
-  spawnIt(w, { toolUseId: 'toolu_2' });
-  spawnIt(w, { toolUseId: 'toolu_3', type: 'cdp6-core:review-verify' });
-  const res = fire(w);
+  spawnIt(w, { toolUseId: 'toolu_1', type: 'cdp6-core:review-verify' });
+  spawnIt(w, { toolUseId: 'toolu_2', type: 'cdp6-core:review-verify' });
+  spawnIt(w, { toolUseId: 'toolu_3' });
+  const res = fire(w, { type: 'cdp6-core:review-verify' });
   injected(res);
   assert.match(res.stderr, /2 unbound/);
   const p = counters(w).pending;
   assert.equal(p.toolu_1.agent_id, null);
   assert.equal(p.toolu_2.agent_id, null);
   assert.equal(p.toolu_3.agent_id, null);
+});
+
+test('fires: retry bound beside a never-launched spawn', () => {
+  const w = world();
+  spawnIt(w, { toolUseId: 'toolu_never' });
+  spawnIt(w, { toolUseId: 'toolu_retry' });
+  const res = fire(w);
+  injected(res);
+  assert.match(res.stderr, /2 unbound pending spawns of cdp6-core:devils-advocate; none bound/);
+  const p = counters(w).pending;
+  assert.equal(p.toolu_never.agent_id, null);
+  assert.equal(p.toolu_retry.agent_id, null);
+  assert.equal(p.toolu_never.bound_at, undefined);
+  assert.equal(p.toolu_retry.bound_at, undefined);
 });
 
 test('fires: a busy lock on counters.json injects the contract, binds nothing and writes a stderr line', () => {

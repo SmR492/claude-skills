@@ -1,6 +1,6 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { agentName } from './agent-name.mjs';
+import { captureBound } from './agent-name.mjs';
 
 export const PASSING = new Set(['a', 'a-with-conditions']);
 export const BLOCKING = new Set(['b', 'c']);
@@ -87,7 +87,7 @@ export function parseItem(id) {
 }
 
 export function isDevilsAdvocate(c) {
-  return agentName(c?.agent_type) === 'devils-advocate';
+  return captureBound(c?.agent_type);
 }
 
 export function objectionItems(c) {

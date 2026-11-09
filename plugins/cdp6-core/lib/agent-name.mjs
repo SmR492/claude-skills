@@ -6,3 +6,10 @@ export function agentName(agentType) {
   const prefix = PLUGIN_PREFIXES.find((p) => t.startsWith(p));
   return prefix ? t.slice(prefix.length) : null;
 }
+
+const CAPTURE_BOUND = new Set(['devils-advocate']);
+
+export function captureBound(agentType) {
+  const name = agentName(agentType);
+  return name !== null && CAPTURE_BOUND.has(name);
+}
