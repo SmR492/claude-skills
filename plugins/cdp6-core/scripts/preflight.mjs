@@ -128,7 +128,7 @@ function processes(x, fail) {
   const claude = new Set([...table.values()].filter((p) => isClaudeProcess(p)).map((p) => p.pid));
   const ancestors = ancestorsOf(table, selfPid);
   for (const proc of [...table.values()].sort((a, b) => a.pid - b.pid)) {
-    if (proc.pid === selfPid || proc.pid === orchestratorPid || ancestors.has(proc.pid) || descendsFromAny(table, proc, new Set([selfPid]))) continue;
+    if (proc.pid === selfPid || proc.pid === orchestratorPid || (!isClaudeProcess(proc) && ancestors.has(proc.pid)) || descendsFromAny(table, proc, new Set([selfPid]))) continue;
     if (claude.has(proc.pid)) fail('processes', `pid ${proc.pid}`, `Claude Code process: ${proc.command}`, `end the session of pid ${proc.pid}`);
     else if (descendsFromAny(table, proc, claude)) fail('processes', `pid ${proc.pid}`, `process below a Claude Code process (parent ${proc.ppid}): ${proc.command}`, `end pid ${proc.pid}, or accept it by name in the ledger line of the owner`);
   }
